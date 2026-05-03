@@ -85,7 +85,7 @@ node scripts/init-admin.cjs <your-admin-password> --offline
 # 3. 创建测试用户
 node scripts/setup-users.cjs <your-admin-password>
 
-# 4. 预制 ClawHub 办公技能
+# 4. 预制 JueYing 办公技能（从 ClawHub 国内镜像站 mirror-cn.clawhub.com）
 node scripts/seed-clawhub-skills.cjs
 ```
 

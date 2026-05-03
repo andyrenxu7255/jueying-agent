@@ -34,7 +34,7 @@
 | Skill Library | ✅ 技能注册/候选/版本管理 |
 | Resource Scheduler | ✅ 配额检查/巡检 |
 | Mobile App | ✅ 推送通知 |
-| ClawHub 技能 | ✅ 15 项办公技能已预制 |
+| ClawHub 技能 | ✅ 14 项免费办公技能已预制（镜像站 mirror-cn.clawhub.com） |
 
 ### 已有用户
 
@@ -46,7 +46,9 @@
 | `u_pm_wang` | 测试产品经理 |
 | `u_designer_li` | 测试设计师 |
 
-### ClawHub 预制技能（共 15 项）
+### ClawHub 预制技能（共 14 项，全部免费无需 API Key）
+
+**镜像站**: https://mirror-cn.clawhub.com/
 
 | 技能 | 类型 | 用途 |
 |------|------|------|
@@ -119,7 +121,7 @@
 
 **总计：27 个问题全部修复** ✅
 
-### 第五轮（全链路审计 + ClawHub 预制 + 安全加固）— 8 项
+### 第五轮（全链路审计 + 镜像站预制 + 安全加固）— 8 项
 
 | # | 严重 | 问题 | 根因 | 文件 |
 |---|------|------|------|------|
@@ -280,7 +282,7 @@ node scripts/init-admin.cjs <your-admin-password>
 # 4. 创建测试用户
 node scripts/setup-users.cjs <your-admin-password>
 
-# 5. 预制 ClawHub 办公技能
+# 5. 预制 JueYing 办公技能
 node scripts/seed-clawhub-skills.cjs
 
 # 6. 全链路回归审计
@@ -310,7 +312,7 @@ node scripts/final-audit.cjs
 | `scripts/final-audit.cjs` | 全链路回归审计（Chat + Task 双路径） |
 | `scripts/init-admin.cjs` | 初始化管理员账号（支持在线/离线两种模式） |
 | `scripts/setup-users.cjs` | 批量创建测试用户（自动生成强密码） |
-| `scripts/seed-clawhub-skills.cjs` | 预制 ClawHub 国内镜像站 15 项办公技能 |
+| `scripts/seed-clawhub-skills.cjs` | 从 mirror-cn.clawhub.com 预制 14 项免费办公技能 |
 | `scripts/e2e-full.cjs` | 较早的综合测试脚本 |
 | `scripts/upgrade-bind-db.cjs` | 数据库身份绑定升级 |
 | `scripts/upgrade-bind.sql` | 绑定升级 SQL |
@@ -358,7 +360,7 @@ node scripts/final-audit.cjs
 ### 脚本文件（第五轮新增/更新）
 - `scripts/init-admin.cjs` — **支持 CLI 密码参数 + 离线 DB 模式**
 - `scripts/setup-users.cjs` — **API 路径纠正 + 自动生成强密码**
-- `scripts/seed-clawhub-skills.cjs` — **新增：ClawHub 办公技能种子脚本**
+- `scripts/seed-clawhub-skills.cjs` — **新增：JueYing 14 项免费办公技能种子脚本（mirror-cn.clawhub.com）**
 
 ### 配置文件（第六轮更新）
 - `docker-compose.yml` — 环境变量补全、**新增 skill-library/resource-scheduler/mobile-app 3 服务（3007/3008/3009）**
