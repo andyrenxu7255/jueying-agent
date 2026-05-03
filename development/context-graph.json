@@ -1,0 +1,120 @@
+{
+  "version": "v1.1",
+  "description": "Agent Harness V1 context dependency graph for anti-context-rot loading",
+  "layers": {
+    "L0_authority": [
+      "AH1-14-数据库表设计与索引.md",
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md",
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-18-Code-Executor与执行会话.md",
+      "AH1-19-Checkpoint-Resume-Replay.md",
+      "AH1-20-检索编排与Fact-Write.md",
+      "AH1-21-渠道接入与Session映射.md",
+      "AH1-22-Artifact-Object-Storage.md",
+      "AH1-23-审计日志指标与告警.md",
+      "AH1-26-Provider选择与配置.md",
+      "AH1-28-配置管理.md",
+      "AH1-31-错误处理与降级策略.md",
+      "AH1-32-API版本管理策略.md"
+    ],
+    "L1_execution": [
+      "development/DEV-01-M0开发准备.md",
+      "development/DEV-02-M1接入层Workflow主链路.md",
+      "development/DEV-03-M2事实层检索主链路.md",
+      "development/DEV-04-M3CodeExecutor集成.md",
+      "development/DEV-05-M4Hermes增强接入.md",
+      "development/DEV-06-M5容量验证收口.md",
+      "development/DEV-07-主仓库骨架结构.md"
+    ],
+    "L2_governance": [
+      "AH1-24-PoC压测执行方案.md",
+      "AH1-25-研发里程碑与任务拆解.md",
+      "AH1-29-交付物清单.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-33-文档关系与一致性清单.md",
+      "AH1-34-安全架构增强.md",
+      "AH1-35-版本管理规范.md",
+      "AH1-37-架构审计报告.md",
+      "AH1-38-文档审计报告.md"
+    ]
+  },
+  "authority_map": {
+    "workflow": "AH1-17-Workflow-DSL与Planner契约.md",
+    "policy": "AH1-16-权限Scope-Policy-Snapshot.md",
+    "api_contract": "AH1-15-核心接口与事件契约.md",
+    "retrieval_fact": "AH1-20-检索编排与Fact-Write.md",
+    "ingress_session": "AH1-21-渠道接入与Session映射.md",
+    "executor": "AH1-18-Code-Executor与执行会话.md",
+    "checkpoint": "AH1-19-Checkpoint-Resume-Replay.md",
+    "artifact": "AH1-22-Artifact-Object-Storage.md",
+    "audit": "AH1-23-审计日志指标与告警.md",
+    "provider": "AH1-26-Provider选择与配置.md",
+    "config": "AH1-28-配置管理.md",
+    "error_degrade": "AH1-31-错误处理与降级策略.md",
+    "api_version": "AH1-32-API版本管理策略.md"
+  },
+  "task_profiles": {
+    "M1_ingress_workflow": {
+      "authority": [
+        "AH1-21-渠道接入与Session映射.md",
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-17-Workflow-DSL与Planner契约.md"
+      ],
+      "execution": [
+        "development/DEV-02-M1接入层Workflow主链路.md"
+      ],
+      "optional": [
+        "AH1-23-审计日志指标与告警.md",
+        "AH1-28-配置管理.md"
+      ]
+    },
+    "M2_retrieval_fact": {
+      "authority": [
+        "AH1-20-检索编排与Fact-Write.md",
+        "AH1-14-数据库表设计与索引.md",
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-15-核心接口与事件契约.md"
+      ],
+      "execution": [
+        "development/DEV-03-M2事实层检索主链路.md"
+      ],
+      "optional": [
+        "AH1-26-Provider选择与配置.md",
+        "AH1-23-审计日志指标与告警.md"
+      ]
+    },
+    "M3_executor": {
+      "authority": [
+        "AH1-18-Code-Executor与执行会话.md",
+        "AH1-17-Workflow-DSL与Planner契约.md",
+        "AH1-19-Checkpoint-Resume-Replay.md",
+        "AH1-22-Artifact-Object-Storage.md"
+      ],
+      "execution": [
+        "development/DEV-04-M3CodeExecutor集成.md"
+      ],
+      "optional": [
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-31-错误处理与降级策略.md"
+      ]
+    }
+  },
+  "invalidation_triggers": [
+    "any_authority_doc_changed",
+    "AH1-15-核心接口与事件契约.md_changed",
+    "AH1-16-权限Scope-Policy-Snapshot.md_changed",
+    "active_task_execution_doc_changed"
+  ],
+  "loading_policy": {
+    "default_max_docs": 6,
+    "default_max_rounds": 2,
+    "conflict_resolution_order": [
+      "AH1-15/16/17",
+      "domain_authority_docs",
+      "development_docs",
+      "governance_docs"
+    ]
+  }
+}

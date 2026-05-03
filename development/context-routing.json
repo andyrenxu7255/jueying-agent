@@ -1,0 +1,115 @@
+{
+  "version": "v1.0",
+  "default_bootstrap_docs": [
+    "development/DEV-00-开发索引.md",
+    "development/DEV-08-文件内容与依赖对象图谱.md",
+    "development/DEV-09-上下文防腐执行标准.md",
+    "development/DEV-10-工作区结构与读取白名单.md"
+  ],
+  "path_policy": {
+    "allow": [
+      "development/*.md",
+      "AH1-*.md",
+      "agent-harness/README.md",
+      "agent-harness/apps/**",
+      "agent-harness/services/**",
+      "agent-harness/libs/**",
+      "agent-harness/tests/**",
+      "agent-harness/config/**",
+      "agent-harness/db/**",
+      "agent-harness/scripts/**"
+    ],
+    "deny": [
+      "archive/**",
+      "agent-harness/node_modules/**",
+      ".git/**",
+      "**/*.tsbuildinfo"
+    ],
+    "conditional": [
+      {
+        "pattern": "**/package-lock.json",
+        "when": "dependency_debug_only"
+      }
+    ]
+  },
+  "task_routes": {
+    "ingress_workflow": {
+      "must_read": [
+        "development/",
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-17-Workflow-DSL与Planner契约.md",
+        "AH1-21-渠道接入与Session映射.md",
+        "agent-harness/apps/**",
+        "agent-harness/services/**"
+      ],
+      "optional": [
+        "AH1-23-审计日志指标与告警.md",
+        "agent-harness/libs/**"
+      ]
+    },
+    "retrieval_fact": {
+      "must_read": [
+        "development/",
+        "AH1-14-数据库表设计与索引.md",
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-20-检索编排与Fact-Write.md",
+        "agent-harness/services/**",
+        "agent-harness/db/**"
+      ],
+      "optional": [
+        "AH1-23-审计日志指标与告警.md",
+        "AH1-26-Provider选择与配置.md",
+        "agent-harness/libs/**"
+      ]
+    },
+    "executor": {
+      "must_read": [
+        "development/",
+        "AH1-17-Workflow-DSL与Planner契约.md",
+        "AH1-18-Code-Executor与执行会话.md",
+        "AH1-19-Checkpoint-Resume-Replay.md",
+        "AH1-22-Artifact-Object-Storage.md",
+        "agent-harness/services/**",
+        "agent-harness/apps/**"
+      ],
+      "optional": [
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-31-错误处理与降级策略.md",
+        "agent-harness/libs/**"
+      ]
+    },
+    "provider_config": {
+      "must_read": [
+        "development/",
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-26-Provider选择与配置.md",
+        "AH1-28-配置管理.md",
+        "agent-harness/config/**",
+        "agent-harness/services/**"
+      ],
+      "optional": [
+        "AH1-23-审计日志指标与告警.md",
+        "AH1-31-错误处理与降级策略.md"
+      ]
+    },
+    "perf_acceptance": {
+      "must_read": [
+        "development/",
+        "AH1-23-审计日志指标与告警.md",
+        "AH1-24-PoC压测执行方案.md",
+        "AH1-27-部署与运维.md",
+        "AH1-29-交付物清单.md",
+        "AH1-30-验收标准与测试用例.md",
+        "AH1-31-错误处理与降级策略.md",
+        "agent-harness/tests/**",
+        "agent-harness/scripts/**"
+      ],
+      "optional": [
+        "agent-harness/apps/**",
+        "agent-harness/services/**"
+      ]
+    }
+  }
+}

@@ -11,7 +11,7 @@ TeamClaw (Agent Harness) 本体采用 **MIT 许可证**。
 ```
 MIT License
 
-Copyright (c) 2026 TeamClaw
+Copyright (c) 2026 Andy Ren (andyrenxu7255)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
