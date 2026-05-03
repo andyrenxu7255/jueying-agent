@@ -1,7 +1,7 @@
 {
   "name": "agent-harness",
   "version": "1.0.0",
-  "description": "Agent Harness V1 - Enterprise Agent Execution Platform",
+  "description": "JueYing (绝影) - Enterprise AI Agent Orchestration & Execution Platform",
   "private": true,
   "workspaces": [
     "apps/*",

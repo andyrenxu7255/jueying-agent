@@ -1,12 +1,12 @@
-# TeamClaw — 第三方开源协议声明
+# JueYing (绝影) — 第三方开源协议声明
 
 > 版本: 1.0.0 | 更新日期: 2026-05-02
 
 ---
 
-## 一、TeamClaw 本体许可
+## 一、JueYing 本体许可
 
-TeamClaw (Agent Harness) 本体采用 **MIT 许可证**。
+JueYing (Agent Harness) 本体采用 **MIT 许可证**。
 
 ```
 MIT License
@@ -208,7 +208,7 @@ SOFTWARE.
 
 ### 许可证兼容性总结
 
-| TeamClaw 协议 | 第三方协议 | 兼容性 |
+| JueYing 协议 | 第三方协议 | 兼容性 |
 |:---:|:---:|:---:|
 | MIT | MIT | ✅ 完全兼容 |
 | MIT | Apache-2.0 | ✅ 完全兼容 |

@@ -1,13 +1,13 @@
-# TeamClaw (Agent Harness) — 产品说明
+# JueYing (绝影) — 产品说明
 
 > 版本: 1.0.0 | 更新日期: 2026-05-03
-> 品牌名称: TeamClaw | 内部代号: agent-harness
+> 品牌名称: JueYing (绝影) | 内部代号: agent-harness
 
 ---
 
 ## 一、产品概述
 
-TeamClaw 是一个**企业级 AI Agent 编排与执行平台**。用户通过飞书、企业微信等 IM 渠道与系统交互，系统使用大语言模型（LLM）将用户意图自动规划为多阶段工作流，调度多种专用执行器完成各阶段任务，并主动推送执行结果。
+JueYing (绝影) 是一个**企业级 AI Agent 编排与执行平台**。用户通过飞书、企业微信等 IM 渠道与系统交互，系统使用大语言模型（LLM）将用户意图自动规划为多阶段工作流，调度多种专用执行器完成各阶段任务，并主动推送执行结果。
 
 ### 1.1 产品定位
 
@@ -200,7 +200,7 @@ TeamClaw 是一个**企业级 AI Agent 编排与执行平台**。用户通过飞
 
 ## 六、许可证
 
-TeamClaw (Agent Harness) 本体采用 **MIT** 开源许可证。
+JueYing (Agent Harness) 本体采用 **MIT** 开源许可证。
 
 本项目使用了众多第三方开源组件，其许可证详见 [LICENSES.md](./LICENSES.md)。
 

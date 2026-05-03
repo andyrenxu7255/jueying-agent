@@ -457,7 +457,7 @@ function buildHtmlPage(): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TeamClaw Agent Harness</title>
+<title>JueYing</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0f172a;--surface:#1e293b;--surface2:#334155;--border:#475569;--text:#e2e8f0;--text2:#94a3b8;--primary:#3b82f6;--primary-hover:#2563eb;--success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--info:#06b6d4;--radius:8px}
@@ -574,7 +574,7 @@ async function checkAuth() {
 }
 
 function renderLogin() {
-  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><h1>TeamClaw</h1><p>Agent Harness 管理门户</p><div class="form-group"><label>用户名</label><input type="text" id="login-user" placeholder="admin"></div><div class="form-group"><label>密码</label><input type="password" id="login-pass" placeholder="密码"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">登 录</button></div></div>';
+  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><h1>JueYing</h1><p>Agent Harness 管理门户</p><div class="form-group"><label>用户名</label><input type="text" id="login-user" placeholder="admin"></div><div class="form-group"><label>密码</label><input type="password" id="login-pass" placeholder="密码"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">登 录</button></div></div>';
   document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 }
 
@@ -682,7 +682,7 @@ function renderApp() {
   if (currentSession) {
     navItems.push({ section: '我的', items: [{ key: 'my-tasks', label: '我的任务', icon: '&#x270D;&#xFE0F;' }] });
   }
-  document.getElementById('app').innerHTML = '<div class="app-container"><div class="sidebar"><div class="sidebar-brand">TeamClaw</div><nav class="sidebar-nav">' +
+  document.getElementById('app').innerHTML = '<div class="app-container"><div class="sidebar"><div class="sidebar-brand">JueYing</div><nav class="sidebar-nav">' +
     navItems.map(g => '<div class="nav-section">' + g.section + '</div>' + g.items.map(i => '<a href="#" data-view="' + i.key + '" class="' + (currentView === i.key ? 'active' : '') + '">' + i.icon + ' ' + i.label + '</a>').join('')).join('') +
     '</nav><div style="padding:12px 20px;margin-top:auto"><a href="#" onclick="doLogout()" style="color:var(--danger);font-size:13px;text-decoration:none">退出登录</a></div></div><div class="main-content" id="main-content"></div></div>';
   document.querySelectorAll('.sidebar-nav a[data-view]').forEach(a => {
