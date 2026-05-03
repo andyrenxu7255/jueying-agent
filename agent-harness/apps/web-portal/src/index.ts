@@ -1012,7 +1012,7 @@ async function loadOrgTasks() {
       el.innerHTML = '<table><tr><th>标题</th><th>类型</th><th>调度</th><th>状态</th><th>创建时间</th><th>操作</th></tr>' +
         tasks.map(t => {
           const stats = t.assignment_stats || [];
-          const completed = stats.filter((s: any) => s.status === 'completed').length;
+          const completed = stats.filter((s) => s.status === 'completed').length;
           const total = stats.length;
           return '<tr><td><strong>' + escapeHtml(t.title) + '</strong></td><td>' + escapeHtml(t.task_type) + '</td><td>' + escapeHtml(t.schedule_type) + (t.cron_expression ? ' (' + escapeHtml(t.cron_expression) + ')' : '') + '</td><td>' + escapeHtml(t.status) + (total > 0 ? ' <span style="font-size:11px;color:var(--text2)">(' + completed + '/' + total + ' 完成)</span>' : '') + '</td><td>' + escapeHtml(t.created_at?.slice(0, 10) || '-') + '</td><td>' +
             '<button class="btn btn-sm btn-primary" onclick="triggerOrgTask(' + JSON.stringify(t.id) + ')">立即分发</button> ' +
@@ -1056,7 +1056,7 @@ async function triggerOrgTask(taskId) {
   const r1 = await api('/internal/tasks/assign', { method: 'POST', body: JSON.stringify({ task_id: taskId }) });
   // Notify
   const r2 = await api('/internal/tasks/notify', { method: 'POST', body: JSON.stringify({ task_id: taskId }) });
-  showToast('已分发 ' + ((r1.data as any)?.assigned || 0) + ' 人, 已通知 ' + ((r2.data as any)?.notified || 0) + ' 人');
+  showToast('已分发 ' + ((r1.data)?.assigned || 0) + ' 人, 已通知 ' + ((r2.data)?.notified || 0) + ' 人');
   await loadOrgTasks();
 }
 
