@@ -693,7 +693,7 @@ function renderApp() {
 
 function renderView() {
   const el = document.getElementById('main-content');
-  const renderers: any = { dashboard: renderDashboard, workflows: renderWorkflows, 'task-input': renderTaskInput, approvals: renderApprovals, config: renderConfig, users: renderUsers, organizations: renderOrganizations, skills: renderSkills, knowledge: renderKnowledge, audit: renderAudit, retrieval: renderRetrieval, identities: renderIdentities, 'db-maint': renderDbMaint, 'shared-knowledge': renderSharedKnowledge, 'org-tasks': renderOrgTasks, 'my-tasks': renderMyTasks, resources: renderResources, 'knowledge-review': renderKnowledgeReview };
+  const renderers = { dashboard: renderDashboard, workflows: renderWorkflows, 'task-input': renderTaskInput, approvals: renderApprovals, config: renderConfig, users: renderUsers, organizations: renderOrganizations, skills: renderSkills, knowledge: renderKnowledge, audit: renderAudit, retrieval: renderRetrieval, identities: renderIdentities, 'db-maint': renderDbMaint, 'shared-knowledge': renderSharedKnowledge, 'org-tasks': renderOrgTasks, 'my-tasks': renderMyTasks, resources: renderResources, 'knowledge-review': renderKnowledgeReview };
   const renderer = renderers[currentView];
   if (renderer) renderer(el); else el.innerHTML = '<p>视图未实现</p>';
 }
@@ -1459,6 +1459,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   if (method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   try {
+    if (pathname === '/favicon.ico') {
+      res.writeHead(204, { 'content-type': 'image/x-icon' });
+      res.end();
+      return;
+    }
+
     if (pathname === '/' || pathname === '/index.html') {
       sendHtml(res, buildHtmlPage());
       return;
