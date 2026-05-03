@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "typeRoots": ["./node_modules/@types", "./types"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true
+  },
+  "include": [
+    "apps/**/*",
+    "services/**/*",
+    "libs/**/*",
+    "types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts"
+  ],
+  "references": [
+    { "path": "./libs/contracts" },
+    { "path": "./libs/shared" },
+    { "path": "./libs/policy" },
+    { "path": "./libs/audit" }
+  ]
+}

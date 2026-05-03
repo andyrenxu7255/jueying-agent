@@ -1,0 +1,19 @@
+{
+  "name": "@agent-harness/policy",
+  "version": "1.0.0",
+  "description": "Agent Harness V1 - Policy (Casbin RBAC/ABAC)",
+  "main": "dist/index.js",
+  "types": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agent-harness/contracts": "file:../contracts",
+    "@agent-harness/shared": "file:../shared",
+    "casbin": "^5.29.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

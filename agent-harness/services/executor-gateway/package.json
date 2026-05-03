@@ -1,0 +1,17 @@
+{
+  "name": "@agent-harness/executor-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agent-harness/contracts": "file:../../libs/contracts",
+    "@agent-harness/shared": "file:../../libs/shared",
+    "@agent-harness/audit": "file:../../libs/audit"
+  }
+}

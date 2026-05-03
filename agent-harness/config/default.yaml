@@ -1,0 +1,94 @@
+server:
+  port: 3000
+  host: 0.0.0.0
+  graceful_shutdown_timeout_ms: 10000
+
+database:
+  url: ${DATABASE_URL}
+  pool_size: 10
+  connection_timeout_ms: 5000
+  statement_timeout_ms: 30000
+  ssl:
+    enabled: false
+
+redis:
+  url: redis://localhost:6379
+  key_prefix: "ah:"
+  max_retries: 3
+  retry_delay_ms: 100
+
+storage:
+  backend: localfs
+  local_root: .runtime/artifacts
+  endpoint: localhost:9000
+  access_key: ${MINIO_ACCESS_KEY}
+  secret_key: ${MINIO_SECRET_KEY}
+  bucket: agent-harness
+  region: us-east-1
+  use_ssl: false
+
+workflow:
+  max_concurrent: 20
+  default_timeout_sec: 3600
+  checkpoint_interval_sec: 60
+  max_retries: 3
+  max_repairs: 3
+  plan_budget_sec: 3600
+  supervisor_budget_sec: 3600
+  poll_interval_sec: 5
+  poll_max_iterations: 72
+
+llm:
+  primary_model: ${LITELLM_MODEL}
+  fallback_models: []
+  litellm_url: ${LITELLM_URL}
+  litellm_api_key: ${LITELLM_API_KEY}
+  default_timeout_ms: 120000
+  planner_model: ${LITELLM_MODEL}
+  executor_model: ${LITELLM_MODEL}
+  minimax:
+    api_base: https://api.minimaxi.com/anthropic
+    api_key: ${MINIMAX_API_KEY}
+    model: MiniMax-M2.7
+    max_tokens: 64000
+  dashscope:
+    api_base: https://coding.dashscope.aliyuncs.com/v1
+    api_key: ${DASHSCOPE_API_KEY}
+    models:
+      - qwen3-max-2026-01-23
+      - glm-5
+
+executor:
+  max_concurrent_sessions: 4
+  worktree_root: /var/lib/executor/worktrees
+  default_timeout_sec: 1800
+
+retrieval:
+  max_candidates: 50
+  default_intent: object-status
+  enable_graph: true
+  max_graph_hops: 2
+  enable_rerank: true
+  embedding_mode: ${EMBEDDING_MODE:-provider}
+  rerank_mode: ${RERANK_MODE:-provider}
+  embedding_provider_url: ${EMBEDDING_PROVIDER_URL}
+  embedding_provider_api_key: ${EMBEDDING_PROVIDER_API_KEY}
+  embedding_provider_model: ${EMBEDDING_PROVIDER_MODEL}
+  embedding_provider_timeout_ms: 15000
+  rerank_provider_url: ${RERANK_PROVIDER_URL}
+  rerank_provider_api_key: ${RERANK_PROVIDER_API_KEY}
+  rerank_provider_model: ${RERANK_PROVIDER_MODEL}
+  rerank_provider_timeout_ms: 15000
+
+logging:
+  level: info
+  format: json
+  output: stdout
+
+metrics:
+  enabled: true
+  port: 9090
+
+tracing:
+  enabled: false
+  sample_rate: 0.1

@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "composite": true,
+    "typeRoots": ["./node_modules/@types", "./types", "../../node_modules/@types", "../../types"]
+  },
+  "include": [
+    "src/**/*",
+    "index.ts",
+    "types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts"
+  ]
+}

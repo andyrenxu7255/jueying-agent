@@ -1,0 +1,18 @@
+{
+  "name": "@agent-harness/gateway-adapter",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agent-harness/contracts": "file:../../libs/contracts",
+    "@agent-harness/policy": "file:../../libs/policy",
+    "@agent-harness/shared": "file:../../libs/shared",
+    "officeparser": "^6.1.0"
+  }
+}

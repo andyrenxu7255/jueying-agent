@@ -1,0 +1,35 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  clickhouse:
+    endpoint: tcp://clickhouse:9000
+    database: signoz_traces
+    ttl: 168h
+  otlphttp:
+    endpoint: http://signoz-query-service:8080/api/v1/collect
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]

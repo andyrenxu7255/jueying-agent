@@ -1,0 +1,7 @@
+logging:
+  level: debug
+
+tracing:
+  enabled: true
+  sample_rate: 1.0
+  endpoint: http://localhost:4318

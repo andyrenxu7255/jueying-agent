@@ -1,0 +1,23 @@
+{
+  "name": "@agent-harness/fact-retrieval",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agent-harness/audit": "file:../../libs/audit",
+    "@agent-harness/contracts": "file:../../libs/contracts",
+    "@agent-harness/shared": "file:../../libs/shared",
+    "@aws-sdk/client-s3": "^3.908.0",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.20.0"
+  },
+  "optionalDependencies": {
+    "redis": "^5.12.1"
+  }
+}

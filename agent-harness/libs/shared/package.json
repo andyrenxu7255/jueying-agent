@@ -1,0 +1,21 @@
+{
+  "name": "@agent-harness/shared",
+  "version": "1.0.0",
+  "description": "Agent Harness V1 - Shared Utilities (Config, Logging, Metrics, Retry, Rate Limit)",
+  "main": "dist/index.js",
+  "types": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agent-harness/contracts": "file:../contracts",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^3.25.76",
+    "yaml": "^2.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "@types/node": "^20.11.0"
+  }
+}

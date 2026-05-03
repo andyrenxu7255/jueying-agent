@@ -1,0 +1,20 @@
+{
+  "name": "@agent-harness/feishu-longconn",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.30.0",
+    "@agent-harness/shared": "file:../../libs/shared"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "ts-node": "^10.9.2"
+  }
+}

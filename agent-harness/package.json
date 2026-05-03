@@ -1,0 +1,77 @@
+{
+  "name": "agent-harness",
+  "version": "1.0.0",
+  "description": "Agent Harness V1 - Enterprise Agent Execution Platform",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "libs/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "type-check": "npm run type-check --workspaces --if-present",
+    "test": "jest --config tests/setup/jest.config.cjs --passWithNoTests",
+    "lint": "eslint . --ext .ts",
+    "db:migrate": "node scripts/apply-sql-migrations.js",
+    "db:migrate:drizzle": "drizzle-kit migrate",
+    "db:repair:main": "powershell -ExecutionPolicy Bypass -File scripts/repair-main-db.ps1",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "docker:up": "docker-compose up -d",
+    "docker:core:up": "docker compose up -d postgres redis minio",
+    "infra:bootstrap": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap-infra.ps1",
+    "infra:bootstrap:llm": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap-infra.ps1 -WithLiteLLM",
+    "infra:bootstrap:full": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap-infra.ps1 -WithLiteLLM -WithObservability",
+    "health:core": "powershell -ExecutionPolicy Bypass -File scripts/health-check-core.ps1",
+    "context:audit": "python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M1_ingress_workflow && python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M2_retrieval_fact && python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M3_executor",
+    "smoke:channels": "node scripts/channel-webhook-smoke.mjs",
+    "smoke:eval": "node scripts/smoke-eval.js",
+    "preflight:audit": "npm run validate:m0 && npm run lint && npm run type-check && npm test && npm run context:audit",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:logs:feishu": "docker logs ah-feishu-longconn -f --tail 100",
+    "feishu:start": "docker compose --profile app up -d feishu-longconn",
+    "feishu:restart": "docker compose --profile app restart feishu-longconn",
+    "feishu:logs": "docker logs ah-feishu-longconn --since 5m --tail 200",
+    "validate:m0": "node scripts/validate-m0.js"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^2.1.4",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.11.0",
+    "@types/yaml": "^1.9.6",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@casbin/expression-eval": "^5.3.0",
+    "@larksuiteoapi/node-sdk": "^1.61.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.50.0",
+    "@opentelemetry/sdk-node": "^0.52.0",
+    "casbin": "^5.29.0",
+    "csv-parse": "^6.2.1",
+    "drizzle-orm": "^0.45.2",
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^1.1.1",
+    "pg": "^8.20.0",
+    "pg-protocol": "^1.13.0",
+    "xlsx": "^0.18.5",
+    "yaml": "^2.8.3",
+    "zod": "^3.25.76"
+  },
+  "overrides": {
+    "axios": "1.15.2",
+    "uuid": "^14.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

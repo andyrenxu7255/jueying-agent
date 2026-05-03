@@ -1,0 +1,15 @@
+server:
+  graceful_shutdown_timeout_ms: 30000
+
+database:
+  pool_size: 20
+  ssl:
+    enabled: true
+
+logging:
+  level: warn
+
+tracing:
+  enabled: true
+  sample_rate: 0.01
+  endpoint: http://signoz-otel-collector:4318

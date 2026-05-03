@@ -1,0 +1,17 @@
+{
+  "name": "@agent-harness/contracts",
+  "version": "1.0.0",
+  "description": "Agent Harness V1 - Contracts (Schemas, Events, Errors, Types)",
+  "main": "dist/index.js",
+  "types": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

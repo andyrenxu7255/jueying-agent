@@ -1,0 +1,97 @@
+model_list:
+  - model_name: minimax-m2.7
+    litellm_params:
+      model: anthropic/MiniMax-M2.7
+      api_base: https://api.minimaxi.com/anthropic
+      api_key: os.environ/MINIMAX_API_KEY
+      timeout: 120
+      max_retries: 3
+      rpm: 60
+      tpm: 100000
+    model_info:
+      id: minimax-m2.7
+      context_window: 256000
+      max_output_tokens: 64000
+      capabilities:
+        - planning
+        - code
+        - reasoning
+        - multimodal
+
+  - model_name: qwen3-max
+    litellm_params:
+      model: openai/qwen3-max-2026-01-23
+      api_base: https://coding.dashscope.aliyuncs.com/v1
+      api_key: os.environ/DASHSCOPE_API_KEY
+      timeout: 120
+      max_retries: 3
+      rpm: 60
+      tpm: 100000
+    model_info:
+      id: qwen3-max
+      context_window: 131072
+      max_output_tokens: 16384
+      capabilities:
+        - planning
+        - code
+        - reasoning
+
+  - model_name: glm-5
+    litellm_params:
+      model: openai/glm-5
+      api_base: https://coding.dashscope.aliyuncs.com/v1
+      api_key: os.environ/DASHSCOPE_API_KEY
+      timeout: 120
+      max_retries: 3
+      rpm: 60
+      tpm: 100000
+    model_info:
+      id: glm-5
+      context_window: 131072
+      max_output_tokens: 16384
+      capabilities:
+        - planning
+        - code
+        - reasoning
+
+router_settings:
+  routing_strategy: simple-shuffle
+  enable_pre_call_checks: true
+  timeout: 120
+  max_retries: 3
+  allowed_fails: 3
+  cooldown_time: 30
+  model_group_alias:
+    primary: minimax-m2.7
+    default: minimax-m2.7
+    fallback: qwen3-max
+  fallbacks:
+    - minimax-m2.7: ["qwen3-max", "glm-5"]
+    - qwen3-max: ["glm-5"]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  proxy_batch_write_at: 10
+  database_connection_pool_limit: 10
+  database_url: os.environ/LITELLM_DATABASE_URL
+
+health_check:
+  enabled: true
+  interval: 30
+
+litellm_settings:
+  success_callback: ["otel"]
+  failure_callback: ["otel"]
+  service_callback: ["otel"]
+  callbacks: ["otel"]
+
+model_rate_limits:
+  minimax-m2.7:
+    rpm: 60
+    tpm: 100000
+  qwen3-max:
+    rpm: 60
+    tpm: 100000
+  glm-5:
+    rpm: 60
+    tpm: 100000
