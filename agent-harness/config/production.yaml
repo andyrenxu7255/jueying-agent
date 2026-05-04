@@ -6,8 +6,69 @@ database:
   ssl:
     enabled: true
 
+redis:
+  url: ${REDIS_URL}
+  key_prefix: "ah:"
+  max_retries: 5
+  retry_delay_ms: 200
+
+storage:
+  backend: s3
+  endpoint: ${MINIO_ENDPOINT}
+  access_key: ${MINIO_ACCESS_KEY}
+  secret_key: ${MINIO_SECRET_KEY}
+  bucket: ${MINIO_BUCKET:-agent-harness}
+  region: us-east-1
+  use_ssl: false
+
+workflow:
+  max_concurrent: 50
+  default_timeout_sec: 7200
+  checkpoint_interval_sec: 120
+  max_retries: 3
+  max_repairs: 5
+  plan_budget_sec: 7200
+  supervisor_budget_sec: 7200
+  poll_interval_sec: 10
+  poll_max_iterations: 120
+
+llm:
+  primary_model: ${LITELLM_MODEL}
+  fallback_models: ${LITELLM_FALLBACK_MODELS:-[]}
+  litellm_url: ${LITELLM_URL}
+  litellm_api_key: ${LITELLM_API_KEY:-${LITELLM_MASTER_KEY}}
+  default_timeout_ms: 180000
+  planner_model: ${LITELLM_MODEL}
+  executor_model: ${LITELLM_MODEL}
+
+executor:
+  max_concurrent_sessions: 8
+  worktree_root: /var/lib/executor/worktrees
+  default_timeout_sec: 3600
+
+retrieval:
+  max_candidates: 100
+  default_intent: object-status
+  enable_graph: true
+  max_graph_hops: 3
+  enable_rerank: true
+  embedding_mode: ${EMBEDDING_MODE:-provider}
+  rerank_mode: ${RERANK_MODE:-provider}
+  embedding_provider_url: ${EMBEDDING_PROVIDER_URL}
+  embedding_provider_api_key: ${EMBEDDING_PROVIDER_API_KEY}
+  embedding_provider_model: ${EMBEDDING_PROVIDER_MODEL}
+  embedding_provider_timeout_ms: 30000
+  rerank_provider_url: ${RERANK_PROVIDER_URL}
+  rerank_provider_api_key: ${RERANK_PROVIDER_API_KEY}
+  rerank_provider_model: ${RERANK_PROVIDER_MODEL}
+  rerank_provider_timeout_ms: 30000
+
 logging:
   level: warn
+
+metrics:
+  enabled: true
+  port: 9090
 
 tracing:
   enabled: true

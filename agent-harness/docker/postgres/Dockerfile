@@ -24,3 +24,8 @@ RUN git clone --branch PG16/v1.5.0-rc0 --depth 1 https://github.com/apache/age.g
   && make PG_CONFIG=/usr/lib/postgresql/16/bin/pg_config \
   && make install PG_CONFIG=/usr/lib/postgresql/16/bin/pg_config \
   && rm -rf /tmp/age
+
+# Clean up build-time dependencies (no longer needed, reduce image size by ~500MB)
+RUN apt-get purge -y build-essential flex bison postgresql-server-dev-16 git \
+  && apt-get autoremove -y \
+  && rm -rf /var/lib/apt/lists/*

@@ -1,6 +1,6 @@
 import { createLogger } from '@agent-harness/shared';
 import { eq, sql, and, or, type SQL } from 'drizzle-orm';
-import { artifactObjects, auditEvents, documentChunks, documents, documentVersions, embeddingAdapter, entities, entityAttributes, factConflicts, factEvidence, facts, projectionEvents, relations, retrievalTraces, rerankAdapter, users } from '@agent-harness/shared';
+import { artifactObjects, auditEvents, documentChunks, documents, documentVersions, embeddingAdapter, entities, entityAttributes, factConflicts, factEvidence, facts, projectionEvents, relations, retrievalTraces, rerankAdapter, userFiles, users } from '@agent-harness/shared';
 import { db } from './db';
 
 function requireDb(): NonNullable<typeof db> {
@@ -27,7 +27,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries: number = 2, delayM
   }
   throw lastError!;
 }
-import { DEFAULT_ORG_ID, lexicalScore, randomRef, sha256Prefixed, sourceScope, splitIntoChunks, tokenCount, userRefToDbId } from './support';
+import { DEFAULT_ORG_ID, lexicalScore, randomRef, sha256Buffer, sha256Prefixed, sourceScope, splitIntoChunks, tokenCount, userRefToDbId } from './support';
 import { artifactStorage } from './artifact-storage';
 
 const logger = createLogger('fact-retrieval');
@@ -102,18 +102,21 @@ const ALLOWED_EDGE_LABELS = new Set(['RELATED', 'works_for', 'located_in', 'uses
 function sanitizeCypherLabel(value: string, allowedSet: Set<string>, fallback: string): string {
   const trimmed = value.trim();
   if (allowedSet.has(trimmed)) return trimmed;
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmed)) return trimmed;
   return fallback;
 }
 
 function sanitizeCypherString(value: string): string {
   const cleaned = String(value || '');
   const sanitized = cleaned
-    .replace(/['"\\]/g, '')
+    .replace(/['"\\`]/g, '')
     .replace(/--/g, '')
     .replace(/\/\*/g, '')
     .replace(/\*\//g, '')
     .replace(/;/g, '')
+    .replace(/[$]/g, '')
+    .replace(/[{}]/g, '')
+    .replace(/\/\//g, '')
+    .replace(/[\n\r]/g, ' ')
     .slice(0, 4096);
   return sanitized;
 }
@@ -230,14 +233,15 @@ class FactRetrievalService {
   }
 
   async resetAllData(): Promise<void> {
-    await requireDb().delete(retrievalTraces);
-    await requireDb().delete(factConflicts);
-    await requireDb().delete(factEvidence);
-    await requireDb().delete(facts);
-    await requireDb().delete(documentChunks);
-    await requireDb().delete(documentVersions);
-    await requireDb().delete(documents);
-    logger.info('data.reset', 'All fact-retrieval data reset');
+    const tableNames = ['retrieval_trace', 'fact_conflict', 'fact_evidence', 'fact', 'document_chunk', 'document_version', 'document'] as const;
+    for (const tableName of tableNames) {
+      let deleted = 0;
+      do {
+        const result = await requireDb().execute(sql`DELETE FROM ${sql.raw(tableName)} WHERE id IN (SELECT id FROM ${sql.raw(tableName)} LIMIT 1000)`);
+        deleted = Number((result as unknown as { rowCount?: number }).rowCount ?? 0);
+      } while (deleted > 0);
+    }
+    logger.info('data.reset', 'All fact-retrieval data reset (batch delete)');
   }
 
   async indexDocument(input: DocumentIndexInput): Promise<{ document_id: string; version_id: string; chunks_indexed: number; chunk_ids: string[] }> {
@@ -601,8 +605,18 @@ class FactRetrievalService {
   }
 
   async readArtifact(input: ArtifactReadInput): Promise<{ artifact_id: string; content_text: string; scope: string[] } | null> {
+    const ownerDbId = userRefToDbId(input.owner_user_id);
+    const conditions = [eq(artifactObjects.id, input.artifact_id)];
+    conditions.push(
+      or(
+        eq(artifactObjects.ownerUserId, ownerDbId),
+        eq(artifactObjects.scopeType, 'public'),
+        eq(artifactObjects.scopeType, 'shared')
+      )!
+    );
+
     const [artifact] = await requireDb().select().from(artifactObjects)
-      .where(eq(artifactObjects.id, input.artifact_id))
+      .where(and(...conditions))
       .limit(1);
 
     if (!artifact) return null;
@@ -734,7 +748,9 @@ class FactRetrievalService {
     try {
       const redis = await import('redis');
       const client = redis.createClient({ url: redisUrl });
-      (client as unknown as { on: (event: string, handler: () => void) => void }).on('error', () => {});
+      (client as unknown as { on: (event: string, handler: (err: unknown) => void) => void }).on('error', (err: unknown) => {
+        logger.warn('retrieval.cache.redis_error', 'Redis client error', { error: String(err) });
+      });
       await client.connect();
       this.redisCacheClient = client;
       logger.info('retrieval.cache.redis', 'Redis retrieval cache connected');
@@ -773,7 +789,8 @@ class FactRetrievalService {
         this.retrievalCache.delete(key);
       }
       return null;
-    } catch {
+    } catch (err) {
+      logger.warn('retrieval.cache.read_failed', 'Cache read failed', { error: String(err) });
       return null;
     }
   }
@@ -805,8 +822,8 @@ class FactRetrievalService {
         }, 60000);
         this.cacheCleanupInterval.unref();
       }
-    } catch {
-      // best effort
+    } catch (err) {
+      logger.warn('retrieval.cache.write_failed', 'Cache write failed', { error: String(err) });
     }
   }
 
@@ -976,6 +993,8 @@ class FactRetrievalService {
     const conditions: SQL[] = [eq(facts.status, input.status)];
     if (input.org_id) {
       conditions.push(eq(facts.orgId, input.org_id));
+    } else {
+      conditions.push(sql`f.org_id IS NOT NULL`);
     }
 
     const totalResult = await requireDb().select({ count: sql<number>`count(*)` }).from(facts)
@@ -1091,26 +1110,26 @@ class FactRetrievalService {
     const includePublic = allowedScopes.some(s => s.startsWith('public'));
     const includeShared = allowedScopes.some(s => s === 'shared');
     const ownerDbId = userRefToDbId(ownerUserId);
-    const scopeParts: string[] = [];
+
+    const conditions: SQL[] = [sql`dc.owner_user_id = ${ownerDbId}`];
     if (includePublic) {
       if (orgId) {
-        scopeParts.push(`(dc.scope_type = 'public' AND dc.owner_user_id IN (SELECT u.id FROM "user" u WHERE u.org_id = '${orgId}'))`);
+        conditions.push(sql`(dc.scope_type = 'public' AND dc.owner_user_id IN (SELECT u.id FROM "user" u WHERE u.org_id = ${orgId}))`);
       } else {
-        scopeParts.push(`dc.scope_type = 'public'`);
+        conditions.push(sql`dc.scope_type = 'public'`);
       }
     }
     if (includeShared) {
-      scopeParts.push(`dc.scope_type = 'shared'`);
+      conditions.push(sql`dc.scope_type = 'shared'`);
     }
-    const scopeFilter = scopeParts.length > 0
-      ? `(dc.owner_user_id = '${ownerDbId}' OR ${scopeParts.join(' OR ')})`
-      : `dc.owner_user_id = '${ownerDbId}'`;
+
+    const scopeFilter = sql.join(conditions, sql` OR `);
 
     const vectorRows = await requireDb().execute(sql`
       SELECT dc.id, dc.content_text, dc.scope_type,
              1 - (dc.embedding <=> ${JSON.stringify(embedding)}::vector) as similarity
       FROM document_chunk dc
-      WHERE dc.embedding IS NOT NULL AND ${sql.raw(scopeFilter)}
+      WHERE dc.embedding IS NOT NULL AND (${scopeFilter})
       ORDER BY dc.embedding <=> ${JSON.stringify(embedding)}::vector
       LIMIT 20
     `);
@@ -1194,7 +1213,7 @@ class FactRetrievalService {
 
     if (searchTerms.length === 0) return [];
 
-    const searchTerm = searchTerms[0].replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '');
+    const searchTerm = sanitizeCypherString(searchTerms[0].replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, ''));
     if (!searchTerm) return [];
 
     const includePublic = allowedScopes.some(s => s.startsWith('public'));
@@ -1205,12 +1224,17 @@ class FactRetrievalService {
     const graphName = 'knowledge_graph';
     try {
       await requireDb().execute(sql`SELECT create_graph(${graphName})`);
-    } catch {
-      // graph already exists
+    } catch (err) {
+      logger.info('graph.create_skipped', 'Graph may already exist', { error: String(err) });
     }
 
-    const safePattern = `(?i).*${searchTerm}.*`;
-    const cypher = `MATCH (e:Entity)-[r*1..${Math.min(maxHops, 3)}]-(connected:Entity) WHERE e.canonical_name =~ '${safePattern}' AND e.status = 'active' RETURN e.canonical_name AS seed_name, e.entity_type AS seed_type, connected.canonical_name AS connected_name, connected.entity_type AS connected_type, connected.scope_type AS scope_type, length(r) AS hop_distance LIMIT 50`;
+    const safePattern = `(?i).*${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
+    const scopeFilterParts = [`e.owner_user_id = '${sanitizeCypherString(ownerDbId)}'`];
+    if (includePublic) scopeFilterParts.push(`e.scope_type = 'public'`);
+    if (includeShared) scopeFilterParts.push(`e.scope_type = 'shared'`);
+    const scopeFilter = scopeFilterParts.join(' OR ');
+
+    const cypher = `MATCH (e:Entity)-[r*1..${Math.min(maxHops, 3)}]-(connected:Entity) WHERE e.canonical_name =~ '${safePattern}' AND e.status = 'active' AND (${scopeFilter}) RETURN e.canonical_name AS seed_name, e.entity_type AS seed_type, connected.canonical_name AS connected_name, connected.entity_type AS connected_type, connected.scope_type AS scope_type, length(r) AS hop_distance LIMIT 50`;
 
     const cypherResult = await requireDb().execute(sql`
       SELECT * FROM cypher(${graphName}, ${cypher}) AS (seed_name text, seed_type text, connected_name text, connected_type text, scope_type text, hop_distance integer)
@@ -1315,9 +1339,10 @@ class FactRetrievalService {
     for (let hop = 0; hop < maxHops; hop++) {
       if (currentHopEntityIds.length === 0) break;
 
-      const relationScopeCondition = includePublic
-        ? sql`(r.owner_user_id = ${ownerDbId} OR r.scope_type = 'public')`
-        : sql`r.owner_user_id = ${ownerDbId}`;
+      const relationScopeParts: SQL[] = [sql`r.owner_user_id = ${ownerDbId}`];
+      if (includePublic) relationScopeParts.push(sql`r.scope_type = 'public'`);
+      if (includeShared) relationScopeParts.push(sql`r.scope_type = 'shared'`);
+      const relationScopeCondition = sql.join(relationScopeParts, sql` OR `);
 
       const idPlaceholders = sql.join(currentHopEntityIds.map(id => sql`${id}`), sql`, `);
 
@@ -1374,21 +1399,35 @@ class FactRetrievalService {
       });
     }
 
-    for (const row of (seedEntities.rows || []) as Record<string, unknown>[]) {
-      const attrRows = await requireDb().execute(sql`
-        SELECT ea.attr_key, ea.attr_value, ea.confidence
+    if (seedEntityIds.length > 0) {
+      const allAttrRows = await requireDb().execute(sql`
+        SELECT ea.entity_id, ea.attr_key, ea.attr_value, ea.confidence
         FROM entity_attribute ea
-        WHERE ea.entity_id = ${row.id}
-        LIMIT 10
+        WHERE ea.entity_id IN (${sql.join(seedEntityIds.map(id => sql`${id}`), sql`, `)})
+        LIMIT 100
       `);
 
-      for (const attr of (attrRows.rows || []) as Record<string, unknown>[]) {
-        const content = `${row.canonical_name}.${attr.attr_key} = ${attr.attr_value}`;
-        results.push({
-          content,
-          score: Number(attr.confidence || 0.5) * lexicalScore(queryText, content),
-          source_scope: sourceScope(row.scope_type as string, ownerUserId)
+      const attrsByEntity = new Map<string, Array<{ attr_key: string; attr_value: string; confidence: number }>>();
+      for (const attr of (allAttrRows.rows || []) as Record<string, unknown>[]) {
+        const entityId = String(attr.entity_id);
+        if (!attrsByEntity.has(entityId)) attrsByEntity.set(entityId, []);
+        attrsByEntity.get(entityId)!.push({
+          attr_key: String(attr.attr_key),
+          attr_value: String(attr.attr_value),
+          confidence: Number(attr.confidence || 0.5)
         });
+      }
+
+      for (const row of (seedEntities.rows || []) as Record<string, unknown>[]) {
+        const attrs = attrsByEntity.get(String(row.id)) || [];
+        for (const attr of attrs) {
+          const content = `${row.canonical_name}.${attr.attr_key} = ${attr.attr_value}`;
+          results.push({
+            content,
+            score: attr.confidence * lexicalScore(queryText, content),
+            source_scope: sourceScope(row.scope_type as string, ownerUserId)
+          });
+        }
       }
     }
 
@@ -1434,7 +1473,7 @@ class FactRetrievalService {
             content: sql<string>`(row_data->>'content')`,
             id: sql<string>`(row_data->>'id')`
           }).from(sql`memory_item`)
-            .where(sql`(metadata->>'processed_for_extraction') IS NULL OR (metadata->>'processed_for_extraction') = 'false' AND owner_user_id = ${user.owner_user_id}`)
+            .where(sql`((metadata->>'processed_for_extraction') IS NULL OR (metadata->>'processed_for_extraction') = 'false') AND owner_user_id = ${user.owner_user_id}`)
             .orderBy(sql`created_at DESC`)
             .limit(5);
 
@@ -1459,7 +1498,9 @@ class FactRetrievalService {
                   subject: item.subject || '',
                   content: String(item.content || '').substring(0, 200)
                 });
-              } catch { /* skip individual */ }
+              } catch (factErr) {
+                  logger.warn('knowledge.extract.submit_failed', 'Failed to submit extracted fact', { error: String(factErr) });
+                }
             }
           }
 
@@ -1470,9 +1511,13 @@ class FactRetrievalService {
               await requireDb().execute(
                 sql`UPDATE memory_item SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{processed_for_extraction}', 'true') WHERE id = ${mem.id}`
               );
-            } catch { /* skip */ }
+            } catch (markErr) {
+              logger.warn('knowledge.extract.mark_failed', 'Failed to mark memory as processed', { memory_id: mem.id, error: String(markErr) });
+            }
           }
-        } catch { /* skip user failures */ }
+        } catch (userErr) {
+          logger.warn('knowledge.extract.user_failed', 'Failed to extract knowledge for user', { user_id: user.owner_user_id, error: String(userErr) });
+        }
       }
     } catch (error) {
       logger.warn('knowledge.extract_failed', 'Knowledge extraction failed', { error: String(error) });
@@ -1491,6 +1536,10 @@ class FactRetrievalService {
     const litellmUrl = process.env.LITELLM_URL || '';
     const litellmModel = process.env.LITELLM_MODEL || 'minimax-m2.7';
     const litellmApiKey = process.env.LITELLM_MASTER_KEY || process.env.LITELLM_API_KEY || '';
+    if (!litellmApiKey) {
+      logger.warn('knowledge.extract.no_api_key', 'LITELLM_MASTER_KEY or LITELLM_API_KEY not set, skipping LLM extraction');
+      return null;
+    }
 
     if (!litellmUrl) return null;
 
@@ -1526,9 +1575,150 @@ class FactRetrievalService {
 
       const parsed = JSON.parse(content) as { items?: Array<{ subject: string; predicate: string; content: string }> };
       return Array.isArray(parsed.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
-    } catch {
+    } catch (err) {
+      logger.warn('knowledge.extract.llm_failed', 'LLM extraction call failed', { error: String(err) });
       return null;
     }
+  }
+
+  // ─── 用户文件管理 ───
+
+  async listUserFiles(input: { owner_user_id: string; org_id?: string | null; category?: string; scope?: string; limit: number; offset: number }): Promise<{ files: Array<Record<string, unknown>>; total: number }> {
+    const conditions: SQL[] = [];
+    conditions.push(eq(userFiles.userId, input.owner_user_id));
+    conditions.push(sql`${userFiles.status} != 'deleted'`);
+    if (input.org_id) conditions.push(eq(userFiles.orgId, input.org_id));
+    if (input.category) conditions.push(eq(userFiles.fileCategory, input.category));
+    if (input.scope) conditions.push(eq(userFiles.scope, input.scope));
+
+    const totalResult = await requireDb().select({ count: sql<number>`count(*)` }).from(userFiles)
+      .where(and(...conditions));
+    const total = Number(totalResult[0]?.count || 0);
+
+    const rows = await requireDb().select().from(userFiles)
+      .where(and(...conditions))
+      .orderBy(sql`created_at DESC`)
+      .limit(input.limit)
+      .offset(input.offset);
+
+    const files = rows.map(f => ({
+      id: f.id,
+      user_id: f.userId,
+      org_id: f.orgId,
+      storage_backend: f.storageBackend,
+      storage_path: f.storagePath,
+      original_name: f.originalName,
+      mime_type: f.mimeType,
+      byte_size: f.byteSize,
+      file_category: f.fileCategory,
+      scope: f.scope,
+      source: f.source,
+      status: f.status,
+      created_at: f.createdAt?.toISOString(),
+    }));
+    return { files, total };
+  }
+
+  async uploadAndStoreFile(input: {
+    owner_user_id: string;
+    org_id: string | null;
+    file_buffer_b64: string;
+    original_name: string;
+    mime_type: string;
+    source: string;
+    scope: string;
+    file_category: string;
+  }): Promise<{ ok: boolean; error?: string; file?: Record<string, unknown> }> {
+    const userId = await withRetry(() => this.ensureUser(input.owner_user_id));
+    if (!input.file_buffer_b64) return { ok: false, error: 'missing_file_buffer' };
+
+    const buffer = Buffer.from(input.file_buffer_b64, 'base64');
+    const now = new Date();
+    const monthStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const backend = artifactStorage.preferredBackend();
+
+    const writeResult = await artifactStorage.storeUserFile(backend, input.owner_user_id, input.org_id, buffer, input.original_name, monthStr);
+    const contentHash = sha256Buffer(buffer);
+
+    const [file] = await withRetry(() => requireDb().insert(userFiles).values({
+      userId: input.owner_user_id,
+      orgId: input.org_id,
+      storageBackend: writeResult.backend,
+      storagePath: writeResult.storage_path,
+      originalName: input.original_name,
+      mimeType: input.mime_type,
+      byteSize: buffer.byteLength,
+      contentHash,
+      fileCategory: input.file_category || 'upload',
+      scope: input.scope || 'private',
+      source: input.source || 'user_upload',
+      status: 'active',
+      metadata: {},
+    }).returning());
+
+    logger.info('file.stored', 'User file stored', { file_id: file.id, user_id: input.owner_user_id, original_name: input.original_name });
+    return {
+      ok: true,
+      file: {
+        id: file.id,
+        user_id: file.userId,
+        original_name: file.originalName,
+        mime_type: file.mimeType,
+        byte_size: file.byteSize,
+        file_category: file.fileCategory,
+        scope: file.scope,
+        storage_backend: file.storageBackend,
+        storage_path: file.storagePath,
+        created_at: file.createdAt?.toISOString(),
+      }
+    };
+  }
+
+  async downloadUserFile(fileId: string, requestingUserId: string): Promise<{ file?: { original_name: string; mime_type: string; buffer_b64: string }; error?: string }> {
+    const [row] = await requireDb().select().from(userFiles).where(eq(userFiles.id, fileId)).limit(1);
+    if (!row) return { error: 'file_not_found' };
+    if (row.status === 'deleted') return { error: 'file_deleted' };
+    if (row.scope === 'private' && row.userId !== requestingUserId) return { error: 'access_denied' };
+
+    const storageRef = row.storageBackend === 'minio'
+      ? `minio://${artifactStorage.config.bucket}/${row.storagePath}`
+      : row.storagePath;
+    const buffer = await artifactStorage.readBuffer(row.storageBackend, storageRef);
+    return {
+      file: {
+        original_name: row.originalName,
+        mime_type: row.mimeType || 'application/octet-stream',
+        buffer_b64: buffer.toString('base64'),
+      }
+    };
+  }
+
+  async updateFileScope(fileId: string, requestingUserId: string, newScope: string): Promise<{ ok: boolean; error?: string }> {
+    const [row] = await requireDb().select().from(userFiles).where(eq(userFiles.id, fileId)).limit(1);
+    if (!row) return { ok: false, error: 'file_not_found' };
+    if (row.userId !== requestingUserId) return { ok: false, error: 'access_denied' };
+
+    await requireDb().update(userFiles).set({
+      scope: newScope,
+      updatedAt: new Date(),
+    } as Record<string, unknown>).where(eq(userFiles.id, fileId));
+
+    logger.info('file.scope_updated', 'File scope updated', { file_id: fileId, scope: newScope });
+    return { ok: true };
+  }
+
+  async deleteUserFile(fileId: string, requestingUserId: string): Promise<{ ok: boolean; error?: string }> {
+    const [row] = await requireDb().select().from(userFiles).where(eq(userFiles.id, fileId)).limit(1);
+    if (!row) return { ok: false, error: 'file_not_found' };
+    if (row.userId !== requestingUserId) return { ok: false, error: 'access_denied' };
+
+    await requireDb().update(userFiles).set({
+      status: 'deleted',
+      updatedAt: new Date(),
+    } as Record<string, unknown>).where(eq(userFiles.id, fileId));
+
+    logger.info('file.deleted', 'User file soft-deleted', { file_id: fileId });
+    return { ok: true };
   }
 }
 

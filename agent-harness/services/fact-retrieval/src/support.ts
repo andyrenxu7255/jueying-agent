@@ -8,6 +8,10 @@ export function sha256Hex(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
+export function sha256Buffer(buf: Buffer): string {
+  return `sha256:${createHash('sha256').update(buf).digest('hex')}`;
+}
+
 export function sha256Prefixed(value: string): string {
   return `sha256:${sha256Hex(value)}`;
 }

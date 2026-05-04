@@ -426,7 +426,10 @@ const server = createServer(async (req, res) => {
         workflowStore.delete(key);
       }
       if (workflowStore.size >= WORKFLOW_STORE_MAX_SIZE) {
-        const firstKey = workflowStore.keys().next().value;
+        const firstKey = [...workflowStore.keys()].find(key => {
+          const r = workflowStore.get(key);
+          return r && ['archived', 'succeeded', 'failed', 'cancelled'].includes(r.status);
+        });
         if (firstKey) workflowStore.delete(firstKey);
       }
     }

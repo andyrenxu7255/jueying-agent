@@ -146,7 +146,13 @@ async function ensureTables(pool: InstanceType<typeof import('pg').Pool>): Promi
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    const MAX_BODY_SIZE = 5 * 1024 * 1024;
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString();
+      if (body.length > MAX_BODY_SIZE) {
+        reject(new Error('request_body_too_large'));
+      }
+    });
     req.on('end', () => { try { resolve(JSON.parse(body || '{}')); } catch { resolve({}); } });
     req.on('error', reject);
   });

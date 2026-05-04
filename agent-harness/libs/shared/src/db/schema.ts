@@ -588,6 +588,32 @@ export const hermesMemories = pgTable('hermes_memory', {
   createdIdx: index('idx_hermes_memory_created').on(table.createdAt),
 }));
 
+export const userFiles = pgTable('user_file', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull(),
+  orgId: uuid('org_id'),
+  storageBackend: text('storage_backend').notNull(),
+  storagePath: text('storage_path').notNull(),
+  originalName: text('original_name').notNull(),
+  mimeType: text('mime_type'),
+  byteSize: bigint('byte_size', { mode: 'number' }).notNull().default(0),
+  contentHash: text('content_hash'),
+  fileCategory: text('file_category').notNull().default('upload'),
+  scope: text('scope').notNull().default('private'),
+  source: text('source').notNull().default('user_upload'),
+  sourceRef: text('source_ref'),
+  status: text('status').notNull().default('active'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index('idx_user_file_user').on(table.userId, table.status, table.createdAt),
+  orgIdIdx: index('idx_user_file_org').on(table.orgId, table.status),
+  categoryIdx: index('idx_user_file_category').on(table.userId, table.fileCategory),
+  scopeIdx: index('idx_user_file_scope').on(table.userId, table.scope),
+  hashIdx: index('idx_user_file_hash').on(table.contentHash),
+}));
+
 export type DbUser = typeof users.$inferSelect;
 export type DbDocument = typeof documents.$inferSelect;
 export type DbDocumentChunk = typeof documentChunks.$inferSelect;

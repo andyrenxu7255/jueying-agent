@@ -407,13 +407,12 @@ function releaseQuota(input: ConsumeQuotaInput): void {
 
 const SERVICE_ENDPOINTS: Array<{ name: string; url: string }> = [
   { name: 'fact-retrieval', url: process.env.FACT_RETRIEVAL_URL || 'http://fact-retrieval:3000' },
-  { name: 'workflow', url: process.env.WORKFLOW_URL || 'http://workflow:3001' },
-  { name: 'executor-gateway', url: process.env.EXECUTOR_GATEWAY_URL || 'http://executor-gateway:3002' },
-  { name: 'gateway-adapter', url: process.env.GATEWAY_ADAPTER_URL || 'http://gateway-adapter:3003' },
-  { name: 'web-portal', url: process.env.WEB_PORTAL_URL || 'http://web-portal:3004' },
-  { name: 'hermes-adapter', url: process.env.HERMES_ADAPTER_URL || 'http://hermes-adapter:3005' },
-  { name: 'feishu-longconn', url: process.env.FEISHU_LONGCONN_URL || 'http://feishu-longconn:3006' },
-  { name: 'skill-library', url: process.env.SKILL_LIBRARY_URL || 'http://skill-library:3007' }
+  { name: 'workflow', url: process.env.WORKFLOW_URL || 'http://workflow-service:3000' },
+  { name: 'executor-gateway', url: process.env.EXECUTOR_URL || 'http://executor-gateway:3000' },
+  { name: 'gateway-adapter', url: process.env.GATEWAY_URL || 'http://gateway-adapter:3000' },
+  { name: 'web-portal', url: process.env.WEB_PORTAL_URL || 'http://web-portal:3000' },
+  { name: 'hermes-adapter', url: process.env.HERMES_URL || 'http://hermes-adapter:3000' },
+  { name: 'skill-library', url: process.env.SKILL_LIBRARY_URL || 'http://skill-library:3000' }
 ];
 
 /**

@@ -300,6 +300,90 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // ── 用户文件管理 ──
+    if (pathname === '/internal/files' && req.method === 'GET') {
+      const pUrl = new URL(req.url || '/', `http://localhost:${port}`);
+      const ownerUserId = pUrl.searchParams.get('owner_user_id') || '';
+      const orgId = pUrl.searchParams.get('org_id') || null;
+      const category = pUrl.searchParams.get('category') || '';
+      const scope = pUrl.searchParams.get('scope') || '';
+      const limit = Math.min(Number(pUrl.searchParams.get('limit') || 50), 200);
+      const offset = Number(pUrl.searchParams.get('offset') || 0);
+      if (!ownerUserId) { sendJson(res, 400, { ok: false, error: 'missing_owner_user_id' }); return; }
+      const result = await factRetrievalService.listUserFiles({
+        owner_user_id: ownerUserId,
+        org_id: orgId,
+        category: category || undefined,
+        scope: scope || undefined,
+        limit,
+        offset
+      });
+      sendJson(res, 200, { ok: true, ...result });
+      return;
+    }
+
+    if (pathname === '/internal/files/upload' && req.method === 'POST') {
+      const body = await readJson(req);
+      const bufferBase64 = String(body.file_buffer_b64 || '');
+      const result = await factRetrievalService.uploadAndStoreFile({
+        owner_user_id: String(body.owner_user_id || ''),
+        org_id: body.org_id ? String(body.org_id) : null,
+        file_buffer_b64: bufferBase64,
+        original_name: String(body.original_name || 'unknown.bin'),
+        mime_type: String(body.mime_type || 'application/octet-stream'),
+        source: String(body.source || 'user_upload'),
+        scope: String(body.scope || 'private'),
+        file_category: String(body.file_category || 'upload'),
+      });
+      if (!result.ok) {
+        sendJson(res, 400, { ok: false, error: result.error });
+        return;
+      }
+      sendJson(res, 201, { ok: true, file: result.file });
+      return;
+    }
+
+    if (pathname.startsWith('/internal/files/') && pathname.endsWith('/download') && req.method === 'GET') {
+      const fileId = pathname.split('/')[3];
+      if (!fileId) { sendJson(res, 400, { ok: false, error: 'missing_file_id' }); return; }
+      const pUrl = new URL(req.url || '/', `http://localhost:${port}`);
+      const requestingUserId = pUrl.searchParams.get('user_id') || '';
+      const result = await factRetrievalService.downloadUserFile(fileId, requestingUserId);
+      if (!result.file) {
+        sendJson(res, 404, { ok: false, error: result.error || 'file_not_found' });
+        return;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        original_name: result.file.original_name,
+        mime_type: result.file.mime_type,
+        buffer_b64: result.file.buffer_b64,
+      });
+      return;
+    }
+
+    if (pathname.startsWith('/internal/files/') && pathname.endsWith('/share') && req.method === 'POST') {
+      const fileId = pathname.split('/')[3];
+      const body = await readJson(req);
+      const newScope = String(body.scope || 'shared');
+      if (!['private', 'shared', 'public'].includes(newScope)) {
+        sendJson(res, 400, { ok: false, error: 'invalid_scope' });
+        return;
+      }
+      const result = await factRetrievalService.updateFileScope(fileId, String(body.requested_by || ''), newScope);
+      sendJson(res, result.ok ? 200 : 404, result);
+      return;
+    }
+
+    if (pathname.startsWith('/internal/files/') && req.method === 'DELETE') {
+      const fileId = pathname.split('/')[3];
+      const pUrl = new URL(req.url || '/', `http://localhost:${port}`);
+      const requestingUserId = pUrl.searchParams.get('user_id') || '';
+      const result = await factRetrievalService.deleteUserFile(fileId, requestingUserId);
+      sendJson(res, result.ok ? 200 : 404, result);
+      return;
+    }
+
     sendJson(res, 404, { ok: false, error: 'not_found' });
   } catch (error) {
     logger.error('request.failed', 'Fact retrieval request failed', { pathname, error: String(error) });

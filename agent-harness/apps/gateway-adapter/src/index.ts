@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createHash, createHmac, createDecipheriv, timingSafeEqual } from 'node:crypto';
-import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity } from '@agent-harness/shared';
+import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity, extractPathname, postJson } from '@agent-harness/shared';
 import { identityResolver } from './services/identity-resolver';
 import { sessionMapper } from './services/session-mapper';
 import { validateFileForImport, sanitizeFileName, validateTextContent } from './services/file-validator';
@@ -82,11 +82,6 @@ function sendJson(res: import('node:http').ServerResponse, statusCode: number, b
 function sendText(res: import('node:http').ServerResponse, statusCode: number, body: string): void {
   res.writeHead(statusCode, { 'content-type': 'text/plain; charset=utf-8' });
   res.end(body);
-}
-
-function pathnameOf(urlLike: string | undefined): string {
-  const requestUrl = new URL(urlLike || '/', 'http://localhost');
-  return requestUrl.pathname;
 }
 
 function isDuplicateEvent(eventId: string): boolean {
@@ -190,6 +185,19 @@ function isTaskIntent(text: string): boolean {
   return patterns.some((pattern) => pattern.test(normalized));
 }
 
+function isTaskDispatchIntent(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return false;
+  const patterns = [
+    /(通知.*提交|下发.*任务|下发.*工作|分配.*任务|派发.*任务)/,
+    /(全员.*提交|团队.*完成|要求.*提交|要求.*完成|安排.*工作)/,
+    /(通知所有人|通知全员|通知团队|给.*下发|给.*分配)/,
+    /(dispatch.*task|assign.*task|notify.*team|team.*submit)/,
+    /(周报|日报|月报|总结|汇报).*(提交|完成|上交)/
+  ];
+  return patterns.some((pattern) => pattern.test(normalized));
+}
+
 // isKnowledgeSubmitIntent: 基于关键词检测用户是否在主动提交知识
 // 匹配「我想提交一条知识」「这是客户信息」「分享一个知识点」等模式
 function isKnowledgeSubmitIntent(text: string): boolean {
@@ -225,7 +233,7 @@ interface IntentClassification {
   task_type_hint: 'development' | 'analysis' | 'knowledge' | 'sales' | 'implementation';
   risk_level: 'low' | 'medium' | 'high';
   confidence: number;
-  intent_type: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup';
+  intent_type: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch';
 }
 
 async function classifyIntentWithLLM(text: string): Promise<IntentClassification> {
@@ -234,7 +242,7 @@ async function classifyIntentWithLLM(text: string): Promise<IntentClassification
     task_type_hint: 'knowledge',
     risk_level: 'medium',
     confidence: 0.0,
-    intent_type: isKnowledgeSubmitIntent(text) ? 'knowledge_submit' : (isQuickLookupIntent(text) ? 'quick_lookup' : (isTaskIntent(text) ? 'task' : 'chat'))
+    intent_type: isTaskDispatchIntent(text) ? 'task_dispatch' : (isKnowledgeSubmitIntent(text) ? 'knowledge_submit' : (isQuickLookupIntent(text) ? 'quick_lookup' : (isTaskIntent(text) ? 'task' : 'chat')))
   };
 
   const litellmUrl = process.env.LITELLM_URL || '';
@@ -257,13 +265,15 @@ async function classifyIntentWithLLM(text: string): Promise<IntentClassification
           {
             role: 'system',
             content: `Classify the user message. Output JSON with:
-- "is_task": boolean - true if the user wants to execute a workflow, false for chat or knowledge submission
+- "is_task": boolean - true if the user wants to execute a workflow or dispatch a task to others, false for chat or knowledge submission
 - "task_type_hint": one of "development", "analysis", "knowledge", "sales", "implementation"
 - "risk_level": one of "low", "medium", "high"
 - "confidence": 0.0-1.0
-- "intent_type": one of "chat" (casual conversation), "task" (execute workflow), "knowledge_submit" (user is sharing a piece of knowledge), "quick_lookup" (simple fact lookup, like "What is X's phone number?" or "Find info about company Y")
+- "intent_type": one of "chat" (casual conversation), "task" (execute workflow), "knowledge_submit" (user is sharing a piece of knowledge), "quick_lookup" (simple fact lookup), "task_dispatch" (admin dispatching/assigning a task to team members)
 
 KEY DISTINCTION:
+- "task_dispatch": admin/manager is ASSIGNING a task to team members (e.g. "通知所有人提交周报", "给团队下发任务：完成Q3总结", "下发工作要求：每日拜访总结")
+- "task": user wants the AI to EXECUTE a workflow for them (e.g. "帮我分析销售数据")
 - "knowledge_submit": user is PROVIDING information (e.g. "这是客户张三的信息", "A公司的联系方式是...", "我想提交一条知识")
 - "knowledge" task_type_hint: user is ASKING for information (e.g. "什么是RAG?", "查一下销售数据")
 
@@ -276,7 +286,10 @@ Examples:
 "我想提交一条知识：B公司最近融资了5000万" -> {"is_task":false,"task_type_hint":"knowledge","risk_level":"low","confidence":0.95,"intent_type":"knowledge_submit"}
 "什么是RAG?" -> {"is_task":true,"task_type_hint":"knowledge","risk_level":"low","confidence":0.7,"intent_type":"task"}
 "查一下A公司的联系电话" -> {"is_task":false,"task_type_hint":"knowledge","risk_level":"low","confidence":0.95,"intent_type":"quick_lookup"}
-"张三的邮箱是多少？" -> {"is_task":false,"task_type_hint":"knowledge","risk_level":"low","confidence":0.9,"intent_type":"quick_lookup"}`
+"张三的邮箱是多少？" -> {"is_task":false,"task_type_hint":"knowledge","risk_level":"low","confidence":0.9,"intent_type":"quick_lookup"}
+"通知全员提交周报" -> {"is_task":true,"task_type_hint":"implementation","risk_level":"low","confidence":0.9,"intent_type":"task_dispatch"}
+"给销售团队下发任务：本周五前提交客户拜访报告" -> {"is_task":true,"task_type_hint":"sales","risk_level":"low","confidence":0.95,"intent_type":"task_dispatch"}
+"下发工作要求：每天20点提交当日总结" -> {"is_task":true,"task_type_hint":"implementation","risk_level":"low","confidence":0.95,"intent_type":"task_dispatch"}`
           },
           { role: 'user', content: text }
         ],
@@ -305,13 +318,18 @@ Examples:
     }
 
     try {
-      const parsed = JSON.parse(content) as Partial<IntentClassification>;
+      let jsonContent = content;
+      const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (fenceMatch && fenceMatch[1]) {
+        jsonContent = fenceMatch[1].trim();
+      }
+      const parsed = JSON.parse(jsonContent) as Partial<IntentClassification>;
       return {
         is_task: typeof parsed.is_task === 'boolean' ? parsed.is_task : fallback.is_task,
         task_type_hint: ['development', 'analysis', 'knowledge', 'sales', 'implementation'].includes(parsed.task_type_hint as string) ? parsed.task_type_hint as IntentClassification['task_type_hint'] : fallback.task_type_hint,
         risk_level: ['low', 'medium', 'high'].includes(parsed.risk_level as string) ? parsed.risk_level as IntentClassification['risk_level'] : fallback.risk_level,
         confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-        intent_type: ['chat', 'task', 'knowledge_submit', 'quick_lookup'].includes(parsed.intent_type as string) ? parsed.intent_type as IntentClassification['intent_type'] : fallback.intent_type
+        intent_type: ['chat', 'task', 'knowledge_submit', 'quick_lookup', 'task_dispatch'].includes(parsed.intent_type as string) ? parsed.intent_type as IntentClassification['intent_type'] : fallback.intent_type
       };
     } catch (parseError) {
       logger.warn('intent.classify_parse_error', 'LLM intent classification JSON parse error', {
@@ -329,45 +347,6 @@ Examples:
   }
 }
 
-async function postJson(url: string, payload: Record<string, unknown>, timeoutMs = 30000, extraHeaders?: Record<string, string>, retries = 0): Promise<{ ok: boolean; status: number; body: Record<string, unknown> | null }> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(extraHeaders || {})
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-    const text = await response.text();
-    let body: Record<string, unknown> | null = null;
-    try {
-      body = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      body = null;
-    }
-    return { ok: response.ok, status: response.status, body };
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      return { ok: false, status: 0, body: null };
-    }
-    // 网络异常时支持自动重试
-    if (retries > 0) {
-      logger.warn('http.retry', `Retrying POST ${url} after network error, remaining retries: ${retries}`, {
-        error: String(error)
-      });
-      await new Promise(r => setTimeout(r, 1000));
-      return postJson(url, payload, timeoutMs, extraHeaders, retries - 1);
-    }
-    return { ok: false, status: 0, body: null };
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 async function rememberContext(ownerUserId: string, sessionId: string, role: string, content: string): Promise<void> {
   try {
     const res = await fetch(`${hermesUrl}/internal/memory`, {
@@ -381,6 +360,66 @@ async function rememberContext(ownerUserId: string, sessionId: string, role: str
   } catch {
     logger.warn('memory.persist.failed', 'Memory persist failed');
   }
+}
+
+interface UserPersona {
+  soul: string | null;
+  identity: string | null;
+  toneStyle: string | null;
+  behaviorBoundary: string | null;
+  skillTags: string;
+}
+
+async function loadUserPersona(ownerUserId: string): Promise<UserPersona | null> {
+  try {
+    const pool = await getSharedDbPool();
+    if (!pool) return null;
+    const result = await pool.query(
+      `SELECT soul, identity, tone_style, behavior_boundary, skill_tags FROM user_profile WHERE user_id = $1 LIMIT 1`,
+      [ownerUserId]
+    );
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    const tags = typeof row.skill_tags === 'string' ? JSON.parse(row.skill_tags) : (Array.isArray(row.skill_tags) ? row.skill_tags.join(', ') : '');
+    return {
+      soul: typeof row.soul === 'string' ? row.soul : null,
+      identity: typeof row.identity === 'string' ? row.identity : null,
+      toneStyle: typeof row.tone_style === 'string' ? row.tone_style : null,
+      behaviorBoundary: typeof row.behavior_boundary === 'string' ? row.behavior_boundary : null,
+      skillTags: typeof tags === 'string' ? tags : String(tags || '')
+    };
+  } catch {
+    return null;
+  }
+}
+
+interface WorkspaceInfo {
+  docCount: number;
+  factCount: number;
+  memoryCount: number;
+}
+
+async function getWorkspaceInfo(ownerUserId: string): Promise<WorkspaceInfo | null> {
+  try {
+    const pool = await getSharedDbPool();
+    if (!pool) return { docCount: 0, factCount: 0, memoryCount: 0 };
+    const [docR, factR, memR] = await Promise.all([
+      pool.query(`SELECT COUNT(*) as cnt FROM document WHERE owner_user_id = $1`, [ownerUserId]),
+      pool.query(`SELECT COUNT(*) as cnt FROM fact WHERE owner_user_id = $1 AND status = 'active'`, [ownerUserId]),
+      pool.query(`SELECT COUNT(*) as cnt FROM hermes_memory WHERE owner_user_id = $1`, [ownerUserId])
+    ]);
+    return {
+      docCount: Number(docR.rows[0]?.cnt || 0),
+      factCount: Number(factR.rows[0]?.cnt || 0),
+      memoryCount: Number(memR.rows[0]?.cnt || 0)
+    };
+  } catch {
+    return { docCount: 0, factCount: 0, memoryCount: 0 };
+  }
+}
+
+function fireAndForget(promise: Promise<unknown>, tag: string): void {
+  promise.catch(err => logger.warn(`${tag}.failed`, `Fire-and-forget operation failed`, { error: String(err) }));
 }
 
 async function recallContext(ownerUserId: string, sessionId: string): Promise<{ context: string; degraded: boolean; reason?: string }> {
@@ -609,12 +648,24 @@ async function submitKnowledge(text: string, ownerUserId: string, orgId: string)
   }
 }
 
-async function generateChatReply(userText: string, context?: string): Promise<{ text: string; modelCallOk: boolean }> {
-  const systemPrompt = `你是一个企业级AI智能助手。
+async function generateChatReply(userText: string, ownerUserId: string, context?: string): Promise<{ text: string; modelCallOk: boolean }> {
+  const personaInfo = await loadUserPersona(ownerUserId);
+  const workspaceInfo = await getWorkspaceInfo(ownerUserId);
+
+  const personaBlock = personaInfo
+    ? `\n\n【你的身份与行为准则 - 此为你的soul/brain配置】\n- 核心性格(soul): ${personaInfo.soul || '专业、高效、贴心的企业AI助手'}\n- 身份定位(identity): ${personaInfo.identity || '企业级AI智能助手'}\n- 语气风格(tone): ${personaInfo.toneStyle || '专业、简洁、准确'}\n- 行为边界: ${personaInfo.behaviorBoundary || '保护用户隐私，不泄露敏感信息'}\n- 技能标签: ${personaInfo.skillTags || '通用知识问答'}`
+    : '';
+
+  const workspaceBlock = workspaceInfo
+    ? `\n\n【你的独立工作区信息】\n- 工作区目录: /workspace/${ownerUserId}\n- 知识库访问: PGSQL (事实/文档/记忆) ✅\n- 向量检索: pgvector ✅\n- 图数据库: Apache AGE ✅\n- 已有文档数: ${workspaceInfo.docCount}\n- 已有事实数: ${workspaceInfo.factCount}\n- 已存储记忆条数: ${workspaceInfo.memoryCount}\n- 你可以通过知识检索、记忆召回等功能访问和操作这些数据`
+    : '';
+
+  const systemPrompt = `你是一个企业级AI智能助手。${personaBlock}${workspaceBlock}
 
 核心行为准则:
 - 用中文回复，专业、简洁、准确
 - 优先从组织知识库中查找答案，其次依赖你的通用知识
+- 若用户问及"你的工作区"或"你能访问什么"，请参考【你的独立工作区信息】如实回答
 - 若用户主要提知识片段，鼓励并引导其通过「提交知识」功能录入系统
 - 对不确定的信息明确标注"待确认"
 - 保护用户隐私，不向其他用户泄露敏感信息
@@ -715,14 +766,14 @@ async function quickLookup(text: string, ownerUserId: string, orgId: string): Pr
   }
 }
 
-async function processIncomingText(normalized: Record<string, unknown>): Promise<{ requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup'; replyText: string; modelCallOk: boolean; workflowRef?: string; runRef?: string }> {
+async function processIncomingText(normalized: Record<string, unknown>): Promise<{ requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch'; replyText: string; modelCallOk: boolean; workflowRef?: string; runRef?: string }> {
   const text = String(normalized.request_text || '');
   const ownerUserId = String(normalized.user_id || normalized.session_ref || 'anonymous');
   const sessionId = String(normalized.session_ref || 'default');
   const orgId = String(normalized.org_id || '');
 
   const intent = await classifyIntentWithLLM(text);
-  const requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' = intent.intent_type;
+  const requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch' = intent.intent_type;
 
   logger.info('ingress.request.classified', 'Classified incoming request', {
     request_type: requestType,
@@ -737,13 +788,13 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
     const { factId, error } = await submitKnowledge(text, ownerUserId, orgId);
     if (error || !factId) {
       const replyText = error || '知识提交失败，已记录。请稍后重试。';
-      void rememberContext(ownerUserId, sessionId, 'user', text);
-      void rememberContext(ownerUserId, sessionId, 'assistant', replyText);
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
       return { requestType, replyText, modelCallOk: false };
     }
     const replyText = `📝 知识已收到并提交审核！\n知识编号: ${factId}\n管理员将在审核后将其正式收录到组织知识库中。`;
-    void rememberContext(ownerUserId, sessionId, 'user', text);
-    void rememberContext(ownerUserId, sessionId, 'assistant', replyText);
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
     return { requestType, replyText, modelCallOk: true };
   }
 
@@ -752,22 +803,22 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
     const { replyText, modelCallOk } = await quickLookup(text, ownerUserId, orgId);
     if (!replyText) {
       // quickLookup 降级为空 → 回退到 chat 路径
-      const chatResult = await generateChatReply(text);
+      const chatResult = await generateChatReply(text, ownerUserId);
       const finalReply = chatResult.text;
-      void rememberContext(ownerUserId, sessionId, 'user', text);
-      void rememberContext(ownerUserId, sessionId, 'assistant', finalReply);
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', finalReply),'memory');
       return { requestType: 'chat' as const, replyText: finalReply, modelCallOk: chatResult.modelCallOk };
     }
-    void rememberContext(ownerUserId, sessionId, 'user', text);
-    void rememberContext(ownerUserId, sessionId, 'assistant', replyText);
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
     return { requestType, replyText, modelCallOk };
   }
 
   if (requestType === 'task') {
     if (normalized.identity_binding_state !== 'bound') {
       const replyText = '身份尚未绑定，请先完成身份验证后再创建任务。';
-      void rememberContext(ownerUserId, sessionId, 'user', text);
-      void rememberContext(ownerUserId, sessionId, 'assistant', replyText);
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
       return { requestType, replyText, modelCallOk: false };
     }
 
@@ -780,8 +831,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
           reason: quotaCheck.reason
         });
         const replyText = quotaCheck.reason || '资源配额不足，请稍后重试或联系管理员。';
-        void rememberContext(ownerUserId, sessionId, 'user', text);
-        void rememberContext(ownerUserId, sessionId, 'assistant', replyText);
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
         return { requestType, replyText, modelCallOk: false };
       }
     }
@@ -792,8 +843,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
         user_id: normalized.user_id
       });
       const replyText = '权限策略校验暂不可用，请稍后重试。若持续出现请联系管理员。';
-      void rememberContext(ownerUserId, sessionId, 'user', text);
-      void rememberContext(ownerUserId, sessionId, 'assistant', replyText);
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
       return { requestType, replyText, modelCallOk: false };
     }
 
@@ -804,20 +855,20 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
       user_goal: text,
       budget: { time_sec: Number(process.env.WORKFLOW_PLAN_BUDGET_SEC || 3600), retrieval: 15, execution: 30 },
       policy_snapshot_hash: policySnapshotHash
-    }, 30000, undefined, 2);
+    }, 30000, {}, 2);
 
     if (!plan.ok) {
       logger.warn('workflow.plan.failed', 'Workflow plan failed from gateway', { status: plan.status });
       const replyText = '任务受理失败：规划服务暂不可用。请稍后重试，若持续失败请联系管理员并提供时间与账号。';
-      void rememberContext(ownerUserId, sessionId, 'user', text);
-      void rememberContext(ownerUserId, sessionId, 'assistant', replyText);
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
       return { requestType, replyText, modelCallOk: false };
     }
 
     const workflowRef = (plan.body?.workflow_instance_ref as string | undefined) || `wf_${Date.now()}`;
     const dispatch = await postJson(`${workflowUrl}/internal/workflows/${workflowRef}/dispatch`, {
       trigger: 'channel_ingress'
-    }, 15000, undefined, 1);
+    }, 15000, {}, 1);
 
     if (!dispatch.ok) {
       logger.warn('workflow.dispatch.failed', 'Workflow dispatch failed from gateway', {
@@ -825,23 +876,61 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
         status: dispatch.status
       });
       const replyText = `任务已创建（${workflowRef}），但派发执行失败。请稍后重试，或联系管理员手动重派。`;
-      void rememberContext(ownerUserId, sessionId, 'user', text);
-      void rememberContext(ownerUserId, sessionId, 'assistant', replyText);
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
       return { requestType, replyText, modelCallOk: false, workflowRef };
     }
 
     const runRef = (dispatch.body?.executor_run_ref as string | undefined) || `run_${Date.now()}`;
     const replyText = `✅ 已受理您的任务，正在规划执行中...\n任务编号: ${workflowRef}`;
-    void rememberContext(ownerUserId, sessionId, 'user', text);
-    void rememberContext(ownerUserId, sessionId, 'assistant', replyText);
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
     return { requestType, replyText, modelCallOk: true, workflowRef, runRef };
   }
 
+  // task_dispatch 路径: 管理员通过LUI下发工作要求 → 创建org_task → 分配+通知
+  if (requestType === 'task_dispatch') {
+    if (normalized.identity_binding_state !== 'bound') {
+      const replyText = '身份尚未绑定，请先完成身份验证后再下发任务。';
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      return { requestType, replyText, modelCallOk: false };
+    }
+    const pool = await getSharedDbPool();
+    if (!pool) {
+      const replyText = '系统暂不可用，请稍后重试。';
+      return { requestType, replyText, modelCallOk: false };
+    }
+    try {
+      const taskResult = await pool.query(
+        `INSERT INTO org_task (org_id, created_by, title, description, task_type, schedule_type, status, prompt_message, target_channels, required_fields, metadata)
+         VALUES ($1,$2,$3,$4,'form','once','active',$5,ARRAY['wecom','feishu'],'[]'::jsonb,jsonb_build_object('source','lui','channel',$6))
+         RETURNING *`,
+        [orgId || null, ownerUserId, text.substring(0, 100), text, text, String(normalized.channel_type || 'unknown')]
+      );
+      const task = taskResult.rows[0];
+      const assignResult = await postJson(`http://localhost:${port}/internal/tasks/assign`, { task_id: task.id }, 15000);
+      const notifyResult = await postJson(`http://localhost:${port}/internal/tasks/notify`, { task_id: task.id }, 15000);
+      const assignedCount = (assignResult.body as Record<string, unknown>)?.assigned || 0;
+      const notifiedCount = (notifyResult.body as Record<string, unknown>)?.notified || 0;
+      const replyText = `✅ 工作要求已创建并下发！\n📋 任务: ${task.title}\n👥 已分配: ${assignedCount} 人\n📢 已通知: ${notifiedCount} 人\n任务编号: ${task.id}`;
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      return { requestType, replyText, modelCallOk: true };
+    } catch (err) {
+      logger.error('task_dispatch.create_failed', 'Failed to create and dispatch task from LUI', { error: String(err) });
+      const replyText = '任务下发失败，请稍后重试或通过Web管理门户手动创建。';
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      return { requestType, replyText, modelCallOk: false };
+    }
+  }
+
   const recalled = await recallContext(ownerUserId, sessionId);
-  const chat = await generateChatReply(text, recalled.context || undefined);
+  const chat = await generateChatReply(text, ownerUserId, recalled.context || undefined);
   const degradedPrefix = recalled.degraded ? '（提示：历史上下文暂不可用，本次按当前消息回复）\n' : '';
-  void rememberContext(ownerUserId, sessionId, 'user', text);
-  void rememberContext(ownerUserId, sessionId, 'assistant', chat.text);
+  fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
+  fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', chat.text),'memory');
   return { requestType, replyText: `${degradedPrefix}${chat.text}`, modelCallOk: chat.modelCallOk };
 }
 
@@ -909,12 +998,12 @@ async function handleFeishuEvent(body: Record<string, unknown>): Promise<void> {
 
           const chatId = String(message.chat_id || '');
           if (chatId) {
-            void sendFeishuTextReply(chatId, 'chat_id', replyText);
+            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', replyText),'feishu_reply');
           }
         } else {
           const chatId = String(message.chat_id || '');
           if (chatId) {
-            void sendFeishuTextReply(chatId, 'chat_id', '身份尚未绑定，请先完成身份验证后再导入文件。');
+            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', '身份尚未绑定，请先完成身份验证后再导入文件。'),'feishu_reply');
           }
         }
       }
@@ -972,7 +1061,7 @@ async function handleFeishuEvent(body: Record<string, unknown>): Promise<void> {
   }
 
   if (processed.requestType === 'task' && processed.workflowRef) {
-    void pollAndReplyWorkflowResult(processed.workflowRef, receiveTargets);
+    fireAndForget(pollAndReplyWorkflowResult(processed.workflowRef, receiveTargets),'workflow_poll');
   }
 
   logger.info('feishu.event.completed', 'Feishu event processing completed', {
@@ -1214,17 +1303,16 @@ async function pollAndReplyWorkflowResult(workflowRef: string, targets: Array<{ 
         // 异步发送移动推送通知，不阻塞轮询退出
         const userId = (wf as Record<string, unknown>).owner_user_id || '';
         if (userId) {
-          void sendMobilePushNotification(
+          fireAndForget(sendMobilePushNotification(
             String(userId),
             status === 'succeeded' || status === 'completed' ? '任务执行完成' : '任务执行失败',
             resultLine.replace(/[#*`]/g, '').substring(0, 200),
             { workflow_ref: workflowRef, status }
-          );
+          ), 'mobile_push');
         }
-        // 成功后异步提取为 Skill 候选，推送到 skill-library 待审核
         if (status === 'succeeded' || status === 'completed') {
           const wfOrgId = (wf as Record<string, unknown>).org_id || '';
-          void extractWorkflowAsSkillCandidate(workflowRef, String(userId || ''), String(wfOrgId));
+          fireAndForget(extractWorkflowAsSkillCandidate(workflowRef, String(userId || ''), String(wfOrgId)), 'skill_extract');
         }
         return;
       }
@@ -1270,16 +1358,16 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
           ? `✅ 任务执行完成！\n任务编号: ${workflowRef}\n\n${preview.substring(0, 800)}`
           : `❌ 任务执行失败 (${status})\n任务编号: ${workflowRef}`;
 
-        void sendWecomTextMessage(wecomUserId, resultLine, agentId);
+        fireAndForget(sendWecomTextMessage(wecomUserId, resultLine, agentId),'wecom_reply');
         // 异步发送移动推送通知
         const userId = (wf as Record<string, unknown>).owner_user_id || '';
         if (userId) {
-          void sendMobilePushNotification(
+          fireAndForget(sendMobilePushNotification(
             String(userId),
             status === 'succeeded' || status === 'completed' ? '任务执行完成' : '任务执行失败',
             resultLine.replace(/[#*`]/g, '').substring(0, 200),
             { workflow_ref: workflowRef, status }
-          );
+          ), 'mobile_push');
         }
         return;
       }
@@ -1289,7 +1377,7 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
   }
 
   const timeoutMsg = `⏳ 任务仍在执行中，请稍后查看结果。\n任务编号: ${workflowRef}`;
-  void sendWecomTextMessage(wecomUserId, timeoutMsg, agentId);
+  fireAndForget(sendWecomTextMessage(wecomUserId, timeoutMsg, agentId),'wecom_reply');
 }
 async function getWecomAccessToken(): Promise<string | null> {
   const now = Date.now();
@@ -1605,7 +1693,7 @@ const server = createServer(async (req, res) => {
    } as typeof res.end;
 
   try {
-    const pathname = pathnameOf(req.url);
+    const pathname = extractPathname(req.url);
 
   if (pathname === '/health' || pathname === '/health/live' || pathname === '/health/ready') {
     sendJson(res, 200, {
@@ -1660,6 +1748,13 @@ const server = createServer(async (req, res) => {
     const body = parseJson(rawBody);
     if (!body) {
       sendJson(res, 400, { ok: false, error: 'invalid_json' });
+      return;
+    }
+
+    const feishuAppId = process.env.FEISHU_APP_ID || '';
+    if (feishuAppId && body.header && (body.header as Record<string, unknown>).app_id !== feishuAppId) {
+      logger.warn('feishu.longconn.invalid_app', 'Feishu longconn event from unexpected app_id', { app_id: (body.header as Record<string, unknown>).app_id });
+      sendJson(res, 403, { ok: false, error: 'invalid_app_id' });
       return;
     }
 
@@ -1748,12 +1843,12 @@ const server = createServer(async (req, res) => {
 
               const wecomUserId = typeof body.from_user_id === 'string' ? body.from_user_id : '';
               if (wecomUserId) {
-                void sendWecomTextMessage(wecomUserId, replyText);
+                fireAndForget(sendWecomTextMessage(wecomUserId, replyText),'wecom_reply');
               }
             } else {
               const wecomUserId = typeof body.from_user_id === 'string' ? body.from_user_id : '';
               if (wecomUserId) {
-                void sendWecomTextMessage(wecomUserId, '身份尚未绑定，请先完成身份验证后再导入文件。');
+                fireAndForget(sendWecomTextMessage(wecomUserId, '身份尚未绑定，请先完成身份验证后再导入文件。'),'wecom_reply');
               }
             }
           }
@@ -1791,7 +1886,7 @@ const server = createServer(async (req, res) => {
       }
 
       if (processed.requestType === 'task' && processed.workflowRef && wecomUserId) {
-        void pollAndReplyWorkflowResultWecom(processed.workflowRef, wecomUserId);
+        fireAndForget(pollAndReplyWorkflowResultWecom(processed.workflowRef, wecomUserId),'workflow_poll_wecom');
       }
 
       sendJson(res, 200, {
@@ -1821,6 +1916,207 @@ const server = createServer(async (req, res) => {
       delivered = await sendWecomTextMessage(userId, content);
     } catch { /* ignore */ }
     sendJson(res, 200, { ok: true, delivered });
+    return;
+  }
+
+  // Admin: Create org task
+  if (pathname === '/admin/tasks' && req.method === 'POST') {
+    const body = await readBody(req).then(raw => parseJson(raw) || {});
+    const { title, description, task_type, schedule_type, cron_expression, prompt_message, target_channels, org_id, created_by } = body;
+    if (!title || !task_type || !schedule_type) {
+      sendJson(res, 400, { ok: false, error: 'missing_required_fields', message: 'title, task_type, schedule_type 为必填项' });
+      return;
+    }
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const result = await pool.query(
+        `INSERT INTO org_task (org_id, created_by, title, description, task_type, schedule_type, cron_expression, status, prompt_message, target_channels, required_fields, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'active',$8,$9,'[]'::jsonb,'{}'::jsonb) RETURNING *`,
+        [org_id || null, created_by || null, title, description || '', task_type, schedule_type, cron_expression || null, prompt_message || '', target_channels || ['wecom']]
+      );
+      sendJson(res, 201, { ok: true, task: result.rows[0] });
+    } catch (err) {
+      logger.error('admin_tasks.create_failed', 'Failed to create org task', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'create_failed' });
+    }
+    return;
+  }
+
+  // Admin: List org tasks
+  if (pathname === '/admin/tasks' && req.method === 'GET') {
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const result = await pool.query(`SELECT t.*, (SELECT COUNT(*) FROM org_task_assignment a WHERE a.task_id = t.id AND a.status = 'completed') as completed_count, (SELECT COUNT(*) FROM org_task_assignment a WHERE a.task_id = t.id) as total_count FROM org_task t ORDER BY t.created_at DESC`);
+      sendJson(res, 200, { ok: true, tasks: result.rows });
+    } catch (err) {
+      logger.error('admin_tasks.list_failed', 'Failed to list org tasks', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'list_failed' });
+    }
+    return;
+  }
+
+  // Admin: Update org task
+  if (pathname.startsWith('/admin/tasks/') && req.method === 'PUT') {
+    const taskId = pathname.slice('/admin/tasks/'.length);
+    const body = await readBody(req).then(raw => parseJson(raw) || {});
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const sets: string[] = [];
+      const vals: unknown[] = [];
+      let idx = 1;
+      for (const [k, v] of Object.entries(body)) {
+        if (['title', 'description', 'status', 'prompt_message', 'cron_expression', 'target_channels'].includes(k)) {
+          sets.push(`"${k}" = $${idx}`);
+          vals.push(v);
+          idx++;
+        }
+      }
+      if (sets.length === 0) { sendJson(res, 400, { ok: false, error: 'no_fields_to_update' }); return; }
+      sets.push(`updated_at = now()`);
+      vals.push(taskId);
+      const result = await pool.query(`UPDATE org_task SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals);
+      if (result.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'task_not_found' }); return; }
+      sendJson(res, 200, { ok: true, task: result.rows[0] });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: 'update_failed' });
+    }
+    return;
+  }
+
+  // Admin: Delete org task
+  if (pathname.startsWith('/admin/tasks/') && req.method === 'DELETE') {
+    const taskId = pathname.slice('/admin/tasks/'.length);
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      await pool.query(`DELETE FROM org_task_assignment WHERE task_id = $1`, [taskId]);
+      const result = await pool.query(`DELETE FROM org_task WHERE id = $1 RETURNING id`, [taskId]);
+      if (result.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'task_not_found' }); return; }
+      sendJson(res, 200, { ok: true });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: 'delete_failed' });
+    }
+    return;
+  }
+
+  // Internal: Assign task to users
+  if (pathname === '/internal/tasks/assign' && req.method === 'POST') {
+    const body = await readBody(req).then(raw => parseJson(raw) || {});
+    const taskId = String(body.task_id || '');
+    if (!taskId) { sendJson(res, 400, { ok: false, error: 'missing_task_id' }); return; }
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const taskResult = await pool.query(`SELECT * FROM org_task WHERE id = $1`, [taskId]);
+      if (taskResult.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'task_not_found' }); return; }
+      const task = taskResult.rows[0];
+      const taskOrgId = task.org_id;
+      let users: Array<Record<string, unknown>> = [];
+      if (taskOrgId) {
+        const userResult = await pool.query(`SELECT id, username FROM "user" WHERE org_id = $1`, [taskOrgId]);
+        users = userResult.rows;
+      } else {
+        const userResult = await pool.query(`SELECT id, username FROM "user" LIMIT 100`);
+        users = userResult.rows;
+      }
+      let assigned = 0;
+      for (const user of users) {
+        const existing = await pool.query(`SELECT id FROM org_task_assignment WHERE task_id = $1 AND user_id = $2 AND status IN ('pending','notified')`, [taskId, user.id]);
+        if (existing.rows.length > 0) continue;
+        await pool.query(
+          `INSERT INTO org_task_assignment (task_id, user_id, org_id, status, response_data, metadata) VALUES ($1,$2,$3,'pending','{}'::jsonb,'{}'::jsonb)`,
+          [taskId, user.id, taskOrgId || null]
+        );
+        assigned++;
+      }
+      sendJson(res, 200, { ok: true, assigned, total_users: users.length });
+    } catch (err) {
+      logger.error('tasks.assign_failed', 'Failed to assign task', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'assign_failed' });
+    }
+    return;
+  }
+
+  // Internal: Notify assigned users
+  if (pathname === '/internal/tasks/notify' && req.method === 'POST') {
+    const body = await readBody(req).then(raw => parseJson(raw) || {});
+    const taskId = String(body.task_id || '');
+    if (!taskId) { sendJson(res, 400, { ok: false, error: 'missing_task_id' }); return; }
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const taskResult = await pool.query(`SELECT * FROM org_task WHERE id = $1`, [taskId]);
+      if (taskResult.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'task_not_found' }); return; }
+      const task = taskResult.rows[0];
+      const pendingResult = await pool.query(`SELECT a.*, u.username FROM org_task_assignment a JOIN "user" u ON u.id = a.user_id WHERE a.task_id = $1 AND a.status = 'pending'`, [taskId]);
+      let notified = 0;
+      for (const assignment of pendingResult.rows) {
+        const content = `📋 **${task.title}**\n${task.prompt_message || task.description}\n请及时提交您的反馈。`;
+        let delivered = false;
+        const channels = (task.target_channels || ['wecom']) as string[];
+        if (channels.includes('wecom')) {
+          try { delivered = await sendWecomTextMessage(String(assignment.username), content); } catch { /* ignore */ }
+        }
+        if (channels.includes('feishu')) {
+          try { delivered = await sendFeishuTextReply(String(assignment.username), 'open_id', content) || delivered; } catch { /* ignore */ }
+        }
+        try {
+          await fetch(`${mobileAppUrl}/internal/notifications/send`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: assignment.user_id, title: task.title, body: task.prompt_message || task.description, category: 'task_dispatch', deep_link: `/my-tasks` })
+          });
+        } catch { /* ignore mobile push failure */ }
+        await pool.query(`UPDATE org_task_assignment SET status = 'notified', notified_at = now() WHERE id = $1`, [assignment.id]);
+        notified++;
+      }
+      sendJson(res, 200, { ok: true, notified });
+    } catch (err) {
+      logger.error('tasks.notify_failed', 'Failed to notify users', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'notify_failed' });
+    }
+    return;
+  }
+
+  // User: List my tasks
+  if (pathname === '/tasks' && req.method === 'GET') {
+    const requestUrl = new URL(req.url || '/', 'http://localhost');
+    const userId = requestUrl.searchParams.get('user_id') || '';
+    if (!userId) { sendJson(res, 400, { ok: false, error: 'missing_user_id' }); return; }
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const result = await pool.query(
+        `SELECT a.*, t.title, t.description, t.task_type, t.prompt_message, t.schedule_type FROM org_task_assignment a JOIN org_task t ON t.id = a.task_id WHERE a.user_id = $1 ORDER BY a.created_at DESC`,
+        [userId]
+      );
+      sendJson(res, 200, { ok: true, assignments: result.rows });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: 'list_failed' });
+    }
+    return;
+  }
+
+  // User: Submit task response
+  if (pathname.match(/^\/tasks\/[^/]+\/submit$/) && req.method === 'POST') {
+    const assignmentId = pathname.split('/')[2];
+    const body = await readBody(req).then(raw => parseJson(raw) || {});
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const existing = await pool.query(`SELECT * FROM org_task_assignment WHERE id = $1`, [assignmentId]);
+      if (existing.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'assignment_not_found' }); return; }
+      if (existing.rows[0].status === 'completed') { sendJson(res, 400, { ok: false, error: 'already_completed' }); return; }
+      await pool.query(
+        `UPDATE org_task_assignment SET status = 'completed', completed_at = now(), response_data = $1 WHERE id = $2`,
+        [JSON.stringify(body.response_data || {}), assignmentId]
+      );
+      sendJson(res, 200, { ok: true });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: 'submit_failed' });
+    }
     return;
   }
 

@@ -36,7 +36,7 @@ export function sendJson(res: import('node:http').ServerResponse, statusCode: nu
   res.end(JSON.stringify(body));
 }
 
-export async function postJson(url: string, payload: Record<string, unknown>, timeoutMs: number = 15000, extraHeaders?: Record<string, string>): Promise<{ ok: boolean; status: number; body: Record<string, unknown> | null }> {
+export async function postJson(url: string, payload: Record<string, unknown>, timeoutMs: number = 15000, extraHeaders?: Record<string, string>, retries: number = 0): Promise<{ ok: boolean; status: number; body: Record<string, unknown> | null }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -57,7 +57,14 @@ export async function postJson(url: string, payload: Record<string, unknown>, ti
       body = null;
     }
     return { ok: response.ok, status: response.status, body };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { ok: false, status: 0, body: null };
+    }
+    if (retries > 0) {
+      await new Promise(r => setTimeout(r, 1000));
+      return postJson(url, payload, timeoutMs, extraHeaders, retries - 1);
+    }
     return { ok: false, status: 0, body: null };
   } finally {
     clearTimeout(timeoutId);

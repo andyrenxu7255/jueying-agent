@@ -5,7 +5,8 @@ import {
   workflowStages, checkpoints, workflowEvents, executionSessions, documents,
   documentVersions, documentChunks, entities, relations, facts, factEvidence,
   factConflicts, artifactObjects, retrievalTraces, auditEvents, memoryItems,
-  memorySources, memoryUsageLogs, skills, skillVersions, skillSources, projectionEvents
+  memorySources, memoryUsageLogs, skills, skillVersions, skillSources, projectionEvents,
+  userFiles
 } from '@agent-harness/shared';
 import { configManager, getDatabaseSslConfig } from '@agent-harness/shared';
 
@@ -14,7 +15,8 @@ const schema = {
   workflowStages, checkpoints, workflowEvents, executionSessions, documents,
   documentVersions, documentChunks, entities, relations, facts, factEvidence,
   factConflicts, artifactObjects, retrievalTraces, auditEvents, memoryItems,
-  memorySources, memoryUsageLogs, skills, skillVersions, skillSources, projectionEvents
+  memorySources, memoryUsageLogs, skills, skillVersions, skillSources, projectionEvents,
+  userFiles
 };
 
 const databaseUrl = process.env.DATABASE_URL || configManager.getPath<string>('database.url');

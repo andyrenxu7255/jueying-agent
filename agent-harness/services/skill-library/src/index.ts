@@ -274,7 +274,7 @@ async function createSkill(input: CreateSkillInput & { source_uri?: string }): P
   } catch (error) {
     await pool.query('ROLLBACK').catch(() => {});
     logger.error('skill.create_failed', 'Failed to create skill', { error: String(error) });
-    return { status: 500, body: { ok: false, error: 'create_failed', detail: String(error) } };
+    return { status: 500, body: { ok: false, error: 'create_failed' } };
   }
 }
 
@@ -382,7 +382,7 @@ async function searchSkills(query?: string, scopeType?: string, skillType?: stri
     };
   } catch (error) {
     logger.error('skill.search_failed', 'Failed to search skills', { error: String(error) });
-    return { status: 500, body: { ok: false, error: 'search_failed', detail: String(error) } };
+    return { status: 500, body: { ok: false, error: 'search_failed' } };
   }
 }
 
@@ -443,7 +443,7 @@ async function getSkill(skillId: string): Promise<{ status: number; body: Record
     };
   } catch (error) {
     logger.error('skill.get_failed', 'Failed to get skill', { error: String(error) });
-    return { status: 500, body: { ok: false, error: 'get_failed', detail: String(error) } };
+    return { status: 500, body: { ok: false, error: 'get_failed' } };
   }
 }
 
@@ -555,7 +555,7 @@ async function updateSkill(skillId: string, input: UpdateSkillInput): Promise<{ 
   } catch (error) {
     await pool.query('ROLLBACK').catch(() => {});
     logger.error('skill.update_failed', 'Failed to update skill', { error: String(error) });
-    return { status: 500, body: { ok: false, error: 'update_failed', detail: String(error) } };
+    return { status: 500, body: { ok: false, error: 'update_failed' } };
   }
 }
 
@@ -585,7 +585,7 @@ async function publishSkill(skillId: string): Promise<{ status: number; body: Re
     return { status: 200, body: { ok: true, skill_id: skillId, status: 'active' } };
   } catch (error) {
     logger.error('skill.publish_failed', 'Failed to publish skill', { error: String(error) });
-    return { status: 500, body: { ok: false, error: 'publish_failed', detail: String(error) } };
+    return { status: 500, body: { ok: false, error: 'publish_failed' } };
   }
 }
 
@@ -615,7 +615,7 @@ async function archiveSkill(skillId: string): Promise<{ status: number; body: Re
     return { status: 200, body: { ok: true, skill_id: skillId, status: 'archived' } };
   } catch (error) {
     logger.error('skill.archive_failed', 'Failed to archive skill', { error: String(error) });
-    return { status: 500, body: { ok: false, error: 'archive_failed', detail: String(error) } };
+    return { status: 500, body: { ok: false, error: 'archive_failed' } };
   }
 }
 
@@ -654,7 +654,7 @@ async function getSkillVersions(skillId: string): Promise<{ status: number; body
     return { status: 200, body: { ok: true, skill_id: skillId, total: versions.length, versions } };
   } catch (error) {
     logger.error('skill.versions_failed', 'Failed to get skill versions', { error: String(error) });
-    return { status: 500, body: { ok: false, error: 'versions_failed', detail: String(error) } };
+    return { status: 500, body: { ok: false, error: 'versions_failed' } };
   }
 }
 
@@ -906,7 +906,7 @@ async function listSkills(options: {
     };
   } catch (error) {
     logger.error('skill.list_failed', 'Failed to list skills', { error: String(error) });
-    return { status: 500, body: { ok: false, error: 'list_failed', detail: String(error) } };
+    return { status: 500, body: { ok: false, error: 'list_failed' } };
   }
 }
 
@@ -1088,17 +1088,268 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // ============================================================
+    // 梦境模式：技能审核与管理端点 (Dream Mode - Skill Audit)
+    // ============================================================
+    if (pathname === '/internal/skills/audit' && req.method === 'POST') {
+      const body = await readJson(req);
+      const skillId = String(body.skill_id || '');
+      const auditorUserId = String(body.auditor_user_id || '');
+      const pool = await getDbPool();
+
+      if (!skillId || !pool) {
+        sendJson(res, 400, { ok: false, error: !skillId ? 'missing_skill_id' : 'database_not_available' });
+        return;
+      }
+
+      try {
+        const skillResult = await pool.query(`SELECT * FROM skill WHERE id = $1`, [skillId]);
+        if (skillResult.rows.length === 0) {
+          sendJson(res, 404, { ok: false, error: 'skill_not_found' });
+          return;
+        }
+        const skill = skillResult.rows[0];
+
+        const versionResult = await pool.query(
+          `SELECT * FROM skill_version WHERE skill_id = $1 ORDER BY version DESC LIMIT 1`,
+          [skillId]
+        );
+        const latestVersion = versionResult.rows[0];
+
+        let functionalityScore = 70;
+        let securityScore = 70;
+        let performanceScore = 70;
+        let orgFitScore = 70;
+
+        const def = latestVersion?.definition_json || {};
+        let defStr = '';
+        try { defStr = JSON.stringify(def); } catch { defStr = String(def); }
+
+        if (typeof def === 'object' && def !== null) {
+          if (def.stage_chain || def.prompt_template) functionalityScore = 75;
+          if (def.tools || def.capabilities) functionalityScore = Math.min(85, functionalityScore + 10);
+          if (def.params || def.parameters) functionalityScore = Math.min(90, functionalityScore + 5);
+        }
+        if (defStr.length < 500) securityScore = 60;
+        else if (defStr.length < 2000) securityScore = 75;
+        else securityScore = 85;
+        if (defStr.length < 3000) performanceScore = 80;
+        else performanceScore = 70;
+        if (skill.scope_type === 'org' || skill.scope_type === 'public') orgFitScore = 85;
+        else orgFitScore = 65;
+
+        const overallScore = Math.round((functionalityScore + securityScore + performanceScore + orgFitScore) / 4);
+        const auditResult = overallScore >= 70 ? 'approved' : 'needs_revision';
+
+        await pool.query(
+          `INSERT INTO skill_audit_record (skill_id, auditor_user_id, org_id, audit_type,
+           functionality_score, security_score, performance_score, org_fit_score, overall_score, audit_result)
+           VALUES ($1,$2,$3,'manual_review',$4,$5,$6,$7,$8,$9)`,
+          [skillId, auditorUserId || null, skill.org_id, functionalityScore, securityScore, performanceScore, orgFitScore, overallScore, auditResult]
+        );
+
+        if (overallScore >= 80 && (skill.scope_type === 'private' || skill.scope_type === 'draft')) {
+          await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skillId]);
+
+          await pool.query(
+            `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
+             VALUES ($1,$2,$3,$2,'user_upgrade',$4,'other','active')
+             ON CONFLICT DO NOTHING`,
+            [skill.org_id || '00000000-0000-0000-0000-000000000001', skillId, auditorUserId || null, skill.owner_user_id]
+          );
+        }
+
+        sendJson(res, 200, {
+          ok: true,
+          audit: { skill_id: skillId, overall_score: overallScore, audit_result: auditResult,
+            scores: { functionality: functionalityScore, security: securityScore, performance: performanceScore, org_fit: orgFitScore } }
+        });
+      } catch (err) {
+        logger.error('skill.audit_failed', 'Skill audit failed', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'audit_failed' });
+      }
+      return;
+    }
+
+    if (pathname === '/internal/skills/audit/batch' && req.method === 'POST') {
+      const body = await readJson(req);
+      const orgId = String(body.org_id || '');
+      const pool = await getDbPool();
+
+      if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+
+      try {
+        const recentSkills = await pool.query(
+          `SELECT s.id, s.owner_user_id, s.org_id, s.scope_type, s.status FROM skill s
+           WHERE s.created_at >= now() - interval '7 days' AND s.status = 'active'
+           ${orgId ? 'AND s.org_id = $1' : ''}
+           LIMIT 100`,
+          orgId ? [orgId] : []
+        );
+
+        let audited = 0;
+        let promoted = 0;
+
+        for (const skill of recentSkills.rows) {
+          const versionResult = await pool.query(
+            `SELECT definition_json FROM skill_version WHERE skill_id = $1 ORDER BY version DESC LIMIT 1`,
+            [skill.id]
+          );
+          const def = versionResult.rows[0]?.definition_json || {};
+          let defStr = '';
+          try { defStr = JSON.stringify(def); } catch { defStr = String(def); }
+
+          let functionalityScore = 70;
+          let securityScore = 70;
+          let performanceScore = 70;
+          let orgFitScore = 70;
+
+          if (typeof def === 'object' && def !== null) {
+            if (def.stage_chain || def.prompt_template) functionalityScore = 75;
+            if (def.tools || def.capabilities) functionalityScore = Math.min(85, functionalityScore + 10);
+            if (def.params || def.parameters) functionalityScore = Math.min(90, functionalityScore + 5);
+          }
+          if (defStr.length < 500) securityScore = 60;
+          else if (defStr.length < 2000) securityScore = 75;
+          else securityScore = 85;
+          if (defStr.length < 3000) performanceScore = 80;
+          else performanceScore = 70;
+          if (skill.scope_type === 'org' || skill.scope_type === 'public') orgFitScore = 85;
+          else orgFitScore = 65;
+
+          const overallScore = Math.round((functionalityScore + securityScore + performanceScore + orgFitScore) / 4);
+          const auditResult = overallScore >= 70 ? 'approved' : 'needs_revision';
+
+          await pool.query(
+            `INSERT INTO skill_audit_record (skill_id, auditor_user_id, org_id, audit_type,
+             functionality_score, security_score, performance_score, org_fit_score, overall_score, audit_result)
+             VALUES ($1,null,$2,'daily_review',$3,$4,$5,$6,$7,$8)`,
+            [skill.id, skill.org_id, functionalityScore, securityScore, performanceScore, orgFitScore, overallScore, auditResult]
+          );
+
+          if (overallScore >= 80 && (skill.scope_type === 'private' || skill.scope_type === 'draft')) {
+            await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skill.id]);
+            await pool.query(
+              `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
+               VALUES ($1,$2,null,$2,'user_upgrade',$3,'other','active')
+               ON CONFLICT DO NOTHING`,
+              [skill.org_id || '00000000-0000-0000-0000-000000000001', skill.id, skill.owner_user_id]
+            );
+            promoted++;
+          }
+          audited++;
+        }
+
+        sendJson(res, 200, { ok: true, audited, promoted });
+      } catch (err) {
+        logger.error('skill.audit_batch_failed', 'Batch skill audit failed', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'audit_batch_failed' });
+      }
+      return;
+    }
+
+    if (pathname.match(/^\/internal\/skills\/[0-9a-f-]{36}\/promote-to-org$/) && req.method === 'POST') {
+      const skillId = pathname.split('/')[3];
+      const body = await readJson(req);
+      const promotedBy = String(body.promoted_by || '');
+      const pool = await getDbPool();
+
+      if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+
+      try {
+        const skillResult = await pool.query(`SELECT * FROM skill WHERE id = $1`, [skillId]);
+        if (skillResult.rows.length === 0) {
+          sendJson(res, 404, { ok: false, error: 'skill_not_found' });
+          return;
+        }
+        const skill = skillResult.rows[0];
+        await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skillId]);
+        await pool.query(
+          `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
+           VALUES ($1,$2,$3,$2,'user_upgrade',$4,'other','active')
+           ON CONFLICT DO NOTHING`,
+          [skill.org_id || '00000000-0000-0000-0000-000000000001', skillId, promotedBy || null, skill.owner_user_id]
+        );
+        sendJson(res, 200, { ok: true, skill_id: skillId, scope_type: 'org' });
+      } catch (err) {
+        logger.error('skill.promote_failed', 'Skill promotion failed', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'promote_failed' });
+      }
+      return;
+    }
+
+    if (pathname === '/internal/skills/org-registry' && req.method === 'GET') {
+      const pool = await getDbPool();
+      const orgId = parsedUrl.searchParams.get('org_id') || '';
+      if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+
+      try {
+        const result = await pool.query(
+          `SELECT osr.*, s.skill_name, s.description FROM org_skill_registry osr JOIN skill s ON osr.skill_id = s.id
+           WHERE osr.status = 'active' ${orgId ? 'AND osr.org_id = $1' : ''}
+           ORDER BY osr.created_at DESC LIMIT 100`,
+          orgId ? [orgId] : []
+        );
+        sendJson(res, 200, { ok: true, skills: result.rows });
+      } catch (err) {
+        logger.error('skill.org_registry_failed', 'Failed to query org skill registry', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'query_failed' });
+      }
+      return;
+    }
+
+    if (pathname === '/internal/skills/audit-records' && req.method === 'GET') {
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+      try {
+        const result = await pool.query(
+          `SELECT sar.*, s.skill_name FROM skill_audit_record sar JOIN skill s ON sar.skill_id = s.id
+           ORDER BY sar.created_at DESC LIMIT 100`
+        );
+        sendJson(res, 200, { ok: true, records: result.rows });
+      } catch (err) {
+        logger.error('skill.audit_records_failed', 'Failed to query audit records', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'query_failed' });
+      }
+      return;
+    }
+
+    if (pathname === '/internal/skills/usage-stats' && req.method === 'GET') {
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+      try {
+        const result = await pool.query(
+          `SELECT sus.*, s.skill_name FROM skill_usage_stats sus JOIN skill s ON sus.skill_id = s.id
+           ORDER BY sus.usage_date DESC LIMIT 100`
+        );
+        sendJson(res, 200, { ok: true, stats: result.rows });
+      } catch (err) {
+        logger.error('skill.usage_stats_failed', 'Failed to query usage stats', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'query_failed' });
+      }
+      return;
+    }
+
+    if (pathname === '/internal/skills/scene-assessments' && req.method === 'GET') {
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+      try {
+        const result = await pool.query(
+          `SELECT * FROM scene_value_assessment ORDER BY value_score DESC LIMIT 100`
+        );
+        sendJson(res, 200, { ok: true, assessments: result.rows });
+      } catch (err) {
+        logger.error('skill.scene_assessments_failed', 'Failed to query scene assessments', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'query_failed' });
+      }
+      return;
+    }
+
     // 路由匹配：GET /internal/skills/:id（单个技能详情）
     if (pathname.startsWith('/internal/skills/') && req.method === 'GET') {
       const pathParts = pathname.split('/');
-      // 纯 /internal/skills/:id 格式（不含子路径如 /versions、/export 等）
-      if (pathParts.length === 4 && pathParts[3] && !pathParts[3].includes('.')) {
+      if (pathParts.length === 4 && pathParts[3] && /^[0-9a-f-]{36}$/i.test(pathParts[3])) {
         const skillId = pathParts[3];
-        // 排除已知的子路径关键字
-        if (['search', 'import', 'create'].includes(skillId)) {
-          sendJson(res, 404, { ok: false, error: 'not_found' });
-          return;
-        }
         const result = await getSkill(skillId);
         sendJson(res, result.status, result.body);
         return;

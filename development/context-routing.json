@@ -1,5 +1,5 @@
 {
-  "version": "v1.0",
+  "version": "v1.2",
   "default_bootstrap_docs": [
     "development/DEV-00-开发索引.md",
     "development/DEV-08-文件内容与依赖对象图谱.md",

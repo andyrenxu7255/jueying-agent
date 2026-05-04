@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CreateBucketCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { configManager } from '@agent-harness/shared';
@@ -8,6 +8,7 @@ export type ArtifactBackend = 'localfs' | 'minio';
 export interface ArtifactWriteResult {
   backend: ArtifactBackend;
   storage_ref: string;
+  storage_path: string;
 }
 
 export interface ArtifactStorageConfig {
@@ -34,6 +35,10 @@ function normalizeEndpoint(endpoint: string, useSsl: boolean): string {
   return `${useSsl ? 'https' : 'http'}://${endpoint}`;
 }
 
+function sanitizePathComponent(raw: string): string {
+  return (raw || '_').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 async function streamToUtf8(stream: unknown): Promise<string> {
   if (typeof (stream as { transformToString?: unknown })?.transformToString === 'function') {
     return (stream as { transformToString: (encoding: string) => Promise<string> }).transformToString('utf-8');
@@ -52,8 +57,22 @@ async function streamToUtf8(stream: unknown): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+async function streamToBuffer(stream: unknown): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream as AsyncIterable<Uint8Array | Buffer | string>) {
+    if (typeof chunk === 'string') {
+      chunks.push(Buffer.from(chunk));
+    } else if (Buffer.isBuffer(chunk)) {
+      chunks.push(chunk);
+    } else {
+      chunks.push(Buffer.from(chunk));
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
 export class ArtifactStorage {
-  private readonly config: ArtifactStorageConfig;
+  readonly config: ArtifactStorageConfig;
   private readonly minioClient: S3Client | null;
   private bucketReady = false;
 
@@ -89,6 +108,7 @@ export class ArtifactStorage {
     return this.config.preferred_backend;
   }
 
+  // ── legacy: org-scoped artifact write ──
   async writeText(backend: ArtifactBackend, artifactId: string, contentText: string, orgId?: string): Promise<ArtifactWriteResult> {
     if (backend === 'minio') {
       return this.writeMinio(artifactId, contentText, orgId);
@@ -102,6 +122,92 @@ export class ArtifactStorage {
     }
     return readFile(storageRef, 'utf8');
   }
+
+  async readBuffer(backend: string, storageRef: string): Promise<Buffer> {
+    if (backend === 'minio') {
+      return this.readMinioBuffer(storageRef);
+    }
+    return readFile(storageRef);
+  }
+
+  // ── user-scoped: raw file storage (uploads) ──
+  async storeUserFile(
+    backend: ArtifactBackend,
+    userId: string,
+    orgId: string | null,
+    fileBuffer: Buffer,
+    originalName: string,
+    monthStr: string
+  ): Promise<ArtifactWriteResult> {
+    const safeUserId = sanitizePathComponent(userId);
+    const safeOrgId = orgId ? sanitizePathComponent(orgId) : '_no_org';
+    const sanitizedName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const fileId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    if (backend === 'minio') {
+      const key = `users/${safeOrgId}/${safeUserId}/uploads/${monthStr}/${fileId}_${sanitizedName}`;
+      return this.writeMinioRaw(key, fileBuffer, 'application/octet-stream');
+    }
+
+    const dirPath = join(this.config.local_root, 'users', safeOrgId, safeUserId, 'uploads', monthStr);
+    await mkdir(dirPath, { recursive: true });
+    const filePath = join(dirPath, `${fileId}_${sanitizedName}`);
+    await writeFile(filePath, fileBuffer);
+    return {
+      backend: 'localfs',
+      storage_ref: filePath,
+      storage_path: `users/${safeOrgId}/${safeUserId}/uploads/${monthStr}/${fileId}_${sanitizedName}`,
+    };
+  }
+
+  // ── user-scoped: LLM-generated / artifact storage ──
+  async storeUserArtifact(
+    backend: ArtifactBackend,
+    userId: string,
+    orgId: string | null,
+    artifactId: string,
+    contentText: string,
+    extension: string = 'txt'
+  ): Promise<ArtifactWriteResult> {
+    const safeUserId = sanitizePathComponent(userId);
+    const safeOrgId = orgId ? sanitizePathComponent(orgId) : '_no_org';
+
+    if (backend === 'minio') {
+      const key = `users/${safeOrgId}/${safeUserId}/artifacts/${artifactId}.${extension}`;
+      return this.writeMinioRaw(key, Buffer.from(contentText, 'utf8'), 'text/plain; charset=utf-8');
+    }
+
+    const dirPath = join(this.config.local_root, 'users', safeOrgId, safeUserId, 'artifacts');
+    await mkdir(dirPath, { recursive: true });
+    const filePath = join(dirPath, `${artifactId}.${extension}`);
+    await writeFile(filePath, contentText, 'utf8');
+    return {
+      backend: 'localfs',
+      storage_ref: filePath,
+      storage_path: `users/${safeOrgId}/${safeUserId}/artifacts/${artifactId}.${extension}`,
+    };
+  }
+
+  // ── staging: temp pre-ingestion area ──
+  async storeStaging(sessionId: string, fileName: string, buffer: Buffer): Promise<string> {
+    const dirPath = join(this.config.local_root, 'staging', sanitizePathComponent(sessionId));
+    await mkdir(dirPath, { recursive: true });
+    const filePath = join(dirPath, sanitizePathComponent(fileName));
+    await writeFile(filePath, buffer);
+    return filePath;
+  }
+
+  async readStaging(sessionId: string, fileName: string): Promise<Buffer> {
+    const filePath = join(this.config.local_root, 'staging', sanitizePathComponent(sessionId), sanitizePathComponent(fileName));
+    return readFile(filePath);
+  }
+
+  async cleanupStaging(sessionId: string): Promise<void> {
+    const dirPath = join(this.config.local_root, 'staging', sanitizePathComponent(sessionId));
+    try { await rm(dirPath, { recursive: true, force: true }); } catch { /* ignore */ }
+  }
+
+  // ─── private helpers ───
 
   private createMinioClient(): S3Client | null {
     if (!this.config.endpoint || !this.config.access_key || !this.config.secret_key) {
@@ -120,76 +226,68 @@ export class ArtifactStorage {
   }
 
   private async writeLocal(artifactId: string, contentText: string, orgId?: string): Promise<ArtifactWriteResult> {
-    const orgPrefix = orgId ? orgId.replace(/[^a-zA-Z0-9_-]/g, '_') : '_shared';
-    const dirPath = join(this.config.local_root, orgPrefix);
+    const orgPrefix = orgId ? sanitizePathComponent(orgId) : '_shared';
+    const dirPath = join(this.config.local_root, 'legacy', orgPrefix);
     await mkdir(dirPath, { recursive: true });
     const filePath = join(dirPath, `${artifactId}.txt`);
     await writeFile(filePath, contentText, 'utf8');
-    return {
-      backend: 'localfs',
-      storage_ref: filePath,
-    };
+    return { backend: 'localfs', storage_ref: filePath, storage_path: `legacy/${orgPrefix}/${artifactId}.txt` };
   }
 
   private async writeMinio(artifactId: string, contentText: string, orgId?: string): Promise<ArtifactWriteResult> {
+    const orgPrefix = orgId ? sanitizePathComponent(orgId) : '_shared';
+    const key = `legacy/${orgPrefix}/${artifactId}.txt`;
+    return this.writeMinioRaw(key, Buffer.from(contentText, 'utf8'), 'text/plain; charset=utf-8');
+  }
+
+  private async writeMinioRaw(key: string, body: Buffer, contentType: string): Promise<ArtifactWriteResult> {
     if (!this.minioClient || !this.config.bucket) {
       throw new Error('minio_not_configured');
     }
-
     await this.ensureMinioBucket();
-
-    const orgPrefix = orgId ? orgId.replace(/[^a-zA-Z0-9_-]/g, '_') : '_shared';
-    const key = `artifacts/${orgPrefix}/${artifactId}.txt`;
     await this.minioClient.send(new PutObjectCommand({
       Bucket: this.config.bucket,
       Key: key,
-      Body: contentText,
-      ContentType: 'text/plain; charset=utf-8',
+      Body: body,
+      ContentType: contentType,
     }));
-
     return {
       backend: 'minio',
       storage_ref: `minio://${this.config.bucket}/${key}`,
+      storage_path: key,
     };
   }
 
   private async readMinio(storageRef: string): Promise<string> {
+    const buf = await this.readMinioBuffer(storageRef);
+    return buf.toString('utf8');
+  }
+
+  private async readMinioBuffer(storageRef: string): Promise<Buffer> {
     if (!this.minioClient) {
       throw new Error('minio_not_configured');
     }
-
     const parsed = this.parseMinioStorageRef(storageRef);
     const response = await this.minioClient.send(new GetObjectCommand({
       Bucket: parsed.bucket,
       Key: parsed.key,
     }));
-
-    return streamToUtf8(response.Body);
+    return streamToBuffer(response.Body);
   }
 
   private async ensureMinioBucket(): Promise<void> {
-    if (this.bucketReady || !this.minioClient || !this.config.bucket) {
-      return;
-    }
-
+    if (this.bucketReady || !this.minioClient || !this.config.bucket) return;
     try {
-      await this.minioClient.send(new HeadBucketCommand({
-        Bucket: this.config.bucket,
-      }));
+      await this.minioClient.send(new HeadBucketCommand({ Bucket: this.config.bucket }));
       this.bucketReady = true;
       return;
-    } catch {
-      // fall through to create the bucket on first write
-    }
-
+    } catch { /* create below */ }
     try {
-      await this.minioClient.send(new CreateBucketCommand({
-        Bucket: this.config.bucket,
-      }));
+      await this.minioClient.send(new CreateBucketCommand({ Bucket: this.config.bucket }));
       this.bucketReady = true;
     } catch (error) {
-      const message = String(error);
-      if (message.includes('BucketAlreadyOwnedByYou') || message.includes('BucketAlreadyExists')) {
+      const msg = String(error);
+      if (msg.includes('BucketAlreadyOwnedByYou') || msg.includes('BucketAlreadyExists')) {
         this.bucketReady = true;
         return;
       }
@@ -199,9 +297,7 @@ export class ArtifactStorage {
 
   private parseMinioStorageRef(storageRef: string): { bucket: string; key: string } {
     const match = /^minio:\/\/([^/]+)\/(.+)$/.exec(storageRef);
-    if (!match) {
-      throw new Error('invalid_minio_storage_ref');
-    }
+    if (!match) throw new Error('invalid_minio_storage_ref');
     return { bucket: match[1], key: match[2] };
   }
 }

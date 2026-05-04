@@ -5,6 +5,7 @@ services:
       context: ./docker/postgres
       dockerfile: Dockerfile
     container_name: ah-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: agent_harness
       POSTGRES_USER: ${POSTGRES_USER:-agent_harness}
@@ -32,6 +33,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ah-redis
+    restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 350mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-redis_changeme}
     volumes:
       - redis_data:/data
@@ -54,6 +56,7 @@ services:
   minio:
     image: minio/minio:RELEASE.2024-11-07T00-52-20Z
     container_name: ah-minio
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
@@ -78,8 +81,9 @@ services:
 
   # LiteLLM Proxy (LLM Gateway)
   litellm:
-    image: ghcr.io/berriai/litellm:main-latest
+    image: ghcr.io/berriai/litellm:v1.61.2
     container_name: ah-litellm
+    restart: unless-stopped
     command: --config /app/config.yaml
     volumes:
       - ./config/litellm_config.yaml:/app/config.yaml:ro
@@ -107,6 +111,7 @@ services:
   signoz-otel-collector:
     image: signoz/signoz-otel-collector:0.88.11
     container_name: ah-signoz-otel
+    restart: unless-stopped
     command:
       - "--config=/etc/otel-collector-config.yaml"
     volumes:
@@ -125,6 +130,7 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.1.5-alpine
     container_name: ah-clickhouse
+    restart: unless-stopped
     volumes:
       - clickhouse_data:/var/lib/clickhouse
     environment:
@@ -146,6 +152,7 @@ services:
   signoz-frontend:
     image: signoz/frontend:0.44.0
     container_name: ah-signoz-frontend
+    restart: unless-stopped
     ports:
       - "3301:3301"
     environment:
@@ -182,6 +189,13 @@ services:
       context: .
       dockerfile: ./apps/gateway-adapter/Dockerfile
     container_name: ah-gateway
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>{process.exit(r.statusCode===200?0:1)})"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
@@ -235,6 +249,13 @@ services:
       context: .
       dockerfile: ./services/workflow/Dockerfile
     container_name: ah-workflow
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>{process.exit(r.statusCode===200?0:1)})"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     environment:
       NODE_ENV: development
       PORT: 3000
@@ -276,6 +297,13 @@ services:
       context: .
       dockerfile: ./services/fact-retrieval/Dockerfile
     container_name: ah-fact-retrieval
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>{process.exit(r.statusCode===200?0:1)})"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
@@ -321,6 +349,13 @@ services:
       context: .
       dockerfile: ./services/executor-gateway/Dockerfile
     container_name: ah-executor
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>{process.exit(r.statusCode===200?0:1)})"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     environment:
       NODE_ENV: development
       PORT: 3000
@@ -366,6 +401,7 @@ services:
       context: .
       dockerfile: ./apps/web-portal/Dockerfile
     container_name: ah-web-portal
+    restart: unless-stopped
     environment:
       NODE_ENV: development
       PORT: 3000
@@ -375,6 +411,7 @@ services:
       EXECUTOR_URL: http://executor-gateway:3000
       FACT_RETRIEVAL_URL: http://fact-retrieval:3000
       SKILL_LIBRARY_URL: http://skill-library:3000
+      HERMES_URL: http://hermes-adapter:3000
       RESOURCE_SCHEDULER_URL: http://resource-scheduler:3000
       MOBILE_APP_URL: http://mobile-app:3000
       LITELLM_URL: http://litellm:4000
@@ -409,6 +446,12 @@ services:
       context: .
       dockerfile: ./services/feishu-longconn/Dockerfile
     container_name: ah-feishu-longconn
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>{process.exit(r.statusCode===200?0:1)})"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     environment:
       NODE_ENV: development
       FEISHU_APP_ID: ${FEISHU_APP_ID:-}
@@ -433,6 +476,12 @@ services:
       context: .
       dockerfile: ./services/hermes-adapter/Dockerfile
     container_name: ah-hermes
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>{process.exit(r.statusCode===200?0:1)})"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     environment:
       NODE_ENV: development
       PORT: 3000
@@ -463,7 +512,7 @@ services:
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.12.13
     container_name: ah-ollama
     profiles:
       - local-llm
@@ -493,6 +542,12 @@ services:
       context: .
       dockerfile: ./services/skill-library/Dockerfile
     container_name: ah-skill-library
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>{process.exit(r.statusCode===200?0:1)})"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     environment:
       NODE_ENV: development
       PORT: 3000
@@ -521,6 +576,12 @@ services:
       context: .
       dockerfile: ./services/resource-scheduler/Dockerfile
     container_name: ah-resource-scheduler
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live',r=>{process.exit(r.statusCode===200?0:1)})"']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     environment:
       NODE_ENV: development
       PORT: 3000
@@ -589,7 +650,7 @@ services:
     restart: unless-stopped
 
   ollama-pull:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.12.13
     container_name: ah-ollama-pull
     profiles:
       - local-llm

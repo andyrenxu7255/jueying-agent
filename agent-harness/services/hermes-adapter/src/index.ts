@@ -88,7 +88,13 @@ function generateId(): string {
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+    const MAX_BODY_SIZE = 10 * 1024 * 1024;
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString();
+      if (body.length > MAX_BODY_SIZE) {
+        reject(new Error('request_body_too_large'));
+      }
+    });
     req.on('end', () => {
       try { resolve(JSON.parse(body || '{}')); }
       catch { resolve({}); }
@@ -502,7 +508,8 @@ const server = createServer(async (req, res) => {
         },
       });
     } catch (error) {
-      sendJson(res, 500, { ok: false, error: 'database_error', detail: String(error) });
+      logger.warn('skill.db_error', 'Database error when fetching skill', { error: String(error) });
+      sendJson(res, 500, { ok: false, error: 'database_error' });
     }
     return;
   }
@@ -546,6 +553,296 @@ const server = createServer(async (req, res) => {
       compression_ratio: totalTokens > 0 ? compressedTokens / totalTokens : 1,
       context: compressed,
     });
+    return;
+  }
+
+  // ============================================================
+  // 梦境模式：记忆分析端点 (Dream Mode - Memory Analysis)
+  // ============================================================
+  if (pathname === '/internal/memory/analyze' && req.method === 'POST') {
+    const body = await readJson(req);
+    const ownerUserId = String(body.owner_user_id || '');
+    const orgId = body.org_id ? String(body.org_id) : null;
+    const dateStr = String(body.date || new Date().toISOString().slice(0, 10));
+    const pool = await getDbPool();
+
+    if (!ownerUserId || !pool) {
+      sendJson(res, 400, { ok: false, error: !ownerUserId ? 'missing_owner_user_id' : 'database_not_available' });
+      return;
+    }
+
+    try {
+      const dayStart = `${dateStr}T00:00:00Z`;
+      const dayEnd = `${dateStr}T23:59:59Z`;
+
+      const memResult = await pool.query(
+        `SELECT id, content_text, summary, memory_type, char_length(content_text) as char_count, confidence, status
+         FROM memory_item
+         WHERE owner_user_id = $1 AND created_at >= $2 AND created_at <= $3 AND status = 'active'
+         ORDER BY created_at DESC LIMIT 500`,
+        [ownerUserId, dayStart, dayEnd]
+      );
+
+      let itemsCompressed = 0;
+      let factsGenerated = 0;
+      const compressionResults: Array<Record<string, unknown>> = [];
+
+      for (const row of memResult.rows) {
+        const charCount = Number(row.char_count || 0);
+        if (charCount >= 4000) {
+          try {
+            const compressResponse = await fetch(`${LITELLM_URL}/v1/chat/completions`, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                ...(LITELLM_MASTER_KEY ? { authorization: `Bearer ${LITELLM_MASTER_KEY}` } : {}),
+              },
+              body: JSON.stringify({
+                model: LITELLM_MODEL,
+                messages: [
+                  { role: 'system', content: '将以下对话内容压缩为不超过2000字的摘要，保留核心决策、关键数据和行动项。只输出摘要。' },
+                  { role: 'user', content: String(row.content_text).substring(0, 8000) },
+                ],
+                max_tokens: 1024,
+                temperature: 0.3,
+              }),
+            });
+
+            if (compressResponse.ok) {
+              const cr = await compressResponse.json() as { choices?: Array<{ message?: { content?: string } }> };
+              const summary = cr.choices?.[0]?.message?.content || '';
+              if (summary) {
+                await pool.query(
+                  `UPDATE memory_item SET content_text = $1, summary = $2,
+                   metadata = metadata || jsonb_build_object('compressed', true, 'original_char_count', $3, 'compressed_char_count', $4, 'compressed_at', $5)
+                   WHERE id = $6`,
+                  [summary, summary, charCount, summary.length, new Date().toISOString(), row.id]
+                );
+                await pool.query(
+                  `INSERT INTO memory_compression_log (memory_item_id, owner_user_id, org_id, compression_method, original_char_count, compressed_char_count, summary_text)
+                   VALUES ($1,$2,$3,'llm_summary',$4,$5,$6)`,
+                  [row.id, ownerUserId, orgId, charCount, summary.length, summary]
+                );
+                itemsCompressed++;
+                compressionResults.push({ memory_id: row.id, original: charCount, compressed: summary.length });
+              }
+            }
+          } catch (compressErr) {
+            logger.warn('dream.compress_failed', 'Memory compression failed for item', { memory_id: row.id, error: String(compressErr) });
+          }
+        }
+      }
+
+      const summaryText = memResult.rows.slice(0, 10).map((r: Record<string, unknown>) =>
+        String(r.summary || r.content_text || '').substring(0, 500)
+      ).join('\n---\n');
+
+      if (summaryText.length > 200) {
+        try {
+          const extractResponse = await fetch(`${LITELLM_URL}/v1/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              ...(LITELLM_MASTER_KEY ? { authorization: `Bearer ${LITELLM_MASTER_KEY}` } : {}),
+            },
+            body: JSON.stringify({
+              model: LITELLM_MODEL,
+              messages: [
+                { role: 'system', content: '分析以下当日记忆片段，提取：1) 关键业务决策 2) 客户洞察 3) 可复用技能模板。以JSON格式输出：{"facts":[{"subject":"","predicate":"","object":"","category":""}],"skills":[{"name":"","description":"","type":""}],"daily_summary":"一句话今日总结"}' },
+                { role: 'user', content: summaryText },
+              ],
+              max_tokens: 1500,
+              temperature: 0.3,
+              response_format: { type: 'json_object' },
+            }),
+          });
+
+          if (extractResponse.ok) {
+            const er = await extractResponse.json() as { choices?: Array<{ message?: { content?: string } }> };
+            const extracted = er.choices?.[0]?.message?.content || '{}';
+            try {
+              const parsed = JSON.parse(extracted);
+              const facts = parsed.facts || [];
+              for (const fact of facts) {
+                await pool.query(
+                  `INSERT INTO fact (owner_user_id, org_id, scope_type, subject_ref, predicate, object_value, status, confidence, metadata)
+                   VALUES ($1,$2,'private',$3,$4,$5,'unconfirmed',0.6,jsonb_build_object('source','dream_extraction','date',$6))`,
+                  [ownerUserId, orgId, String(fact.subject || '').substring(0, 500), String(fact.predicate || '').substring(0, 500), String(fact.object || '').substring(0, 500), dateStr]
+                );
+                factsGenerated++;
+              }
+            } catch (parseErr) {
+              logger.warn('dream.extract_parse_failed', 'Failed to parse extraction result', { error: String(parseErr) });
+            }
+          }
+        } catch (extractErr) {
+          logger.warn('dream.extract_failed', 'Memory extraction failed', { error: String(extractErr) });
+        }
+      }
+
+      const runResult = await pool.query(
+        `INSERT INTO memory_analysis_run (org_id, run_type, scope_user_id, status, started_at, finished_at,
+         items_scanned, items_compressed, facts_generated, result_summary)
+         VALUES ($1,'dream_user',$2,'completed',now(),now(),$3,$4,$5,$6) RETURNING id`,
+        [orgId, ownerUserId, memResult.rows.length, itemsCompressed, factsGenerated,
+         JSON.stringify({ compressions: compressionResults, date: dateStr })]
+      );
+
+      sendJson(res, 200, {
+        ok: true,
+        run_id: runResult.rows[0].id,
+        items_scanned: memResult.rows.length,
+        items_compressed: itemsCompressed,
+        facts_generated: factsGenerated,
+        date: dateStr,
+      });
+    } catch (err) {
+      logger.error('memory.analyze_failed', 'Memory analysis failed', { error: String(err), user: ownerUserId });
+      sendJson(res, 500, { ok: false, error: 'analyze_failed' });
+    }
+    return;
+  }
+
+  if (pathname === '/internal/memory/analyze/org' && req.method === 'POST') {
+    const body = await readJson(req);
+    const orgId = String(body.org_id || '');
+    const pool = await getDbPool();
+
+    if (!orgId || !pool) {
+      sendJson(res, 400, { ok: false, error: !orgId ? 'missing_org_id' : 'database_not_available' });
+      return;
+    }
+
+    try {
+      const factsResult = await pool.query(
+        `SELECT f.id, f.subject_ref, f.predicate, f.object_value, f.confidence, f.owner_user_id, f.org_id, f.metadata
+         FROM fact f
+         WHERE f.metadata->>'source' = 'dream_extraction' AND f.status = 'unconfirmed' AND f.created_at >= now() - interval '2 days'
+         LIMIT 200`
+      );
+
+      let itemsExtracted = 0;
+      for (const fact of factsResult.rows) {
+        const existingCheck = await pool.query(
+          `SELECT id FROM org_memory_summary WHERE org_id = $1 AND title = $2 LIMIT 1`,
+          [orgId, String(fact.subject_ref || '').substring(0, 200)]
+        );
+
+        if (existingCheck.rows.length === 0) {
+          const category = String(fact.metadata?.category || 'other');
+          const validCategories = ['business_rule', 'customer_insight', 'project_decision', 'process_knowledge', 'technical_discovery', 'team_collaboration', 'other'];
+          await pool.query(
+            `INSERT INTO org_memory_summary (org_id, title, content_text, summary, category, source_user_ids, source_fact_ids, confidence, status)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'candidate')`,
+            [
+              orgId,
+              String(fact.subject_ref || '').substring(0, 200),
+              String(fact.object_value || '').substring(0, 5000),
+              String(fact.predicate || '').substring(0, 500),
+              validCategories.includes(category) ? category : 'other',
+              [fact.owner_user_id],
+              [fact.id],
+              Math.min(1, Math.max(0, Number(fact.confidence || 0.5)))
+            ]
+          );
+          itemsExtracted++;
+        }
+      }
+
+      const runResult = await pool.query(
+        `INSERT INTO memory_analysis_run (org_id, run_type, status, started_at, finished_at, items_scanned, items_extracted, result_summary)
+         VALUES ($1,'dream_org','completed',now(),now(),$2,$3,$4) RETURNING id`,
+        [orgId, factsResult.rows.length, itemsExtracted, JSON.stringify({ date: new Date().toISOString().slice(0, 10) })]
+      );
+
+      sendJson(res, 200, {
+        ok: true,
+        run_id: runResult.rows[0].id,
+        items_scanned: factsResult.rows.length,
+        items_extracted: itemsExtracted,
+      });
+    } catch (err) {
+      logger.error('memory.analyze_org_failed', 'Org memory analysis failed', { error: String(err), org_id: orgId });
+      sendJson(res, 500, { ok: false, error: 'analyze_org_failed' });
+    }
+    return;
+  }
+
+  if (pathname === '/internal/memory/summary' && req.method === 'GET') {
+    const pool = await getDbPool();
+    const url = new URL(req.url || '/', `http://localhost:${port}`);
+    const orgId = url.searchParams.get('org_id') || '';
+    const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
+    const offset = Number(url.searchParams.get('offset') || 0);
+
+    if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+
+    try {
+      const conditions: string[] = [];
+      const params: unknown[] = [];
+      let idx = 1;
+      if (orgId) { conditions.push(`org_id = $${idx++}`); params.push(orgId); }
+      conditions.push(`status IN ('active', 'candidate')`);
+
+      const result = await pool.query(
+        `SELECT id, org_id, title, summary, category, confidence, relevance_score, status, created_at, updated_at
+         FROM org_memory_summary WHERE ${conditions.join(' AND ')}
+         ORDER BY updated_at DESC LIMIT $${idx++} OFFSET $${idx++}`,
+        [...params, limit, offset]
+      );
+      sendJson(res, 200, { ok: true, summaries: result.rows, limit, offset });
+    } catch (err) {
+      logger.error('memory.summary_failed', 'Failed to query org memory summary', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'query_failed' });
+    }
+    return;
+  }
+
+  if (pathname === '/internal/memory/analysis-runs' && req.method === 'GET') {
+    const pool = await getDbPool();
+    if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+    try {
+      const result = await pool.query(
+        `SELECT id, org_id, run_type, scope_user_id, status, items_scanned, items_compressed, items_extracted, facts_generated, result_summary, started_at, finished_at, created_at
+         FROM memory_analysis_run ORDER BY created_at DESC LIMIT 50`
+      );
+      sendJson(res, 200, { ok: true, runs: result.rows });
+    } catch (err) {
+      logger.error('memory.runs_failed', 'Failed to query analysis runs', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'query_failed' });
+    }
+    return;
+  }
+
+  if (pathname === '/internal/memory/compression-logs' && req.method === 'GET') {
+    const pool = await getDbPool();
+    if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+    try {
+      const result = await pool.query(
+        `SELECT id, memory_item_id, owner_user_id, org_id, compression_method, original_char_count, compressed_char_count, created_at
+         FROM memory_compression_log ORDER BY created_at DESC LIMIT 50`
+      );
+      sendJson(res, 200, { ok: true, logs: result.rows });
+    } catch (err) {
+      logger.error('memory.compression_logs_failed', 'Failed to query compression logs', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'query_failed' });
+    }
+    return;
+  }
+
+  if (pathname === '/internal/memory/access-log' && req.method === 'GET') {
+    const pool = await getDbPool();
+    if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+    try {
+      const result = await pool.query(
+        `SELECT id, accessor_user_id, target_memory_id, target_type, access_type, access_result, deny_reason, created_at
+         FROM memory_access_log ORDER BY created_at DESC LIMIT 50`
+      );
+      sendJson(res, 200, { ok: true, logs: result.rows });
+    } catch (err) {
+      logger.error('memory.access_log_failed', 'Failed to query access log', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'query_failed' });
+    }
     return;
   }
 

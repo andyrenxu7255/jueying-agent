@@ -1,13 +1,13 @@
 # JueYing (绝影) — 交接文档
 
-> **更新时间**: 2026-05-03（第七轮：后续建议修复进行中）
-> **当前状态**: ⚠️ 部分修复完成，编译验证中（少量TypeScript类型错误待处理）
+> **更新时间**: 2026-05-04（第十一轮：文件存储机制全面调试 + 6项Bug修复 + 7份文档一致性审计）
+> **当前状态**: ✅ 全链路验证通过，TypeScript编译零错误，文件存储功能调试完成，17个Docker容器正常运行
 
 ---
 
 ## 零、快速接续（新对话可直接复制此句）
 
-> 请阅读 `D:\teamclaw\agent-harness\HANDOFF-SESSION.md` 了解当前状态，然后阅读 `ARCHITECTURE.md` 了解系统架构。产品说明见 `PRODUCT.md`，运维手册见 `OPS.md`，开源协议见 `LICENSES.md`。系统当前状态：18个容器运行中，安全修复完成，数据库索引已添加，contracts包已创建，全局状态封装进行中。先运行 `npx tsc --noEmit` 检查当前编译状态，修复剩余TypeScript类型错误。
+> 请阅读 `D:\teamclaw\agent-harness\HANDOFF-SESSION.md` 了解当前状态。系统当前状态：17个容器运行中，4轮审计共修复 85+ 个问题。Agent工作区/soul.md机制已实现，系统提示词自动注入用户人格与工作区状态。Docker 全量 restart:unless-stopped + healthcheck 覆盖。先运行 `tsc --build --force` 检查编译状态。
 
 ---
 
@@ -35,6 +35,9 @@
 | Resource Scheduler | ✅ 配额检查/巡检 |
 | Mobile App | ✅ 推送通知 |
 | ClawHub 技能 | ✅ 14 项免费办公技能已预制（镜像站 mirror-cn.clawhub.com） |
+| 梦境模式 | ✅ 记忆分层管理 + 技能发现生态已实现 |
+| 梦境调度器 | ✅ 每 2 分钟检查，按配置触发分析/审核 |
+| 梦境 UI | ✅ 3 个管理页面（记忆分析/技能发现/配置） |
 
 ### 已有用户
 
@@ -52,21 +55,20 @@
 
 | 技能 | 类型 | 用途 |
 |------|------|------|
-| Document Pro | document | PDF/Word/PPT/Excel 读取解析 |
-| Gog 工作区集成 | productivity | Google Workspace 六合一 |
-| Summarize 内容总结 | content | 网页/PDF/图片/视频总结 |
-| CalDAV 日历同步 | productivity | 多平台日历统一管理 |
-| Multi Search 聚合搜索 | search | 17 个搜索引擎聚合 |
-| Weather 天气查询 | utility | 实时天气与预报 |
-| Trello 看板管理 | productivity | 项目管理可视化 |
-| Slack 消息协作 | communication | 团队沟通一体化 |
-| Agent Browser 网页自动化 | automation | 无头浏览器自动化 |
-| Ontology 知识图谱 | knowledge | 结构化知识图谱构建 |
-| Skill Vetter 安全审查 | security | 技能权限安全检查 |
-| self-improving-agent | learning | 自我持续优化 |
-| Proactive Agent 主动助手 | assistant | 预判需求主动提醒 |
-| Answer Overflow 技术问答 | knowledge | 开发者社区搜索 |
-| Mcporter MCP集成 | integration | MCP 服务器工具调用 |
+| Document Pro | document | PDF/Word/PPT/Excel/CSV/Markdown 全格式读取解析 |
+| Document Generator | document | AI 驱动的 Word/PPT/Excel 报告自动生成 |
+| PDF Converter | document | PDF ↔ Word/Excel 格式互转、合并拆分压缩 |
+| Multi Search 聚合搜索 | search | DuckDuckGo + Bing + 百度 + 搜狗 多渠道聚合 |
+| Deep Search 深度搜索 | search | 多轮递进式研究搜索，自动拆解子问题 |
+| 实时资讯 | search | RSS + 微博/知乎/36Kr 热点聚合推送 |
+| Summarize 内容总结 | content | 网页/PDF/图片智能内容提炼 |
+| WeCom File Bridge | communication | 企业微信文件收发、文档自动解析导入知识库 |
+| Weather 免费天气 | utility | 公开气象数据实时查询，七天预报 |
+| Agent Browser 网页自动化 | automation | 无头浏览器自动化、数据采集 |
+| Ontology 知识图谱 | knowledge | 自动提取实体/关系，构建 AGE 图数据库图谱 |
+| Memory Compress 记忆归档 | knowledge | 对话对象化存储，自动构建对象关系图谱 |
+| Skill Vetter 安全审查 | security | 技能安装前权限与风险审查 |
+| self-improving-agent | learning | 经验记录留存，自我持续优化 |
 
 ---
 
@@ -158,6 +160,27 @@
 **本轮新增：10 项修复** ✅
 
 **总计：45 个问题全部修复** ✅
+
+### 第七轮（梦境模式实现 — AH-20）— 10 项新增功能
+
+本轮实现故事线 AH-20「梦境模式：记忆分层管理 + 技能发现生态」，新增 9 张数据库表、14 个 API 端点、3 个 Web Portal 页面和自动调度器。
+
+| # | 新增功能 | 实现位置 |
+|---|----------|----------|
+| 1 | 数据库迁移 021_dream_mode.sql（9 张新表） | `db/migrations/021_dream_mode.sql` |
+| 2 | 个人梦境分析端点 `POST /internal/memory/analyze` | `services/hermes-adapter/src/index.ts` |
+| 3 | 组织级记忆整合端点 `POST /internal/memory/analyze/org` | `services/hermes-adapter/src/index.ts` |
+| 4 | 记忆汇总/运行历史/压缩日志/访问日志查询（4 个 GET 端点） | `services/hermes-adapter/src/index.ts` |
+| 5 | 单技能四维审核端点 `POST /internal/skills/audit` | `services/skill-library/src/index.ts` |
+| 6 | 批量技能审核端点 `POST /internal/skills/audit/batch` | `services/skill-library/src/index.ts` |
+| 7 | 技能提升/注册表/审核记录/使用统计/场景评估（5 个端点） | `services/skill-library/src/index.ts` |
+| 8 | 梦境模式 API 代理（14 个端点） | `apps/web-portal/src/index.ts` |
+| 9 | 梦境模式自动调度器（每 2 分钟检查） | `apps/web-portal/src/index.ts` |
+| 10 | 梦境模式 UI 页面（3 个：记忆分析/技能发现/配置） | `apps/web-portal/static/app.js` |
+
+**本轮新增：10 项功能** ✅
+
+**总计：45 个问题修复 + 10 项新功能** ✅
 
 ---
 

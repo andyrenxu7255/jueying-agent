@@ -1,6 +1,6 @@
 {
-  "version": "v1.1",
-  "description": "Agent Harness V1 context dependency graph for anti-context-rot loading",
+  "version": "v1.3",
+  "description": "Agent Harness V1 context dependency graph for anti-context-rot loading - Updated 2026-05-04 with workspace/soul mechanism",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",

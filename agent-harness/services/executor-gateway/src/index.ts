@@ -317,7 +317,7 @@ async function autoExecuteWorkflowStages(workflowRef: string, runRef: string): P
       const result = await executor.execute({
         workflow_instance_id: workflowRef,
         workflow_stage_id: stageId,
-        stage: stage as never,
+        stage: stage as unknown as import('@agent-harness/contracts').Stage,
         user_goal: userGoal,
         policy_snapshot_hash: policySnapshotHash,
         context: { owner_user_id: workflow.owner_user_id, run_ref: runRef }

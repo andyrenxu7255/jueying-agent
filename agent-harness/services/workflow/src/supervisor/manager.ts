@@ -398,6 +398,10 @@ export class WorkflowSupervisor {
     const supervised = this.supervisedWorkflows.get(workflowInstanceRef);
     if (!supervised) return;
 
+    if (supervised.progress.status === 'paused' || supervised.progress.status === 'waiting_user') {
+      return;
+    }
+
     const lastHeartbeatMs = new Date(supervised.heartbeat_status.last_heartbeat_at).getTime();
     const elapsedSinceLastHeartbeat = (Date.now() - lastHeartbeatMs) / 1000;
     const missedHeartbeats = Math.floor(elapsedSinceLastHeartbeat / supervised.config.heartbeat_interval_sec);
