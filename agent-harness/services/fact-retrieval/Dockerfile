@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 COPY libs ./libs
 COPY services/fact-retrieval ./services/fact-retrieval
-RUN npm ci
+RUN npm install
 RUN npm run build --workspace @agent-harness/contracts \
   && npm run build --workspace @agent-harness/shared \
   && npm run build --workspace @agent-harness/audit

@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 COPY libs ./libs
 COPY services/skill-library ./services/skill-library
-RUN npm ci
+RUN npm install
 RUN npm run build --workspace @agent-harness/contracts \
   && npm run build --workspace @agent-harness/shared
 RUN npx tsc --project services/skill-library/tsconfig.json

@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 COPY libs ./libs
 COPY apps/web-portal ./apps/web-portal
-RUN npm ci
+RUN npm install
 RUN npm run build --workspace @agent-harness/shared \
   && npm run build --workspace @agent-harness/audit
 RUN npx tsc --project apps/web-portal/tsconfig.json

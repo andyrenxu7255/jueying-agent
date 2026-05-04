@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 COPY libs ./libs
 COPY services/executor-gateway ./services/executor-gateway
-RUN npm ci
+RUN npm install
 RUN npm run build --workspace @agent-harness/contracts \
   && npm run build --workspace @agent-harness/shared \
   && npm run build --workspace @agent-harness/audit

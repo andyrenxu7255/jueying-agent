@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 COPY libs ./libs
 COPY services/feishu-longconn ./services/feishu-longconn
-RUN npm ci
+RUN npm install
 RUN npm run build --workspace @agent-harness/shared
 RUN npm run build --workspace @agent-harness/feishu-longconn
 COPY config ./config

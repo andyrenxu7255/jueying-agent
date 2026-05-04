@@ -4,7 +4,7 @@ COPY package.json tsconfig.json ./
 COPY libs ./libs
 COPY types ./types
 COPY apps/gateway-adapter ./apps/gateway-adapter
-RUN npm ci
+RUN npm install
 RUN npm run build --workspace @agent-harness/contracts \
   && npm run build --workspace @agent-harness/shared \
   && npm run build --workspace @agent-harness/policy
