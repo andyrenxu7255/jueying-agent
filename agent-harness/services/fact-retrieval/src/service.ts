@@ -740,7 +740,7 @@ class FactRetrievalService {
 
   private retrievalCache = new Map<string, { value: unknown; expiresAt: number }>();
   private cacheCleanupInterval: NodeJS.Timeout | null = null;
-  private redisCacheClient: { get(key: string): Promise<string | null>; set(key: string, value: string, mode?: string, duration?: number): Promise<string | null>; del(key: string): Promise<number> } | null = null;
+  private redisCacheClient: { get(key: string): Promise<string | null>; set(key: string, value: string, options?: { EX?: number }): Promise<string | null>; del(key: string): Promise<number> } | null = null;
 
   private async initRedisCache(): Promise<void> {
     const redisUrl = process.env.REDIS_URL;
@@ -802,7 +802,7 @@ class FactRetrievalService {
       await this.ensureRedisCache();
       const ttl = Number(process.env.RETRIEVAL_CACHE_TTL_SEC || 300);
       if (this.redisCacheClient) {
-        await this.redisCacheClient.set(`ah:retrieval:${key}`, JSON.stringify(value), 'EX', ttl);
+        await this.redisCacheClient.set(`ah:retrieval:${key}`, JSON.stringify(value), { EX: ttl });
       }
       this.retrievalCache.set(key, { value, expiresAt: Date.now() + ttl * 1000 });
 
