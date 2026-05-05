@@ -122,7 +122,7 @@ async function checkAuth() {
 }
 
 function renderLogin() {
-  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><h1>JueYing</h1><p>Agent Harness 管理门户</p><div class="form-group"><label>用户名</label><input type="text" id="login-user" placeholder="请输入用户名" autofocus></div><div class="form-group"><label>密码</label><input type="password" id="login-pass" placeholder="请输入密码"></div><p class="hint-text" style="text-align:center;margin-bottom:16px">首次登录默认账号: admin / admin</p><button class="btn btn-primary" style="width:100%" onclick="doLogin()">登 录</button></div></div>';
+  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><h1>JueYing</h1><p>Agent Harness 管理门户</p><div class="form-group"><label>用户名</label><input type="text" id="login-user" placeholder="请输入用户名" autofocus></div><div class="form-group"><label>密码</label><input type="password" id="login-pass" placeholder="请输入密码"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">登 录</button></div></div>';
   document.getElementById('login-user').addEventListener('keydown', function(e) { if (e.key === 'Enter') document.getElementById('login-pass').focus(); });
   document.getElementById('login-pass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
 }
@@ -365,7 +365,7 @@ function renderGuideArch() {
     '<div class="arch-arrow">▼</div>' +
 
     '<div class="arch-layer"><span class="arch-layer-title">网关层 — 消息适配 · 身份解析 · 意图路由</span><div class="arch-nodes">' +
-    '<div class="arch-node success"><div class="node-icon">🚪</div><div class="node-name">Gateway Adapter</div><div class="node-desc">4路意图分类 + 身份绑定</div></div>' +
+    '<div class="arch-node success"><div class="node-icon">🚪</div><div class="node-name">Gateway Adapter</div><div class="node-desc">5路意图分类 + 身份绑定</div></div>' +
     '</div></div>' +
 
     '<div class="arch-arrow">▼</div>' +
@@ -460,75 +460,244 @@ function renderGuideCapabilities() {
 }
 
 function renderGuideStories() {
-  return '<div class="card"><h3>场景故事线</h3>' +
+  return '<div class="card"><h3>场景故事线（共 20 条）</h3>' +
     '<p class="section-desc">以下故事线展示了不同角色在绝影平台上的典型使用场景，帮助您理解系统的实际应用方式。</p></div>' +
 
-    '<div class="story-card"><h4>📖 故事一：新员工快速上手</h4>' +
-    '<div class="story-role">角色：普通用户 (User)</div>' +
-    '<div class="story-body">' +
-    '小王是刚入职的销售，需要了解公司产品信息。他在<strong>飞书中直接对话绝影</strong>：' +
-    '<br><br>"帮我查一下 A 产品的最新定价方案"' +
-    '<br>→ 系统识别为 <strong>Quick Lookup</strong>，从知识库检索并秒回结果。' +
-    '<br><br>"帮我分析一下 Q3 华东区销售数据，生成对比报告"' +
-    '<br>→ 系统识别为 <strong>Task</strong>，自动创建工作流：数据检索 → 分析计算 → 生成报告，完成后推送结果。' +
-    '<br><br>小王无需学习任何操作，<strong>像聊天一样完成工作</strong>。' +
-    '</div>' +
-    '<div class="story-flow"><span class="flow-step">飞书对话</span><span class="flow-arrow">→</span><span class="flow-step">意图分类</span><span class="flow-arrow">→</span><span class="flow-step">快速查询/长任务</span><span class="flow-arrow">→</span><span class="flow-step">获取结果</span></div></div>' +
-
-    '<div class="story-card"><h4>📖 故事二：知识沉淀与传承</h4>' +
-    '<div class="story-role">角色：普通用户 + 管理员</div>' +
-    '<div class="story-body">' +
-    '销售老李在客户拜访后，在飞书中对绝影说：' +
-    '<br><br>"记录一条知识：XX 客户计划下季度采购 500 套，对接人是张经理"' +
-    '<br>→ 系统识别为 <strong>Knowledge Submit</strong>，写入待审核池。' +
-    '<br><br>管理员在 <strong>Web Portal 审批台</strong> 审核通过后，知识正式入库。' +
-    '<br>此后任何同事查询该客户信息，系统都能从知识库中检索到。' +
-    '<br><br>每晚系统自动运行<strong>"梦境"机制</strong>，从当日对话中提取潜在知识，管理员审核后入库，实现<strong>知识的自动沉淀</strong>。' +
-    '</div>' +
-    '<div class="story-flow"><span class="flow-step">员工提交知识</span><span class="flow-arrow">→</span><span class="flow-step">待审核池</span><span class="flow-arrow">→</span><span class="flow-step">管理员审核</span><span class="flow-arrow">→</span><span class="flow-step">知识入库</span><span class="flow-arrow">→</span><span class="flow-step">全员可检索</span></div></div>' +
-
-    '<div class="story-card"><h4>📖 故事三：管理员下发工作要求</h4>' +
-    '<div class="story-role">角色：管理员 (Admin)</div>' +
-    '<div class="story-body">' +
-    '部门经理在 <strong>Web Portal 任务分发</strong> 页面创建工作要求：' +
-    '<br><br>"请各位销售本周五前提交月度客户拜访报告"' +
-    '<br>→ 系统将工作要求<strong>推送到每位销售</strong>的飞书/企微。' +
-    '<br>→ 销售在 IM 中直接回复，系统自动收集和整理。' +
-    '<br>→ 经理在 Portal 中查看完成进度统计。' +
-    '<br><br>支持 <strong>Cron 定时调度</strong>，可设置周期性工作要求自动下发。' +
-    '</div>' +
-    '<div class="story-flow"><span class="flow-step">创建工作要求</span><span class="flow-arrow">→</span><span class="flow-step">推送给成员</span><span class="flow-arrow">→</span><span class="flow-step">成员响应</span><span class="flow-arrow">→</span><span class="flow-step">进度统计</span></div></div>' +
-
-    '<div class="story-card"><h4>📖 故事四：技能复用与团队赋能</h4>' +
-    '<div class="story-role">角色：管理员 (Admin)</div>' +
-    '<div class="story-body">' +
-    '分析师小张创建了一个"竞品分析报告"工作流，执行效果很好。' +
-    '<br>→ 系统自动将成功工作流<strong>提取为技能候选</strong>。' +
-    '<br>→ 管理员在 Portal 审核后发布到<strong>组织技能库</strong>。' +
-    '<br>→ 其他同事遇到类似需求时，可直接复用该技能，<strong>无需从零开始</strong>。' +
-    '<br><br>管理员还可以从<strong>镜像站搜索安装</strong>预制技能（如 Document Pro、Deep Search），快速扩展团队能力。' +
-    '</div>' +
-    '<div class="story-flow"><span class="flow-step">成功工作流</span><span class="flow-arrow">→</span><span class="flow-step">提取技能</span><span class="flow-arrow">→</span><span class="flow-step">审核发布</span><span class="flow-arrow">→</span><span class="flow-step">组织技能库</span><span class="flow-arrow">→</span><span class="flow-step">全员复用</span></div></div>' +
-
-    '<div class="story-card"><h4>📖 故事五：平台初始化部署</h4>' +
-    '<div class="story-role">角色：平台管理员 (Admin)</div>' +
+    '<div class="story-card"><h4>📖 故事一：平台初始化配置</h4>' +
+    '<div class="story-role">角色：管理员 (Admin) · Day 1</div>' +
     '<div class="story-body">' +
     'IT 管理员首次部署绝影平台，通过 <strong>6 步设置向导</strong>完成初始化：' +
     '<br><br><strong>Step 1</strong> 数据库初始化 → <strong>Step 2</strong> 创建组织 → <strong>Step 3</strong> 创建管理员账号 → <strong>Step 4</strong> 配置飞书/企微渠道 → <strong>Step 5</strong> 配置 LLM 模型 → <strong>Step 6</strong> 配置向量模型' +
-    '<br><br>完成后，员工即可在飞书/企微中直接与绝影对话。管理员在 <strong>Web Portal</strong> 中管理系统配置、用户权限、知识审核和资源监控。' +
+    '<br><br>完成后，员工即可在飞书/企微中直接与绝影对话。' +
     '</div>' +
-    '<div class="story-flow"><span class="flow-step">数据库</span><span class="flow-arrow">→</span><span class="flow-step">组织</span><span class="flow-arrow">→</span><span class="flow-step">管理员</span><span class="flow-arrow">→</span><span class="flow-step">渠道</span><span class="flow-arrow">→</span><span class="flow-step">LLM</span><span class="flow-arrow">→</span><span class="flow-step">向量模型</span></div></div>' +
+    '<div class="story-flow"><span class="flow-step">docker compose up</span><span class="flow-arrow">→</span><span class="flow-step">设置向导</span><span class="flow-arrow">→</span><span class="flow-step">组织创建</span><span class="flow-arrow">→</span><span class="flow-step">渠道配置</span><span class="flow-arrow">→</span><span class="flow-step">模型激活</span></div></div>' +
 
-    '<div class="story-card"><h4>📖 故事六：每日自动运转</h4>' +
+    '<div class="story-card"><h4>📖 故事二：组织与用户开通</h4>' +
+    '<div class="story-role">角色：管理员 (Admin)</div>' +
+    '<div class="story-body">' +
+    '管理员在 Web Portal 中创建公司/部门组织架构，批量创建子用户并分配角色（user/admin）。' +
+    '<br><br>系统自动为每个组织创建 <strong>Policy Snapshot</strong>（权限策略快照），控制数据访问范围和组织隔离。' +
+    '<br>飞书/企微用户首次对话时自动绑定 <strong>channel_identity</strong>，建立渠道身份映射。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">创建组织</span><span class="flow-arrow">→</span><span class="flow-step">批量建用户</span><span class="flow-arrow">→</span><span class="flow-step">角色分配</span><span class="flow-arrow">→</span><span class="flow-step">Policy Snapshot</span><span class="flow-arrow">→</span><span class="flow-step">渠道绑定</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事三：配置 LLM 模型</h4>' +
+    '<div class="story-role">角色：管理员 (Admin) · 配置页</div>' +
+    '<div class="story-body">' +
+    '管理员在 <strong>LiteLLM Proxy</strong> 中配置大语言模型（GPT-4o / Claude / DeepSeek / 本地 Ollama 等）。' +
+    '<br><br>通过 Web Portal 的 <strong>LLM 模型管理页</strong>激活模型、调整顺序、切换默认 Provider。' +
+    '<br>支持多模型 <strong>降级策略</strong>（主模型不可用时自动切换备用模型）。' +
+    '<br>系统使用 LiteLLM 统一代理，各服务（Planner / Executor / Chat）无需关心底层 Provider。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">配置 Provider</span><span class="flow-arrow">→</span><span class="flow-step">激活模型</span><span class="flow-arrow">→</span><span class="flow-step">排序优先级</span><span class="flow-arrow">→</span><span class="flow-step">降级策略</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事四：配置向量模型 (Embedding)</h4>' +
+    '<div class="story-role">角色：管理员 (Admin)</div>' +
+    '<div class="story-body">' +
+    '管理员配置向量嵌入模型：<strong>OpenAI text-embedding-3-small</strong> 或 <strong>Ollama nomic-embed-text</strong>。' +
+    '<br><br>该模型用于：' +
+    '<br>• 知识文档的分块向量化存储到 <strong>pgvector 索引</strong>' +
+    '<br>• 检索时计算用户查询与文档向量的余弦相似度' +
+    '<br>• 记忆系统（memory_item）的语义 embedding' +
+    '<br><br>配置完成后，所有知识检索和语义匹配即开始工作。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">选择模型</span><span class="flow-arrow">→</span><span class="flow-step">生成向量</span><span class="flow-arrow">→</span><span class="flow-step">pgvector 索引</span><span class="flow-arrow">→</span><span class="flow-step">语义检索</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事五：配置 Rerank 模型</h4>' +
+    '<div class="story-role">角色：管理员 (Admin)</div>' +
+    '<div class="story-body">' +
+    '配置 Rerank 重排序模型（Cohere / Jina Reranker），对向量检索的 top-k 结果进行 <strong>精排</strong>。' +
+    '<br><br>工作流程：' +
+    '<br><strong>向量粗排</strong>（pgvector 余弦相似度 top-50）→ <strong>Rerank 精排</strong>（交叉编码器打分 top-5）→ 返回给 LLM' +
+    '<br><br>Rerank 模型显著提升了检索结果的<strong>精准度和相关性</strong>，是可选的增强配置。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">向量粗排</span><span class="flow-arrow">→</span><span class="flow-step">Rerank 精排</span><span class="flow-arrow">→</span><span class="flow-step">Top-5</span><span class="flow-arrow">→</span><span class="flow-step">LLM 整合</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事六：统一知识管理</h4>' +
+    '<div class="story-role">角色：管理员 + 普通用户</div>' +
+    '<div class="story-body">' +
+    '管理员批量导入企业知识文档（Markdown / PDF / Word / TXT）：' +
+    '<br><br>• 系统自动 <strong>chunk 分块</strong>（document_chunk 表）' +
+    '<br>• 生成 <strong>向量 embedding</strong>（1536 维 pgvector）' +
+    '<br>• 创建 <strong>全文搜索索引</strong>（pg_trgm + tsvector）' +
+    '<br>• 进入<strong>待审核池</strong>，管理员在审批台审核通过后入库' +
+    '<br><br>支持<strong>共享知识库</strong>模式，跨组织的文档可被授权组织检索。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">导入文档</span><span class="flow-arrow">→</span><span class="flow-step">分块+向量化</span><span class="flow-arrow">→</span><span class="flow-step">审核</span><span class="flow-arrow">→</span><span class="flow-step">入库</span><span class="flow-arrow">→</span><span class="flow-step">检索可用</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事七：子用户日常对话</h4>' +
+    '<div class="story-role">角色：普通用户 (User) · Day 2</div>' +
+    '<div class="story-body">' +
+    '小王是刚入职的销售，需要了解公司产品信息。他在<strong>飞书中直接对话绝影</strong>：' +
+    '<br><br>"帮我查一下 A 产品的最新定价方案"' +
+    '<br>→ 系统识别为 <strong>Chat</strong>，检索组织知识 + 对话记忆，即时回复。' +
+    '<br><br>系统自动加载用户画像和上下文：身份信息、隶属组织、历史对话摘要、权限范围。' +
+    '<br>小王无需学习任何操作，<strong>像聊天一样完成工作</strong>。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">IM 对话</span><span class="flow-arrow">→</span><span class="flow-step">身份解析</span><span class="flow-arrow">→</span><span class="flow-step">记忆召回</span><span class="flow-arrow">→</span><span class="flow-step">LLM 回复</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事八：长任务工作流生成与执行</h4>' +
+    '<div class="story-role">角色：普通用户 (User) · Day 3</div>' +
+    '<div class="story-body">' +
+    '小王发起复杂任务："帮我分析 Q3 华东区销售数据，生成对比报告和优化建议"' +
+    '<br><br>系统识别为 <strong>Task</strong>，自动执行：' +
+    '<br><strong>① Planner 规划</strong> — LLM 拆解为 4~6 个阶段（数据检索 → 清洗分析 → 报告生成 → 验证 → 归档）' +
+    '<br><strong>② Stage 调度</strong> — Workflow Machine 按序执行每个阶段' +
+    '<br><strong>③ Executor 执行</strong> — 各阶段分派不同执行器（通用/代码/检索感知）' +
+    '<br><strong>④ 轮询推送</strong> — 每 10 秒检查进度，最多 12 分钟，完成后推送到飞书' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">Task 意图</span><span class="flow-arrow">→</span><span class="flow-step">Planner 规划</span><span class="flow-arrow">→</span><span class="flow-step">Stage 调度</span><span class="flow-arrow">→</span><span class="flow-step">Executor 执行</span><span class="flow-arrow">→</span><span class="flow-step">推送结果</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事九：工作流执行与汇报</h4>' +
     '<div class="story-role">角色：系统自动</div>' +
     '<div class="story-body">' +
-    '每天夜间，绝影自动执行<strong>"梦境"流程</strong>：' +
-    '<br><br><strong>第一步：收集</strong> — 汇总当日所有用户的对话记忆。' +
-    '<strong>第二步：压缩</strong> — LLM 将冗长对话压缩为精炼摘要（4000字符阈值）。' +
-    '<strong>第三步：抽取</strong> — 从摘要中提取结构化知识（实体、关系、事实）。' +
-    '<br><br>提取的知识进入审核池，管理员审核后正式入库。同时，系统自动从成功工作流中提取技能候选，持续<strong>丰富组织的知识资产和技能库</strong>。' +
+    '工作流的每个 Stage 由 <strong>7 种专用 Executor</strong> 之一执行：' +
+    '<br><br><strong>generic-executor</strong> — LLM 通用文本生成/分析' +
+    '<br><strong>code-executor</strong> — 沙箱代码运行（Python/JS）' +
+    '<br><strong>retrieval-aware-executor</strong> — 先检索再生成（RAG 模式）' +
+    '<br><strong>verification-executor</strong> — 结果验证（规则校验/测试判断）' +
+    '<br><strong>repair-executor</strong> — 失败修复（分析失败原因 + 生成修补方案）' +
+    '<br><strong>approval-executor</strong> — 人工审批节点（等待用户确认）' +
+    '<br><br>每阶段完成后通过 <strong>Checkpoint</strong> 留痕，支持断点续传。Artifact 附件（报告/图表）存入 MinIO。' +
     '</div>' +
-    '<div class="story-flow"><span class="flow-step">对话记忆</span><span class="flow-arrow">→</span><span class="flow-step">压缩摘要</span><span class="flow-arrow">→</span><span class="flow-step">知识抽取</span><span class="flow-arrow">→</span><span class="flow-step">管理员审核</span><span class="flow-arrow">→</span><span class="flow-step">知识/技能入库</span></div></div>';
+    '<div class="story-flow"><span class="flow-step">Schedule Stage</span><span class="flow-arrow">→</span><span class="flow-step">Execute</span><span class="flow-arrow">→</span><span class="flow-step">Checkpoint</span><span class="flow-arrow">→</span><span class="flow-step">Next Stage</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十：管理员下发工作要求</h4>' +
+    '<div class="story-role">角色：管理员 (Admin)</div>' +
+    '<div class="story-body">' +
+    '部门经理在 Web Portal <strong>任务分发</strong>页面创建工作要求（task_dispatch）：' +
+    '<br><br>"请各位销售本周五前提交月度客户拜访报告"' +
+    '<br>→ 系统将任务 <strong>推送到每位销售</strong>的飞书/企微。' +
+    '<br>→ 销售在 IM 中直接回复，系统自动收集归档。' +
+    '<br>→ 经理在 Portal 中实时查看 <strong>完成进度统计</strong>。' +
+    '<br><br>支持指定 <strong>截止日期</strong>和 <strong>分配角色</strong>，未完成自动提醒。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">创建任务</span><span class="flow-arrow">→</span><span class="flow-step">推送成员</span><span class="flow-arrow">→</span><span class="flow-step">IM 提交</span><span class="flow-arrow">→</span><span class="flow-step">进度统计</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十一：审计与监控</h4>' +
+    '<div class="story-role">角色：管理员 (Admin)</div>' +
+    '<div class="story-body">' +
+    '系统对所有关键操作进行 <strong>全量审计</strong>：' +
+    '<br><br><strong>audit_event</strong> 表记录每次 API 调用、知识访问、工作流变更、权限操作。' +
+    '<br><strong>retrieval_trace</strong> 表追踪每次知识检索的向量匹配和 Rerank 过程。' +
+    '<br><strong>SigNoz + OpenTelemetry</strong> 分布式追踪全链路调用耗时。' +
+    '<br><strong>service_status_event</strong> 记录所有服务健康状态变化历史。' +
+    '<br><br>管理员在 Portal 审计日志页面按用户/操作/时间/组织筛选查询。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">操作触发</span><span class="flow-arrow">→</span><span class="flow-step">audit_event</span><span class="flow-arrow">→</span><span class="flow-step">OTel 追踪</span><span class="flow-arrow">→</span><span class="flow-step">日志查询</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十二：PG 全量存储与组织隔离</h4>' +
+    '<div class="story-role">角色：系统架构 · Day 4</div>' +
+    '<div class="story-body">' +
+    '系统使用 <strong>47 张 PostgreSQL 表</strong>承载全部业务数据，分类如下：' +
+    '<br><br><strong>业务表</strong> — 用户/组织/工作流/策略/技能（12 张）' +
+    '<br><strong>检索表</strong> — 实体/关系/事实/文档/向量/记忆（18 张）' +
+    '<br><strong>图投影</strong> — AGE vertex/edge + projection_event（1+ 张）' +
+    '<br><strong>治理表</strong> — 审计/配额/技能评估/梦境（14 张）' +
+    '<br><br>所有表均含 <strong>org_id 字段</strong>，通过 Row-Level Security 和 Policy Snapshot 实现组织级数据隔离。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">PG Schema</span><span class="flow-arrow">→</span><span class="flow-step">org_id 隔离</span><span class="flow-arrow">→</span><span class="flow-step">pgvector</span><span class="flow-arrow">→</span><span class="flow-step">AGE Graph</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十三：定时知识抽取与审核</h4>' +
+    '<div class="story-role">角色：系统自动 + 管理员</div>' +
+    '<div class="story-body">' +
+    'web-portal 内置 <strong>cron 定时任务</strong>：' +
+    '<br><br>• 每日从工作流执行记录中抽取 <strong>结构化知识点</strong>' +
+    '<br>• 从对话记忆（hermes_memory）中提取可归档的内容' +
+    '<br>• 提交到 <strong>knowledge_review</strong> 审核池' +
+    '<br>• 管理员审核后正式入库检索索引' +
+    '<br><br>抽取的知识包括：实体（客户/产品/人员）、关系（负责/包含/属于）、事实（报价/日期/决策）。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">定时触发</span><span class="flow-arrow">→</span><span class="flow-step">知识抽取</span><span class="flow-arrow">→</span><span class="flow-step">审核池</span><span class="flow-arrow">→</span><span class="flow-step">管理员审核</span><span class="flow-arrow">→</span><span class="flow-step">正式入库</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十四：AGE 图查询与企业关系网络</h4>' +
+    '<div class="story-role">角色：系统 · Day 5</div>' +
+    '<div class="story-body">' +
+    'Apache AGE（PostgreSQL 图扩展）构建<strong>企业知识图谱</strong>：' +
+    '<br><br>• <strong>实体（Vertex）</strong> — 客户、产品、员工、项目、组织' +
+    '<br>• <strong>关系（Edge）</strong> — 负责、包含、属于、采购、汇报' +
+    '<br>• <strong>查询（Cypher）</strong> — "查找与项目 X 相关的所有供应商和联系人"' +
+    '<br>• <strong>AGE → PG 投影</strong> — projection_event 将图关系同步到 relation 表供 LLM 使用' +
+    '<br><br>图查询结果与向量检索结果合并重排序，提供<strong>深度关联分析</strong>能力。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">AGE Vertex</span><span class="flow-arrow">→</span><span class="flow-step">Edge 关系</span><span class="flow-arrow">→</span><span class="flow-step">Cypher 查询</span><span class="flow-arrow">→</span><span class="flow-step">投影到 PG</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十五：短任务与长任务智能分流</h4>' +
+    '<div class="story-role">角色：Gateway 自动</div>' +
+    '<div class="story-body">' +
+    '网关适配器通过 <strong>5 路意图分类</strong>分流所有入站消息：' +
+    '<br><br><strong>① Chat</strong> — 普通对话，即时 LLM 回复' +
+    '<br><strong>② Task</strong> — 长任务，Planner 规划 + 多阶段执行 + 轮询推送（10s × 72 = 12min 超时）' +
+    '<br><strong>③ Quick Lookup</strong> — 快速查询，3 轮 × 5s 短超时检索 → 失败降级 Chat' +
+    '<br><strong>④ Knowledge Submit</strong> — 知识提交，写入待审核池' +
+    '<br><strong>⑤ Task Dispatch</strong> — 管理员下发任务，推送到子用户' +
+    '<br><br>分类使用 LiteLLM + 结构化输出，<strong><100ms 延迟</strong>。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">消息入站</span><span class="flow-arrow">→</span><span class="flow-step">5 路分类</span><span class="flow-arrow">→</span><span class="flow-step">路由分发</span><span class="flow-arrow">→</span><span class="flow-step">对应处理链</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十六：工作流归档为 Skill</h4>' +
+    '<div class="story-role">角色：系统自动 + 管理员 · Day 6</div>' +
+    '<div class="story-body">' +
+    '成功执行的工作流<strong>自动提取为技能候选</strong>（Skill Candidate）：' +
+    '<br><br>• gateway-adapter 调用 <strong>extractWorkflowAsSkillCandidate()</strong>' +
+    '<br>• 提取工作流的 stage_chain 和 user_goal' +
+    '<br>• 提交到 <strong>skill-library</strong> 的 /internal/skills/create' +
+    '<br>• 管理员在 Portal 审核（skill_audit_record）后发布' +
+    '<br>• 技能注册到 <strong>org_skill_registry</strong>，全组织可复用' +
+    '<br><br>同时支持从 <strong>Mirror 镜像站</strong>搜索和安装公开技能。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">成功工作流</span><span class="flow-arrow">→</span><span class="flow-step">提取 Skill</span><span class="flow-arrow">→</span><span class="flow-step">审核发布</span><span class="flow-arrow">→</span><span class="flow-step">组织技能库</span><span class="flow-arrow">→</span><span class="flow-step">全员复用</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十七：技能公网安装与多路检索</h4>' +
+    '<div class="story-role">角色：管理员 (Admin)</div>' +
+    '<div class="story-body">' +
+    '管理员从 <strong>Skill Mirror</strong>（公网镜像仓库）搜索并安装社区技能：' +
+    '<br><br>• Portal 调用 /api/admin/skills/mirror-search 搜索预制技能（Document Pro / Deep Search 等）' +
+    '<br>• 点击安装 → 调用 /api/admin/skills/mirror-install' +
+    '<br>• 系统从 Mirror 拉取 skill_definition 并创建到 local skill-library' +
+    '<br>• 自动注册到 <strong>org_skill_registry</strong>' +
+    '<br><br>多路检索 LLM 决策：同时走向量检索 + AGE 图查询 + 全文搜索 + Skill 检索，LLM 综合排序返回。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">Mirror Search</span><span class="flow-arrow">→</span><span class="flow-step">Install</span><span class="flow-arrow">→</span><span class="flow-step">Local Import</span><span class="flow-arrow">→</span><span class="flow-step">Registry</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十八：智能体人设与用户画像</h4>' +
+    '<div class="story-role">角色：管理员 + 系统自动 · Day 7</div>' +
+    '<div class="story-body">' +
+    '管理员为组织配置 <strong>System Prompt</strong>（智能体人设），定义绝影在不同场景下的角色和行为准则。' +
+    '<br><br>同时，<strong>Hermes 记忆系统</strong>持续积累用户画像：' +
+    '<br>• 每次对话的记忆（hermes_memory）自动归档到 long-term memory_item' +
+    '<br>• 每日梦境自动分析形成 <strong>org_memory_summary</strong>' +
+    '<br>• 访问日志（memory_access_log）+ 压缩日志（memory_compression_log）追踪记忆使用' +
+    '<br><br>用户画像包含：常用术语、关注领域、决策偏好、历史上下文。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">System Prompt</span><span class="flow-arrow">→</span><span class="flow-step">对话记忆</span><span class="flow-arrow">→</span><span class="flow-step">画像积累</span><span class="flow-arrow">→</span><span class="flow-step">个性化回复</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事十九：梦境 · 每日记忆总结</h4>' +
+    '<div class="story-role">角色：系统自动 (Dream Mode)</div>' +
+    '<div class="story-body">' +
+    '每天夜间，绝影自动执行<strong>"梦境"流程</strong>：' +
+    '<br><br><strong>① Collect</strong> — 汇总当日所有用户对话记忆（hermes_memory）' +
+    '<br><strong>② Compress</strong> — LLM 将冗长对话压缩为精炼摘要（memory_compression_log）' +
+    '<br><strong>③ Summarize</strong> — 生成组织级记忆摘要（org_memory_summary）' +
+    '<br><strong>④ Extract</strong> — 从摘要中提取结构化知识（实体/关系/事实）' +
+    '<br><strong>⑤ Archive</strong> — 冷数据冻结归档，释放热存储空间' +
+    '<br><br>管理员可配置 <strong>cron 表达式</strong>自定义梦境执行时间。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">收集记忆</span><span class="flow-arrow">→</span><span class="flow-step">LLM 压缩</span><span class="flow-arrow">→</span><span class="flow-step">生成摘要</span><span class="flow-arrow">→</span><span class="flow-step">知识抽取</span><span class="flow-arrow">→</span><span class="flow-step">归档冻结</span></div></div>' +
+
+    '<div class="story-card"><h4>📖 故事二十：记忆分层管理 + 技能发现生态</h4>' +
+    '<div class="story-role">角色：系统自动 (Dream Mode+)</div>' +
+    '<div class="story-body">' +
+    '梦境模式的进阶功能——<strong>记忆分层 + 技能发现闭环</strong>：' +
+    '<br><br><strong>记忆三层架构</strong>：' +
+    '<br><strong>• 最新层</strong> — hermes_memory（热存储，即时访问）' +
+    '<br><strong>• 缓存层</strong> — memory_item + embedding（温存储，语义检索）' +
+    '<br><strong>• 休眠层</strong> — org_memory_summary（冷存储，压缩归档）' +
+    '<br><br><strong>技能发现闭环</strong>：' +
+    '<br>梦境分析发现新的 Workflow Pattern → 提取 Skill Candidate → scene_value_assessment 评估 → skill_audit_record 审核 → org_skill_registry 注册 → skill_usage_stats 追踪使用效果。' +
+    '<br><br>形成 <strong>"使用 → 发现 → 提炼 → 注册 → 复用的持续优化"的完整生态系统</strong>。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">发现</span><span class="flow-arrow">→</span><span class="flow-step">提炼</span><span class="flow-arrow">→</span><span class="flow-step">评估</span><span class="flow-arrow">→</span><span class="flow-step">注册</span><span class="flow-arrow">→</span><span class="flow-step">复用</span></div></div>';
 }
 
 function renderGuideQuickstart() {

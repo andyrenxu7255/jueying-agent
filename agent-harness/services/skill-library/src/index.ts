@@ -21,7 +21,7 @@ import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, s
  *
  * API 路由设计：
  *   POST   /internal/skills/create       - 创建新技能（自动生成 v1 版本）
- *   POST   /internal/skills/search       - 搜索技能（关键词、类型过滤）
+ *   GET    /internal/skills/search       - 搜索技能（关键词、类型过滤）
  *   GET    /internal/skills/:id          - 获取技能详情（含最新版本定义）
  *   POST   /internal/skills/:id/update   - 更新技能定义（自动递增版本号）
  *   POST   /internal/skills/:id/publish  - 发布技能（draft → active）

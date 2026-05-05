@@ -1,5 +1,5 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport } from '@agent-harness/shared';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson as sendJsonShared } from '@agent-harness/shared';
 import { hermesMemories } from '@agent-harness/shared';
 import { db } from './db';
 
@@ -104,8 +104,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 }
 
 function sendJson(res: ServerResponse, statusCode: number, data: unknown): void {
-  res.writeHead(statusCode, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(data));
+  sendJsonShared(res, statusCode, data as Record<string, unknown>)
 }
 
 function estimateTokenCount(text: string): number {
@@ -664,6 +663,7 @@ const server = createServer(async (req, res) => {
               const parsed = JSON.parse(extracted);
               const facts = parsed.facts || [];
               for (const fact of facts) {
+                // TODO: Should go through fact-retrieval /internal/fact/submit for proper validation
                 await pool.query(
                   `INSERT INTO fact (owner_user_id, org_id, scope_type, subject_ref, predicate, object_value, status, confidence, metadata)
                    VALUES ($1,$2,'private',$3,$4,$5,'unconfirmed',0.6,jsonb_build_object('source','dream_extraction','date',$6))`,

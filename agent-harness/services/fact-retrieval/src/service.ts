@@ -1,7 +1,7 @@
 import { createLogger } from '@agent-harness/shared';
 import { eq, sql, and, or, type SQL } from 'drizzle-orm';
 import { artifactObjects, auditEvents, documentChunks, documents, documentVersions, embeddingAdapter, entities, entityAttributes, factConflicts, factEvidence, facts, projectionEvents, relations, retrievalTraces, rerankAdapter, userFiles, users } from '@agent-harness/shared';
-import { db } from './db';
+import { db, pool } from './db';
 
 function requireDb(): NonNullable<typeof db> {
   if (!db) throw new Error('Database not available — service is running in degraded mode');
@@ -98,11 +98,22 @@ export interface EntityWriteInput {
 
 const ALLOWED_VERTEX_LABELS = new Set(['Entity', 'Person', 'Organization', 'Location', 'Event', 'Concept', 'Technology', 'Product', 'Client', 'Contact', 'Opportunity', 'Project']);
 const ALLOWED_EDGE_LABELS = new Set(['RELATED', 'works_for', 'located_in', 'uses', 'manages', 'depends_on', 'co_occurs_with', 'has_slot_value', 'BELONGS_TO', 'EMPLOYES', 'INVOLVED_IN', 'INTERACTS_WITH', 'REPORTS_TO', 'PARTNERS_WITH', 'COMPETES_WITH', 'SUPPLIES_TO']);
+const DOLLAR_QUOTE_TAG = 'tag';
 
 function sanitizeCypherLabel(value: string, allowedSet: Set<string>, fallback: string): string {
   const trimmed = value.trim();
   if (allowedSet.has(trimmed)) return trimmed;
   return fallback;
+}
+
+function sanitizeCypherLiteral(value: string): string {
+  const cleaned = String(value || '');
+  return cleaned
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "''")
+    .replace(/\$/g, '')
+    .replace(/[\n\r]/g, ' ')
+    .slice(0, 4096);
 }
 
 function sanitizeCypherString(value: string): string {
@@ -158,12 +169,11 @@ class FactRetrievalService {
           const chunk = batch[j];
           const embeddingResult = embeddingResults[j];
           if (embeddingResult?.embedding) {
-            await requireDb().execute(sql`
-              UPDATE document_chunk
-              SET embedding = ${JSON.stringify(embeddingResult.embedding)}::vector,
-                  embedding_model_version = ${embeddingResult.provider || 'unknown'}
-              WHERE id = ${chunk.id}
-            `);
+            if (!pool) throw new Error('Pool not available');
+            await pool.query(
+              'UPDATE document_chunk SET embedding = $1::vector, embedding_model_version = $2 WHERE id = $3',
+              [JSON.stringify(embeddingResult.embedding), embeddingResult.provider || 'unknown', chunk.id]
+            );
           }
         }
         logger.info('embedding.backfill.batch', 'Embedding backfill batch completed', {
@@ -203,12 +213,11 @@ class FactRetrievalService {
           const chunk = batch[j];
           const embeddingResult = embeddingResults[j];
           if (embeddingResult?.embedding) {
-            await requireDb().execute(sql`
-              UPDATE document_chunk
-              SET embedding = ${JSON.stringify(embeddingResult.embedding)}::vector,
-                  embedding_model_version = ${embeddingResult.provider || 'unknown'}
-              WHERE id = ${chunk.id}
-            `);
+            if (!pool) throw new Error('Pool not available');
+            await pool.query(
+              'UPDATE document_chunk SET embedding = $1::vector, embedding_model_version = $2 WHERE id = $3',
+              [JSON.stringify(embeddingResult.embedding), embeddingResult.provider || 'unknown', chunk.id]
+            );
             processed++;
           } else {
             failed++;
@@ -851,37 +860,64 @@ class FactRetrievalService {
       .where(eq(projectionEvents.applied, false))
       .limit(50);
 
+    const vertexEvents = pending.filter(e => e.vertexLabel);
+    const edgeEvents = pending.filter(e => e.edgeLabel && !e.vertexLabel);
+    const ordered = [...vertexEvents, ...edgeEvents];
+
     let applied = 0;
     let failed = 0;
+    let graphRecovered = false;
 
-    for (const event of pending) {
+    for (const event of ordered) {
       try {
         const payload = (event.payload || {}) as Record<string, unknown>;
         const graphName = event.graphName || 'knowledge_graph';
 
-        await requireDb().execute(sql`SET search_path = ag_catalog, "$user", public`);
+        if (!pool) throw new Error('Pool not available');
+        const client = await pool.connect();
+        try {
+          await client.query('SET search_path = ag_catalog, public');
 
-        try { await requireDb().execute(sql`SELECT create_graph(${graphName})`); } catch { /* exists */ }
+          const applyCypher = async (cypherSql: string): Promise<void> => {
+            try {
+              await client.query(cypherSql);
+            } catch (cypherErr: unknown) {
+              const msg = String((cypherErr as { message?: string })?.message || '');
+              if (!graphRecovered && msg.includes('unhandled cypher')) {
+                graphRecovered = true;
+                logger.warn('graph.recovering', 'Recreating corrupted AGE graph', { graphName });
+                await client.query(`SELECT drop_graph('${graphName}', true)`);
+                await client.query(`SELECT create_graph('${graphName}')`);
+                await client.query(cypherSql);
+              } else {
+                throw cypherErr;
+              }
+            }
+          };
 
-        if (event.operation === 'create' && event.vertexLabel) {
-          const safeVertexLabel = sanitizeCypherLabel(String(event.vertexLabel), ALLOWED_VERTEX_LABELS, 'Entity');
-          const safeCanonicalName = sanitizeCypherString(String(payload.from_entity || event.entityRef || ''));
-          const safeEntityType = sanitizeCypherString(String(event.vertexLabel));
-          const safeOwnerUserId = sanitizeCypherString(String(payload.owner_user_id || ''));
-          const safeScopeType = sanitizeCypherString(String((payload.scope as string[])?.[0] || 'private'));
-          const vertexCypher = `CREATE (n:${safeVertexLabel} {canonical_name: '${safeCanonicalName}', entity_type: '${safeEntityType}', status: 'active', owner_user_id: '${safeOwnerUserId}', scope_type: '${safeScopeType}'})`;
-          await requireDb().execute(sql`SELECT * FROM cypher(${graphName}, ${vertexCypher}) AS (v agtype)`);
-        }
-
-        if (event.operation === 'create' && event.edgeLabel) {
-          const safeVertexLabel2 = sanitizeCypherLabel(String(event.vertexLabel || 'Entity'), ALLOWED_VERTEX_LABELS, 'Entity');
-          const safeEdgeLabel = sanitizeCypherLabel(String(event.edgeLabel), ALLOWED_EDGE_LABELS, 'RELATED');
-          const fromEntity = sanitizeCypherString(String(payload.from_entity || ''));
-          const toEntity = sanitizeCypherString(String(payload.to_entity || ''));
-          if (fromEntity && toEntity) {
-            const edgeCypher = `MATCH (a:${safeVertexLabel2} {canonical_name: '${fromEntity}'}), (b:Entity {canonical_name: '${toEntity}'}) CREATE (a)-[r:${safeEdgeLabel} {relation_type: '${sanitizeCypherString(String(event.edgeLabel))}'}]->(b)`;
-            await requireDb().execute(sql`SELECT * FROM cypher(${graphName}, ${edgeCypher}) AS (e agtype)`);
+          if (event.operation === 'create' && event.vertexLabel) {
+            const safeVertexLabel = sanitizeCypherLabel(String(event.vertexLabel), ALLOWED_VERTEX_LABELS, 'Entity');
+            const entityName = sanitizeCypherLiteral(String(payload.from_entity || event.entityRef || ''));
+            const entityType = sanitizeCypherLiteral(String(event.vertexLabel));
+            const ownerUserId = sanitizeCypherLiteral(String(payload.owner_user_id || ''));
+            const scopeType = sanitizeCypherLiteral(String((payload.scope as string[])?.[0] || 'private'));
+            const cypher = `CREATE (n:${safeVertexLabel} {canonical_name: '${entityName}', entity_type: '${entityType}', status: 'active', owner_user_id: '${ownerUserId}', scope_type: '${scopeType}'}) RETURN n`;
+            await applyCypher(`SELECT * FROM cypher('${graphName}', $tag$ ${cypher} $tag$) AS (v ag_catalog.agtype)`);
           }
+
+          if (event.operation === 'create' && event.edgeLabel) {
+            const safeVertexLabel2 = sanitizeCypherLabel(String(event.vertexLabel || 'Entity'), ALLOWED_VERTEX_LABELS, 'Entity');
+            const safeEdgeLabel = sanitizeCypherLabel(String(event.edgeLabel), ALLOWED_EDGE_LABELS, 'RELATED');
+            const fromEntity = sanitizeCypherLiteral(String(payload.from_entity || ''));
+            const toEntity = sanitizeCypherLiteral(String(payload.to_entity || ''));
+            const relType = sanitizeCypherLiteral(String(event.edgeLabel));
+            if (fromEntity && toEntity) {
+              const cypher = `MATCH (a:${safeVertexLabel2} {canonical_name: '${fromEntity}'}), (b:Entity {canonical_name: '${toEntity}'}) CREATE (a)-[r:${safeEdgeLabel} {relation_type: '${relType}'}]->(b) RETURN r`;
+              await applyCypher(`SELECT * FROM cypher('${graphName}', $tag$ ${cypher} $tag$) AS (e ag_catalog.agtype)`);
+            }
+          }
+        } finally {
+          client.release();
         }
 
         await requireDb().update(projectionEvents)
@@ -1213,32 +1249,34 @@ class FactRetrievalService {
 
     if (searchTerms.length === 0) return [];
 
-    const searchTerm = sanitizeCypherString(searchTerms[0].replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, ''));
+    const searchTerm = sanitizeCypherLiteral(searchTerms[0].replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, ''));
     if (!searchTerm) return [];
 
     const includePublic = allowedScopes.some(s => s.startsWith('public'));
     const includeShared = allowedScopes.some(s => s === 'shared');
 
-    await requireDb().execute(sql`SET search_path = ag_catalog, "$user", public`);
-
     const graphName = 'knowledge_graph';
-    try {
-      await requireDb().execute(sql`SELECT create_graph(${graphName})`);
-    } catch (err) {
-      logger.info('graph.create_skipped', 'Graph may already exist', { error: String(err) });
-    }
 
     const safePattern = `(?i).*${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
-    const scopeFilterParts = [`e.owner_user_id = '${sanitizeCypherString(ownerDbId)}'`];
+    const scopeFilterParts = [`e.owner_user_id = '${sanitizeCypherLiteral(ownerDbId)}'`];
     if (includePublic) scopeFilterParts.push(`e.scope_type = 'public'`);
     if (includeShared) scopeFilterParts.push(`e.scope_type = 'shared'`);
     const scopeFilter = scopeFilterParts.join(' OR ');
 
     const cypher = `MATCH (e:Entity)-[r*1..${Math.min(maxHops, 3)}]-(connected:Entity) WHERE e.canonical_name =~ '${safePattern}' AND e.status = 'active' AND (${scopeFilter}) RETURN e.canonical_name AS seed_name, e.entity_type AS seed_type, connected.canonical_name AS connected_name, connected.entity_type AS connected_type, connected.scope_type AS scope_type, length(r) AS hop_distance LIMIT 50`;
 
-    const cypherResult = await requireDb().execute(sql`
-      SELECT * FROM cypher(${graphName}, ${cypher}) AS (seed_name text, seed_type text, connected_name text, connected_type text, scope_type text, hop_distance integer)
-    `);
+    if (!pool) return [];
+
+    const client = await pool.connect();
+    let cypherResult;
+    try {
+      await client.query('SET search_path = ag_catalog, public');
+      cypherResult = await client.query(
+        `SELECT * FROM cypher('${graphName}', $tag$ ${cypher} $tag$) AS (seed_name text, seed_type text, connected_name text, connected_type text, scope_type text, hop_distance integer)`
+      );
+    } finally {
+      client.release();
+    }
 
     const entityNames = new Set<string>();
     const results: Array<{ fact_id?: string; chunk_id?: string; content: string; score: number; source_scope: string }> = [];

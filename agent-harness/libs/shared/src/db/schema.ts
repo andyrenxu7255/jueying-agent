@@ -1,8 +1,8 @@
 import { customType, index, integer, jsonb, pgTable, text, timestamp, uuid, boolean, bigint, real, uniqueIndex } from 'drizzle-orm/pg-core';
 
-const vector1536 = customType<{ data: string | null; driverData: string | null }>({
+const vector1024 = customType<{ data: string | null; driverData: string | null }>({
   dataType() {
-    return 'vector(1536)';
+    return 'vector(1024)';
   },
 });
 
@@ -180,7 +180,7 @@ export const memoryItems = pgTable('memory_item', {
   memoryType: text('memory_type').notNull(),
   contentText: text('content_text').notNull(),
   summary: text('summary'),
-  embedding: vector1536('embedding'),
+  embedding: vector1024('embedding'),
   embeddingModelVersion: text('embedding_model_version'),
   confidence: real('confidence').notNull(),
   status: text('status').notNull(),
@@ -290,15 +290,15 @@ export const organizations = pgTable('organization', {
 }));
 
 export const users = pgTable('user', {
-  id: uuid('id').primaryKey(),
-  orgId: uuid('org_id').notNull(),
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id'),
   username: text('username').notNull(),
   displayName: text('display_name'),
   role: text('role').notNull(),
   status: text('status').notNull(),
   metadata: jsonb('metadata').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   usernameIdx: uniqueIndex('idx_user_org_username_shared').on(table.orgId, table.username),
 }));
@@ -368,7 +368,7 @@ export const documentChunks = pgTable('document_chunk', {
   chunkIndex: integer('chunk_index').notNull(),
   contentText: text('content_text').notNull(),
   tokenCount: integer('token_count').notNull(),
-  embedding: vector1536('embedding'),
+  embedding: vector1024('embedding'),
   embeddingModelVersion: text('embedding_model_version'),
   searchTsv: tsvectorType('search_tsv'),
   metadata: jsonb('metadata').notNull(),
@@ -612,6 +612,254 @@ export const userFiles = pgTable('user_file', {
   categoryIdx: index('idx_user_file_category').on(table.userId, table.fileCategory),
   scopeIdx: index('idx_user_file_scope').on(table.userId, table.scope),
   hashIdx: index('idx_user_file_hash').on(table.contentHash),
+}));
+
+export const orgPolicies = pgTable('org_policy', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull(),
+  role: text('role').notNull(),
+  resource: text('resource').notNull(),
+  action: text('action').notNull(),
+  decision: text('decision').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  orgRoleIdx: index('idx_org_policy_org_role').on(table.orgId, table.role),
+  resourceIdx: index('idx_org_policy_resource').on(table.resource),
+}));
+
+export const dreamModeConfigs = pgTable('dream_mode_config', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  dreamUserTrigger: text('dream_user_trigger').notNull().default('auto'),
+  dreamScheduledHour: integer('dream_scheduled_hour').notNull().default(3),
+  coolingWindowMinutes: integer('cooling_window_minutes').notNull().default(120),
+  compressionThresholdChars: integer('compression_threshold_chars').notNull().default(4000),
+  maxCompressionsPerRun: integer('max_compressions_per_run').notNull().default(100),
+  skillAuditEnabled: boolean('skill_audit_enabled').notNull().default(true),
+  skillAuditScheduledHour: integer('skill_audit_scheduled_hour').notNull().default(5),
+  autoPromoteThreshold: real('auto_promote_threshold').notNull().default(80),
+  minUsageForSceneDetection: integer('min_usage_for_scene_detection').notNull().default(3),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  orgUnique: uniqueIndex('idx_dream_mode_config_org').on(table.orgId),
+}));
+
+export const memoryAnalysisRuns = pgTable('memory_analysis_run', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id'),
+  runType: text('run_type').notNull(),
+  scopeUserId: uuid('scope_user_id'),
+  status: text('status').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  itemsScanned: integer('items_scanned').notNull().default(0),
+  itemsCompressed: integer('items_compressed').notNull().default(0),
+  itemsExtracted: integer('items_extracted').notNull().default(0),
+  factsGenerated: integer('facts_generated').notNull().default(0),
+  skillsCandidate: integer('skills_candidate').notNull().default(0),
+  errorMessage: text('error_message'),
+  resultSummary: jsonb('result_summary').notNull().default({}),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  orgIdx: index('idx_memory_analysis_run_org').on(table.orgId, table.createdAt),
+  userIdx: index('idx_memory_analysis_run_user').on(table.scopeUserId, table.createdAt),
+}));
+
+export const orgMemorySummaries = pgTable('org_memory_summary', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull(),
+  title: text('title'),
+  contentText: text('content_text'),
+  summary: text('summary'),
+  category: text('category').notNull(),
+  sourceUserIds: uuid('source_user_ids').array(),
+  sourceMemoryIds: uuid('source_memory_ids').array(),
+  sourceFactIds: uuid('source_fact_ids').array(),
+  extractionRunId: uuid('extraction_run_id'),
+  confidence: real('confidence').notNull().default(0.5),
+  relevanceScore: real('relevance_score').notNull().default(0.5),
+  dedupGroupId: uuid('dedup_group_id'),
+  status: text('status').notNull().default('candidate'),
+  embedding: vector1024('embedding'),
+  embeddingModelVersion: text('embedding_model_version'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  orgCategoryIdx: index('idx_org_memory_summary_org').on(table.orgId, table.category, table.status),
+}));
+
+export const memoryAccessLogs = pgTable('memory_access_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  accessorUserId: uuid('accessor_user_id').notNull(),
+  targetMemoryId: uuid('target_memory_id').notNull(),
+  targetType: text('target_type').notNull(),
+  accessType: text('access_type').notNull(),
+  accessResult: text('access_result').notNull(),
+  denyReason: text('deny_reason'),
+  ipAddress: text('ip_address'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  userIdx: index('idx_memory_access_log_user').on(table.accessorUserId, table.createdAt),
+  targetIdx: index('idx_memory_access_log_target').on(table.targetType, table.targetMemoryId),
+  resultIdx: index('idx_memory_access_log_result').on(table.accessResult, table.createdAt),
+}));
+
+export const memoryCompressionLogs = pgTable('memory_compression_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  memoryItemId: uuid('memory_item_id').notNull(),
+  ownerUserId: uuid('owner_user_id').notNull(),
+  orgId: uuid('org_id'),
+  runId: uuid('run_id'),
+  compressionMethod: text('compression_method').notNull(),
+  originalCharCount: integer('original_char_count').notNull(),
+  compressedCharCount: integer('compressed_char_count').notNull(),
+  archivedFileRef: text('archived_file_ref'),
+  archivedStorageBackend: text('archived_storage_backend'),
+  summaryText: text('summary_text'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  itemIdx: index('idx_memory_compression_log_item').on(table.memoryItemId),
+  userIdx: index('idx_memory_compression_log_user').on(table.ownerUserId, table.createdAt),
+}));
+
+export const sceneValueAssessments = pgTable('scene_value_assessment', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ownerUserId: uuid('owner_user_id').notNull(),
+  orgId: uuid('org_id'),
+  sceneName: text('scene_name'),
+  sceneDescription: text('scene_description'),
+  triggerPattern: text('trigger_pattern'),
+  taskType: text('task_type'),
+  usageCount: integer('usage_count').notNull().default(0),
+  successCount: integer('success_count').notNull().default(0),
+  avgDurationMs: integer('avg_duration_ms'),
+  interactionPattern: jsonb('interaction_pattern').notNull().default({}),
+  userFeedbackScore: real('user_feedback_score'),
+  reuseFrequency: real('reuse_frequency'),
+  valueScore: real('value_score'),
+  skillCandidateId: uuid('skill_candidate_id'),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  status: text('status').notNull().default('identified'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  userIdx: index('idx_scene_value_user').on(table.ownerUserId, table.status),
+  scoreIdx: index('idx_scene_value_score').on(table.valueScore),
+  taskTypeIdx: index('idx_scene_value_task_type').on(table.taskType, table.status),
+}));
+
+export const skillAuditRecords = pgTable('skill_audit_record', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  skillId: uuid('skill_id').notNull(),
+  auditorUserId: uuid('auditor_user_id'),
+  orgId: uuid('org_id'),
+  auditType: text('audit_type').notNull(),
+  functionalityScore: real('functionality_score').notNull().default(0),
+  securityScore: real('security_score').notNull().default(0),
+  performanceScore: real('performance_score').notNull().default(0),
+  orgFitScore: real('org_fit_score').notNull().default(0),
+  overallScore: real('overall_score').notNull().default(0),
+  auditResult: text('audit_result').notNull(),
+  revisionNotes: text('revision_notes'),
+  securityIssues: jsonb('security_issues').notNull().default([]),
+  performanceIssues: jsonb('performance_issues').notNull().default([]),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  skillIdx: index('idx_skill_audit_skill').on(table.skillId, table.createdAt),
+  resultIdx: index('idx_skill_audit_result').on(table.auditResult, table.createdAt),
+}));
+
+export const skillUsageStats = pgTable('skill_usage_stats', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  skillId: uuid('skill_id').notNull(),
+  versionId: uuid('version_id'),
+  usageDate: timestamp('usage_date', { withTimezone: true }).notNull(),
+  invocationCount: integer('invocation_count').notNull().default(0),
+  successCount: integer('success_count').notNull().default(0),
+  failureCount: integer('failure_count').notNull().default(0),
+  avgDurationMs: integer('avg_duration_ms'),
+  distinctUsers: integer('distinct_users').notNull().default(0),
+  uniqueOrgIds: uuid('unique_org_ids').array(),
+  workflowInstanceIds: uuid('workflow_instance_ids').array(),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  skillDateIdx: index('idx_skill_usage_stats_skill').on(table.skillId, table.usageDate),
+  dateIdx: index('idx_skill_usage_stats_date').on(table.usageDate),
+  uniqueIdx: uniqueIndex('idx_skill_usage_stats_unique').on(table.skillId, table.usageDate),
+}));
+
+export const orgSkillRegistries = pgTable('org_skill_registry', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id').notNull(),
+  skillId: uuid('skill_id').notNull(),
+  promotedBy: uuid('promoted_by'),
+  promotedFromSkillId: uuid('promoted_from_skill_id'),
+  promotionAuditId: uuid('promotion_audit_id'),
+  originationType: text('origination_type').notNull(),
+  originationUserId: uuid('origination_user_id'),
+  category: text('category').notNull(),
+  tags: text('tags').array(),
+  installCount: integer('install_count').notNull().default(0),
+  ratingAvg: real('rating_avg'),
+  ratingCount: integer('rating_count').notNull().default(0),
+  status: text('status').notNull().default('active'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  orgCategoryIdx: index('idx_org_skill_registry_org').on(table.orgId, table.category, table.status),
+  ratingIdx: index('idx_org_skill_registry_rating').on(table.ratingAvg),
+}));
+
+export const resourceQuotas = pgTable('resource_quota', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  scope: text('scope').notNull(),
+  resourceType: text('resource_type').notNull(),
+  maxLimit: integer('max_limit').notNull(),
+  currentUsage: integer('current_usage').notNull().default(0),
+  windowType: text('window_type').notNull(),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  scopeTypeIdx: uniqueIndex('idx_resource_quota_scope_type').on(table.scope, table.resourceType),
+}));
+
+export const resourceUsages = pgTable('resource_usage', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  scope: text('scope').notNull(),
+  resourceType: text('resource_type').notNull(),
+  amount: integer('amount').notNull(),
+  idempotencyKey: text('idempotency_key'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  scopeTypeIdx: index('idx_resource_usage_scope_type').on(table.scope, table.resourceType),
+  idempotencyIdx: uniqueIndex('idx_resource_usage_idempotency').on(table.idempotencyKey),
+}));
+
+export const serviceStatusEvents = pgTable('service_status_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  serviceName: text('service_name').notNull(),
+  status: text('status').notNull(),
+  responseTimeMs: integer('response_time_ms'),
+  errorMessage: text('error_message'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  serviceNameIdx: index('idx_service_status_event_service').on(table.serviceName, table.createdAt),
+  statusIdx: index('idx_service_status_event_status').on(table.status, table.createdAt),
 }));
 
 export type DbUser = typeof users.$inferSelect;

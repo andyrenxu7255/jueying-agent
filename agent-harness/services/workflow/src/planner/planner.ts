@@ -17,7 +17,8 @@ const logger = createLogger('workflow-planner');
 
 const LITELLM_URL = process.env.LITELLM_URL || (process.env.OLLAMA_URL ? `${process.env.OLLAMA_URL}/v1` : 'http://localhost:4000');
 const LITELLM_MODEL = process.env.LITELLM_MODEL || process.env.OLLAMA_MODEL || 'qwen3:8b';
-const LITELLM_API_KEY = process.env.LITELLM_MASTER_KEY || process.env.LITELLM_API_KEY || process.env.OLLAMA_API_KEY || 'ollama';
+const LITELLM_API_KEY = process.env.LITELLM_MASTER_KEY || process.env.LITELLM_API_KEY || process.env.OLLAMA_API_KEY || '';
+if (!LITELLM_API_KEY) logger.warn('config.missing', 'LITELLM_MASTER_KEY, LITELLM_API_KEY, or OLLAMA_API_KEY environment variable is not set');
 
 interface MatchedSkill {
   skill_id: string;
@@ -179,8 +180,8 @@ async function callLiteLLMForPlan(systemPrompt: string, userPrompt: string): Pro
         stage_count: plan.stage_chain?.length || 0
       });
       return { plan, ok: true };
-    } catch {
-      logger.warn('litellm.plan.parse_error', 'Failed to parse LiteLLM plan response', { content: content.slice(0, 200) });
+    } catch (parseError) {
+      logger.warn('litellm.plan.parse_error', 'Failed to parse LiteLLM plan response', { error: String(parseError), content: content.slice(0, 200) });
       return { plan: null, ok: false };
     }
   } catch (error) {

@@ -12,7 +12,7 @@
  * @module http-utils
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 export async function readJson(req: import('node:http').IncomingMessage, maxBodySize: number = 10 * 1024 * 1024): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
@@ -96,6 +96,10 @@ export function getInternalAuthHeaders(): Record<string, string> {
 export function verifyInternalAuth(req: import('node:http').IncomingMessage): boolean {
   const secret = getInternalAuthSecret();
   if (!secret) {
+if (process.env.NODE_ENV === 'production') {
+      console.error('[SECURITY] INTERNAL_AUTH_SECRET not set in production - rejecting internal request');
+      return false;
+    }
     return true;
   }
 
@@ -119,9 +123,7 @@ export function verifyInternalAuth(req: import('node:http').IncomingMessage): bo
   const expBuf = Buffer.from(expectedSignature);
   if (sigBuf.length !== expBuf.length) return false;
 
-  return crypto.timingSafeEqual
-    ? crypto.timingSafeEqual(sigBuf, expBuf)
+  return timingSafeEqual
+    ? timingSafeEqual(sigBuf, expBuf)
     : sigBuf.toString('hex') === expBuf.toString('hex');
 }
-
-import * as crypto from 'node:crypto';

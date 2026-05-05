@@ -1,7 +1,7 @@
 # TeamClaw (agent-harness) 对象关系图谱
 
-> 版本: v2.0 | 生成日期: 2026-05-03
-> 基于: ARCHITECTURE.md + AH1-14/17 + DEV-08 + 源码分析 + app-graph v1.0 节点边数据
+> 版本: v2.1 | 生成日期: 2026-05-05
+> 基于: ARCHITECTURE.md + AH1-14/17 + DEV-08 + 源码分析 + docker-compose.yml
 > 目标: 单一文件承载全系统对象关系，减少 debug/优化场景的上下文加载量
 
 ---
@@ -11,56 +11,57 @@
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         外部渠道 (IM)                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                           │
-│  │   飞书    │  │   企微    │  │  Web     │                           │
-│  │ WebSocket │  │ Webhook  │  │ Portal   │                           │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘                           │
-│       │             │             │                                   │
-│  ┌────▼─────┐       │             │                                   │
-│  │ feishu-  │       │             │                                   │
-│  │ longconn │       │             │                                   │
-│  └────┬─────┘       │             │                                   │
-└───────┼─────────────┼─────────────┼──────────────────────────────────┘
-        │             │             │
-   ┌────▼─────────────▼─────────────▼────┐
-   │          gateway-adapter             │  ← 多渠道适配 & 身份映射
-   │          (主机端口 3000)              │
-   └──┬───────────┬────────────┬─────────┘
-      │           │            │
-      │    ┌──────▼──────┐     │
-      │    │  LiteLLM    │     │  ← LLM 统一代理
-      │    │  Proxy:4000 │     │
-      │    └─────────────┘     │
-      │                        │
- ┌────▼──────────┐   ┌─────────▼────────┐   ┌──────────────┐
- │  workflow-    │   │   executor-       │   │  hermes-     │
- │  service:3001 │◄─►│   gateway:3002    │   │  adapter:3005│
- └──┬────┬───────┘   └──┬────────┬──────┘   └──────┬───────┘
-    │    │              │        │                  │
-    │    │         ┌────┘        └────┐             │
-    │    │         │                  │             │
-    │    │    ┌────▼────┐   ┌────────▼────────┐    │
-    │    │    │ generic │   │   code-executor  │    │
-    │    │    │ executor│   │                  │    │
-    │    │    └─────────┘   └─────────────────┘    │
-    │    │                                         │
-    │    │    ┌──────────────┐  ┌──────────────┐   │
-    │    │    │ retrieval-   │  │ verification │   │
-    │    │    │ aware-exec.  │  │ -executor    │   │
-    │    │    └──────────────┘  └──────────────┘   │
-    │    │                                         │
-    │    │    ┌──────────────┐  ┌──────────────┐   │
-    │    │    │  repair-     │  │  approval-   │   │
-    │    │    │  executor    │  │  executor    │   │
-    │    │    └──────────────┘  └──────────────┘   │
-    │    │                                         │
- ┌──▼────▼─────────────────────────────────────────▼──┐
- │                 PostgreSQL + pgvector + AGE          │
- │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ │
- │  │ 业务表(用户/  │ │ 检索表(事实/ │ │ 图投影(AGE   │ │
- │  │ 工作流/策略)  │ │ 文档/向量)   │ │ vertex/edge) │ │
- │  └──────────────┘ └──────────────┘ └──────────────┘ │
- └─────────────────────────────────────────────────────┘
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐             │
+│  │   飞书    │  │   企微    │  │  Web     │  │  Mobile  │             │
+│  │ WebSocket │  │ Webhook  │  │ Portal   │  │  App     │             │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘             │
+│       │             │             │             │                     │
+│  ┌────▼─────┐       │             │             │                     │
+│  │ feishu-  │       │             │             │                     │
+│  │ longconn │       │             │             │                     │
+│  └────┬─────┘       │             │             │                     │
+└───────┼─────────────┼─────────────┼─────────────┼────────────────────┘
+        │             │             │             │
+   ┌────▼─────────────▼─────────────▼─────────────▼────┐
+   │               gateway-adapter                      │  ← 多渠道适配 & 身份映射 & 5路意图分类
+   │          (主机3000 / 容器3000)                      │
+   └──┬──────┬──────────┬──────────┬──────────┬────────┘
+      │      │          │          │          │
+      │ ┌────▼────┐     │          │          │
+      │ │ LiteLLM │     │          │          │  ← LLM 统一代理
+      │ │  :4000  │     │          │          │
+      │ └─────────┘     │          │          │
+      │                 │          │          │
+ ┌────▼────┐  ┌─────────▼────┐  ┌──▼───────┐ │
+ │workflow │  │  executor-   │  │ hermes-  │ │  ← 核心业务链
+ │:3000    │◄►│  gateway:3000│  │ adapter  │ │     (容器内均监听 3000)
+ └──┬──┬───┘  └──┬──┬──┬────┘  │ :3000    │ │
+    │  │         │  │  │       └────┬─────┘ │
+    │  │    ┌────┘  │  └────┐       │       │
+    │  │    │       │       │       │       │
+    │  │ ┌──▼──┐ ┌──▼──┐ ┌──▼──┐    │  ┌────▼────┐ ┌─────────┐ ┌────────┐
+    │  │ │gen. │ │code │ │retr │    │  │ skill-  │ │resource-│ │mobile  │
+    │  │ │exec │ │exec │ │aware│    │  │ library │ │scheduler│ │-app    │
+    │  │ │     │ │     │ │exec │    │  │ :3000   │ │ :3000   │ │:3000   │
+    │  │ └─────┘ └──┬──┘ └──┬──┘    │  └────┬────┘ └────┬────┘ └───┬────┘
+    │  │      ┌─────┘       │       │       │          │          │
+    │  │ ┌────▼────┐ ┌──────▼────┐  │       │          │          │
+    │  │ │verify  │ │  repair-  │  │       │          │          │
+    │  │ │exec    │ │  executor │  │       │          │          │
+    │  │ └────────┘ └───────────┘  │       │          │          │
+    │  │         ┌──────────┐      │       │          │          │
+    │  │         │ approval │      │       │          │          │
+    │  │         │ executor │      │       │          │          │
+    │  │         └──────────┘      │       │          │          │
+    │  │                            │       │          │          │
+ ┌──▼──▼────────────────────────────▼───────▼──────────▼──────────▼──┐
+ │                 PostgreSQL + pgvector + AGE                        │
+ │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌───────────┐ │
+ │  │ 业务表       │ │ 检索表       │ │ 图投影       │ │ 治理表    │ │
+ │  │(用户/工作流/ │ │(事实/文档/   │ │(AGE vertex/  │ │(审计/配额/│ │
+ │  │ 策略/技能)   │ │ 向量/记忆)   │ │ edge)        │ │ 技能评估) │ │
+ │  └──────────────┘ └──────────────┘ └──────────────┘ └───────────┘ │
+ └───────────────────────────────────────────────────────────────────┘
         │                   │                    │
    ┌────▼────┐    ┌─────────▼────┐    ┌─────────▼────┐
    │  Redis  │    │    MinIO     │    │  SigNoz/OTel │
@@ -104,19 +105,23 @@ DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,D
 
 ---
 
-## 3. 数据库表 ER 图 (31 张表，按模块分组)
+## 3. 数据库表 ER 图 (47 张表，按模块分组)
 
 ### 3.1 身份与权限模块
 
 ```
-┌──────────────┐       ┌──────────────────────┐
+┌──────────────────────┐       ┌──────────────────────┐
 │ organization │       │        user          │
 │──────────────│ 1──N  │──────────────────────│
-│ id (PK)      │◄──────│ id (PK)              │
-│ name         │       │ org_id (FK→org)     │
-│ slug         │       │ username              │
-│ status       │       │ role                  │
-└──────────────┘       │ status                │
+│ id (PK)      │◄──────│ id (PK) defaultRandom│
+│ org_name     │       │ org_id (FK→org)     │
+│ display_name │       │ username              │
+│ status       │       │ display_name          │
+│ settings     │       │ role                  │
+│ metadata     │       │ status                │
+└──────────────┘       │ metadata              │
+                       │ created_at defaultNow │
+                       │ updated_at defaultNow │
                        └──────┬───────────────┘
                               │ 1──N
                        ┌──────▼───────────────┐
@@ -129,6 +134,24 @@ DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,D
                        │ binding_status        │  ('pending'/'bound'/'unbound')
                        │ unique(channel_type,  │
                        │   external_identity) │
+                       └──────────────────────┘
+
+                       ┌──────────────────────┐
+                       │    user_profile       │
+                       │──────────────────────│
+                       │ id (PK)              │
+                       │ user_id (FK→user)    │
+                       │ org_id (FK→org)      │
+                       │ persona_tier          │
+                       │ soul (JSONB)          │
+                       │ identity (JSONB)      │
+                       │ tone_style (JSONB)    │
+                       │ behavior_boundary     │
+                       │ skill_tags (TEXT[])   │
+                       │ current_focus         │
+                       │ work_preference       │
+                       │ evolved_history       │
+                       │ unique(user_id)       │
                        └──────────────────────┘
 ```
 
@@ -278,18 +301,19 @@ DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,D
 │──────────────────────│ 1──N  │──────────────────────│
 │ id (PK)              │◄──────│ fact_id (FK)         │
 │ owner_user_id (FK)   │       │ evidence_ref          │
-│ scope_type            │       │ evidence_kind         │
-│ fact_type             │       │ support_type          │
+│ org_id (FK)          │       │ evidence_type         │
+│ scope_type            │       │ excerpt               │
 │ subject_ref           │       └──────────────────────┘
 │ predicate             │
-│ object_value_json     │       ┌──────────────────────┐
-│ status                │       │    fact_conflict      │
-│ confidence            │       │──────────────────────│
-│ version               │       │ old_fact_id (FK→fact)│
-└──────────────────────┘       │ new_fact_id (FK→fact)│
-                               │ conflict_type         │
-                               │ resolution_status     │
-                               │ decision_note         │
+│ object_value          │       ┌──────────────────────┐
+│ object_json (JSONB)   │       │    fact_conflict      │
+│ status                │       │──────────────────────│
+│ confidence            │       │ existing_fact_id(FK)  │
+│ supersedes_fact_id(FK)│       │ incoming_fact_id(FK)  │
+│ metadata (JSONB)      │       │ conflict_reason       │
+└──────────────────────┘       │ resolution_status     │
+                               │ metadata (JSONB)      │
+                               │ resolved_at           │
                                └──────────────────────┘
 ```
 
@@ -354,44 +378,173 @@ DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,D
 
 ```
 ┌──────────────────────┐
+│   hermes_memory       │  ← 会话记忆 (热存储)
+│──────────────────────│
+│ id (PK)              │
+│ owner_user_id (TEXT) │
+│ org_id (FK→org)      │
+│ session_id            │
+│ role                  │  ('user'/'assistant'/'system')
+│ content               │
+│ token_count           │
+│ metadata (JSONB)      │
+│ created_at            │
+└──────────────────────┘
+
+┌──────────────────────┐
 │     memory_item       │       ┌──────────────────────┐
 │──────────────────────│       │    memory_source      │
 │ id (PK)              │ 1──N  │──────────────────────│
 │ owner_user_id (FK)   │◄──────│ memory_item_id (FK)  │
+│ org_id (FK)          │       │ source_type           │
 │ scope_type            │       │ source_ref            │
-│ memory_type           │       │ source_type           │
-│ summary               │       │ weight                │
-│ embedding vector(1536)│       └──────────────────────┘
-│ status                │
-│ source_kind           │       ┌──────────────────────┐
-└──────────────────────┘       │  memory_usage_log     │
-                               │──────────────────────│
-                               │ memory_item_id (FK)   │
+│ memory_type           │       │ relevance_score       │
+│ content_text          │       │ metadata (JSONB)      │
+│ summary               │       └──────────────────────┘
+│ embedding vector(1536)│
+│ confidence            │       ┌──────────────────────┐
+│ status                │       │  memory_usage_log     │
+│ metadata (JSONB)      │       │──────────────────────│
+└──────────────────────┘       │ memory_item_id (FK)   │
                                │ workflow_instance_id  │
-                               │ used_by_stage_id      │
-                               │ usage_reason          │
+                               │ usage_type            │
+                               │ relevance_score       │
+                               │ metadata (JSONB)      │
                                └──────────────────────┘
 
-┌──────────────────────┐       ┌──────────────────────┐
-│        skill          │       │    skill_version     │
-│──────────────────────│ 1──N  │──────────────────────│
+┌──────────────────────┐
+│        skill          │       ┌──────────────────────┐
+│──────────────────────│ 1──N  │    skill_version     │
 │ id (PK)              │◄──────│ skill_id (FK)        │
 │ owner_user_id (FK)   │       │ version               │
-│ scope_type            │       │ content_ref           │
-│ skill_type            │       │ content_hash          │
-│ name                  │       │ retrieval_summary     │
-│ risk_level            │       │ retrieval_embedding   │
-│ publish_status        │       │     vector(1536)      │
-│ current_version_id    │       └──────┬───────────────┘
-└──────────────────────┘              │ 1──N
-                                      ▼
-                               ┌──────────────────────┐
+│ org_id (FK)          │       │ definition_json(JSONB)│
+│ scope_type            │       │ content_hash          │
+│ skill_name            │       │ status                │
+│ description           │       │ metadata (JSONB)      │
+│ skill_type            │       └──────┬───────────────┘
+│ status                │              │ 1──N
+│ metadata (JSONB)      │              ▼
+└──────────────────────┘       ┌──────────────────────┐
                                │    skill_source      │
                                │──────────────────────│
                                │ skill_version_id(FK) │
-                               │ source_ref            │
                                │ source_type           │
+                               │ source_uri            │
+                               │ content_text          │
+                               │ metadata (JSONB)      │
                                └──────────────────────┘
+```
+
+### 3.5b 梦境模式与记忆分析模块
+
+```
+┌──────────────────────┐
+│  dream_mode_config    │  ← 梦境模式配置 (per user/org)
+│──────────────────────│
+│ id (PK)              │
+│ owner_user_id (FK)   │
+│ org_id (FK)          │
+│ enabled               │
+│ schedule_cron         │  ← cron 表达式
+│ analysis_depth        │
+│ last_run_at           │
+│ metadata (JSONB)      │
+└──────┬───────────────┘
+       │ 1──N
+       ▼
+┌──────────────────────┐
+│  memory_analysis_run  │  ← 分析运行记录
+│──────────────────────│
+│ id (PK)              │
+│ owner_user_id (FK)   │
+│ org_id (FK)          │
+│ status                │  ('pending'/'running'/'completed'/'failed')
+│ started_at            │
+│ finished_at           │
+│ summary (JSONB)       │
+│ metadata (JSONB)      │
+└──────┬───────────────┘
+       │ 1──N
+       ▼
+┌──────────────────────┐
+│  org_memory_summary   │  ← 记忆摘要结果
+│──────────────────────│
+│ id (PK)              │
+│ analysis_run_id (FK) │
+│ org_id (FK)          │
+│ memory_type           │
+│ content_text          │
+│ relevance_score       │
+│ embedding vector(1536)│
+│ metadata (JSONB)      │
+└──────────────────────┘
+
+┌──────────────────────┐       ┌──────────────────────┐
+│  memory_access_log    │       │ memory_compression_log│
+│──────────────────────│       │──────────────────────│
+│ id (PK)              │       │ id (PK)              │
+│ memory_item_id (FK)  │       │ owner_user_id (FK)   │
+│ workflow_instance_id  │       │ org_id (FK)          │
+│ access_type           │       │ compression_type     │
+│ duration_ms           │       │ items_before         │
+│ metadata (JSONB)      │       │ items_after          │
+└──────────────────────┘       │ metadata (JSONB)      │
+                               └──────────────────────┘
+```
+
+### 3.5c 技能治理与评估模块
+
+```
+┌──────────────────────┐
+│  skill_audit_record   │  ← 技能审核记录
+│──────────────────────│
+│ id (PK)              │
+│ skill_id (FK)        │
+│ skill_version_id (FK)│
+│ org_id (FK)          │
+│ reviewer_user_id (FK)│
+│ status                │  ('pending'/'approved'/'rejected')
+│ comment               │
+│ metadata (JSONB)      │
+│ created_at            │
+└──────────────────────┘
+
+┌──────────────────────┐
+│  skill_usage_stats    │  ← 技能使用统计
+│──────────────────────│
+│ id (PK)              │
+│ skill_id (FK)        │
+│ org_id (FK)          │
+│ user_id (FK)         │
+│ workflow_instance_id  │
+│ usage_count           │
+│ success_rate          │
+│ avg_duration_ms       │
+│ metadata (JSONB)      │
+└──────────────────────┘
+
+┌──────────────────────┐
+│  org_skill_registry   │  ← 组织技能注册表
+│──────────────────────│
+│ id (PK)              │
+│ org_id (FK)          │
+│ skill_id (FK)        │
+│ status                │  ('active'/'inactive'/'deprecated')
+│ metadata (JSONB)      │
+└──────────────────────┘
+
+┌──────────────────────┐
+│ scene_value_assessment│  ← 场景价值评估
+│──────────────────────│
+│ id (PK)              │
+│ org_id (FK)          │
+│ skill_id (FK)         │
+│ scene_name            │
+│ value_score           │
+│ usage_frequency       │
+│ metadata (JSONB)      │
+│ assessed_at           │
+└──────────────────────┘
 ```
 
 ### 3.6 AGE 图投影模块
@@ -401,13 +554,14 @@ DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,D
 │  projection_event     │  ← 待同步的变更事件队列
 │──────────────────────│
 │ id (PK)              │
-│ source_table          │  ('entity'/'relation'/'workflow_instance'/'workflow_stage'/'fact'/'skill_version')
-│ source_id             │
+│ graph_name            │
+│ vertex_label          │
+│ edge_label            │
 │ operation             │  ('insert'/'update'/'delete')
+│ entity_ref            │
 │ payload (JSONB)       │
-│ status                │  ('pending'/'processing'/'completed'/'failed')
-│ retry_count           │
-│ max_retries=3        │
+│ applied               │
+│ applied_at            │
 └──────────────────────┘
          │
          │ BullMQ Worker 消费
@@ -425,7 +579,7 @@ DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,D
 └──────────────────────────────────────────────┘
 ```
 
-### 3.7 审计与组织管理模块
+### 3.7 审计、文件与资源管理模块
 
 ```
 ┌──────────────────────┐
@@ -452,6 +606,43 @@ DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,D
 │ task_type             │       │ user_id              │
 │ status                │       │ assigned_role         │
 │ due_date              │       └──────────────────────┘
+└──────────────────────┘
+
+┌──────────────────────┐
+│      user_file        │  ← 用户文件存储 (MinIO)
+│──────────────────────│
+│ id (PK)              │
+│ owner_user_id (FK)   │
+│ org_id (FK)          │
+│ filename              │
+│ storage_ref           │
+│ mime_type             │
+│ file_size             │
+│ content_hash          │
+│ is_shared             │
+│ metadata (JSONB)      │
+│ created_at            │
+└──────────────────────┘
+
+┌──────────────────────┐       ┌──────────────────────┐
+│   resource_quota      │       │   resource_usage     │
+│──────────────────────│       │──────────────────────│
+│ id (PK)              │       │ id (PK)              │
+│ org_id (FK)          │       │ org_id (FK)          │
+│ resource_type         │       │ resource_type         │
+│ daily_limit           │       │ usage_count          │
+│ monthly_limit         │       │ usage_date           │
+│ metadata (JSONB)      │       │ metadata (JSONB)      │
+└──────────────────────┘       └──────────────────────┘
+
+┌──────────────────────┐
+│ service_status_event  │  ← 服务状态变更历史
+│──────────────────────│
+│ id (PK)              │
+│ service_name          │
+│ status                │  ('healthy'/'degraded'/'down')
+│ detail_json (JSONB)   │
+│ occurred_at           │
 └──────────────────────┘
 ```
 
@@ -620,7 +811,7 @@ DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,D
   │
   └─ [后台轮询] pollAndReplyWorkflowResult
        │
-       ├─ 每 5s, 最多 60 次 (300s 超时)
+       ├─ 每 10s, 最多 72 次 (720s 超时, 由 WORKFLOW_POLL_MAX_ITERATIONS 控制)
        │
        ├─ GET workflow-service /internal/workflows/{ref}
        │   └─ 返回 { workflow: { status, stages: [...] } }
@@ -762,6 +953,8 @@ gateway-adapter  →  hermes-adapter     POST /internal/memory/recall           
 gateway-adapter  →  workflow-service   POST /internal/workflows/plan             index.ts:467
 gateway-adapter  →  workflow-service   POST /internal/workflows/{}/dispatch      index.ts:483
 gateway-adapter  →  workflow-service   GET  /internal/workflows/{}               index.ts:850 (轮询)
+gateway-adapter  →  skill-library      POST /internal/skills/create             index.ts (技能提取)
+gateway-adapter  →  resource-scheduler   GET  /internal/quotas                    index.ts (限额检查)
 gateway-adapter  →  LiteLLM            POST /chat/completions (意图分类)          index.ts:211
 gateway-adapter  →  LiteLLM            POST /chat/completions (Chat 回复)         index.ts:343
 gateway-adapter  →  飞书 API           POST /im/v1/messages                      index.ts:805
@@ -784,54 +977,80 @@ hermes-adapter   →  fact-retrieval     POST /internal/facts/write             
 hermes-adapter   →  PostgreSQL         (直接 DB 读写)                             index.ts
 
 web-portal       →  workflow-service   (内部 API)                                 index.ts
+web-portal       →  skill-library      (技能 CRUD / 审核 / 注册)                   index.ts
+web-portal       →  resource-scheduler   (配额管理 / 使用统计)                    index.ts
 web-portal       →  PostgreSQL         (直接 DB 查询)                             index.ts
 
+skill-library    →  PostgreSQL         (直接 DB 读写)                             index.ts
+
+resource-scheduler→ PostgreSQL         (直接 DB 读写)                             index.ts
+
+mobile-app       →  PostgreSQL         (直接 DB 查询)                             index.ts
+mobile-app       →  gateway-adapter    (通知触发回调)                              index.ts
+
 feishu-longconn  →  gateway-adapter    POST /channels/feishu/longconn/event      外部转发
+feishu-longconn  →  飞书 API           WebSocket 长连接                             index.ts
 ```
 
 ### 6.2 服务→数据表读写矩阵
 
 ```
-表名                          gateway  workflow  executor  fact-ret  hermes   web-portal
-────────────────────────────────────────────────────────────────────────────────────────
-channel_identity               R/W       -         -         R         -        R
-user                           R/W       R         R         R/W       R        R/W
-organization                   R         R         -         -         -        R/W
-policy_snapshot                R         R/W       R         -         -        R/W
-org_policy                     R         R         -         -         -        R/W
+表名                          gateway  workflow  executor  fact-ret  hermes   web      skill-lib  resource  mobile  feishu
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+channel_identity               R/W       -         -         R         -        R        -          -         -       R
+user                           R/W       R         R         R/W       R        R/W      R          R         R       -
+organization                   R         R         -         -         -        R/W      -          R         -       -
+policy_snapshot                R         R/W       R         -         -        R/W      -          -         -       -
+org_policy                     R         R         -         -         -        R/W      -          -         -       -
 
-workflow_definition            -         R/W       -         -         -        R
-workflow_instance              R (轮询)  R/W       R         -         -        R
-workflow_stage                 R (轮询)  R/W       R/W       -         -        R
-checkpoint                     -         W         R         -         -        -
-workflow_event                 -         W         -         -         -        -
-execution_session              -         -         R/W       -         -        -
+workflow_definition            -         R/W       -         -         -        R        -          -         -       -
+workflow_instance              R (轮询)  R/W       R         -         -        R        -          -         -       -
+workflow_stage                 R (轮询)  R/W       R/W       -         -        R        -          -         -       -
+checkpoint                     -         W         R         -         -        -        -          -         -       -
+workflow_event                 -         W         -         -         -        -        -          -         -       -
+execution_session              -         -         R/W       -         -        -        -          -         -       -
 
-document                       -         -         -         R/W       -        -
-document_version               -         -         -         R/W       -        -
-document_chunk                 -         -         -         R/W       -        -
+document                       -         -         -         R/W       -        -        -          -         -       -
+document_version               -         -         -         R/W       -        -        -          -         -       -
+document_chunk                 -         -         -         R/W       -        -        -          -         -       -
 
-entity                         -         -         R         R/W       -        -
-entity_attribute               -         -         -         R/W       -        -
-relation                       -         -         -         R/W       -        -
+entity                         -         -         R         R/W       -        -        -          -         -       -
+entity_attribute               -         -         -         R/W       -        -        -          -         -       -
+relation                       -         -         -         R/W       -        -        -          -         -       -
 
-fact                           -         -         R/W       R/W       R/W      -
-fact_evidence                  -         -         -         R/W       R        -
-fact_conflict                  -         -         -         R/W       -        -
+fact                           -         -         R/W       R/W       R/W      -        -          -         -       -
+fact_evidence                  -         -         -         R/W       R        -        -          -         -       -
+fact_conflict                  -         -         -         R/W       -        -        -          -         -       -
 
-memory_item                    -         -         -         -         R/W      -
-memory_source                  -         -         -         -         R/W      -
-memory_usage_log               -         -         -         -         W        -
+hermes_memory                  R         -         -         -         R/W      -        -          -         -       -
+memory_item                    -         -         -         -         R/W      -        -          -         -       -
+memory_source                  -         -         -         -         R/W      -        -          -         -       -
+memory_usage_log               -         -         -         -         W        -        -          -         -       -
+memory_access_log              -         -         -         -         W        R        -          -         -       -
+memory_compression_log         -         -         -         -         W        R        -          -         -       -
+memory_analysis_run            -         -         -         -         -        R/W      -          -         -       -
+org_memory_summary             -         -         -         -         -        R/W      -          -         -       -
+dream_mode_config              -         -         -         -         -        R/W      -          -         -       -
 
-skill / skill_version          -         -         -         -         R/W      -
-skill_source                   -         -         -         -         R/W      -
+skill / skill_version          -         -         -         -         R/W      R        R/W        -         -       -
+skill_source                   -         -         -         -         R/W      -        R/W        -         -       -
+skill_audit_record             -         -         -         -         -        R/W      R/W        -         -       -
+skill_usage_stats              -         -         -         -         -        R        W          -         -       -
+org_skill_registry             -         -         -         -         -        R/W      R/W        -         -       -
+scene_value_assessment         -         -         -         -         -        R/W      R          -         -       -
 
-artifact_object                -         -         W         R/W       -        -
-retrieval_trace                -         -         -         R/W       -        R
-projection_event               -         -         -         R/W       -        -
+artifact_object                -         -         W         R/W       -        -        -          -         -       -
+retrieval_trace                -         -         -         R/W       -        R        -          -         -       -
+projection_event               -         -         -         R/W       -        -        -          -         -       -
 
-audit_event                    W         W         W         W         W        R
-org_task / org_task_assignment -         -         -         -         -        R/W
+user_file                      -         -         -         -         -        R/W      -          -         R       -
+
+resource_quota                 R         R         -         -         -        R/W      -          R/W       -       -
+resource_usage                 -         R         -         -         -        R/W      -          R/W       -       -
+
+audit_event                    W         W         W         W         W        R        W          W         W       -
+org_task / org_task_assignment -         -         -         -         -        R/W      -          -         -       -
+service_status_event           -         -         -         -         -        R        -          W         -       -
 ```
 
 > R=Read, W=Write, R/W=Read+Write
@@ -886,6 +1105,14 @@ IntentClarification → EvidenceRetrieval → ObjectExtraction
 IntentClarification → EvidenceRetrieval
     → ArchitectureDesign/DecisionMaking → Verification
     → ResultReporting → Archive
+```
+
+### 8.4 Dream 模式模板 (离线分析)
+
+```
+DreamSummarization → EvidenceRetrieval → ObjectExtraction
+    → DecisionMaking → ResultReporting → Archive
+    → (可选) SkillExtraction
 ```
 
 ---
@@ -964,7 +1191,12 @@ IntentClarification → EvidenceRetrieval
 | `services/fact-retrieval/src/index.ts` | 事实检索入口 | documents/index, retrieval/query, facts/write |
 | `services/fact-retrieval/src/service.ts` | 核心检索逻辑 | 向量检索 + 图检索 + 重排序 |
 | `services/hermes-adapter/src/index.ts` | 记忆管理 | memory/memory/recall/clear, context/compress |
-| `libs/shared/src/db/schema.ts` | 数据库 Schema (31表) | 所有 pgTable 定义 |
+| `services/skill-library/src/index.ts` | 技能库管理 | 技能 CRUD, 审核, 搜索, 注册表 |
+| `services/resource-scheduler/src/index.ts` | 资源配额调度 | 配额管理, 使用统计, 巡检 |
+| `apps/mobile-app/src/index.ts` | 移动端通知服务 | 设备注册, 推送通知, 历史查询 |
+| `services/feishu-longconn/src/index.ts` | 飞书长连接网关 | WebSocket 事件转发 |
+| `apps/web-portal/src/index.ts` | Web 管理后台 | 全量管理 API |
+| `libs/shared/src/db/schema.ts` | 数据库 Schema (47表) | 所有 pgTable 定义 |
 | `libs/shared/src/ai/embedding.ts` | 向量嵌入 | embedding 生成 |
 | `libs/policy/src/manager.ts` | 策略管理器 | `checkPermission` |
 | `libs/shared/src/config/manager.ts` | 配置管理器 | 环境变量加载 |
@@ -986,6 +1218,8 @@ IntentClarification → EvidenceRetrieval
 | **M3: Executor 集成** | AH1-18, AH1-17, AH1-19, AH1-22 | executor-gateway, code-executor, generic-executor | AH1-16, AH1-31 |
 | **Provider 切换** | AH1-26, AH1-28, AH1-15 | LiteLLM config, embedding | AH1-31, AH1-23 |
 | **压测收口** | AH1-24, AH1-23, AH1-27, AH1-31 | docker-compose, migrations | AH1-29, AH1-30 |
+| **技能管理** | AH1-17, AH1-16 | skill-library, web-portal | AH1-34, AH1-35 |
+| **Dream 梦境模式** | AH1-17, AH1-20 | web-portal (定时任务), fact-retrieval | AH1-23, AH1-31 |
 
 ### 11.2 上下文防腐规则
 

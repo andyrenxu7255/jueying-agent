@@ -1,13 +1,13 @@
 # JueYing (绝影) — 交接文档
 
 > **更新时间**: 2026-05-04（第十一轮：文件存储机制全面调试 + 6项Bug修复 + 7份文档一致性审计）
-> **当前状态**: ✅ 全链路验证通过，TypeScript编译零错误，文件存储功能调试完成，17个Docker容器正常运行
+> **当前状态**: ✅ 全链路验证通过，TypeScript编译零错误，文件存储功能调试完成，18个Docker容器正常运行
 
 ---
 
 ## 零、快速接续（新对话可直接复制此句）
 
-> 请阅读 `D:\teamclaw\agent-harness\HANDOFF-SESSION.md` 了解当前状态。系统当前状态：17个容器运行中，4轮审计共修复 85+ 个问题。Agent工作区/soul.md机制已实现，系统提示词自动注入用户人格与工作区状态。Docker 全量 restart:unless-stopped + healthcheck 覆盖。先运行 `tsc --build --force` 检查编译状态。
+> 请阅读 `D:\teamclaw\agent-harness\HANDOFF-SESSION.md` 了解当前状态。系统当前状态：18个容器运行中，4轮审计共修复 85+ 个问题。Agent工作区/soul.md机制已实现，系统提示词自动注入用户人格与工作区状态。Docker 全量 restart:unless-stopped + healthcheck 覆盖。先运行 `tsc --build --force` 检查编译状态。
 
 ---
 
@@ -344,8 +344,8 @@ node scripts/final-audit.cjs
 
 ## 八、改动文件清单（全部六轮）
 
-### gateway-adapter（第六轮新增：4路意图分类 + 知识提交/快速查询/Skill提取/推送）
-- `apps/gateway-adapter/src/index.ts` — 异步处理、去泄露、记忆集成、完成轮询、超时通知、匿名回退、企微AES加密解密、WeCom任务完成轮询推送、**4路意图分类(chat/task/knowledge_submit/quick_lookup)**、**submitKnowledge()**、**quickLookup()**、**extractWorkflowAsSkillCandidate()**、**sendMobilePushNotification()**、**增强system prompt**
+### gateway-adapter（第六轮新增：5路意图分类 + 知识提交/快速查询/Skill提取/推送）
+- `apps/gateway-adapter/src/index.ts` — 异步处理、去泄露、记忆集成、完成轮询、超时通知、匿名回退、企微AES加密解密、WeCom任务完成轮询推送、**5路意图分类(chat/task/knowledge_submit/quick_lookup/task_dispatch)**、**submitKnowledge()**、**quickLookup()**、**extractWorkflowAsSkillCandidate()**、**sendMobilePushNotification()**、**增强system prompt**
 - `apps/gateway-adapter/src/services/identity-resolver.ts` — 自动绑定 + 多渠道路由前缀纠正
 - `apps/gateway-adapter/Dockerfile` — 权限修复
 
@@ -388,8 +388,8 @@ node scripts/final-audit.cjs
 ### 配置文件（第六轮更新）
 - `docker-compose.yml` — 环境变量补全、**新增 skill-library/resource-scheduler/mobile-app 3 服务（3007/3008/3009）**
 - `.env.example` — 新增 WeCom 完整环境变量、**新增 SKILL_LIBRARY_URL/RESOURCE_SCHEDULER_URL/MOBILE_APP_URL**
-- `ARCHITECTURE.md` — 端口文档纠正、**第四轮修复文档、4路意图分类/知识审核/AGE扩展等架构更新**
-- `PRODUCT.md` — **知识管理功能、快速查询、4路意图分类**
+- `ARCHITECTURE.md` — 端口文档纠正、**第四轮修复文档、5路意图分类/知识审核/AGE扩展等架构更新**
+- `PRODUCT.md` — **知识管理功能、快速查询、5路意图分类**
 - `OPS.md` — **18容器、新服务健康检查/资源限制**
 - `README.md` — **新服务端口速查、目录树更新**
 - `libs/shared/src/db/schema.ts` — **user_profiles 表（三层人设体系）、document_chunk GIN 索引**

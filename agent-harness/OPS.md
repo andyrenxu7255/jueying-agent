@@ -1,6 +1,7 @@
 # JueYing (绝影) — 运维手册
 
-> 版本: 1.1.0 | 更新日期: 2026-05-04`r`n> 适用场景: 开发、测试、生产环境部署与维护
+> 版本: 1.3.0 | 更新日期: 2026-05-04
+> 适用场景: 开发、测试、生产环境部署与维护
 
 ---
 
@@ -48,7 +49,7 @@ cp .env.example .env
 | `WECOM_ENCODING_AES_KEY` | 否 | - | 企业微信消息加密密钥 |
 | `WECOM_AGENT_ID` | 否 | - | 企业微信 AgentID |
 | `ADMIN_PASSWORD` | 否 | - | Web Portal 管理员初始密码 |
-| `CORS_ORIGINS` | 否 | `http://localhost:3003,*` | CORS 允许的来源 |
+| `CORS_ORIGINS` | 否 | `http://localhost:3003` | CORS 允许的来源 |
 | `POSTGRES_USER` | 否 | `agent_harness` | PostgreSQL 用户名 |
 | `POSTGRES_PASSWORD` | 否 | `dev_password` | PostgreSQL 密码 |
 | `DB_POOL_MAX` | 否 | `10` | 数据库连接池最大连接数 |

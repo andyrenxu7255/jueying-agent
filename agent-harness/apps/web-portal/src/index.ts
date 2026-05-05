@@ -261,11 +261,10 @@ const LOGIN_LOCKOUT_MAX_MS = 900000;
 const LOGIN_WINDOW_MS = 300000;
 
 function cleanupLoginAttempts(now: number = Date.now()): void {
-  const cutoff = now - LOGIN_WINDOW_MS * 2;
   for (const [key, val] of loginAttempts.entries()) {
-    if (now > val.lockedUntil && now - (val.lockedUntil - LOGIN_WINDOW_MS) > LOGIN_WINDOW_MS * 2) {
+    if (val.lockedUntil > 0 && now > val.lockedUntil + LOGIN_WINDOW_MS) {
       loginAttempts.delete(key);
-    } else if (val.lockedUntil === 0 && now - (now - LOGIN_WINDOW_MS) > LOGIN_WINDOW_MS * 2) {
+    } else if (val.lockedUntil === 0 && val.count < LOGIN_MAX_ATTEMPTS) {
       loginAttempts.delete(key);
     }
   }
@@ -373,7 +372,7 @@ async function fetchFromService(url: string, options?: { method?: string; header
     return { status: response.status, data };
   } catch (error) {
     logger.warn('service.fetch_failed', 'Failed to fetch from service', { url, error: String(error) });
-    return { status: 502, data: { ok: false, error: 'service_unavailable', message: String(error) } };
+    return { status: 502, data: { ok: false, error: 'service_unavailable' } };
   }
 }
 
@@ -551,6 +550,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       }
       const adminOverride = ADMIN_PASSWORD && password === ADMIN_PASSWORD;
       if (!adminOverride) {
+        const rateCheck = checkLoginRateLimit(rateLimitKey);
+        if (rateCheck.blocked) {
+          sendJson(res, 429, { ok: false, error: 'rate_limited', message: rateCheck.message, retry_after_ms: rateCheck.retryAfterMs });
+          return;
+        }
+      }
+      if (!adminOverride) {
         let dbPasswordVerified = false;
         try {
           const pool = await getDbPool();
@@ -635,8 +641,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
       try {
         const userResult = await pool.query(
-          `SELECT id, metadata FROM "user" WHERE username = $1 LIMIT 1`,
-          [session.username]
+          `SELECT id, metadata FROM "user" WHERE id = $1 LIMIT 1`,
+          [session.user_id]
         );
         if (userResult.rows.length === 0) {
           sendJson(res, 404, { ok: false, error: 'user_not_found' });
@@ -650,13 +656,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         }
         const newHash = hashPassword(newPassword);
         await pool.query(
-          `UPDATE "user" SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{password_hash}', $2::jsonb) WHERE username = $1`,
-          [session.username, JSON.stringify(newHash)]
+          `UPDATE "user" SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{password_hash}', $2::jsonb) WHERE id = $1`,
+          [session.user_id, JSON.stringify(newHash)]
         );
         await auditWriter.write({ action: 'user.change_password', user_id: session.user_id, resource_type: 'user', resource_ref: session.user_id, resource_scope: 'system', result: 'success', detail_json: {} });
         sendJson(res, 200, { ok: true, message: '密码修改成功' });
       } catch (error) {
-        sendJson(res, 500, { ok: false, error: 'db_error', message: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
       }
       return;
     }
@@ -841,6 +847,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/users' && method === 'GET') {
       const session = await requireSession(req, res);
       if (!session) return;
+      // TODO: gateway-adapter does not expose '/users' - should query DB directly or add endpoint to gateway
       const r = await fetchFromService(gatewayUrl + '/users');
       sendJson(res, r.status, r.data);
       return;
@@ -858,6 +865,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           return;
         }
       }
+      // TODO: gateway-adapter does not expose '/users' POST - should query DB directly or add endpoint to gateway
       const r = await fetchFromService(gatewayUrl + '/users', { method: 'POST', body: JSON.stringify(body) });
       sendJson(res, r.status, r.data);
       return;
@@ -911,7 +919,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/admin/skills' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
-      const r = await fetchFromService(skillLibraryUrl + '/skills');
+      const r = await fetchFromService(skillLibraryUrl + '/internal/skills');
       sendJson(res, r.status, r.data);
       return;
     }
@@ -920,7 +928,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const body = await readJson(req);
-      const r = await fetchFromService(skillLibraryUrl + '/skills', { method: 'POST', body: JSON.stringify(body) });
+      const r = await fetchFromService(skillLibraryUrl + '/internal/skills', { method: 'POST', body: JSON.stringify(body) });
       sendJson(res, r.status, r.data);
       return;
     }
@@ -929,7 +937,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const skillId = pathname.slice('/api/admin/skills/'.length);
-      const r = await fetchFromService(skillLibraryUrl + '/skills/' + encodeURIComponent(skillId));
+      const r = await fetchFromService(skillLibraryUrl + '/internal/skills/' + encodeURIComponent(skillId));
       sendJson(res, r.status, r.data);
       return;
     }
@@ -939,7 +947,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const skillId = pathname.slice('/api/admin/skills/'.length);
       const body = await readJson(req);
-      const r = await fetchFromService(skillLibraryUrl + '/skills/' + encodeURIComponent(skillId), { method: 'PUT', body: JSON.stringify(body) });
+      const r = await fetchFromService(skillLibraryUrl + '/internal/skills/' + encodeURIComponent(skillId), { method: 'PUT', body: JSON.stringify(body) });
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1030,7 +1038,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         const tableResult = await pool.query(`SELECT count(*) as cnt FROM information_schema.tables WHERE table_schema = 'public'`);
         sendJson(res, 200, { ok: true, stats: { connections: Number(connResult.rows[0]?.cnt || 0), db_size: sizeResult.rows[0]?.size || '-', table_count: Number(tableResult.rows[0]?.cnt || 0) } });
       } catch (error) {
-        sendJson(res, 500, { ok: false, error: 'db_error', message: String(error) });
+        logger.error('db.stats_error', 'DB stats query failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
       }
       return;
     }
@@ -1047,7 +1056,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         else if (action === 'checkpoint') await pool.query('CHECKPOINT');
         sendJson(res, 200, { ok: true });
       } catch (error) {
-        sendJson(res, 500, { ok: false, error: 'db_error', message: String(error) });
+        logger.error('db.maintenance_error', 'DB maintenance failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
       }
       return;
     }
@@ -1270,6 +1280,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const pool = await getDbPool();
       if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      // TODO: gateway-adapter does not expose '/internal/query' - should query DB directly
       const r = await fetchFromService(gatewayUrl + '/internal/query', {
         method: 'POST',
         body: JSON.stringify({ sql: 'SELECT * FROM dream_mode_config WHERE org_id = $1', params: [session.org_id || '00000000-0000-0000-0000-000000000001'] })
@@ -1302,7 +1313,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         );
         sendJson(res, 200, { ok: true });
       } catch (err) {
-        sendJson(res, 500, { ok: false, error: 'config_save_failed', message: String(err) });
+        logger.error('dream.config_save_failed', 'Failed to save dream mode config', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'config_save_failed' });
       }
       return;
     }
@@ -1433,7 +1445,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           }
         });
       } catch (error) {
-        sendJson(res, 500, { ok: false, error: 'stats_error', message: String(error) });
+        logger.error('db.stats_error', 'Container stats failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'stats_error' });
       }
       return;
     }
@@ -1464,7 +1477,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         );
         sendJson(res, 200, { ok: true, users: result.rows });
       } catch (error) {
-        sendJson(res, 500, { ok: false, error: 'db_error', message: String(error) });
+        logger.error('db.users_orgs_error', 'Users-orgs query failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
       }
       return;
     }
@@ -1482,7 +1496,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         await pool.query(`UPDATE "user" SET org_id = $1 WHERE id = $2`, [orgId || null, userId]);
         sendJson(res, 200, { ok: true });
       } catch (error) {
-        sendJson(res, 500, { ok: false, error: 'db_error', message: String(error) });
+        logger.error('db.user_org_update_error', 'User-org update failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
       }
       return;
     }
@@ -1759,7 +1774,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     sendJson(res, 404, { ok: false, error: 'not_found' });
   } catch (error) {
     logger.error('request.error', 'Unhandled request error', { error: String(error), pathname });
-    sendJson(res, 500, { ok: false, error: 'internal_error', message: String(error) });
+    sendJson(res, 500, { ok: false, error: 'internal_error' });
   }
 }
 
@@ -1783,10 +1798,16 @@ async function startServer(): Promise<void> {
   startTaskScheduler();
   startDreamScheduler();
 
+  const sessionCleanupInterval = setInterval(() => {
+    evictExpiredSessions();
+    cleanupLoginAttempts();
+  }, 5 * 60 * 1000);
+
   const shutdown = () => {
     logger.info('server.shutdown', 'Shutting down server...');
     stopTaskScheduler();
     stopDreamScheduler();
+    clearInterval(sessionCleanupInterval);
     server.close(() => {
       if (dbPool) dbPool.end().catch(() => {});
       process.exit(0);

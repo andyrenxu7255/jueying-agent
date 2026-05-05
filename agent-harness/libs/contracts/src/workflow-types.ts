@@ -42,7 +42,18 @@ export interface WorkflowInstance {
   context?: Record<string, unknown>;
 }
 
+export interface ExecutorInput {
+  workflow_instance_id: string;
+  workflow_stage_id: string;
+  user_goal: string;
+  policy_snapshot_hash: string;
+  owner_user_id?: string;
+  org_id?: string;
+  context?: Record<string, unknown>;
+}
+
 export interface ExecutionResult {
+  /** completed = stage finished (regardless of outcome); succeeded = workflow-level success */
   status: 'completed' | 'succeeded' | 'failed' | 'degraded';
   output?: unknown;
   artifacts?: unknown[];

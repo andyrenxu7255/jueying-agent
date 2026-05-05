@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport } from '@agent-harness/shared';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport, readJson, sendJson, postJson } from '@agent-harness/shared';
 import { auditWriter } from '@agent-harness/audit';
 import { policyManager } from '@agent-harness/policy';
 import { workflowPlanner, PlannerInput } from './planner';
@@ -26,59 +26,6 @@ setupDefaultHealthChecks(
 const port = Number(process.env.PORT || 3001);
 const executorUrl = process.env.EXECUTOR_URL || '';
 if (!executorUrl) logger.warn('config.missing', 'EXECUTOR_URL environment variable is not set');
-
-async function readJson(req: import('node:http').IncomingMessage): Promise<Record<string, unknown>> {
-  const chunks: Buffer[] = [];
-  let totalSize = 0;
-  const MAX_BODY_SIZE = 10 * 1024 * 1024;
-  for await (const chunk of req) {
-    totalSize += chunk.length;
-    if (totalSize > MAX_BODY_SIZE) {
-      throw new Error('request_body_too_large');
-    }
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  if (chunks.length === 0) return {};
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
-  } catch {
-    throw new Error('invalid_json');
-  }
-}
-
-function sendJson(res: import('node:http').ServerResponse, statusCode: number, body: Record<string, unknown>): void {
-  res.writeHead(statusCode, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(body));
-}
-
-async function postJson(
-  url: string,
-  payload: Record<string, unknown>,
-  timeoutMs: number = Number(process.env.HTTP_TIMEOUT_MS || 15000)
-): Promise<{ ok: boolean; status: number; body: Record<string, unknown> | null }> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-    const text = await response.text();
-    let body: Record<string, unknown> | null = null;
-    try {
-      body = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      body = null;
-    }
-    return { ok: response.ok, status: response.status, body };
-  } catch {
-    return { ok: false, status: 0, body: null };
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
 
 interface WorkflowRecord {
   id: string;

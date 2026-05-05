@@ -1,4 +1,4 @@
-class GatewayState {
+export class GatewayState {
   dedupeCache = new Map<string, number>();
   readonly dedupeTtlMs = 10 * 60 * 1000;
   readonly dedupeMaxSize = 100000;

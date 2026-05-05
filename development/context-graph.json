@@ -1,6 +1,6 @@
 {
-  "version": "v1.3",
-  "description": "Agent Harness V1 context dependency graph for anti-context-rot loading - Updated 2026-05-04 with workspace/soul mechanism",
+  "version": "v1.6",
+  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-05: Added skill-library, resource-scheduler, mobile-app, dream-mode authority entries and task profiles",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -52,7 +52,11 @@
     "provider": "AH1-26-Provider选择与配置.md",
     "config": "AH1-28-配置管理.md",
     "error_degrade": "AH1-31-错误处理与降级策略.md",
-    "api_version": "AH1-32-API版本管理策略.md"
+    "api_version": "AH1-32-API版本管理策略.md",
+    "skill": "AH1-17-Workflow-DSL与Planner契约.md",
+    "resource": "AH1-28-配置管理.md",
+    "dream": "AH1-17-Workflow-DSL与Planner契约.md",
+    "file_storage": "AH1-22-Artifact-Object-Storage.md"
   },
   "task_profiles": {
     "M1_ingress_workflow": {
@@ -97,6 +101,60 @@
       ],
       "optional": [
         "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-31-错误处理与降级策略.md"
+      ]
+    },
+    "M4_hermes": {
+      "authority": [
+        "AH1-20-检索编排与Fact-Write.md",
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-26-Provider选择与配置.md"
+      ],
+      "execution": [
+        "development/DEV-05-M4Hermes增强接入.md"
+      ],
+      "optional": [
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-23-审计日志指标与告警.md"
+      ]
+    },
+    "M5_capacity": {
+      "authority": [
+        "AH1-24-PoC压测执行方案.md",
+        "AH1-23-审计日志指标与告警.md",
+        "AH1-31-错误处理与降级策略.md"
+      ],
+      "execution": [
+        "development/DEV-06-M5容量验证收口.md"
+      ],
+      "optional": [
+        "AH1-27-部署与运维.md",
+        "AH1-29-交付物清单.md"
+      ]
+    },
+    "skill_management": {
+      "authority": [
+        "AH1-17-Workflow-DSL与Planner契约.md",
+        "AH1-16-权限Scope-Policy-Snapshot.md"
+      ],
+      "execution": [
+        "development/DEV-02-M1接入层Workflow主链路.md"
+      ],
+      "optional": [
+        "AH1-34-安全架构增强.md",
+        "AH1-35-版本管理规范.md"
+      ]
+    },
+    "dream_mode": {
+      "authority": [
+        "AH1-17-Workflow-DSL与Planner契约.md",
+        "AH1-20-检索编排与Fact-Write.md"
+      ],
+      "execution": [
+        "development/DEV-02-M1接入层Workflow主链路.md"
+      ],
+      "optional": [
+        "AH1-23-审计日志指标与告警.md",
         "AH1-31-错误处理与降级策略.md"
       ]
     }

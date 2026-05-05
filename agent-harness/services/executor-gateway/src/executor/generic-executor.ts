@@ -6,7 +6,8 @@ const logger = createLogger('generic-executor');
 
 const LITELLM_URL = process.env.LITELLM_URL || '';
 const LITELLM_MODEL = process.env.LITELLM_MODEL || 'minimax-m2.7';
-const LITELLM_API_KEY = process.env.LITELLM_MASTER_KEY || process.env.LITELLM_API_KEY || 'litellm-dev-key';
+const LITELLM_API_KEY = process.env.LITELLM_MASTER_KEY || process.env.LITELLM_API_KEY || '';
+if (!LITELLM_API_KEY) logger.warn('config.missing', 'LITELLM_MASTER_KEY or LITELLM_API_KEY environment variable is not set');
 
 export type ExecutorStatus = 'pending' | 'running' | 'completed' | 'failed' | 'waiting_user' | 'blocked' | 'succeeded';
 

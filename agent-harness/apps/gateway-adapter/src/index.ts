@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createHash, createHmac, createDecipheriv, timingSafeEqual } from 'node:crypto';
-import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity, extractPathname, postJson } from '@agent-harness/shared';
+import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity, extractPathname, postJson, sendJson } from '@agent-harness/shared';
 import { identityResolver } from './services/identity-resolver';
 import { sessionMapper } from './services/session-mapper';
 import { validateFileForImport, sanitizeFileName, validateTextContent } from './services/file-validator';
@@ -72,11 +72,6 @@ function parseJson(rawBody: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
-}
-
-function sendJson(res: import('node:http').ServerResponse, statusCode: number, body: Record<string, unknown>): void {
-  res.writeHead(statusCode, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(body));
 }
 
 function sendText(res: import('node:http').ServerResponse, statusCode: number, body: string): void {
