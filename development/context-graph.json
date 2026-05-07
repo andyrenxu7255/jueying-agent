@@ -1,6 +1,6 @@
 {
-  "version": "v1.8",
-  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-06 R4: Three-round audit/repair cycle completed (20 fixes across 18 files). Added code quality validation layer, agent-harness source-to-authority mapping, and fix changelog tracking.",
+  "version": "v1.9",
+  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-08 R6: Synchronized DEV-08 version (v1.1→v1.8), aligned context-routing.json task_routes naming (M1-M5 prefix), corrected authority_map['resource'] to AH1-26 (Provider/Budget management, L0 layer).",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -62,7 +62,7 @@
     "error_degrade": "AH1-31-错误处理与降级策略.md",
     "api_version": "AH1-32-API版本管理策略.md",
     "skill": "AH1-17-Workflow-DSL与Planner契约.md",
-    "resource": "AH1-31-错误处理与降级策略.md",
+    "resource": "AH1-26-Provider选择与配置.md",
     "dream": "AH1-17-Workflow-DSL与Planner契约.md",
     "file_storage": "AH1-22-Artifact-Object-Storage.md"
   },
@@ -205,8 +205,9 @@
     "2026-05-06-R3": "Storyline Alignment: 4 fixes (workflow concurrent limit TC-F002-05, gateway binding check AH1-21§21.4.4, generic-executor 7 stage types AH1-01§2.3, workflow org_id persistence AH1-19)",
     "2026-05-06-R4": "Doc/Graph Sync: context-graph.json v1.7→1.8, DEV-08 updated, fix-changelog created, source_to_authority mapping added",
     "2026-05-06-R5": "Comprehensive audit fixes: authority_map corrections, layer classification for AH1-13/AH1-27, security-check authority expanded",
-    "total_fixes": 21,
-    "files_modified": 18,
+    "2026-05-08-R6": "Graph Sync Round 2: DEV-08 version sync (v1.1→v1.8), context-routing.json task_routes naming aligned (M1-M5 prefix convention), authority_map['resource'] corrected from AH1-31→AH1-26 (Provider/Budget L0 authority)",
+    "total_fixes": 24,
+    "files_modified": 20,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
   }
