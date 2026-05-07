@@ -1,8 +1,8 @@
 import { customType, index, integer, jsonb, pgTable, text, timestamp, uuid, boolean, bigint, real, uniqueIndex } from 'drizzle-orm/pg-core';
 
-const vector1024 = customType<{ data: string | null; driverData: string | null }>({
+const vector1536 = customType<{ data: string | null; driverData: string | null }>({
   dataType() {
-    return 'vector(1024)';
+    return 'vector(1536)';
   },
 });
 
@@ -30,6 +30,7 @@ export const channelIdentities = pgTable('channel_identity', {
 export const policySnapshots = pgTable('policy_snapshot', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull(),
+  role: text('role'),
   orgId: uuid('org_id'),
   snapshotHash: text('snapshot_hash').notNull(),
   allowedScopes: jsonb('allowed_scopes').notNull(),
@@ -110,6 +111,8 @@ export const workflowStages = pgTable('workflow_stage', {
 }, (table) => ({
   instanceStatusIdx: index('idx_workflow_stage_instance_status').on(table.workflowInstanceId, table.status),
   executorStatusIdx: index('idx_workflow_stage_executor_status').on(table.assignedExecutor, table.status),
+  instanceSeqUnique: uniqueIndex('idx_workflow_stage_instance_seq').on(table.workflowInstanceId, table.seq),
+  instanceKeyUnique: uniqueIndex('idx_workflow_stage_instance_key').on(table.workflowInstanceId, table.stageKey),
 }));
 
 export const checkpoints = pgTable('checkpoint', {
@@ -180,10 +183,11 @@ export const memoryItems = pgTable('memory_item', {
   memoryType: text('memory_type').notNull(),
   contentText: text('content_text').notNull(),
   summary: text('summary'),
-  embedding: vector1024('embedding'),
+  embedding: vector1536('embedding'),
   embeddingModelVersion: text('embedding_model_version'),
   confidence: real('confidence').notNull(),
   status: text('status').notNull(),
+  sourceKind: text('source_kind'),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -209,6 +213,7 @@ export const memoryUsageLogs = pgTable('memory_usage_log', {
   id: uuid('id').primaryKey().defaultRandom(),
   memoryItemId: uuid('memory_item_id').notNull(),
   workflowInstanceId: uuid('workflow_instance_id'),
+  usedByStageId: uuid('used_by_stage_id'),
   usageType: text('usage_type').notNull(),
   relevanceScore: real('relevance_score'),
   metadata: jsonb('metadata').notNull(),
@@ -225,7 +230,9 @@ export const skills = pgTable('skill', {
   skillName: text('skill_name').notNull(),
   description: text('description'),
   skillType: text('skill_type').notNull(),
+  riskLevel: text('risk_level'),
   status: text('status').notNull(),
+  currentVersionId: uuid('current_version_id'),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -239,9 +246,13 @@ export const skillVersions = pgTable('skill_version', {
   id: uuid('id').primaryKey().defaultRandom(),
   skillId: uuid('skill_id').notNull(),
   version: integer('version').notNull(),
+  sourceChainType: text('source_chain_type'),
+  contentRef: text('content_ref'),
   definitionJson: jsonb('definition_json').notNull(),
   contentHash: text('content_hash').notNull(),
   status: text('status').notNull(),
+  retrievalSummary: text('retrieval_summary'),
+  retrievalEmbedding: vector1536('retrieval_embedding'),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
@@ -337,6 +348,7 @@ export const documents = pgTable('document', {
   sourceUri: text('source_uri'),
   status: text('status').notNull(),
   contentHash: text('content_hash'),
+  currentVersionId: uuid('current_version_id'),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -352,6 +364,8 @@ export const documentVersions = pgTable('document_version', {
   status: text('status').notNull(),
   contentHash: text('content_hash').notNull(),
   storageRef: text('storage_ref'),
+  mimeType: text('mime_type'),
+  sourceRef: text('source_ref'),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
@@ -368,7 +382,7 @@ export const documentChunks = pgTable('document_chunk', {
   chunkIndex: integer('chunk_index').notNull(),
   contentText: text('content_text').notNull(),
   tokenCount: integer('token_count').notNull(),
-  embedding: vector1024('embedding'),
+  embedding: vector1536('embedding'),
   embeddingModelVersion: text('embedding_model_version'),
   searchTsv: tsvectorType('search_tsv'),
   metadata: jsonb('metadata').notNull(),
@@ -378,6 +392,7 @@ export const documentChunks = pgTable('document_chunk', {
   ownerScopeIdx: index('idx_document_chunk_owner_scope').on(table.ownerUserId, table.scopeType),
   orgIdx: index('idx_document_chunk_org').on(table.orgId),
   searchTsvIdx: index('idx_document_chunk_search_tsv').on(table.searchTsv),
+  embeddingHnswIdx: index('idx_document_chunk_embedding_hnsw').using('hnsw', table.embedding.op('vector_cosine_ops')),
 }));
 
 export const entities = pgTable('entity', {
@@ -388,6 +403,7 @@ export const entities = pgTable('entity', {
   entityType: text('entity_type').notNull(),
   canonicalName: text('canonical_name').notNull(),
   status: text('status').notNull(),
+  sourceConfidence: real('source_confidence'),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -401,6 +417,7 @@ export const entityAttributes = pgTable('entity_attribute', {
   id: uuid('id').primaryKey().defaultRandom(),
   entityId: uuid('entity_id').notNull(),
   attrKey: text('attr_key').notNull(),
+  valueType: text('value_type'),
   attrValue: text('attr_value'),
   valueJson: jsonb('value_json').notNull(),
   confidence: real('confidence').notNull(),
@@ -408,6 +425,7 @@ export const entityAttributes = pgTable('entity_attribute', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   entityIdx: index('idx_entity_attribute_entity').on(table.entityId),
+  attrUnique: uniqueIndex('idx_entity_attribute_unique').on(table.entityId, table.attrKey, table.sourceRef),
 }));
 
 export const relations = pgTable('relation', {
@@ -419,6 +437,8 @@ export const relations = pgTable('relation', {
   relationType: text('relation_type').notNull(),
   toEntityId: uuid('to_entity_id').notNull(),
   status: text('status').notNull(),
+  strength: real('strength'),
+  evidenceRef: text('evidence_ref'),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -432,12 +452,14 @@ export const facts = pgTable('fact', {
   ownerUserId: uuid('owner_user_id').notNull(),
   orgId: uuid('org_id'),
   scopeType: text('scope_type').notNull(),
+  factType: text('fact_type'),
   subjectRef: text('subject_ref').notNull(),
   predicate: text('predicate').notNull(),
   objectValue: text('object_value'),
   objectJson: jsonb('object_json').notNull(),
   status: text('status').notNull(),
   confidence: real('confidence').notNull(),
+  version: integer('version').notNull().default(1),
   supersedesFactId: uuid('supersedes_fact_id'),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -453,6 +475,7 @@ export const factEvidence = pgTable('fact_evidence', {
   factId: uuid('fact_id').notNull(),
   evidenceRef: text('evidence_ref').notNull(),
   evidenceType: text('evidence_type').notNull(),
+  supportType: text('support_type'),
   excerpt: text('excerpt'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
@@ -465,6 +488,8 @@ export const factConflicts = pgTable('fact_conflict', {
   incomingFactId: uuid('incoming_fact_id').notNull(),
   conflictReason: text('conflict_reason').notNull(),
   resolutionStatus: text('resolution_status').notNull(),
+  decisionNote: text('decision_note'),
+  resolvedBy: uuid('resolved_by'),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
@@ -478,6 +503,11 @@ export const artifactObjects = pgTable('artifact_object', {
   ownerUserId: uuid('owner_user_id').notNull(),
   orgId: uuid('org_id'),
   scopeType: text('scope_type').notNull(),
+  workflowInstanceId: uuid('workflow_instance_id'),
+  workflowStageId: uuid('workflow_stage_id'),
+  executionSessionId: uuid('execution_session_id'),
+  skillId: uuid('skill_id'),
+  skillVersionId: uuid('skill_version_id'),
   artifactType: text('artifact_type').notNull(),
   contentHash: text('content_hash').notNull(),
   storageBackend: text('storage_backend').notNull(),
@@ -496,13 +526,16 @@ export const artifactObjects = pgTable('artifact_object', {
 export const retrievalTraces = pgTable('retrieval_trace', {
   id: uuid('id').primaryKey().defaultRandom(),
   workflowInstanceId: uuid('workflow_instance_id'),
+  workflowStageId: uuid('workflow_stage_id'),
   ownerUserId: uuid('owner_user_id').notNull(),
   orgId: uuid('org_id'),
   queryText: text('query_text').notNull(),
   intentType: text('intent_type').notNull(),
   scopeSummary: jsonb('scope_summary').notNull(),
   retrievalPlan: jsonb('retrieval_plan').notNull(),
+  stepTraceJson: jsonb('step_trace_json').notNull(),
   resultSummary: jsonb('result_summary').notNull(),
+  evidencePackHash: text('evidence_pack_hash'),
   durationMs: integer('duration_ms').notNull(),
   degraded: boolean('degraded').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -513,7 +546,7 @@ export const retrievalTraces = pgTable('retrieval_trace', {
 
 export const auditEvents = pgTable('audit_event', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id').notNull(),
+  userId: uuid('user_id').notNull(),
   orgId: uuid('org_id'),
   workflowInstanceId: uuid('workflow_instance_id'),
   action: text('action').notNull(),
@@ -685,7 +718,7 @@ export const orgMemorySummaries = pgTable('org_memory_summary', {
   relevanceScore: real('relevance_score').notNull().default(0.5),
   dedupGroupId: uuid('dedup_group_id'),
   status: text('status').notNull().default('candidate'),
-  embedding: vector1024('embedding'),
+  embedding: vector1536('embedding'),
   embeddingModelVersion: text('embedding_model_version'),
   metadata: jsonb('metadata').notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

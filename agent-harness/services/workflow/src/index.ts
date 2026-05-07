@@ -67,6 +67,7 @@ function parseVerificationMeta(output: string): Record<string, unknown> | null {
 
 const WORKFLOW_STORE_PATH = resolve(process.cwd(), '.runtime', 'workflow-store.json');
 const WORKFLOW_STORE_MAX_SIZE = 10000;
+const MAX_ACTIVE_WORKFLOWS_PER_USER = 20;
 const workflowStore: Map<string, WorkflowRecord> = loadWorkflowStore();
 
 const workflowLocks: Map<string, Promise<void>> = new Map();
@@ -142,6 +143,7 @@ function loadWorkflowStore(): Map<string, WorkflowRecord> {
       }
       store.set(item.id, {
         ...item,
+        org_id: item.org_id as string | undefined,
         machine: restoreMachine(item.id, item.status, item.stages)
       });
     }
@@ -171,6 +173,7 @@ function persistWorkflowStore(): void {
           id: workflow.id,
           status: workflow.status,
           owner_user_id: workflow.owner_user_id,
+          org_id: workflow.org_id,
           plan: workflow.plan,
           stages: workflow.stages,
           created_at: workflow.created_at
@@ -193,6 +196,7 @@ function persistWorkflowStore(): void {
     id: workflow.id,
     status: workflow.status,
     owner_user_id: workflow.owner_user_id,
+    org_id: workflow.org_id,
     plan: workflow.plan,
     stages: workflow.stages,
     created_at: workflow.created_at
@@ -333,6 +337,20 @@ const server = createServer(async (req, res) => {
         ok: false,
         error: 'permission_denied',
         message: 'User does not have permission to create workflows'
+      });
+      return;
+    }
+
+    const activeWorkflows = Array.from(workflowStore.values()).filter(
+      w => w.owner_user_id === userId && !['succeeded', 'failed', 'cancelled', 'archived'].includes(w.status)
+    );
+    if (activeWorkflows.length >= MAX_ACTIVE_WORKFLOWS_PER_USER) {
+      sendJson(res, 429, {
+        ok: false,
+        error: 'WORKFLOW_CONCURRENT_LIMIT',
+        message: `User has ${activeWorkflows.length} active workflows (max ${MAX_ACTIVE_WORKFLOWS_PER_USER}). Please wait for some to complete or cancel existing workflows.`,
+        active_count: activeWorkflows.length,
+        max_limit: MAX_ACTIVE_WORKFLOWS_PER_USER
       });
       return;
     }

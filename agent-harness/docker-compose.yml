@@ -91,6 +91,8 @@ services:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
       MINIMAX_API_KEY: ${MINIMAX_API_KEY}
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
+      EMBEDDING_PROVIDER_API_KEY: ${EMBEDDING_PROVIDER_API_KEY}
+      RERANK_PROVIDER_API_KEY: ${RERANK_PROVIDER_API_KEY}
     ports:
       - "4000:4000"
     healthcheck:
@@ -311,11 +313,12 @@ services:
       DB_POOL_MAX: ${DB_POOL_MAX:-10}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-otel-collector:4318
       EMBEDDING_PROVIDER_API_KEY: ${EMBEDDING_PROVIDER_API_KEY}
-      EMBEDDING_PROVIDER_URL: https://api.siliconflow.cn/v1
-      EMBEDDING_PROVIDER_MODEL: BAAI/bge-m3
+      EMBEDDING_PROVIDER_URL: ${EMBEDDING_BASE_URL:-https://api.siliconflow.cn/v1}
+      EMBEDDING_PROVIDER_MODEL: ${EMBEDDING_MODEL_ID:-netease-youdao/bce-embedding-base_v1}
+      EMBEDDING_MODE: provider
       RERANK_PROVIDER_API_KEY: ${RERANK_PROVIDER_API_KEY}
-      RERANK_PROVIDER_URL: https://api.siliconflow.cn/v1
-      RERANK_PROVIDER_MODEL: Qwen/Qwen3-Reranker-8B
+      RERANK_PROVIDER_URL: ${RERANK_BASE_URL:-https://api.siliconflow.cn/v1}
+      RERANK_PROVIDER_MODEL: ${RERANK_MODEL_ID:-BAAI/bge-reranker-v2-m3}
     ports:
       - "3004:3000"
     volumes:

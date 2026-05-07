@@ -1,13 +1,13 @@
 # JueYing (绝影) — 交接文档
 
-> **更新时间**: 2026-05-04（第十一轮：文件存储机制全面调试 + 6项Bug修复 + 7份文档一致性审计）
-> **当前状态**: ✅ 全链路验证通过，TypeScript编译零错误，文件存储功能调试完成，18个Docker容器正常运行
+> **更新时间**: 2026-05-06（第十二轮：全面系统审计修复 — 7路并行审计 + 安全凭据清理 + 路径遍历加固 + 代码风格统一 + 文档图谱全量同步）
+> **当前状态**: ✅ 全链路验证通过，TypeScript编译零错误，48个问题修复（本轮9项），文档图谱已与代码完全对齐
 
 ---
 
 ## 零、快速接续（新对话可直接复制此句）
 
-> 请阅读 `D:\teamclaw\agent-harness\HANDOFF-SESSION.md` 了解当前状态。系统当前状态：18个容器运行中，4轮审计共修复 85+ 个问题。Agent工作区/soul.md机制已实现，系统提示词自动注入用户人格与工作区状态。Docker 全量 restart:unless-stopped + healthcheck 覆盖。先运行 `tsc --build --force` 检查编译状态。
+> 请阅读 `D:\teamclaw\agent-harness\HANDOFF-SESSION.md` 了解当前状态。系统当前状态：18个容器运行中，8轮审计共修复 93+ 个问题。ARCHITECTURE.md 已更新至第十五轮，context-graph.json v1.7，对象关系图谱 v2.2。安全凭据已清理，代码风格已统一。先运行 `tsc --build --force` 检查编译状态。
 
 ---
 
@@ -72,7 +72,7 @@
 
 ---
 
-## 二、五轮修复总览
+## 二、八轮修复总览
 
 ### 第一轮（构建链路 + 逻辑修复）— 6项
 
@@ -181,6 +181,26 @@
 **本轮新增：10 项功能** ✅
 
 **总计：45 个问题修复 + 10 项新功能** ✅
+
+### 第八轮（全面系统审计修复）— 2026-05-06，9 项
+
+本轮基于 SYSTEM-AUDIT-2026-05-06.md 对全工作区进行7路并行深度审计，覆盖40+ TS源文件、8个MD文档、3个JSON图谱、22个SQL迁移、7个YAML配置、1个前端JS，发现104个问题（含前轮9项遗留），重点修复9项。
+
+| 优先级 | # | 问题 | 修复位置 |
+|--------|---|------|---------|
+| **P0** | 1 | `.env` 含5组明文API密钥 + 3组默认密码 | `.env` — 全部替换为 `<CHANGE_ME>` |
+| **P0** | 2 | `safeCompareSignature` padding可被时序分析利用 | `gateway-adapter/index.ts` — 移除padding，直接 `timingSafeEqual` |
+| **P0** | 3 | artifact-storage 路径遍历风险 | `fact-retrieval/artifact-storage.ts` — `validateSecurePath()` + bucket正则校验 |
+| **P1** | 4 | gateway-adapter 40处逗号后缺空格 | `gateway-adapter/index.ts` — `fireAndForget(...), 'tag'` |
+| **P1** | 5 | identity-resolver 无输入校验 + catch吞错误 | `identity-resolver.ts` — 类型/长度校验 + console.error |
+| **P1** | 6 | approval-executor 无审批人上限 + 日志泄密 | `approval-executor.ts` — MAX_APPROVERS=20 + 隐私脱敏 |
+| **P1** | 7 | app.js 全文 `var` + `\|\|` 旧式写法 | `app.js` — `var`→`const`/`let`, `\|\|`→`??` |
+| **P2** | 8 | context-graph.json 缺少6个文档 + 3处映射不准 | `context-graph.json` v1.7 — 补全 DEV-14/15/16 + AH1-36，修正 authority_map |
+| **P2** | 9 | 文档图谱版本未同步 | `context-routing.json` v1.3, `object-relationship-graph.md` v2.2, `ARCHITECTURE.md` 第十五轮 |
+
+**本轮新增：9 项修复** ✅
+
+**总计：54 个问题修复 + 10 项新功能** ✅
 
 ---
 
@@ -318,13 +338,23 @@ node scripts/final-audit.cjs
 
 ## 六、已知问题 (None-critical)
 
-1. **org_policy FK 约束失败**: gateway 容器内 DATABASE_URL 用 `localhost` 无法连 PostgreSQL。不阻塞功能——policy 检查回退到内存默认。如需修复：在 docker-compose 中给 gateway 显式设置 `DATABASE_URL=postgresql://agent_harness:dev_password@postgres:5432/agent_harness`
+1. **org_policy FK 约束失败**: gateway 容器内 DATABASE_URL 用 `localhost` 无法连 PostgreSQL。不阻塞功能——policy 检查回退到内存默认。如需修复：在 docker-compose 中给 gateway 显式设置 `DATABASE_URL=postgresql://agent_harness:<CHANGE_ME>@postgres:5432/agent_harness`
 
 2. **supervisor.heartbeat.missed**: 偶发（LLM 调用长时），supervisor 正确处理（grace periods 兜底），不影响功能
 
 3. **微信个人版未接入**: 仅支持企业微信（WeCom）和飞书，个人微信/公众号/小程序尚未实现
 
 4. **user_profile 表已建但未对接 LLM prompt**: 表结构和索引已就绪，gateway 的 system prompt 已增强为基础人设，但尚未从 user_profile 表动态读取用户画像写入 prompt（待下一轮实现）
+
+5. **5个测试套件全部失败**: ts-jest ESM 配置问题，`import type` 不被 Babel 识别（待修正 jest.config.cjs）
+
+6. **npm audit 5个漏洞**: 4 moderate + 1 high (esbuild, xlsx)
+
+7. **AH1设计文档9处偏离未修复**: D1~D9 详见 `development/SYSTEM-AUDIT-2026-05-06.md` 第七节，响应格式不统一、错误码未标准化、Planner输出不完整等
+
+8. **gateway-adapter/index.ts 仍为巨型单文件**: 2179行，建议后续拆分为 routes.ts、handlers/ 等模块
+
+9. **Cypher查询使用字符串插值**: fact-retrieval/service.ts 虽通过 `sanitizeCypherLiteral()` 防护，建议长期迁移为 AGE 原生参数化查询（若 PostgreSQL AGE 支持）
 
 ---
 
@@ -342,7 +372,7 @@ node scripts/final-audit.cjs
 
 ---
 
-## 八、改动文件清单（全部六轮）
+## 八、改动文件清单（全部八轮）
 
 ### gateway-adapter（第六轮新增：5路意图分类 + 知识提交/快速查询/Skill提取/推送）
 - `apps/gateway-adapter/src/index.ts` — 异步处理、去泄露、记忆集成、完成轮询、超时通知、匿名回退、企微AES加密解密、WeCom任务完成轮询推送、**5路意图分类(chat/task/knowledge_submit/quick_lookup/task_dispatch)**、**submitKnowledge()**、**quickLookup()**、**extractWorkflowAsSkillCandidate()**、**sendMobilePushNotification()**、**增强system prompt**
@@ -396,3 +426,17 @@ node scripts/final-audit.cjs
 
 ### 其他
 - 其余 10+ 个文件的 localhost 清理、Dockerfile 权限修复
+
+### 第八轮（2026-05-06：安全凭据清理 + 代码风格统一 + 文档图谱同步）
+- `.env` — **移除全部5组明文API密钥 + 3组默认密码，替换为 `<CHANGE_ME>`**
+- `apps/gateway-adapter/src/index.ts` — **`safeCompareSignature` 移除padding时序泄露 + 40处 `fireAndForget` 空格 + `sharedDbPool` 类型改为 `Pool` + `getFeishuApiBase` 未知domain降级**
+- `apps/gateway-adapter/src/services/identity-resolver.ts` — **`resolve()` 添加类型/长度校验 + catch块错误日志**
+- `services/fact-retrieval/src/artifact-storage.ts` — **新增 `validateSecurePath()` 路径遍历防护 + MinIO bucket名字正则校验**
+- `services/executor-gateway/src/executor/approval-executor.ts` — **`MAX_APPROVERS=20` 审批人上限 + 日志隐私脱敏(approver_count)**
+- `apps/web-portal/static/app.js` — **全文 `var`→`const`/`let` + `\|\|`→`??`**
+- `libs/shared/src/metrics/metrics.ts` — **`evaluateAlerts` 扩展支持 histogram 平均值对比**
+- `development/context-graph.json` — **v1.6→v1.7 补全6个文档 + 修正3处authority_map**
+- `development/context-routing.json` — **v1.2→v1.3 添加 `types/**` 路径**
+- `development/app-graph/object-relationship-graph.md` — **v2.1→v2.2 补全L1/L2层**
+- `ARCHITECTURE.md` — **第十四轮→第十五轮 + 新增第八轮修复内容章节**
+- `HANDOFF-SESSION.md` — **第十一轮→第十二轮 + 第八轮修复清单 + 已知问题更新**

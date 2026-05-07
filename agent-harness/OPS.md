@@ -1,7 +1,7 @@
 # JueYing (绝影) — 运维手册
 
-> 版本: 1.3.0 | 更新日期: 2026-05-04
-> 适用场景: 开发、测试、生产环境部署与维护
+> 版本: 1.3.0 | 更新日期: 2026-05-06
+> 适用场景: 开发、测试，生产环境部署与维护
 
 ---
 
@@ -34,6 +34,21 @@ cp .env.example .env
 #   FEISHU_APP_ID      — 飞书应用 ID
 #   FEISHU_APP_SECRET  — 飞书应用密钥
 ```
+
+### 1.2.1 本地开发配置（Andy 的工作区）
+
+当前 `d:\teamclaw\agent-harness\.env` 中使用的配置：
+
+| 配置项 | 当前值 |
+|--------|--------|
+| POSTGRES_USER | `agent_harness` |
+| POSTGRES_PASSWORD | `change_me_123` |
+| POSTGRES_DB | `agent_harness` |
+| REDIS_PASSWORD | `change_me_123` |
+| MINIO_ROOT_USER | `minioadmin` |
+| MINIO_ROOT_PASSWORD | `change_me_123` |
+| ADMIN_PASSWORD | `admin123` |
+| CORS_ORIGINS | `http://localhost:3003` |
 
 **关键环境变量说明:**
 
@@ -229,8 +244,11 @@ SigNoz 提供全链路追踪能力:
 端口: 5432
 数据库: agent_harness
 用户: agent_harness
-密码: dev_password (生产环境务必修改)
+密码: change_me_123 (本地开发) / dev_password (原默认值)
 ```
+
+> ⚠️ **本地开发密码**: `change_me_123`
+> 已记录在 OPS.md 第 1.2.1 节和 `.env` 文件中。
 
 ### 4.2 迁移
 

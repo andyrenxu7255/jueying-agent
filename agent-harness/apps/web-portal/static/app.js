@@ -26,11 +26,11 @@ async function api(path, options) {
       return { ok: false, status: 401, data: { error: 'session_expired', message: '会话已过期，请重新登录' } };
     }
     const contentType = res.headers.get('content-type') || '';
-    var data;
+    let data;
     if (contentType.includes('application/json')) {
       data = await res.json();
     } else {
-      var text = await res.text();
+      const text = await res.text();
       try { data = JSON.parse(text); } catch { data = { error: 'non_json_response', message: text.substring(0, 200) }; }
     }
     return { ok: res.ok, status: res.status, data };
@@ -40,15 +40,15 @@ async function api(path, options) {
 }
 
 function showToast(msg, type) {
-  type = type || 'success';
-  var container = document.getElementById('toast-container');
+  type = type ?? 'success';
+  const container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
     container.id = 'toast-container';
     container.className = 'toast-container';
     document.body.appendChild(container);
   }
-  var el = document.createElement('div');
+  let el = document.createElement('div');
   el.className = 'toast toast-' + type;
   el.textContent = msg;
   container.appendChild(el);
@@ -75,29 +75,29 @@ function emptyState(icon, title, desc, actionHtml) {
 }
 
 function passwordStrengthHtml(score) {
-  var pct = Math.min(score / 6 * 100, 100);
-  var color = score < 3 ? 'var(--danger)' : score < 5 ? 'var(--warning)' : 'var(--success)';
+  const pct = Math.min(score / 6 * 100, 100);
+  const color = score < 3 ? 'const(--danger)' : score < 5 ? 'const(--warning)' : 'const(--success)';
   return '<div class="password-strength"><div class="password-strength-bar" style="width:' + pct + '%;background:' + color + '"></div></div>';
 }
 
 function showModal(title, bodyHtml, onClose) {
   closeModal();
-  var overlay = document.createElement('div');
+  const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
   overlay.innerHTML = '<div class="modal"><h3>' + escapeHtml(title) + '</h3>' + bodyHtml + '</div>';
   overlay.addEventListener('click', function(e) { if (e.target === overlay) { overlay.remove(); if (onClose) onClose(); } });
-  var escHandler = function(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); if (onClose) onClose(); } };
+  const escHandler = function(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); if (onClose) onClose(); } };
   document.addEventListener('keydown', escHandler);
   overlay._escHandler = escHandler;
   document.body.appendChild(overlay);
-  var firstInput = overlay.querySelector('input,textarea,select');
+  const firstInput = overlay.querySelector('input,textarea,select');
   if (firstInput) setTimeout(function() { firstInput.focus(); }, 50);
   return overlay;
 }
 
 function closeModal() {
-  var el = document.getElementById('modal-overlay');
+  let el = document.getElementById('modal-overlay');
   if (el) {
     if (el._escHandler) document.removeEventListener('keydown', el._escHandler);
     el.remove();
@@ -147,8 +147,8 @@ async function doLogin() {
 }
 
 function showChangePasswordModal(isFirstLogin) {
-  var title = isFirstLogin ? '首次登录 - 请修改默认密码' : '修改密码';
-  var body = '<div class="form-group"><label>旧密码</label><input type="password" id="cp-old" placeholder="请输入旧密码"></div>' +
+  const title = isFirstLogin ? '首次登录 - 请修改默认密码' : '修改密码';
+  const body = '<div class="form-group"><label>旧密码</label><input type="password" id="cp-old" placeholder="请输入旧密码"></div>' +
     '<div class="form-group"><label>新密码</label><input type="password" id="cp-new" placeholder="至少8位，包含大小写字母、数字或特殊字符" oninput="updatePasswordStrength()"></div>' +
     '<div id="cp-strength"></div>' +
     '<div class="form-group"><label>确认新密码</label><input type="password" id="cp-confirm" placeholder="请再次输入新密码"></div>' +
@@ -158,29 +158,29 @@ function showChangePasswordModal(isFirstLogin) {
 }
 
 function updatePasswordStrength() {
-  var el = document.getElementById('cp-new');
-  var strengthEl = document.getElementById('cp-strength');
+  let el = document.getElementById('cp-new');
+  const strengthEl = document.getElementById('cp-strength');
   if (!el || !strengthEl) return;
-  var pwd = el.value;
-  var score = 0;
+  const pwd = el.value;
+  let score = 0;
   if (pwd.length >= 8) score += 1;
   if (pwd.length >= 12) score += 1;
   if (/[a-z]/.test(pwd)) score += 1;
   if (/[A-Z]/.test(pwd)) score += 1;
   if (/[0-9]/.test(pwd)) score += 1;
   if (/[^a-zA-Z0-9]/.test(pwd)) score += 1;
-  var msg = score < 3 ? '弱' : score < 5 ? '中' : '强';
+  const msg = score < 3 ? '弱' : score < 5 ? '中' : '强';
   strengthEl.innerHTML = passwordStrengthHtml(score) + '<span class="hint-text">密码强度: ' + msg + '</span>';
 }
 
 async function doChangePassword() {
-  var oldPwd = document.getElementById('cp-old').value;
-  var newPwd = document.getElementById('cp-new').value;
-  var confirmPwd = document.getElementById('cp-confirm').value;
+  const oldPwd = document.getElementById('cp-old').value;
+  const newPwd = document.getElementById('cp-new').value;
+  const confirmPwd = document.getElementById('cp-confirm').value;
   if (!oldPwd || !newPwd) { showToast('请填写完整', 'error'); return; }
   if (newPwd !== confirmPwd) { showToast('两次输入的新密码不一致', 'error'); return; }
   if (newPwd.length < 8) { showToast('新密码长度至少8位', 'error'); return; }
-  var r = await api('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ old_password: oldPwd, new_password: newPwd }) });
+  const r = await api('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ old_password: oldPwd, new_password: newPwd }) });
   if (r.ok) { showToast('密码修改成功'); closeModal(); }
   else { showToast((r.data && r.data.message) || '修改失败', 'error'); }
 }
@@ -200,7 +200,7 @@ function renderSetupStep(stepIndex, steps) {
   const content = document.getElementById('setup-content');
   if (stepIndex < 0 || stepIndex >= steps.length) return;
   const step = steps[stepIndex];
-  let html = '<div class="setup-step"><h3>' + escapeHtml(step.label) + '</h3><p style="color:var(--text2);margin-bottom:16px">' + escapeHtml(step.description || '') + '</p>';
+  let html = '<div class="setup-step"><h3>' + escapeHtml(step.label) + '</h3><p style="color:const(--text2);margin-bottom:16px">' + escapeHtml(step.description || '') + '</p>';
   if (step.key === 'organization') {
     html += '<div class="form-group"><label>组织名称</label><input type="text" id="setup-org-name" value="default" placeholder="请输入组织名称"></div>';
     html += '<div class="form-group"><label>显示名称</label><input type="text" id="setup-org-display" value="Default Organization" placeholder="请输入显示名称"></div>';
@@ -281,15 +281,15 @@ function renderApp() {
     navItems.push({ section: '我的', items: [{ key: 'my-tasks', label: '我的任务', icon: '&#x270D;&#xFE0F;' }] });
   }
 
-  var sessionData = currentSession || {};
-  var username = sessionData.username || localStorage.getItem('ah_username') || '用户';
-  var role = sessionData.role || 'user';
-  var orgId = sessionData.org_id || '';
-  var initial = username.charAt(0).toUpperCase();
+  const sessionData = currentSession || {};
+  const username = sessionData.username || localStorage.getItem('ah_username') || '用户';
+  const role = sessionData.role || 'user';
+  const orgId = sessionData.org_id || '';
+  const initial = username.charAt(0).toUpperCase();
 
   document.getElementById('app').innerHTML = '<div class="app-container"><div class="sidebar"><div class="sidebar-brand">JueYing</div><nav class="sidebar-nav">' +
     navItems.map(function(g) { return '<div class="nav-section">' + g.section + '</div>' + g.items.map(function(i) { return '<a href="#" data-view="' + i.key + '" class="' + (currentView === i.key ? 'active' : '') + '">' + i.icon + ' ' + i.label + '</a>'; }).join(''); }).join('') +
-    '</nav><div class="sidebar-footer"><div class="user-info"><div class="user-avatar">' + escapeHtml(initial) + '</div><div class="user-details"><div class="user-name">' + escapeHtml(username) + '</div><div class="user-role">' + escapeHtml(role) + '</div></div><div class="user-menu"><button class="btn btn-sm btn-outline" onclick="toggleUserMenu()">&#x25B2;</button><div class="user-menu-dropdown" id="user-menu-dropdown"><a href="#" onclick="showChangePasswordModal(false);return false;">修改密码</a><a href="#" onclick="doLogout();return false;" style="color:var(--danger)">退出登录</a></div></div></div></div></div><div class="main-content" id="main-content"></div></div>';
+    '</nav><div class="sidebar-footer"><div class="user-info"><div class="user-avatar">' + escapeHtml(initial) + '</div><div class="user-details"><div class="user-name">' + escapeHtml(username) + '</div><div class="user-role">' + escapeHtml(role) + '</div></div><div class="user-menu"><button class="btn btn-sm btn-outline" onclick="toggleUserMenu()">&#x25B2;</button><div class="user-menu-dropdown" id="user-menu-dropdown"><a href="#" onclick="showChangePasswordModal(false);return false;">修改密码</a><a href="#" onclick="doLogout();return false;" style="color:const(--danger)">退出登录</a></div></div></div></div></div><div class="main-content" id="main-content"></div></div>';
   document.querySelectorAll('.sidebar-nav a[data-view]').forEach(function(a) {
     a.addEventListener('click', function(e) { e.preventDefault(); currentView = a.dataset.view; document.querySelectorAll('.sidebar-nav a').forEach(function(x) { x.classList.remove('active'); }); a.classList.add('active'); renderView(); });
   });
@@ -297,17 +297,17 @@ function renderApp() {
 }
 
 function toggleUserMenu() {
-  var dd = document.getElementById('user-menu-dropdown');
+  const dd = document.getElementById('user-menu-dropdown');
   if (dd) dd.classList.toggle('show');
 }
 
 document.addEventListener('click', function(e) {
-  var dd = document.getElementById('user-menu-dropdown');
+  const dd = document.getElementById('user-menu-dropdown');
   if (dd && !e.target.closest('.user-menu')) dd.classList.remove('show');
 });
 
 function renderView() {
-  const el = document.getElementById('main-content');
+  let el = document.getElementById('main-content');
   stopAllIntervals();
   const renderers = { dashboard: renderDashboard, guide: renderGuide, workflows: renderWorkflows, 'task-input': renderTaskInput, approvals: renderApprovals, config: renderConfig, users: renderUsers, organizations: renderOrganizations, skills: renderSkills, knowledge: renderKnowledge, audit: renderAudit, retrieval: renderRetrieval, identities: renderIdentities, 'db-maint': renderDbMaint, 'shared-knowledge': renderSharedKnowledge, 'org-tasks': renderOrgTasks, 'my-tasks': renderMyTasks, resources: renderResources, 'knowledge-review': renderKnowledgeReview, 'dream-memory': renderDreamMemory, 'dream-skills': renderDreamSkills, 'dream-config': renderDreamConfig };
   const renderer = renderers[currentView];
@@ -320,7 +320,7 @@ function stopAllIntervals() {
   if (containerStatsInterval) { clearInterval(containerStatsInterval); containerStatsInterval = null; }
 }
 
-var guideTab = 'arch';
+const guideTab = 'arch';
 
 function renderGuide(el) {
   el.innerHTML = '<div class="page-header"><h2>系统指南</h2></div>' +
@@ -341,7 +341,7 @@ function switchGuideTab(tab) {
 }
 
 function renderGuideContent() {
-  var el = document.getElementById('guide-content');
+  let el = document.getElementById('guide-content');
   if (!el) return;
   if (guideTab === 'arch') el.innerHTML = renderGuideArch();
   else if (guideTab === 'capabilities') el.innerHTML = renderGuideCapabilities();
@@ -429,8 +429,8 @@ function renderGuideArch() {
     '<div class="card"><h3>工作流状态机</h3>' +
     '<p class="section-desc">工作流从创建到完成经历以下状态流转，支持暂停、恢复、修复等操作：</p>' +
     '<div style="text-align:center;padding:12px 0;font-size:14px;line-height:2.2">' +
-    '<span class="badge badge-info">draft</span> → <span class="badge badge-info">planned</span> → <span class="badge badge-warning">running</span> → <span class="badge badge-warning">verifying</span> → <span class="badge badge-warning">reporting</span> → <span class="badge badge-success">succeeded</span> → <span class="badge" style="background:var(--surface2);color:var(--text2)">archived</span>' +
-    '<br><span style="font-size:13px;color:var(--text2)">分支: running 可进入 <span class="badge badge-warning">waiting_user</span> / <span class="badge badge-danger">blocked</span> / <span class="badge" style="background:var(--surface2)">paused</span>；verifying 可进入 <span class="badge badge-warning">repairing</span>；任意运行态可进入 <span class="badge badge-danger">failed</span> / <span class="badge badge-danger">cancelled</span></span>' +
+    '<span class="badge badge-info">draft</span> → <span class="badge badge-info">planned</span> → <span class="badge badge-warning">running</span> → <span class="badge badge-warning">verifying</span> → <span class="badge badge-warning">reporting</span> → <span class="badge badge-success">succeeded</span> → <span class="badge" style="background:const(--surface2);color:const(--text2)">archived</span>' +
+    '<br><span style="font-size:13px;color:const(--text2)">分支: running 可进入 <span class="badge badge-warning">waiting_user</span> / <span class="badge badge-danger">blocked</span> / <span class="badge" style="background:const(--surface2)">paused</span>；verifying 可进入 <span class="badge badge-warning">repairing</span>；任意运行态可进入 <span class="badge badge-danger">failed</span> / <span class="badge badge-danger">cancelled</span></span>' +
     '</div></div>';
 }
 
@@ -744,21 +744,21 @@ function renderGuideQuickstart() {
 }
 
 async function renderDashboard(el) {
-  el.innerHTML = '<div class="page-header"><h2>系统总览</h2></div><div class="stat-grid" id="stats-grid"><div class="stat-card"><div class="stat-value">-</div><div class="stat-label">加载中...</div></div></div><div class="card"><h3>服务状态 <span id="svc-refresh-indicator" style="font-size:12px;color:var(--text2)"></span></h3><div id="services-list">加载中...</div></div>';
+  el.innerHTML = '<div class="page-header"><h2>系统总览</h2></div><div class="stat-grid" id="stats-grid"><div class="stat-card"><div class="stat-value">-</div><div class="stat-label">加载中...</div></div></div><div class="card"><h3>服务状态 <span id="svc-refresh-indicator" style="font-size:12px;color:const(--text2)"></span></h3><div id="services-list">加载中...</div></div>';
   const r = await api('/api/system/overview');
   if (r.ok && r.data.overview) {
     const o = r.data.overview;
     const grid = document.getElementById('stats-grid');
     const stats = o.summary || {};
-    grid.innerHTML = Object.entries(stats).map(function(_ref) { var k=_ref[0],v=_ref[1]; return '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(v)) + '</div><div class="stat-label">' + escapeHtml(k) + '</div></div>'; }).join('');
+    grid.innerHTML = Object.entries(stats).map(function(_ref) { const k=_ref[0],v=_ref[1]; return '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(v)) + '</div><div class="stat-label">' + escapeHtml(k) + '</div></div>'; }).join('');
     const svcList = document.getElementById('services-list');
     if (o.services && o.services.length > 0) {
       svcList.innerHTML = '<table><tr><th>服务</th><th>状态</th><th>延迟</th></tr>' + o.services.map(function(s) {
-        var dot = s.status === 'healthy' ? 'healthy' : (s.status === 'unreachable' ? 'unreachable' : 'unhealthy');
+        const dot = s.status === 'healthy' ? 'healthy' : (s.status === 'unreachable' ? 'unreachable' : 'unhealthy');
         return '<tr><td><span class="status-dot ' + dot + '"></span>' + escapeHtml(s.name) + '</td><td>' + statusBadge(s.status) + '</td><td>' + escapeHtml(String(s.latency_ms || '-')) + 'ms</td></tr>';
       }).join('') + '</table>';
     } else {
-      svcList.innerHTML = '<p style="color:var(--text2)">暂无服务状态信息</p>';
+      svcList.innerHTML = '<p style="color:const(--text2)">暂无服务状态信息</p>';
     }
     startServiceStatusPolling();
   } else {
@@ -769,24 +769,24 @@ async function renderDashboard(el) {
 function startServiceStatusPolling() {
   if (serviceStatusInterval) clearInterval(serviceStatusInterval);
   serviceStatusInterval = setInterval(async function() {
-    var r = await api('/api/system/overview');
+    const r = await api('/api/system/overview');
     if (!r.ok || !r.data.overview) return;
-    var o = r.data.overview;
-    var svcList = document.getElementById('services-list');
-    var indicator = document.getElementById('svc-refresh-indicator');
+    const o = r.data.overview;
+    const svcList = document.getElementById('services-list');
+    const indicator = document.getElementById('svc-refresh-indicator');
     if (!svcList) { clearInterval(serviceStatusInterval); return; }
     if (o.services && o.services.length > 0) {
       o.services.forEach(function(s) {
-        var prev = previousServiceStatus[s.name];
+        const prev = previousServiceStatus[s.name];
         if (prev && prev !== s.status) {
-          var changeMsg = s.status === 'healthy' ? '服务 ' + s.name + ' 已恢复正常' : '服务 ' + s.name + ' 状态变更: ' + s.status;
-          var changeType = s.status === 'healthy' ? 'success' : 'error';
+          const changeMsg = s.status === 'healthy' ? '服务 ' + s.name + ' 已恢复正常' : '服务 ' + s.name + ' 状态变更: ' + s.status;
+          const changeType = s.status === 'healthy' ? 'success' : 'error';
           showToast(changeMsg, changeType);
         }
         previousServiceStatus[s.name] = s.status;
       });
       svcList.innerHTML = '<table><tr><th>服务</th><th>状态</th><th>延迟</th></tr>' + o.services.map(function(s) {
-        var dot = s.status === 'healthy' ? 'healthy' : (s.status === 'unreachable' ? 'unreachable' : 'unhealthy');
+        const dot = s.status === 'healthy' ? 'healthy' : (s.status === 'unreachable' ? 'unreachable' : 'unhealthy');
         return '<tr><td><span class="status-dot ' + dot + '"></span>' + escapeHtml(s.name) + '</td><td>' + statusBadge(s.status) + '</td><td>' + escapeHtml(String(s.latency_ms || '-')) + 'ms</td></tr>';
       }).join('') + '</table>';
     }
@@ -805,22 +805,22 @@ async function renderWorkflows(el) {
       document.getElementById('wf-list').innerHTML = '<table><tr><th>引用</th><th>目标</th><th>状态</th><th>创建时间</th><th>操作</th></tr>' + wfs.map(function(w) { return '<tr><td>' + escapeHtml(w.ref || w.id) + '</td><td>' + escapeHtml(w.goal || '-') + '</td><td>' + statusBadge(w.status) + '</td><td>' + escapeHtml(w.created_at || '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="viewWorkflow(\'' + escJsAttr(w.ref || w.id) + '\')">详情</button></td></tr>'; }).join('') + '</table>';
     }
   } else {
-    var errMsg = (r.data && r.data.error) || '未知错误';
-    var isNetwork = r.status === 0;
+    const errMsg = (r.data && r.data.error) || '未知错误';
+    const isNetwork = r.status === 0;
     document.getElementById('wf-list').innerHTML = emptyState('⚠️', isNetwork ? '无法连接工作流服务' : '加载工作流列表失败', isNetwork ? '请检查工作流服务是否正常运行' : '错误: ' + escapeHtml(errMsg), '<button class="btn btn-primary" onclick="renderView()">重试</button>');
   }
 }
 
 async function viewWorkflow(ref) {
   const r = await api('/api/workflows/' + encodeURIComponent(ref));
-  const el = document.getElementById('main-content');
+  let el = document.getElementById('main-content');
   if (r.ok && r.data.workflow) {
     const w = r.data.workflow;
     el.innerHTML = '<div class="page-header"><h2>Workflow: ' + escapeHtml(ref) + '</h2><button class="btn btn-outline" onclick="renderView()">返回</button></div><div class="card"><h3>基本信息</h3><p>目标: ' + escapeHtml(w.goal || '-') + '</p><p>状态: ' + statusBadge(w.status) + '</p><p>创建: ' + escapeHtml(w.created_at || '-') + '</p></div><div class="card"><h3>阶段</h3><div id="wf-stages">加载中...</div></div>';
     if (w.stages && w.stages.length > 0) {
       document.getElementById('wf-stages').innerHTML = '<table><tr><th>序号</th><th>名称</th><th>类型</th><th>状态</th></tr>' + w.stages.map(function(s, i) { return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(s.name || '-') + '</td><td>' + escapeHtml(s.stage_type || '-') + '</td><td>' + statusBadge(s.status) + '</td></tr>'; }).join('') + '</table>';
     } else {
-      document.getElementById('wf-stages').innerHTML = '<p style="color:var(--text2)">暂无阶段信息</p>';
+      document.getElementById('wf-stages').innerHTML = '<p style="color:const(--text2)">暂无阶段信息</p>';
     }
   } else {
     el.innerHTML = emptyState('⚠️', '无法加载工作流详情', '请检查工作流服务状态', '<button class="btn btn-primary" onclick="renderView()">返回</button>');
@@ -844,12 +844,12 @@ function renderTaskInput(el) {
 }
 
 async function loadExecutorOptions() {
-  var r = await api('/api/users');
-  var sel = document.getElementById('task-executor');
+  const r = await api('/api/users');
+  const sel = document.getElementById('task-executor');
   if (!sel || !r.ok || !r.data.users) return;
   while (sel.options.length > 1) sel.remove(1);
   r.data.users.forEach(function(u) {
-    var opt = document.createElement('option');
+    const opt = document.createElement('option');
     opt.value = u.username;
     opt.textContent = u.username + ' (' + u.role + ')';
     sel.appendChild(opt);
@@ -862,7 +862,7 @@ async function submitTask() {
   const taskType = document.getElementById('task-type').value || 'analysis';
   const riskLevel = document.getElementById('task-risk').value || 'low';
   const executor = document.getElementById('task-executor').value || '';
-  var body = { goal, task_type: taskType, risk_level: riskLevel };
+  const body = { goal, task_type: taskType, risk_level: riskLevel };
   if (executor) body.target_executor = executor;
   const r = await api('/api/workflows/create-from-markdown', { method: 'POST', body: JSON.stringify(body) });
   if (r.ok) { showToast('任务已创建'); currentView = 'workflows'; renderView(); }
@@ -870,16 +870,16 @@ async function submitTask() {
 }
 
 async function submitLUITask() {
-  var input = document.getElementById('lui-input').value.trim();
+  const input = document.getElementById('lui-input').value.trim();
   if (!input) { showToast('请输入问题', 'error'); return; }
-  var respEl = document.getElementById('lui-response');
-  respEl.innerHTML = '<p style="color:var(--text2)">正在调研中...</p>';
-  var body = { goal: input, task_type: 'research', risk_level: 'low' };
+  const respEl = document.getElementById('lui-response');
+  respEl.innerHTML = '<p style="color:const(--text2)">正在调研中...</p>';
+  const body = { goal: input, task_type: 'research', risk_level: 'low' };
   const r = await api('/api/workflows/create-from-markdown', { method: 'POST', body: JSON.stringify(body) });
   if (r.ok) {
-    respEl.innerHTML = '<p style="color:var(--success)">调研任务已提交，请前往Workflow控制台查看结果</p><button class="btn btn-sm btn-outline" onclick="currentView=\'workflows\';renderView()">查看工作流</button>';
+    respEl.innerHTML = '<p style="color:const(--success)">调研任务已提交，请前往Workflow控制台查看结果</p><button class="btn btn-sm btn-outline" onclick="currentView=\'workflows\';renderView()">查看工作流</button>';
   } else {
-    respEl.innerHTML = '<p style="color:var(--danger)">提交失败: ' + escapeHtml((r.data && r.data.error) || '未知错误') + '</p>';
+    respEl.innerHTML = '<p style="color:const(--danger)">提交失败: ' + escapeHtml((r.data && r.data.error) || '未知错误') + '</p>';
   }
 }
 
@@ -894,7 +894,7 @@ async function renderApprovals(el) {
       document.getElementById('approval-list').innerHTML = '<table><tr><th>引用</th><th>目标</th><th>操作</th></tr>' + wfs.map(function(w) { return '<tr><td>' + escapeHtml(w.ref || w.id) + '</td><td>' + escapeHtml(w.goal || '-') + '</td><td><button class="btn btn-sm btn-success" onclick="handleApproval(\'' + escJsAttr(w.ref) + '\',\'approve\')">批准</button> <button class="btn btn-sm btn-danger" onclick="handleApproval(\'' + escJsAttr(w.ref) + '\',\'reject\')">驳回</button></td></tr>'; }).join('') + '</table>';
     }
   } else {
-    var isNetwork = r.status === 0;
+    const isNetwork = r.status === 0;
     document.getElementById('approval-list').innerHTML = emptyState('⚠️', isNetwork ? '无法连接审批服务' : '加载审批列表失败', isNetwork ? '请检查工作流服务是否正常运行' : '请稍后重试', '<button class="btn btn-primary" onclick="renderView()">重试</button>');
   }
 }
@@ -931,7 +931,7 @@ async function renderConfig(el) {
       window.CONFIG_SECTIONS = meta.data.sections;
       makeTabs(meta.data.sections);
     } else {
-      document.getElementById('config-content').innerHTML = '<p style="color:var(--text2)">无法加载配置</p>';
+      document.getElementById('config-content').innerHTML = '<p style="color:const(--text2)">无法加载配置</p>';
     }
   }
 }
@@ -940,7 +940,7 @@ function renderConfigSection(sectionKey, sections, config) {
   const section = sections.find(function(s) { return s.key === sectionKey; });
   if (!section) return;
   const content = document.getElementById('config-content');
-  var descMap = {
+  const descMap = {
     feishu: '配置飞书应用凭证以启用飞书渠道消息收发。仅需填写App ID和App Secret，长连接将自动配置。',
     wecom: '配置企业微信应用凭证。仅需填写企业ID、应用ID和Secret，消息回调将自动配置。',
     llm: '配置LiteLLM代理地址和模型。支持配置多个模型并设置优先级，当主模型不可用时自动切换到备用模型。',
@@ -969,7 +969,7 @@ function renderConfigSection(sectionKey, sections, config) {
 }
 
 async function renderLLMConfigSection(content, section, config, desc) {
-  var html = '<div class="card"><h3>LLM 模型配置</h3>';
+  let html = '<div class="card"><h3>LLM 模型配置</h3>';
   html += '<p class="section-desc">' + desc + '</p>';
   html += '<div class="form-group"><label>LiteLLM 代理地址</label><input type="text" id="cfg-LITELLM_URL" value="' + escapeHtml(config.LITELLM_URL || 'http://localhost:4000') + '" placeholder="LiteLLM代理地址"></div>';
   html += '<div class="form-group"><label>Master Key</label><input type="password" id="cfg-LITELLM_MASTER_KEY" value="' + (config.LITELLM_MASTER_KEY ? '****' : '') + '" placeholder="留空则不修改"></div>';
@@ -985,25 +985,25 @@ async function renderLLMConfigSection(content, section, config, desc) {
 }
 
 async function loadLLMModels() {
-  var el = document.getElementById('llm-models-list');
+  let el = document.getElementById('llm-models-list');
   if (!el) return;
-  var r = await api('/api/admin/llm-models');
+  const r = await api('/api/admin/llm-models');
   if (!r.ok || !r.data.models) {
-    el.innerHTML = '<p style="color:var(--text2)">无法加载模型列表</p>';
+    el.innerHTML = '<p style="color:const(--text2)">无法加载模型列表</p>';
     return;
   }
-  var models = r.data.models;
+  const models = r.data.models;
   if (models.length === 0) {
     el.innerHTML = emptyState('🤖', '暂无模型配置', '添加第一个LLM模型', '<button class="btn btn-primary" onclick="showAddLLMModel()">添加模型</button>');
     return;
   }
-  var html = '<table><tr><th>优先级</th><th>模型名称</th><th>类型</th><th>地址</th><th>操作</th></tr>';
+  let html = '<table><tr><th>优先级</th><th>模型名称</th><th>类型</th><th>地址</th><th>操作</th></tr>';
   models.forEach(function(m, i) {
-    var typeLabel = i === 0 ? '<span class="badge badge-success">主模型</span>' : '<span class="badge badge-warning">备用 #' + i + '</span>';
+    const typeLabel = i === 0 ? '<span class="badge badge-success">主模型</span>' : '<span class="badge badge-warning">备用 #' + i + '</span>';
     html += '<tr><td>' +
       (i > 0 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelUp(\'' + escJsAttr(m.id) + '\')" title="上移优先级">▲</button> ' : '') +
       (i < models.length - 1 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelDown(\'' + escJsAttr(m.id) + '\')" title="下移优先级">▼</button>' : '') +
-      '</td><td><strong>' + escapeHtml(m.name) + '</strong></td><td>' + typeLabel + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(m.url || '-') + '</td><td>' +
+      '</td><td><strong>' + escapeHtml(m.name) + '</strong></td><td>' + typeLabel + '</td><td style="font-size:13px;color:const(--text2)">' + escapeHtml(m.url || '-') + '</td><td>' +
       (i > 0 ? '<button class="btn btn-sm btn-danger" onclick="deleteLLMModel(\'' + escJsAttr(m.id) + '\',\'' + escJsAttr(m.name) + '\')">删除</button>' : '<span class="hint-text">主模型不可删除</span>') +
       '</td></tr>';
   });
@@ -1012,7 +1012,7 @@ async function loadLLMModels() {
 }
 
 function showAddLLMModel() {
-  var body = '<div class="form-group"><label>模型名称 *</label><input type="text" id="new-llm-model-name" placeholder="例如: gpt-4o, claude-3.5-sonnet, qwen-max"></div>' +
+  const body = '<div class="form-group"><label>模型名称 *</label><input type="text" id="new-llm-model-name" placeholder="例如: gpt-4o, claude-3.5-sonnet, qwen-max"></div>' +
     '<div class="form-group"><label>API 地址</label><input type="text" id="new-llm-model-url" placeholder="留空则使用上方配置的LiteLLM地址"></div>' +
     '<div class="form-group"><label>API Key</label><input type="password" id="new-llm-model-key" placeholder="留空则使用上方配置的Master Key"></div>' +
     '<div class="form-group"><label>Max Tokens</label><input type="number" id="new-llm-model-max-tokens" placeholder="例如: 4096 (可选)"></div>' +
@@ -1022,50 +1022,50 @@ function showAddLLMModel() {
 }
 
 async function doAddLLMModel() {
-  var name = document.getElementById('new-llm-model-name').value.trim();
+  const name = document.getElementById('new-llm-model-name').value.trim();
   if (!name) { showToast('请输入模型名称', 'error'); return; }
-  var body = { name: name };
-  var url = document.getElementById('new-llm-model-url').value.trim();
+  const body = { name: name };
+  const url = document.getElementById('new-llm-model-url').value.trim();
   if (url) body.url = url;
-  var key = document.getElementById('new-llm-model-key').value.trim();
+  const key = document.getElementById('new-llm-model-key').value.trim();
   if (key) body.api_key = key;
-  var maxTokens = document.getElementById('new-llm-model-max-tokens').value.trim();
+  const maxTokens = document.getElementById('new-llm-model-max-tokens').value.trim();
   if (maxTokens) body.max_tokens = parseInt(maxTokens, 10);
-  var temp = document.getElementById('new-llm-model-temp').value.trim();
+  const temp = document.getElementById('new-llm-model-temp').value.trim();
   if (temp) body.temperature = parseFloat(temp);
-  var r = await api('/api/admin/llm-models', { method: 'POST', body: JSON.stringify(body) });
+  const r = await api('/api/admin/llm-models', { method: 'POST', body: JSON.stringify(body) });
   if (r.ok) { showToast('模型已添加'); closeModal(); await loadLLMModels(); }
   else { showToast((r.data && r.data.message) || (r.data && r.data.error) || '添加失败', 'error'); }
 }
 
 async function deleteLLMModel(modelId, modelName) {
   if (!confirm('确定要删除模型 "' + modelName + '" 吗？')) return;
-  var r = await api('/api/admin/llm-models/' + modelId, { method: 'DELETE' });
+  const r = await api('/api/admin/llm-models/' + modelId, { method: 'DELETE' });
   if (r.ok) { showToast('模型已删除'); await loadLLMModels(); }
   else { showToast((r.data && r.data.error) || '删除失败', 'error'); }
 }
 
 async function moveLLMModelUp(modelId) {
-  var r = await api('/api/admin/llm-models');
+  const r = await api('/api/admin/llm-models');
   if (!r.ok || !r.data.models) return;
-  var models = r.data.models;
-  var idx = models.findIndex(function(m) { return m.id === modelId; });
+  const models = r.data.models;
+  const idx = models.findIndex(function(m) { return m.id === modelId; });
   if (idx <= 0) return;
-  var order = models.map(function(m) { return m.id; });
+  const order = models.map(function(m) { return m.id; });
   order.splice(idx - 1, 2, order[idx], order[idx - 1]);
-  var reorderR = await api('/api/admin/llm-models/reorder', { method: 'POST', body: JSON.stringify({ order: order }) });
+  const reorderR = await api('/api/admin/llm-models/reorder', { method: 'POST', body: JSON.stringify({ order: order }) });
   if (reorderR.ok) { showToast('优先级已调整'); await loadLLMModels(); }
 }
 
 async function moveLLMModelDown(modelId) {
-  var r = await api('/api/admin/llm-models');
+  const r = await api('/api/admin/llm-models');
   if (!r.ok || !r.data.models) return;
-  var models = r.data.models;
-  var idx = models.findIndex(function(m) { return m.id === modelId; });
+  const models = r.data.models;
+  const idx = models.findIndex(function(m) { return m.id === modelId; });
   if (idx < 0 || idx >= models.length - 1) return;
-  var order = models.map(function(m) { return m.id; });
+  const order = models.map(function(m) { return m.id; });
   order.splice(idx, 2, order[idx + 1], order[idx]);
-  var reorderR = await api('/api/admin/llm-models/reorder', { method: 'POST', body: JSON.stringify({ order: order }) });
+  const reorderR = await api('/api/admin/llm-models/reorder', { method: 'POST', body: JSON.stringify({ order: order }) });
   if (reorderR.ok) { showToast('优先级已调整'); await loadLLMModels(); }
 }
 
@@ -1077,7 +1077,7 @@ async function saveConfigSection(sectionKey) {
   if (!section) return;
   const updates = {};
   section.fields.forEach(function(f) {
-    const el = document.getElementById('cfg-' + f.key);
+    let el = document.getElementById('cfg-' + f.key);
     if (el) {
       let val = el.value.trim();
       if (f.sensitive && val === '****') return;
@@ -1099,9 +1099,9 @@ async function renderUsers(el) {
 }
 
 async function showAssignOrg(username, currentOrgId) {
-  var r = await api('/api/admin/organizations');
-  var orgs = (r.ok && r.data.organizations) ? r.data.organizations : [];
-  var body = '<div class="form-group"><label>用户: ' + escapeHtml(username) + '</label></div>' +
+  const r = await api('/api/admin/organizations');
+  const orgs = (r.ok && r.data.organizations) ? r.data.organizations : [];
+  const body = '<div class="form-group"><label>用户: ' + escapeHtml(username) + '</label></div>' +
     '<div class="form-group"><label>选择组织</label><select id="assign-org-id"><option value="">无组织</option>' +
     orgs.map(function(o) { return '<option value="' + escapeHtml(o.id) + '"' + (String(o.id) === currentOrgId ? ' selected' : '') + '>' + escapeHtml(o.display_name || o.org_name) + '</option>'; }).join('') +
     '</select></div><button class="btn btn-primary" onclick="doAssignOrg(\'' + escJsAttr(username) + '\')">确认分配</button>';
@@ -1109,14 +1109,14 @@ async function showAssignOrg(username, currentOrgId) {
 }
 
 async function doAssignOrg(username) {
-  var orgId = document.getElementById('assign-org-id').value;
-  var r = await api('/api/admin/users-orgs', { method: 'PUT', body: JSON.stringify({ user_id: username, org_id: orgId }) });
+  const orgId = document.getElementById('assign-org-id').value;
+  const r = await api('/api/admin/users-orgs', { method: 'PUT', body: JSON.stringify({ user_id: username, org_id: orgId }) });
   if (r.ok) { showToast('组织分配成功'); closeModal(); renderView(); }
   else { showToast((r.data && r.data.error) || '分配失败', 'error'); }
 }
 
 function showAddUser() {
-  var body = '<div class="form-group"><label>用户名</label><input type="text" id="new-user-name" placeholder="请输入用户名"></div>' +
+  const body = '<div class="form-group"><label>用户名</label><input type="text" id="new-user-name" placeholder="请输入用户名"></div>' +
     '<div class="form-group"><label>密码</label><input type="password" id="new-user-pass" placeholder="至少8位，包含大小写字母、数字" oninput="updateNewUserPwdStrength()"></div>' +
     '<div id="new-user-pwd-strength"></div>' +
     '<div class="form-group"><label>角色</label><select id="new-user-role"><option value="user">user</option><option value="admin">admin</option></select></div>' +
@@ -1125,18 +1125,18 @@ function showAddUser() {
 }
 
 function updateNewUserPwdStrength() {
-  var el = document.getElementById('new-user-pass');
-  var strengthEl = document.getElementById('new-user-pwd-strength');
+  let el = document.getElementById('new-user-pass');
+  const strengthEl = document.getElementById('new-user-pwd-strength');
   if (!el || !strengthEl) return;
-  var pwd = el.value;
-  var score = 0;
+  const pwd = el.value;
+  let score = 0;
   if (pwd.length >= 8) score += 1;
   if (pwd.length >= 12) score += 1;
   if (/[a-z]/.test(pwd)) score += 1;
   if (/[A-Z]/.test(pwd)) score += 1;
   if (/[0-9]/.test(pwd)) score += 1;
   if (/[^a-zA-Z0-9]/.test(pwd)) score += 1;
-  var msg = score < 3 ? '弱' : score < 5 ? '中' : '强';
+  const msg = score < 3 ? '弱' : score < 5 ? '中' : '强';
   strengthEl.innerHTML = passwordStrengthHtml(score) + '<span class="hint-text">密码强度: ' + msg + '</span>';
 }
 
@@ -1158,7 +1158,7 @@ async function renderOrganizations(el) {
       const settings = o.settings || {};
       const quotaInfo = '用户上限: ' + (settings.max_users || '-') + ' / Workflow/天: ' + (settings.max_workflows_per_day || '-');
       const statusClass = o.status === 'active' ? 'badge-success' : o.status === 'suspended' ? 'badge-warning' : 'badge-danger';
-      return '<tr><td>' + escapeHtml(o.org_name) + '</td><td>' + escapeHtml(o.display_name || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(o.status) + '</span></td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(quotaInfo) + '</td><td>' + escapeHtml(o.created_at || '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="showEditOrg(\'' + escJsAttr(String(o.id)) + '\')">编辑</button> <button class="btn btn-sm btn-danger" onclick="deleteOrg(\'' + escJsAttr(String(o.id)) + '\',\'' + escJsAttr(o.org_name) + '\')">删除</button></td></tr>';
+      return '<tr><td>' + escapeHtml(o.org_name) + '</td><td>' + escapeHtml(o.display_name || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(o.status) + '</span></td><td style="font-size:13px;color:const(--text2)">' + escapeHtml(quotaInfo) + '</td><td>' + escapeHtml(o.created_at || '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="showEditOrg(\'' + escJsAttr(String(o.id)) + '\')">编辑</button> <button class="btn btn-sm btn-danger" onclick="deleteOrg(\'' + escJsAttr(String(o.id)) + '\',\'' + escJsAttr(o.org_name) + '\')">删除</button></td></tr>';
     }).join('') + '</table>';
   } else {
     document.getElementById('org-list').innerHTML = emptyState('🏢', '暂无组织', '创建第一个组织开始使用系统', '<button class="btn btn-primary" onclick="showAddOrg()">创建组织</button>');
@@ -1166,7 +1166,7 @@ async function renderOrganizations(el) {
 }
 
 function showAddOrg() {
-  var body = '<div class="form-group"><label>组织名称</label><input type="text" id="new-org-name" placeholder="请输入组织名称"></div>' +
+  const body = '<div class="form-group"><label>组织名称</label><input type="text" id="new-org-name" placeholder="请输入组织名称"></div>' +
     '<div class="form-group"><label>显示名称</label><input type="text" id="new-org-display" placeholder="请输入显示名称"></div>' +
     '<button class="btn btn-primary" onclick="doAddOrg()">创建</button> <button class="btn btn-outline" onclick="closeModal()">取消</button>';
   showModal('创建组织', body);
@@ -1185,9 +1185,9 @@ async function showEditOrg(orgId) {
   if (!r.ok) { showToast('无法加载组织信息', 'error'); return; }
   const org = r.data.organization;
   const settings = org.settings || {};
-  var body = '<div class="form-group"><label>显示名称</label><input type="text" id="edit-org-display" value="' + escapeHtml(org.display_name || '') + '"></div>' +
+  const body = '<div class="form-group"><label>显示名称</label><input type="text" id="edit-org-display" value="' + escapeHtml(org.display_name || '') + '"></div>' +
     '<div class="form-group"><label>状态</label><select id="edit-org-status"><option value="active"' + (org.status === 'active' ? ' selected' : '') + '>active</option><option value="suspended"' + (org.status === 'suspended' ? ' selected' : '') + '>suspended</option><option value="deleted"' + (org.status === 'deleted' ? ' selected' : '') + '>deleted</option></select></div>' +
-    '<h4 style="margin-top:16px;margin-bottom:8px;color:var(--text2);font-size:14px">资源配额</h4>' +
+    '<h4 style="margin-top:16px;margin-bottom:8px;color:const(--text2);font-size:14px">资源配额</h4>' +
     '<div class="form-group"><label>用户上限</label><input type="number" id="edit-org-max-users" value="' + (settings.max_users || 100) + '" min="1"></div>' +
     '<div class="form-group"><label>每日 Workflow 上限</label><input type="number" id="edit-org-max-wf" value="' + (settings.max_workflows_per_day || 500) + '" min="0"></div>' +
     '<button class="btn btn-primary" onclick="doEditOrg(\'' + escJsAttr(String(orgId)) + '\')">保存修改</button> <button class="btn btn-outline" onclick="closeModal()">取消</button>';
@@ -1217,7 +1217,7 @@ async function deleteOrg(orgId, orgName) {
 }
 
 async function renderSharedKnowledge(el) {
-  el.innerHTML = '<div class="page-header"><h2>共享知识库</h2><span style="color:var(--text2);font-size:14px">此文件夹中的内容默认对所有租户开放</span></div>' +
+  el.innerHTML = '<div class="page-header"><h2>共享知识库</h2><span style="color:const(--text2);font-size:14px">此文件夹中的内容默认对所有租户开放</span></div>' +
     '<div class="card"><h3>上传共享文档</h3>' +
     '<div class="form-group"><label>标题</label><input type="text" id="shared-title" placeholder="文档标题"></div>' +
     '<div class="form-group"><label>内容</label><textarea id="shared-content" style="min-height:160px" placeholder="文档内容..."></textarea></div>' +
@@ -1228,7 +1228,7 @@ async function renderSharedKnowledge(el) {
 }
 
 async function loadSharedDocs() {
-  const el = document.getElementById('shared-list');
+  let el = document.getElementById('shared-list');
   if (!el) return;
   const r = await api('/api/admin/shared-knowledge');
   if (r.ok && r.data.documents) {
@@ -1239,7 +1239,7 @@ async function loadSharedDocs() {
         r.data.documents.map(function(d) { return '<tr><td>' + escapeHtml(d.title) + '</td><td>' + escapeHtml(d.source_kind || '-') + '</td><td>' + escapeHtml(d.created_at || '-') + '</td><td><button class="btn btn-sm btn-danger" onclick="deleteSharedDoc(\'' + escJsAttr(String(d.id)) + '\')">移除</button></td></tr>'; }).join('') + '</table>';
     }
   } else {
-    el.innerHTML = '<p style="color:var(--text2)">无法加载共享文档</p>';
+    el.innerHTML = '<p style="color:const(--text2)">无法加载共享文档</p>';
   }
 }
 
@@ -1292,7 +1292,7 @@ async function loadOrgListForTask() {
 }
 
 async function loadOrgTasks() {
-  const el = document.getElementById('org-task-list');
+  let el = document.getElementById('org-task-list');
   if (!el) return;
   const r = await api('/api/admin/tasks');
   if (r.ok && r.data.tasks) {
@@ -1305,7 +1305,7 @@ async function loadOrgTasks() {
           const stats = t.assignment_stats || [];
           const completed = stats.filter(function(s) { return s.status === 'completed'; }).length;
           const total = stats.length;
-          return '<tr><td><strong>' + escapeHtml(t.title) + '</strong></td><td>' + escapeHtml(t.task_type) + '</td><td>' + escapeHtml(t.schedule_type) + (t.cron_expression ? ' (' + escapeHtml(t.cron_expression) + ')' : '') + '</td><td>' + escapeHtml(t.status) + (total > 0 ? ' <span style="font-size:12px;color:var(--text2)">(' + completed + '/' + total + ' 完成)</span>' : '') + '</td><td>' + escapeHtml((t.created_at && t.created_at.slice(0, 10)) || '-') + '</td><td>' +
+          return '<tr><td><strong>' + escapeHtml(t.title) + '</strong></td><td>' + escapeHtml(t.task_type) + '</td><td>' + escapeHtml(t.schedule_type) + (t.cron_expression ? ' (' + escapeHtml(t.cron_expression) + ')' : '') + '</td><td>' + escapeHtml(t.status) + (total > 0 ? ' <span style="font-size:12px;color:const(--text2)">(' + completed + '/' + total + ' 完成)</span>' : '') + '</td><td>' + escapeHtml((t.created_at && t.created_at.slice(0, 10)) || '-') + '</td><td>' +
             '<button class="btn btn-sm btn-primary" onclick="triggerOrgTask(\'' + escJsAttr(String(t.id)) + '\')">立即分发</button> ' +
             (t.status === 'active' ? '<button class="btn btn-sm btn-warning" onclick="pauseOrgTask(\'' + escJsAttr(String(t.id)) + '\')">暂停</button>' : '') +
             ' <button class="btn btn-sm btn-danger" onclick="archiveOrgTask(\'' + escJsAttr(String(t.id)) + '\')">归档</button></td></tr>';
@@ -1368,7 +1368,7 @@ async function renderMyTasks(el) {
 }
 
 async function loadMyTasks() {
-  const el = document.getElementById('my-task-list');
+  let el = document.getElementById('my-task-list');
   if (!el) return;
   const r = await api('/api/tasks');
   if (r.ok && r.data.assignments) {
@@ -1379,10 +1379,10 @@ async function loadMyTasks() {
       el.innerHTML = items.map(function(a) {
         const completed = a.status === 'completed';
         const statusLabel = completed ? '✅ 已完成' : a.status === 'notified' ? '🔔 待反馈' : '⏳ 待通知';
-        return '<div class="card" style="margin-bottom:12px"><h4>' + escapeHtml(a.title) + ' <span style="font-size:13px;color:var(--text2)">' + statusLabel + '</span></h4>' +
-          '<p style="color:var(--text2);margin:4px 0">' + escapeHtml(a.prompt_message || '') + '</p>' +
+        return '<div class="card" style="margin-bottom:12px"><h4>' + escapeHtml(a.title) + ' <span style="font-size:13px;color:const(--text2)">' + statusLabel + '</span></h4>' +
+          '<p style="color:const(--text2);margin:4px 0">' + escapeHtml(a.prompt_message || '') + '</p>' +
           (completed
-            ? '<p style="color:var(--success);font-size:13px">已于 ' + escapeHtml((a.completed_at && a.completed_at.slice(0, 16)) || '') + ' 提交</p>'
+            ? '<p style="color:const(--success);font-size:13px">已于 ' + escapeHtml((a.completed_at && a.completed_at.slice(0, 16)) || '') + ' 提交</p>'
             : '<div class="form-group"><textarea id="task-resp-' + a.id + '" style="min-height:80px" placeholder="请输入您的总结..."></textarea></div>' +
               '<button class="btn btn-primary btn-sm" onclick="submitTaskResponse(\'' + escJsAttr(String(a.id)) + '\')">提交反馈</button>') +
           '</div>';
@@ -1406,13 +1406,13 @@ async function renderSkills(el) {
   el.innerHTML = '<div class="page-header"><h2>技能管理</h2><div><button class="btn btn-outline btn-sm" onclick="showSearchSkill()">搜索镜像站</button> <button class="btn btn-primary btn-sm" onclick="showAddSkill()">创建技能</button></div></div><div class="card"><p class="section-desc">技能管理用于创建、搜索和安装可复用的工作流模板。您可以从镜像站搜索并安装技能，也可以手动创建自定义技能。已安装的技能支持版本管理和更新。</p><div id="skill-list">加载中...</div></div>';
   const r = await api('/api/admin/skills');
   if (r.ok && r.data.skills) {
-    var skills = r.data.skills;
+    const skills = r.data.skills;
     if (skills.length === 0) {
       document.getElementById('skill-list').innerHTML = emptyState('🔧', '暂无技能', '从镜像站搜索安装或手动创建技能', '<button class="btn btn-primary" onclick="showSearchSkill()">搜索镜像站</button> <button class="btn btn-outline" onclick="showAddSkill()">手动创建</button>');
     } else {
       document.getElementById('skill-list').innerHTML = '<table><tr><th>名称</th><th>类型</th><th>版本</th><th>状态</th><th>来源</th><th>操作</th></tr>' + skills.map(function(s) {
-        var meta = s.metadata || {};
-        var source = meta.installed_from ? '<span class="badge badge-info">镜像站</span>' : '<span class="badge badge-warning">手动创建</span>';
+        const meta = s.metadata || {};
+        const source = meta.installed_from ? '<span class="badge badge-info">镜像站</span>' : '<span class="badge badge-warning">手动创建</span>';
         return '<tr><td>' + escapeHtml(s.skill_name) + '</td><td>' + escapeHtml(s.skill_type || '-') + '</td><td>v' + escapeHtml(String(s.version || 1)) + '</td><td>' + statusBadge(s.status || 'active') + '</td><td>' + source + '</td><td><button class="btn btn-sm btn-outline" onclick="showSkillVersions(\'' + escJsAttr(String(s.id)) + '\')">版本</button> <button class="btn btn-sm btn-danger" onclick="archiveSkill(\'' + escJsAttr(String(s.id)) + '\',\'' + escJsAttr(s.skill_name) + '\')">归档</button></td></tr>';
       }).join('') + '</table>';
     }
@@ -1423,31 +1423,31 @@ async function renderSkills(el) {
 
 async function archiveSkill(skillId, skillName) {
   if (!confirm('确定要归档技能 "' + skillName + '" 吗？')) return;
-  var r = await api('/api/admin/skills/' + skillId, { method: 'PUT', body: JSON.stringify({ status: 'archived' }) });
+  const r = await api('/api/admin/skills/' + skillId, { method: 'PUT', body: JSON.stringify({ status: 'archived' }) });
   if (r.ok) { showToast('技能已归档'); renderView(); }
   else { showToast((r.data && r.data.error) || '归档失败', 'error'); }
 }
 
 function showSearchSkill() {
-  var body = '<div class="form-group"><label>搜索关键词</label><input type="text" id="skill-search-query" placeholder="输入技能名称或关键词搜索镜像站"></div>' +
+  const body = '<div class="form-group"><label>搜索关键词</label><input type="text" id="skill-search-query" placeholder="输入技能名称或关键词搜索镜像站"></div>' +
     '<button class="btn btn-primary" onclick="doSearchSkillMirror()">搜索镜像站</button> <button class="btn btn-outline" onclick="closeModal()">取消</button>' +
     '<div id="skill-search-results" style="margin-top:16px"></div>';
   showModal('搜索镜像站', body);
 }
 
 async function doSearchSkillMirror() {
-  var query = document.getElementById('skill-search-query').value.trim();
+  const query = document.getElementById('skill-search-query').value.trim();
   if (!query) { showToast('请输入搜索关键词', 'error'); return; }
-  var el = document.getElementById('skill-search-results');
-  el.innerHTML = '<p style="color:var(--text2)">正在搜索镜像站...</p>';
-  var r = await api('/api/admin/skills/mirror-search?query=' + encodeURIComponent(query));
+  let el = document.getElementById('skill-search-results');
+  el.innerHTML = '<p style="color:const(--text2)">正在搜索镜像站...</p>';
+  const r = await api('/api/admin/skills/mirror-search?query=' + encodeURIComponent(query));
   if (!r.ok || !r.data.skills) {
-    el.innerHTML = '<p style="color:var(--text2)">搜索失败，请检查技能库服务状态</p>';
+    el.innerHTML = '<p style="color:const(--text2)">搜索失败，请检查技能库服务状态</p>';
     return;
   }
-  var results = r.data.skills;
+  const results = r.data.skills;
   if (results.length === 0) {
-    el.innerHTML = '<p style="color:var(--text2)">未找到匹配的技能，请尝试其他关键词</p>';
+    el.innerHTML = '<p style="color:const(--text2)">未找到匹配的技能，请尝试其他关键词</p>';
     return;
   }
   el.innerHTML = '<table><tr><th>名称</th><th>类型</th><th>描述</th><th>操作</th></tr>' + results.map(function(s) {
@@ -1458,22 +1458,22 @@ async function doSearchSkillMirror() {
 async function doInstallSkill(skillId, skillName) {
   if (!confirm('确定要安装技能 "' + skillName + '" 吗？')) return;
   showToast('正在安装技能...');
-  var r = await api('/api/admin/skills/mirror-install', { method: 'POST', body: JSON.stringify({ skill_id: skillId }) });
+  const r = await api('/api/admin/skills/mirror-install', { method: 'POST', body: JSON.stringify({ skill_id: skillId }) });
   if (r.ok) { showToast('技能 "' + skillName + '" 安装成功'); closeModal(); renderView(); }
   else { showToast((r.data && r.data.message) || (r.data && r.data.error) || '安装失败', 'error'); }
 }
 
 async function showSkillVersions(skillId) {
-  var r = await api('/api/admin/skills/' + encodeURIComponent(skillId));
+  const r = await api('/api/admin/skills/' + encodeURIComponent(skillId));
   if (!r.ok || !r.data.skill) { showToast('无法获取技能信息', 'error'); return; }
-  var skill = r.data.skill;
-  var body = '<p>技能: ' + escapeHtml(skill.skill_name) + '</p><p>当前版本: v' + (skill.version || 1) + '</p><p>状态: ' + statusBadge(skill.status || 'active') + '</p>' +
+  const skill = r.data.skill;
+  const body = '<p>技能: ' + escapeHtml(skill.skill_name) + '</p><p>当前版本: v' + (skill.version || 1) + '</p><p>状态: ' + statusBadge(skill.status || 'active') + '</p>' +
     '<div style="margin-top:12px"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>';
   showModal('技能版本 - ' + skill.skill_name, body);
 }
 
 function showAddSkill() {
-  var body = '<div class="form-group"><label>技能名称</label><input type="text" id="new-skill-name" placeholder="请输入技能名称"></div>' +
+  const body = '<div class="form-group"><label>技能名称</label><input type="text" id="new-skill-name" placeholder="请输入技能名称"></div>' +
     '<div class="form-group"><label>类型</label><input type="text" id="new-skill-type" placeholder="例如: prompt, workflow"></div>' +
     '<div class="form-group"><label>描述</label><textarea id="new-skill-desc" placeholder="技能描述..."></textarea></div>' +
     '<div class="form-group"><label>定义 (JSON)</label><textarea id="new-skill-def">{}</textarea></div>' +
@@ -1518,16 +1518,16 @@ async function doImportKnowledge() {
 }
 
 async function doUploadKnowledgeFile() {
-  var fileInput = document.getElementById('kb-file');
+  const fileInput = document.getElementById('kb-file');
   if (!fileInput || !fileInput.files || fileInput.files.length === 0) { showToast('请选择文件', 'error'); return; }
-  var file = fileInput.files[0];
-  var maxSize = 2 * 1024 * 1024;
+  const file = fileInput.files[0];
+  const maxSize = 2 * 1024 * 1024;
   if (file.size > maxSize) { showToast('文件大小不能超过2MB', 'error'); return; }
-  var reader = new FileReader();
+  const reader = new FileReader();
   reader.onload = async function(e) {
-    var content = e.target.result;
-    var title = file.name.replace(/\.[^.]+$/, '');
-    var r = await api('/api/knowledge/import', { method: 'POST', body: JSON.stringify({ title, content, source_type: 'document', scope: 'private', auto_extract: true }) });
+    const content = e.target.result;
+    const title = file.name.replace(/\.[^.]+$/, '');
+    const r = await api('/api/knowledge/import', { method: 'POST', body: JSON.stringify({ title, content, source_type: 'document', scope: 'private', auto_extract: true }) });
     if (r.ok) { showToast('文件已导入，等待审核'); fileInput.value = ''; }
     else showToast((r.data && r.data.error) || '导入失败', 'error');
   };
@@ -1561,7 +1561,7 @@ async function renderIdentities(el) {
     '<div class="card"><h3>绑定列表</h3><div id="identity-list">加载中...</div></div>';
   const r = await api('/api/channels/identity');
   if (r.ok && r.data.identities) {
-    var identities = r.data.identities;
+    const identities = r.data.identities;
     if (identities.length === 0) {
       document.getElementById('identity-list').innerHTML = emptyState('🔑', '暂无身份绑定', '用户通过渠道首次交互时将自动创建绑定记录');
     } else {
@@ -1585,7 +1585,7 @@ async function renderDbMaint(el) {
     const s = r.data.stats;
     document.getElementById('db-stats').innerHTML = '<p>连接数: ' + escapeHtml(String(s.connections || '-')) + '</p><p>数据库大小: ' + escapeHtml(s.db_size || '-') + '</p><p>表数量: ' + escapeHtml(String(s.table_count || '-')) + '</p>';
   } else {
-    document.getElementById('db-stats').innerHTML = '<p style="color:var(--text2)">无法获取数据库统计</p>';
+    document.getElementById('db-stats').innerHTML = '<p style="color:const(--text2)">无法获取数据库统计</p>';
   }
 }
 
@@ -1633,7 +1633,7 @@ async function loadReviewItems(status) {
 
     list.innerHTML = '<table><tr><th>编号</th><th>内容摘要</th><th>来源</th><th>提交时间</th><th>操作</th></tr>' +
       items.map(function(item) {
-        const preview = (item.object_value || '').substring(0, 80) + ((item.object_value || '').length > 80 ? '...' : '');
+        let preview = (item.object_value || '').substring(0, 80) + ((item.object_value || '').length > 80 ? '...' : '');
         const sourceLabel = item.source === 'user_submitted' ? '用户提交' : (item.source || '系统');
         return '<tr><td>' + escapeHtml(String(item.fact_id || '').substring(0, 12)) + '</td>' +
           '<td>' + escapeHtml(preview) + '</td>' +
@@ -1680,8 +1680,8 @@ async function reviewAction(factId, action) {
 async function renderResources(el) {
   el.innerHTML = '<div class="page-header"><h2>资源监控</h2><div><button class="btn btn-outline btn-sm" onclick="renderView()">刷新</button> <button class="btn btn-primary btn-sm" onclick="triggerInspection()">触发巡检</button></div></div>' +
     '<div class="stat-grid" id="quota-stats-grid"></div>' +
-    '<div class="card"><h3>Docker 容器监控 <span id="container-stats-time" style="font-size:12px;color:var(--text2)"></span></h3><div id="container-stats">加载中...</div></div>' +
-    '<div class="card"><h3>系统资源 <span id="docker-stats-time" style="font-size:12px;color:var(--text2)"></span></h3><div id="docker-stats">加载中...</div></div>' +
+    '<div class="card"><h3>Docker 容器监控 <span id="container-stats-time" style="font-size:12px;color:const(--text2)"></span></h3><div id="container-stats">加载中...</div></div>' +
+    '<div class="card"><h3>系统资源 <span id="docker-stats-time" style="font-size:12px;color:const(--text2)"></span></h3><div id="docker-stats">加载中...</div></div>' +
     '<div class="card"><h3>服务巡检报告</h3><div id="inspection-report">加载中...</div></div>' +
     '<div class="card"><h3>配额配置</h3><div id="quota-config">加载中...</div></div>';
 
@@ -1695,41 +1695,41 @@ async function renderResources(el) {
 }
 
 async function loadContainerStats() {
-  var el = document.getElementById('container-stats');
-  var timeEl = document.getElementById('container-stats-time');
+  let el = document.getElementById('container-stats');
+  const timeEl = document.getElementById('container-stats-time');
   if (!el) return;
-  var r = await api('/api/admin/container-stats');
+  const r = await api('/api/admin/container-stats');
   if (r.ok && r.data.docker_available && r.data.containers && r.data.containers.length > 0) {
-    var containers = r.data.containers;
+    const containers = r.data.containers;
     el.innerHTML = '<table><tr><th>容器名</th><th>镜像</th><th>状态</th><th>CPU</th><th>内存</th><th>内存用量</th><th>网络I/O</th><th>磁盘I/O</th></tr>' +
       containers.map(function(c) {
-        var statusClass = c.status && c.status.includes('Up') ? 'badge-success' : 'badge-danger';
-        return '<tr><td>' + escapeHtml(c.name) + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(c.image || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(c.status || '-') + '</span></td><td>' + escapeHtml(c.cpu_percent) + '</td><td>' + escapeHtml(c.memory_percent) + '</td><td style="font-size:13px">' + escapeHtml(c.memory_usage) + '</td><td style="font-size:13px">' + escapeHtml(c.net_io) + '</td><td style="font-size:13px">' + escapeHtml(c.block_io) + '</td></tr>';
+        const statusClass = c.status && c.status.includes('Up') ? 'badge-success' : 'badge-danger';
+        return '<tr><td>' + escapeHtml(c.name) + '</td><td style="font-size:13px;color:const(--text2)">' + escapeHtml(c.image || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(c.status || '-') + '</span></td><td>' + escapeHtml(c.cpu_percent) + '</td><td>' + escapeHtml(c.memory_percent) + '</td><td style="font-size:13px">' + escapeHtml(c.memory_usage) + '</td><td style="font-size:13px">' + escapeHtml(c.net_io) + '</td><td style="font-size:13px">' + escapeHtml(c.block_io) + '</td></tr>';
       }).join('') + '</table>';
     if (timeEl) timeEl.textContent = '更新于 ' + new Date().toLocaleTimeString();
   } else if (r.ok && !r.data.docker_available) {
-    el.innerHTML = '<p style="color:var(--text2)">Docker 不可用或未检测到运行中的容器。请确保Docker服务正常运行且当前用户有Docker访问权限。</p>';
+    el.innerHTML = '<p style="color:const(--text2)">Docker 不可用或未检测到运行中的容器。请确保Docker服务正常运行且当前用户有Docker访问权限。</p>';
   } else {
-    el.innerHTML = '<p style="color:var(--text2)">无法获取容器监控数据</p>';
+    el.innerHTML = '<p style="color:const(--text2)">无法获取容器监控数据</p>';
   }
 }
 
 function startContainerStatsPolling() {
   if (containerStatsInterval) clearInterval(containerStatsInterval);
   containerStatsInterval = setInterval(async function() {
-    var el = document.getElementById('container-stats');
+    let el = document.getElementById('container-stats');
     if (!el) { clearInterval(containerStatsInterval); return; }
     await loadContainerStats();
   }, 15000);
 }
 
 async function loadDockerStats() {
-  var el = document.getElementById('docker-stats');
-  var timeEl = document.getElementById('docker-stats-time');
+  let el = document.getElementById('docker-stats');
+  const timeEl = document.getElementById('docker-stats-time');
   if (!el) return;
-  var r = await api('/api/admin/docker-stats');
+  const r = await api('/api/admin/docker-stats');
   if (r.ok && r.data.stats) {
-    var s = r.data.stats;
+    const s = r.data.stats;
     el.innerHTML = '<div class="stat-grid">' +
       '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.active_workflows || 0)) + '</div><div class="stat-label">活跃工作流</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.active_users || 0)) + '</div><div class="stat-label">活跃用户</div></div>' +
@@ -1740,14 +1740,14 @@ async function loadDockerStats() {
       '</div>';
     if (timeEl) timeEl.textContent = '更新于 ' + new Date().toLocaleTimeString();
   } else {
-    el.innerHTML = '<p style="color:var(--text2)">无法获取Docker资源数据，请确保数据库服务正常运行</p>';
+    el.innerHTML = '<p style="color:const(--text2)">无法获取Docker资源数据，请确保数据库服务正常运行</p>';
   }
 }
 
 function startDockerStatsPolling() {
   if (dockerStatsInterval) clearInterval(dockerStatsInterval);
   dockerStatsInterval = setInterval(async function() {
-    var el = document.getElementById('docker-stats');
+    let el = document.getElementById('docker-stats');
     if (!el) { clearInterval(dockerStatsInterval); return; }
     await loadDockerStats();
   }, 15000);
@@ -1772,7 +1772,7 @@ async function loadQuotaStats() {
     storage_bytes: '存储量(MB)',
     llm_tokens: 'LLM Tokens'
   };
-  grid.innerHTML = Object.entries(quotas).map(function(_ref) { var k=_ref[0],v=_ref[1]; var q=v||{}; var limit=q.limit||q.max||'-'; var used=q.used||q.current||0; return '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(used)) + ' / ' + escapeHtml(String(limit)) + '</div><div class="stat-label">' + escapeHtml(labelMap[k]||k) + '</div></div>'; }).join('');
+  grid.innerHTML = Object.entries(quotas).map(function(_ref) { const k=_ref[0],v=_ref[1]; const q=v||{}; const limit=q.limit||q.max||'-'; const used=q.used||q.current||0; return '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(used)) + ' / ' + escapeHtml(String(limit)) + '</div><div class="stat-label">' + escapeHtml(labelMap[k]||k) + '</div></div>'; }).join('');
 }
 
 async function loadInspectionReport() {
@@ -1781,14 +1781,14 @@ async function loadInspectionReport() {
 
   const r = await api('/api/admin/quotas/report');
   if (!r.ok || !r.data || !r.data.report) {
-    report.innerHTML = '<p style="color:var(--text2)">暂无巡检报告，点击"触发巡检"生成</p>';
+    report.innerHTML = '<p style="color:const(--text2)">暂无巡检报告，点击"触发巡检"生成</p>';
     return;
   }
   const data = r.data.report;
   const results = data.results || data.services || [];
   const inspectedAt = data.inspected_at || data.timestamp || '';
   if (results.length === 0) {
-    report.innerHTML = '<p style="color:var(--text2)">暂无巡检数据</p>';
+    report.innerHTML = '<p style="color:const(--text2)">暂无巡检数据</p>';
     return;
   }
   report.innerHTML = '<p class="hint-text" style="margin-bottom:8px">巡检时间: ' + escapeHtml(String(inspectedAt)) + '</p>' +
@@ -1806,7 +1806,7 @@ async function loadQuotaConfig() {
 
   const r = await api('/api/admin/quotas');
   if (!r.ok) {
-    config.innerHTML = '<p style="color:var(--text2)">无法加载配额配置</p>';
+    config.innerHTML = '<p style="color:const(--text2)">无法加载配额配置</p>';
     return;
   }
   const quotas = r.data.quotas || r.data || {};
@@ -1829,7 +1829,7 @@ async function saveQuotaConfig() {
   const dimensions = ['concurrent_workflows', 'daily_api_calls', 'retrieval_queries', 'execution_seconds', 'storage_bytes', 'llm_tokens'];
   const quotas = {};
   dimensions.forEach(function(key) {
-    const el = document.getElementById('quota-' + key);
+    let el = document.getElementById('quota-' + key);
     if (el && el.value) {
       quotas[key] = parseInt(el.value, 10);
     }
@@ -1855,7 +1855,7 @@ async function triggerInspection() {
 async function renderDreamMemory(el) {
   el.innerHTML = '<div class="page-header"><h2>💤 记忆分析 - 梦境模式</h2></div>' +
     '<div class="card"><h3>记忆分析运行记录</h3><div id="dream-runs-list">加载中...</div></div>' +
-    '<div class="card"><h3>组织级记忆汇总 <span style="font-size:12px;color:var(--text2)">(管理员可见)</span></h3><div id="dream-summary-list">加载中...</div></div>' +
+    '<div class="card"><h3>组织级记忆汇总 <span style="font-size:12px;color:const(--text2)">(管理员可见)</span></h3><div id="dream-summary-list">加载中...</div></div>' +
     '<div class="card"><h3>记忆压缩日志</h3><div id="dream-compression-list">加载中...</div></div>' +
     '<div class="card"><h3>记忆访问日志</h3><div id="dream-access-list">加载中...</div></div>';
   await loadDreamRuns();
@@ -1865,11 +1865,11 @@ async function renderDreamMemory(el) {
 }
 
 async function loadDreamRuns() {
-  var el = document.getElementById('dream-runs-list');
-  var orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
-  var r = await api('/api/admin/dream/runs?org_id=' + encodeURIComponent(orgId));
+  let el = document.getElementById('dream-runs-list');
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const r = await api('/api/admin/dream/runs?org_id=' + encodeURIComponent(orgId));
   if (r.ok && r.data.runs) {
-    var runs = r.data.runs;
+    const runs = r.data.runs;
     if (runs.length === 0) {
       el.innerHTML = emptyState('💤', '暂无梦境分析记录', '系统将在配置的时间自动运行梦境分析');
     } else {
@@ -1884,11 +1884,11 @@ async function loadDreamRuns() {
 }
 
 async function loadDreamSummaries() {
-  var el = document.getElementById('dream-summary-list');
-  var orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
-  var r = await api('/api/admin/dream/summary?org_id=' + encodeURIComponent(orgId));
+  let el = document.getElementById('dream-summary-list');
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const r = await api('/api/admin/dream/summary?org_id=' + encodeURIComponent(orgId));
   if (r.ok && r.data.summaries) {
-    var summaries = r.data.summaries;
+    const summaries = r.data.summaries;
     if (summaries.length === 0) {
       el.innerHTML = emptyState('📝', '暂无组织级整合记忆', '梦境分析运行后，提取的组织级知识将出现在此');
     } else {
@@ -1903,16 +1903,16 @@ async function loadDreamSummaries() {
 }
 
 async function loadDreamCompressions() {
-  var el = document.getElementById('dream-compression-list');
-  var r = await api('/api/admin/dream/compressions');
+  let el = document.getElementById('dream-compression-list');
+  const r = await api('/api/admin/dream/compressions');
   if (r.ok && r.data.logs) {
-    var logs = r.data.logs;
+    const logs = r.data.logs;
     if (logs.length === 0) {
       el.innerHTML = emptyState('📦', '暂无记忆压缩记录', '当记忆条目超过字符阈值时将自动压缩');
     } else {
       el.innerHTML = '<table><tr><th>时间</th><th>原文字符</th><th>压缩后字符</th><th>压缩率</th><th>方法</th></tr>' +
         logs.map(function(l) {
-          var ratio = l.original_char_count > 0 ? Math.round((1 - l.compressed_char_count / l.original_char_count) * 100) : 0;
+          const ratio = l.original_char_count > 0 ? Math.round((1 - l.compressed_char_count / l.original_char_count) * 100) : 0;
           return '<tr><td>' + escapeHtml((l.created_at || '').slice(0, 16)) + '</td><td>' + (l.original_char_count || 0) + '</td><td>' + (l.compressed_char_count || 0) + '</td><td>' + ratio + '%</td><td>' + escapeHtml(l.compression_method || '') + '</td></tr>';
         }).join('') + '</table>';
     }
@@ -1922,10 +1922,10 @@ async function loadDreamCompressions() {
 }
 
 async function loadDreamAccessLog() {
-  var el = document.getElementById('dream-access-list');
-  var r = await api('/api/admin/dream/access-log');
+  let el = document.getElementById('dream-access-list');
+  const r = await api('/api/admin/dream/access-log');
   if (r.ok && r.data.logs) {
-    var logs = r.data.logs;
+    const logs = r.data.logs;
     if (logs.length === 0) {
       el.innerHTML = emptyState('🔒', '暂无记忆访问记录', '系统将自动记录所有记忆访问操作');
     } else {
@@ -1950,11 +1950,11 @@ async function renderDreamSkills(el) {
 }
 
 async function loadOrgSkills() {
-  var el = document.getElementById('org-skills-list');
-  var orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
-  var r = await api('/api/admin/dream/org-skills?org_id=' + encodeURIComponent(orgId));
+  let el = document.getElementById('org-skills-list');
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const r = await api('/api/admin/dream/org-skills?org_id=' + encodeURIComponent(orgId));
   if (r.ok && r.data.skills) {
-    var skills = r.data.skills;
+    const skills = r.data.skills;
     if (skills.length === 0) {
       el.innerHTML = emptyState('🔧', '暂无组织级技能', '用户技能经审核后将自动升级为组织技能');
     } else {
@@ -1969,10 +1969,10 @@ async function loadOrgSkills() {
 }
 
 async function showSkillUsage(skillId) {
-  var r = await api('/api/admin/dream/skill-usage?skill_id=' + encodeURIComponent(skillId) + '&days=30');
+  const r = await api('/api/admin/dream/skill-usage?skill_id=' + encodeURIComponent(skillId) + '&days=30');
   if (r.ok && r.data.aggregate) {
-    var agg = r.data.aggregate;
-    var msg = '近30天使用统计：\n调用次数: ' + (agg.total_invocations || 0) + '\n成功: ' + (agg.total_success || 0) + '\n失败: ' + (agg.total_failure || 0) + '\n最大日活: ' + (agg.max_users || 0);
+    const agg = r.data.aggregate;
+    const msg = '近30天使用统计：\n调用次数: ' + (agg.total_invocations || 0) + '\n成功: ' + (agg.total_success || 0) + '\n失败: ' + (agg.total_failure || 0) + '\n最大日活: ' + (agg.max_users || 0);
     showToast(msg);
   } else {
     showToast('无法获取统计数据', 'error');
@@ -1980,11 +1980,11 @@ async function showSkillUsage(skillId) {
 }
 
 async function loadSkillAuditRecords() {
-  var el = document.getElementById('skill-audit-list');
-  var orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
-  var r = await api('/api/admin/dream/skill-audit-records?org_id=' + encodeURIComponent(orgId));
+  let el = document.getElementById('skill-audit-list');
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const r = await api('/api/admin/dream/skill-audit-records?org_id=' + encodeURIComponent(orgId));
   if (r.ok && r.data.records) {
-    var records = r.data.records;
+    const records = r.data.records;
     if (records.length === 0) {
       el.innerHTML = emptyState('📋', '暂无审核记录', '技能审核将在配置的时间自动运行');
     } else {
@@ -1999,11 +1999,11 @@ async function loadSkillAuditRecords() {
 }
 
 async function loadSceneAssessments() {
-  var el = document.getElementById('scene-assessment-list');
-  var orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
-  var r = await api('/api/admin/dream/scenes?org_id=' + encodeURIComponent(orgId));
+  let el = document.getElementById('scene-assessment-list');
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const r = await api('/api/admin/dream/scenes?org_id=' + encodeURIComponent(orgId));
   if (r.ok && r.data.assessments) {
-    var assessments = r.data.assessments;
+    const assessments = r.data.assessments;
     if (assessments.length === 0) {
       el.innerHTML = emptyState('🎯', '暂无场景识别记录', '系统将基于用户交互模式自动识别高价值场景');
     } else {
@@ -2020,9 +2020,9 @@ async function loadSceneAssessments() {
 async function renderDreamConfig(el) {
   el.innerHTML = '<div class="page-header"><h2>⚙ 梦境模式配置</h2></div>' +
     '<div class="card"><h3>梦境调度配置</h3><div id="dream-config-form">加载中...</div></div>';
-  var orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
-  var r = await api('/api/admin/dream/config?org_id=' + encodeURIComponent(orgId));
-  var config = (r.ok && r.data.config) ? r.data.config : {};
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const r = await api('/api/admin/dream/config?org_id=' + encodeURIComponent(orgId));
+  const config = (r.ok && r.data.config) ? r.data.config : {};
 
   document.getElementById('dream-config-form').innerHTML =
     '<div class="form-group"><label>启用梦境模式</label><select id="dc-enabled"><option value="true"' + (config.enabled !== false ? ' selected' : '') + '>启用</option><option value="false"' + (config.enabled === false ? ' selected' : '') + '>禁用</option></select></div>' +
@@ -2041,7 +2041,7 @@ async function renderDreamConfig(el) {
 }
 
 async function saveDreamConfig() {
-  var body = {
+  const body = {
     enabled: document.getElementById('dc-enabled').value === 'true',
     dream_user_trigger: document.getElementById('dc-trigger').value,
     dream_scheduled_hour: Number(document.getElementById('dc-hour').value),
@@ -2053,15 +2053,15 @@ async function saveDreamConfig() {
     auto_promote_threshold: Number(document.getElementById('dc-auto-promote').value),
     min_usage_for_scene_detection: Number(document.getElementById('dc-min-usage').value),
   };
-  var r = await api('/api/admin/dream/config', { method: 'POST', body: JSON.stringify(body) });
+  const r = await api('/api/admin/dream/config', { method: 'POST', body: JSON.stringify(body) });
   if (r.ok) showToast('梦境配置已保存'); else showToast('保存失败', 'error');
 }
 
 async function triggerDreamManually() {
   if (!confirm('确定立即为组织内活跃用户运行梦境分析吗？这将扫描所有用户今日的记忆条目并执行压缩与知识提取。')) return;
-  var orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
   showToast('正在运行梦境分析...');
-  var r = await api('/api/admin/dream/analyze-org', { method: 'POST', body: JSON.stringify({ org_id: orgId }) });
+  const r = await api('/api/admin/dream/analyze-org', { method: 'POST', body: JSON.stringify({ org_id: orgId }) });
   if (r.ok) { showToast('组织级记忆分析完成！合并了 ' + (r.data.merged_to_org || 0) + ' 条组织知识'); } else { showToast('分析失败: ' + ((r.data && r.data.error) || '未知错误'), 'error'); }
 }
 

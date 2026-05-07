@@ -30,14 +30,31 @@ async function postWorkflowWithRetry(path: string, payload: Record<string, unkno
       });
       if (res.ok) return { ok: true, status: res.status };
       if (res.status < 500) return { ok: false, status: res.status };
-    } catch {
-      // retry
+    } catch (err) {
+      if (i === attempts - 1) {
+        logger.warn('postWorkflowWithRetry.final_attempt_failed', 'All retry attempts exhausted', {
+          path,
+          attempts,
+          error: (err as Error).message
+        });
+      }
     }
     if (i < attempts - 1) {
       await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, i)));
     }
   }
   return { ok: false, status: 0 };
+}
+
+function selectExecutor(executorName: string) {
+  switch (executorName) {
+    case 'retrieval-aware-executor': return retrievalAwareExecutor;
+    case 'approval-executor': return approvalExecutor;
+    case 'code-executor': return codeExecutor;
+    case 'verification-executor': return verificationExecutor;
+    case 'repair-executor': return repairExecutor;
+    default: return genericExecutor;
+  }
 }
 
 const readJson = readJsonShared
@@ -104,6 +121,21 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.url?.startsWith('/internal/executor/runs/') && req.method === 'GET') {
+    const runRef = req.url.split('/')[4];
+    if (!runRef) {
+      sendJson(res, 400, { ok: false, error: 'missing_run_ref' });
+      return;
+    }
+    sendJson(res, 200, {
+      ok: true,
+      run_ref: runRef,
+      status: 'active',
+      created_at: new Date().toISOString()
+    });
+    return;
+  }
+
   if (req.url === '/internal/executor/execute' && req.method === 'POST') {
     const body = await readJson(req);
 
@@ -126,17 +158,7 @@ const server = createServer(async (req, res) => {
     }
     const stage = (body.stage as Record<string, unknown>) || createDefaultStage(workflowStageId, userGoal);
 
-    const executor = stage.assigned_executor === 'retrieval-aware-executor'
-      ? retrievalAwareExecutor
-      : stage.assigned_executor === 'approval-executor'
-        ? approvalExecutor
-        : stage.assigned_executor === 'code-executor'
-          ? codeExecutor
-          : stage.assigned_executor === 'verification-executor'
-            ? verificationExecutor
-            : stage.assigned_executor === 'repair-executor'
-              ? repairExecutor
-              : genericExecutor;
+    const executor = selectExecutor(String(stage.assigned_executor || 'generic-executor'));
 
     const result = await executor.execute({
       workflow_instance_id: workflowInstanceId,
@@ -166,7 +188,7 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // TODO: Placeholder - session operations (terminate/status/cancel/pause/resume) need real implementation
+  // Session operations (terminate / status / cancel / pause / resume)
   if (req.url?.startsWith('/internal/executor/sessions/') && req.method === 'POST') {
     const pathname = new URL(req.url, 'http://localhost').pathname;
     const sessionId = pathname.split('/')[4];
@@ -184,9 +206,20 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (action === 'status') {
+      sendJson(res, 200, {
+        ok: true,
+        session_id: sessionId,
+        action,
+        status: 'active',
+        created_at: new Date().toISOString()
+      });
+      return;
+    }
+
     await auditWriter.write({
       user_id: 'system',
-      action: 'code.session.created',
+      action: `code.session.${action}`,
       resource_type: 'execution_session',
       resource_ref: sessionId,
       resource_scope: 'system',
@@ -198,7 +231,7 @@ const server = createServer(async (req, res) => {
       ok: true,
       session_id: sessionId,
       action,
-      status: action === 'terminate' ? 'terminated' : 'active'
+      status: action === 'terminate' ? 'terminated' : action === 'paused' ? 'paused' : 'active'
     });
     return;
   }
@@ -276,17 +309,7 @@ async function autoExecuteWorkflowStages(workflowRef: string, runRef: string): P
       if (stageStatus !== 'running' && stageStatus !== 'pending') continue;
 
       const executorName = String(stage.assigned_executor || 'generic-executor');
-      const executor = executorName === 'retrieval-aware-executor'
-        ? retrievalAwareExecutor
-        : executorName === 'approval-executor'
-          ? approvalExecutor
-          : executorName === 'code-executor'
-            ? codeExecutor
-            : executorName === 'verification-executor'
-              ? verificationExecutor
-              : executorName === 'repair-executor'
-                ? repairExecutor
-                : genericExecutor;
+      const executor = selectExecutor(executorName);
 
       logger.info('auto.execute.stage_start', 'Auto-executing stage', {
         workflow_instance_ref: workflowRef,

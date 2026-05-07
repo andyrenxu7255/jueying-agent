@@ -12,6 +12,10 @@ export interface IdentityResolutionResult {
   binding_action: BindingAction
 }
 
+import { createLogger } from '@agent-harness/shared';
+
+const logger = createLogger('identity-resolver');
+
 export class IdentityResolver {
   private dbPool: Pool | null = null;
 
@@ -82,7 +86,16 @@ export class IdentityResolver {
   }
 
   async resolve(channelIdentity: string, channelType: string = 'feishu'): Promise<IdentityResolutionResult> {
-    if (!channelIdentity || channelIdentity === 'unknown') {
+    if (!channelIdentity || typeof channelIdentity !== 'string' || channelIdentity === 'unknown') {
+      return {
+        user_id: null,
+        org_id: null,
+        identity_binding_state: 'pending',
+        binding_action: 'binding_required'
+      }
+    }
+
+    if (channelIdentity.length > 512) {
       return {
         user_id: null,
         org_id: null,
@@ -92,8 +105,9 @@ export class IdentityResolver {
     }
 
     try {
-      const pool = await this.getDbPool();
+      const pool = await this.getDbPool()
       if (!pool) {
+        logger.error('identity.db_unavailable', 'Database pool unavailable');
         return {
           user_id: null,
           org_id: null,
@@ -197,6 +211,9 @@ export class IdentityResolver {
         binding_action: 'binding_required'
       }
     } catch (error) {
+      logger.error('identity.resolution_failed', 'Identity resolution failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
       return {
         user_id: null,
         org_id: null,

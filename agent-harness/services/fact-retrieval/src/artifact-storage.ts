@@ -1,7 +1,7 @@
-import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
-import { CreateBucketCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { configManager } from '@agent-harness/shared';
+import { mkdir, readFile, writeFile, rm } from 'node:fs/promises'
+import { join, resolve, normalize, sep } from 'node:path'
+import { CreateBucketCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { configManager } from '@agent-harness/shared'
 
 export type ArtifactBackend = 'localfs' | 'minio';
 
@@ -36,7 +36,16 @@ function normalizeEndpoint(endpoint: string, useSsl: boolean): string {
 }
 
 function sanitizePathComponent(raw: string): string {
-  return (raw || '_').replace(/[^a-zA-Z0-9_-]/g, '_');
+  return (raw || '_').replace(/[^a-zA-Z0-9_-]/g, '_')
+}
+
+function validateSecurePath(baseDir: string, targetPath: string): string {
+  const resolved = resolve(normalize(targetPath))
+  const base = resolve(normalize(baseDir))
+  if (!resolved.startsWith(base + sep) && resolved !== base) {
+    throw new Error(`path_traversal_blocked: ${targetPath}`)
+  }
+  return resolved
 }
 
 async function streamToUtf8(stream: unknown): Promise<string> {
@@ -77,18 +86,22 @@ export class ArtifactStorage {
   private bucketReady = false;
 
   constructor(config?: Partial<ArtifactStorageConfig>) {
-    const cfg = configManager.get();
-    const backendFromConfig = normalizeBackend(cfg.storage?.backend);
-    const preferredBackend = normalizeBackend(process.env.ARTIFACT_STORAGE_BACKEND || process.env.STORAGE_BACKEND || config?.preferred_backend || backendFromConfig);
-    const localRoot = config?.local_root || process.env.ARTIFACT_LOCAL_ROOT || DEFAULT_LOCAL_ROOT;
-    const endpoint = process.env.MINIO_ENDPOINT || config?.endpoint || cfg.storage?.endpoint;
-    const accessKey = process.env.MINIO_ACCESS_KEY || config?.access_key || cfg.storage?.access_key;
-    const secretKey = process.env.MINIO_SECRET_KEY || config?.secret_key || cfg.storage?.secret_key;
-    const bucket = process.env.MINIO_BUCKET || config?.bucket || cfg.storage?.bucket;
-    const region = process.env.MINIO_REGION || config?.region || cfg.storage?.region || 'us-east-1';
+    const cfg = configManager.get()
+    const backendFromConfig = normalizeBackend(cfg.storage?.backend)
+    const preferredBackend = normalizeBackend(process.env.ARTIFACT_STORAGE_BACKEND || process.env.STORAGE_BACKEND || config?.preferred_backend || backendFromConfig)
+    const localRoot = config?.local_root || process.env.ARTIFACT_LOCAL_ROOT || DEFAULT_LOCAL_ROOT
+    const endpoint = process.env.MINIO_ENDPOINT || config?.endpoint || cfg.storage?.endpoint
+    const accessKey = process.env.MINIO_ACCESS_KEY || config?.access_key || cfg.storage?.access_key
+    const secretKey = process.env.MINIO_SECRET_KEY || config?.secret_key || cfg.storage?.secret_key
+    const bucket = process.env.MINIO_BUCKET || config?.bucket || cfg.storage?.bucket
+    const region = process.env.MINIO_REGION || config?.region || cfg.storage?.region || 'us-east-1'
     const useSsl = process.env.MINIO_USE_SSL
       ? process.env.MINIO_USE_SSL === 'true'
-      : (config?.use_ssl ?? cfg.storage?.use_ssl ?? false);
+      : (config?.use_ssl ?? cfg.storage?.use_ssl ?? false)
+
+    if (bucket && !/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) {
+      throw new Error(`invalid_bucket_name: ${bucket}`)
+    }
 
     this.config = {
       local_root: localRoot,
@@ -190,16 +203,17 @@ export class ArtifactStorage {
 
   // ── staging: temp pre-ingestion area ──
   async storeStaging(sessionId: string, fileName: string, buffer: Buffer): Promise<string> {
-    const dirPath = join(this.config.local_root, 'staging', sanitizePathComponent(sessionId));
-    await mkdir(dirPath, { recursive: true });
-    const filePath = join(dirPath, sanitizePathComponent(fileName));
-    await writeFile(filePath, buffer);
-    return filePath;
+    const dirPath = join(this.config.local_root, 'staging', sanitizePathComponent(sessionId))
+    await mkdir(dirPath, { recursive: true })
+    const filePath = validateSecurePath(this.config.local_root, join(dirPath, sanitizePathComponent(fileName)))
+    await writeFile(filePath, buffer)
+    return filePath
   }
 
   async readStaging(sessionId: string, fileName: string): Promise<Buffer> {
-    const filePath = join(this.config.local_root, 'staging', sanitizePathComponent(sessionId), sanitizePathComponent(fileName));
-    return readFile(filePath);
+    const dirPath = join(this.config.local_root, 'staging', sanitizePathComponent(sessionId))
+    const filePath = validateSecurePath(this.config.local_root, join(dirPath, sanitizePathComponent(fileName)))
+    return readFile(filePath)
   }
 
   async cleanupStaging(sessionId: string): Promise<void> {

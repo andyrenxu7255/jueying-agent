@@ -163,6 +163,40 @@ export function validateTextContent(text: string): FileValidationResult {
   return { valid: true };
 }
 
+const MAGIC_BYTES: Array<{ bytes: number[]; mime: string }> = [
+  { bytes: [0x50, 0x4B, 0x03, 0x04], mime: 'application/zip (docx/xlsx/pptx)' },
+  { bytes: [0x25, 0x50, 0x44, 0x46], mime: 'application/pdf' },
+  { bytes: [0x89, 0x50, 0x4E, 0x47], mime: 'image/png' },
+  { bytes: [0xFF, 0xD8, 0xFF], mime: 'image/jpeg' },
+  { bytes: [0x47, 0x49, 0x46, 0x38], mime: 'image/gif' },
+  { bytes: [0xD0, 0xCF, 0x11, 0xE0], mime: 'application/ole (legacy Office)' },
+  { bytes: [0x7B, 0x5C, 0x72, 0x74], mime: 'application/rtf' },
+];
+
+function detectMagicBytes(buffer: Buffer): string | null {
+  if (buffer.length < 4) return null;
+  for (const magic of MAGIC_BYTES) {
+    const len = magic.bytes.length;
+    if (buffer.length >= len && magic.bytes.every((b, i) => buffer[i] === b)) {
+      return magic.mime;
+    }
+  }
+  return null;
+}
+
+function validateMagicBytes(buffer: Buffer, fileName: string): FileValidationResult {
+  const magic = detectMagicBytes(buffer);
+  if (!magic) return { valid: true };
+
+  const ext = (fileName.split('.').pop() || '').toLowerCase();
+
+  if (magic.startsWith('application/ole') && ext !== 'doc') {
+    return { valid: false, reason: `magic_bytes_ole_rejected: .${ext} (legacy Office format not via .doc)` };
+  }
+
+  return { valid: true };
+}
+
 export function validateFileForImport(
   buffer: Buffer,
   fileName: string,
@@ -173,6 +207,9 @@ export function validateFileForImport(
 
   const sizeResult = validateFileSize(buffer);
   if (!sizeResult.valid) return sizeResult;
+
+  const magicResult = validateMagicBytes(buffer, fileName);
+  if (!magicResult.valid) return magicResult;
 
   if (mimeType) {
     const mimeResult = validateMimeType(mimeType);

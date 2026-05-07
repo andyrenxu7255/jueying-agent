@@ -100,9 +100,16 @@ export class RateLimiter {
   }
 
   private evictOldest(): void {
-    const firstKey = this.buckets.keys().next().value;
-    if (firstKey !== undefined) {
-      this.buckets.delete(firstKey);
+    let oldestKey: string | undefined
+    let oldestTime = Infinity
+    for (const [key, value] of this.buckets) {
+      if (value.last_access_ms < oldestTime) {
+        oldestTime = value.last_access_ms
+        oldestKey = key
+      }
+    }
+    if (oldestKey !== undefined) {
+      this.buckets.delete(oldestKey)
     }
   }
 

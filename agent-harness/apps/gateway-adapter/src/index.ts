@@ -1,21 +1,32 @@
-import { createServer } from 'node:http';
-import { createHash, createHmac, createDecipheriv, timingSafeEqual } from 'node:crypto';
-import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity, extractPathname, postJson, sendJson } from '@agent-harness/shared';
-import { identityResolver } from './services/identity-resolver';
-import { sessionMapper } from './services/session-mapper';
-import { validateFileForImport, sanitizeFileName, validateTextContent } from './services/file-validator';
-import { gatewayState } from './services/gateway-state';
+import { createServer } from 'node:http'
+import { createHash, createHmac, createDecipheriv, timingSafeEqual } from 'node:crypto'
+import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity, extractPathname, postJson, sendJson } from '@agent-harness/shared'
+import { identityResolver } from './services/identity-resolver'
+import { sessionMapper } from './services/session-mapper'
+import { validateFileForImport, sanitizeFileName, validateTextContent } from './services/file-validator'
+import { gatewayState } from './services/gateway-state'
+
+import type { Pool } from 'pg'
 
 const logger = createLogger('gateway-adapter', {
   logFile: process.env.LOG_FILE || 'logs/gateway-adapter.log'
-});
+})
 
-let sharedDbPool: { query: (text: string, params?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>> }> } | null = null;
-async function getSharedDbPool() {
-  if (sharedDbPool) return sharedDbPool;
-  const { Pool } = await import('pg');
-  sharedDbPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 4 });
-  return sharedDbPool;
+const DB_POOL_MAX = Number(process.env.DB_POOL_MAX || 10)
+const MAX_INFLIGHT_REQUESTS = Number(process.env.MAX_INFLIGHT_REQUESTS || 50)
+let inflightCounter = 0
+
+let sharedDbPool: Pool | null = null
+async function getSharedDbPool(): Promise<Pool | null> {
+  if (sharedDbPool) return sharedDbPool
+  try {
+    const { Pool } = await import('pg')
+    sharedDbPool = new Pool({ connectionString: process.env.DATABASE_URL, max: DB_POOL_MAX })
+    return sharedDbPool
+  } catch (err) {
+    logger.error('db.pool.failed', 'Failed to create database pool', { error: String(err) })
+    return null
+  }
 }
 
 metricsRegistry.registerAlert({
@@ -41,6 +52,20 @@ const litellmUrl = process.env.LITELLM_URL || '';
 const litellmModel = process.env.LITELLM_MODEL || 'minimax-m2.7';
 const litellmApiKey = process.env.LITELLM_MASTER_KEY || process.env.LITELLM_API_KEY || '';
 if (!litellmApiKey) logger.warn('config.missing', 'LITELLM_MASTER_KEY or LITELLM_API_KEY environment variable is not set');
+if (!process.env.MINIMAX_API_KEY && !process.env.DASHSCOPE_API_KEY) {
+  logger.warn('config.missing', 'Both MINIMAX_API_KEY and DASHSCOPE_API_KEY are empty. LiteLLM cannot authenticate with any LLM provider. All LLM calls will fail.');
+}
+function isPlaceholderValue(val: string | undefined): boolean {
+  if (!val) return true
+  const trimmed = val.trim()
+  if (!trimmed) return true
+  if (trimmed.startsWith('<') && trimmed.endsWith('>')) return true
+  if (trimmed.includes('需要配置') || trimmed.includes('CHANGE_ME') || trimmed.includes('changeme')) return true
+  return false
+}
+if (isPlaceholderValue(process.env.MINIMAX_API_KEY) && isPlaceholderValue(process.env.DASHSCOPE_API_KEY)) {
+  logger.warn('config.missing', 'MINIMAX_API_KEY and DASHSCOPE_API_KEY are placeholder values. Please set real API keys in .env file, then restart with: docker compose --profile app up -d');
+}
 const hermesUrl = process.env.HERMES_URL || 'http://hermes-adapter:3000';
 const resourceSchedulerUrl = process.env.RESOURCE_SCHEDULER_URL || '';
 const mobileAppUrl = process.env.MOBILE_APP_URL || '';
@@ -53,8 +78,11 @@ const FEISHU_API_BASE_MAP: Record<string, string> = {
 };
 
 function getFeishuApiBase(): string {
-  const domain = (process.env.FEISHU_DOMAIN || 'feishu').trim().toLowerCase();
-  return FEISHU_API_BASE_MAP[domain] || domain;
+  const domain = (process.env.FEISHU_DOMAIN || 'feishu').trim().toLowerCase()
+  const base = FEISHU_API_BASE_MAP[domain]
+  if (base) return base
+  logger.warn('feishu.domain.unknown', 'Unknown FEISHU_DOMAIN, falling back to feishu.cn', { domain })
+  return FEISHU_API_BASE_MAP['feishu']
 }
 
 async function readBody(req: import('node:http').IncomingMessage): Promise<string> {
@@ -94,16 +122,10 @@ function maskSensitive(value: unknown): string | undefined {
 }
 
 function safeCompareSignature(signature: string, expected: string): boolean {
-  const left = Buffer.from(signature);
-  const right = Buffer.from(expected);
-  const maxLen = Math.max(left.length, right.length);
-  const paddedLeft = Buffer.alloc(maxLen);
-  const paddedRight = Buffer.alloc(maxLen);
-  left.copy(paddedLeft);
-  right.copy(paddedRight);
-  const lengthMatch = left.length === right.length;
-  const contentMatch = timingSafeEqual(paddedLeft, paddedRight);
-  return lengthMatch && contentMatch;
+  const left = Buffer.from(signature)
+  const right = Buffer.from(expected)
+  if (left.length !== right.length) return false
+  return timingSafeEqual(left, right)
 }
 
 function normalizeMessage(body: Record<string, unknown>): Record<string, unknown> {
@@ -246,7 +268,7 @@ async function classifyIntentWithLLM(text: string): Promise<IntentClassification
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     const response = await fetch(`${litellmUrl}/v1/chat/completions`, {
       method: 'POST',
@@ -445,6 +467,7 @@ async function recallContext(ownerUserId: string, sessionId: string): Promise<{ 
 async function checkOrgQuota(orgId: string, ownerUserId: string): Promise<{ allowed: boolean; reason?: string; remaining?: Record<string, number> }> {
   if (!resourceSchedulerUrl) {
     const pool = await getSharedDbPool();
+    if (!pool) return { allowed: false, reason: 'db_unavailable' };
     try {
       const orgResult = await pool.query(
         `SELECT settings FROM organization WHERE id = $1 AND status = 'active'`,
@@ -680,7 +703,7 @@ async function generateChatReply(userText: string, ownerUserId: string, context?
     model: litellmModel,
     messages,
     temperature: 0.3
-  }, 30000, {
+  }, 120000, {
     Authorization: `Bearer ${litellmApiKey}`
   });
 
@@ -762,58 +785,85 @@ async function quickLookup(text: string, ownerUserId: string, orgId: string): Pr
 }
 
 async function processIncomingText(normalized: Record<string, unknown>): Promise<{ requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch'; replyText: string; modelCallOk: boolean; workflowRef?: string; runRef?: string }> {
-  const text = String(normalized.request_text || '');
-  const ownerUserId = String(normalized.user_id || normalized.session_ref || 'anonymous');
-  const sessionId = String(normalized.session_ref || 'default');
-  const orgId = String(normalized.org_id || '');
+  if (inflightCounter >= MAX_INFLIGHT_REQUESTS) {
+    logger.warn('inflight.limit_exceeded', 'Request rejected due to inflight limit', {
+      current: inflightCounter,
+      max: MAX_INFLIGHT_REQUESTS
+    })
+    return {
+      requestType: 'chat',
+      replyText: '系统当前繁忙，请稍后重试。',
+      modelCallOk: false
+    }
+  }
+  inflightCounter++
+  try {
+    const text = String(normalized.request_text || '');
+    const ownerUserId = String(normalized.user_id || normalized.session_ref || 'anonymous');
+    const sessionId = String(normalized.session_ref || 'default');
+    const orgId = String(normalized.org_id || '');
 
-  const intent = await classifyIntentWithLLM(text);
-  const requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch' = intent.intent_type;
+    const intent = await classifyIntentWithLLM(text);
+    const requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch' = intent.intent_type;
 
-  logger.info('ingress.request.classified', 'Classified incoming request', {
-    request_type: requestType,
-    task_type_hint: intent.task_type_hint,
-    risk_level: intent.risk_level,
-    confidence: intent.confidence,
-    channel_type: normalized.channel_type
-  });
+    logger.info('ingress.request.classified', 'Classified incoming request', {
+      request_type: requestType,
+      task_type_hint: intent.task_type_hint,
+      risk_level: intent.risk_level,
+      confidence: intent.confidence,
+      channel_type: normalized.channel_type
+    });
 
   // knowledge_submit 路径: 用户主动提交知识 → 写入临时审核池 → 回复确认
   if (requestType === 'knowledge_submit') {
+    if (normalized.identity_binding_state !== 'bound') {
+      const replyText = '身份尚未绑定，请先完成身份验证后再提交知识。';
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      return { requestType, replyText, modelCallOk: false };
+    }
+
     const { factId, error } = await submitKnowledge(text, ownerUserId, orgId);
     if (error || !factId) {
       const replyText = error || '知识提交失败，已记录。请稍后重试。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: false };
     }
     const replyText = `📝 知识已收到并提交审核！\n知识编号: ${factId}\n管理员将在审核后将其正式收录到组织知识库中。`;
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
     return { requestType, replyText, modelCallOk: true };
   }
 
   // quick_lookup 路径: 快速查询 → retrieval-aware 单轮执行 → 返回结果
   if (requestType === 'quick_lookup') {
+    if (normalized.identity_binding_state !== 'bound') {
+      const replyText = '身份尚未绑定，请先完成身份验证后再进行查询。';
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      return { requestType, replyText, modelCallOk: false };
+    }
+
     const { replyText, modelCallOk } = await quickLookup(text, ownerUserId, orgId);
     if (!replyText) {
       // quickLookup 降级为空 → 回退到 chat 路径
       const chatResult = await generateChatReply(text, ownerUserId);
       const finalReply = chatResult.text;
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', finalReply),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', finalReply), '');
       return { requestType: 'chat' as const, replyText: finalReply, modelCallOk: chatResult.modelCallOk };
     }
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
     return { requestType, replyText, modelCallOk };
   }
 
   if (requestType === 'task') {
     if (normalized.identity_binding_state !== 'bound') {
       const replyText = '身份尚未绑定，请先完成身份验证后再创建任务。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: false };
     }
 
@@ -826,8 +876,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
           reason: quotaCheck.reason
         });
         const replyText = quotaCheck.reason || '资源配额不足，请稍后重试或联系管理员。';
-        fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-        fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
         return { requestType, replyText, modelCallOk: false };
       }
     }
@@ -838,8 +888,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
         user_id: normalized.user_id
       });
       const replyText = '权限策略校验暂不可用，请稍后重试。若持续出现请联系管理员。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: false };
     }
 
@@ -855,8 +905,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
     if (!plan.ok) {
       logger.warn('workflow.plan.failed', 'Workflow plan failed from gateway', { status: plan.status });
       const replyText = '任务受理失败：规划服务暂不可用。请稍后重试，若持续失败请联系管理员并提供时间与账号。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: false };
     }
 
@@ -871,15 +921,15 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
         status: dispatch.status
       });
       const replyText = `任务已创建（${workflowRef}），但派发执行失败。请稍后重试，或联系管理员手动重派。`;
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: false, workflowRef };
     }
 
     const runRef = (dispatch.body?.executor_run_ref as string | undefined) || `run_${Date.now()}`;
     const replyText = `✅ 已受理您的任务，正在规划执行中...\n任务编号: ${workflowRef}`;
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
     return { requestType, replyText, modelCallOk: true, workflowRef, runRef };
   }
 
@@ -887,13 +937,24 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
   if (requestType === 'task_dispatch') {
     if (normalized.identity_binding_state !== 'bound') {
       const replyText = '身份尚未绑定，请先完成身份验证后再下发任务。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: false };
     }
     const pool = await getSharedDbPool();
     if (!pool) {
       const replyText = '系统暂不可用，请稍后重试。';
+      return { requestType, replyText, modelCallOk: false };
+    }
+
+    const roleCheck = await pool.query(
+      `SELECT role FROM "user" WHERE username = $1 LIMIT 1`,
+      [ownerUserId]
+    );
+    if (roleCheck.rows.length === 0 || roleCheck.rows[0].role !== 'admin') {
+      const replyText = '只有管理员才有权限下发工作任务。如需此权限请联系系统管理员。';
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: false };
     }
     try {
@@ -909,24 +970,27 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
       const assignedCount = (assignResult.body as Record<string, unknown>)?.assigned || 0;
       const notifiedCount = (notifyResult.body as Record<string, unknown>)?.notified || 0;
       const replyText = `✅ 工作要求已创建并下发！\n📋 任务: ${task.title}\n👥 已分配: ${assignedCount} 人\n📢 已通知: ${notifiedCount} 人\n任务编号: ${task.id}`;
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: true };
     } catch (err) {
       logger.error('task_dispatch.create_failed', 'Failed to create and dispatch task from LUI', { error: String(err) });
       const replyText = '任务下发失败，请稍后重试或通过Web管理门户手动创建。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText),'memory');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: false };
     }
   }
 
   const recalled = await recallContext(ownerUserId, sessionId);
-  const chat = await generateChatReply(text, ownerUserId, recalled.context || undefined);
-  const degradedPrefix = recalled.degraded ? '（提示：历史上下文暂不可用，本次按当前消息回复）\n' : '';
-  fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text),'memory');
-  fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', chat.text),'memory');
-  return { requestType, replyText: `${degradedPrefix}${chat.text}`, modelCallOk: chat.modelCallOk };
+    const chat = await generateChatReply(text, ownerUserId, recalled.context || undefined);
+    const degradedPrefix = recalled.degraded ? '（提示：历史上下文暂不可用，本次按当前消息回复）\n' : '';
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', chat.text), '');
+    return { requestType, replyText: `${degradedPrefix}${chat.text}`, modelCallOk: chat.modelCallOk };
+  } finally {
+    inflightCounter--
+  }
 }
 
 async function handleFeishuEvent(body: Record<string, unknown>): Promise<void> {
@@ -993,12 +1057,12 @@ async function handleFeishuEvent(body: Record<string, unknown>): Promise<void> {
 
           const chatId = String(message.chat_id || '');
           if (chatId) {
-            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', replyText),'feishu_reply');
+            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', replyText), '');
           }
         } else {
           const chatId = String(message.chat_id || '');
           if (chatId) {
-            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', '身份尚未绑定，请先完成身份验证后再导入文件。'),'feishu_reply');
+            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', '身份尚未绑定，请先完成身份验证后再导入文件。'), '');
           }
         }
       }
@@ -1056,7 +1120,7 @@ async function handleFeishuEvent(body: Record<string, unknown>): Promise<void> {
   }
 
   if (processed.requestType === 'task' && processed.workflowRef) {
-    fireAndForget(pollAndReplyWorkflowResult(processed.workflowRef, receiveTargets),'workflow_poll');
+    fireAndForget(pollAndReplyWorkflowResult(processed.workflowRef, receiveTargets), '');
   }
 
   logger.info('feishu.event.completed', 'Feishu event processing completed', {
@@ -1353,7 +1417,7 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
           ? `✅ 任务执行完成！\n任务编号: ${workflowRef}\n\n${preview.substring(0, 800)}`
           : `❌ 任务执行失败 (${status})\n任务编号: ${workflowRef}`;
 
-        fireAndForget(sendWecomTextMessage(wecomUserId, resultLine, agentId),'wecom_reply');
+        fireAndForget(sendWecomTextMessage(wecomUserId, resultLine, agentId), '');
         // 异步发送移动推送通知
         const userId = (wf as Record<string, unknown>).owner_user_id || '';
         if (userId) {
@@ -1372,7 +1436,7 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
   }
 
   const timeoutMsg = `⏳ 任务仍在执行中，请稍后查看结果。\n任务编号: ${workflowRef}`;
-  fireAndForget(sendWecomTextMessage(wecomUserId, timeoutMsg, agentId),'wecom_reply');
+  fireAndForget(sendWecomTextMessage(wecomUserId, timeoutMsg, agentId), '');
 }
 async function getWecomAccessToken(): Promise<string | null> {
   const now = Date.now();
@@ -1697,7 +1761,10 @@ const server = createServer(async (req, res) => {
       stats: {
         dedupe_cache_size: gatewayState.dedupeCache.size,
         dedupe_ttl_ms: gatewayState.dedupeTtlMs,
-        token_cached: Boolean(gatewayState.feishuTokenCache.token && gatewayState.feishuTokenCache.expiresAtMs > Date.now())
+        token_cached: Boolean(gatewayState.feishuTokenCache.token && gatewayState.feishuTokenCache.expiresAtMs > Date.now()),
+        inflight_requests: inflightCounter,
+        inflight_max: MAX_INFLIGHT_REQUESTS,
+        db_pool_max: DB_POOL_MAX
       }
     });
     return;
@@ -1838,12 +1905,12 @@ const server = createServer(async (req, res) => {
 
               const wecomUserId = typeof body.from_user_id === 'string' ? body.from_user_id : '';
               if (wecomUserId) {
-                fireAndForget(sendWecomTextMessage(wecomUserId, replyText),'wecom_reply');
+                fireAndForget(sendWecomTextMessage(wecomUserId, replyText), '');
               }
             } else {
               const wecomUserId = typeof body.from_user_id === 'string' ? body.from_user_id : '';
               if (wecomUserId) {
-                fireAndForget(sendWecomTextMessage(wecomUserId, '身份尚未绑定，请先完成身份验证后再导入文件。'),'wecom_reply');
+                fireAndForget(sendWecomTextMessage(wecomUserId, '身份尚未绑定，请先完成身份验证后再导入文件。'), '');
               }
             }
           }
@@ -1881,7 +1948,7 @@ const server = createServer(async (req, res) => {
       }
 
       if (processed.requestType === 'task' && processed.workflowRef && wecomUserId) {
-        fireAndForget(pollAndReplyWorkflowResultWecom(processed.workflowRef, wecomUserId),'workflow_poll_wecom');
+        fireAndForget(pollAndReplyWorkflowResultWecom(processed.workflowRef, wecomUserId), '');
       }
 
       sendJson(res, 200, {

@@ -118,38 +118,43 @@ export class MetricsRegistry {
   }
 
   private evaluateAlerts(): void {
-    const now = Date.now();
+    const now = Date.now()
     for (const threshold of this.alertThresholds) {
-      const alertKey = `${threshold.metric}:${threshold.operator}:${threshold.value}`;
-      const state = this.alertStates.get(alertKey);
-      const cooldownMs = threshold.cooldownMs || 60000;
+      const alertKey = `${threshold.metric}:${threshold.operator}:${threshold.value}`
+      const state = this.alertStates.get(alertKey)
+      const cooldownMs = threshold.cooldownMs || 60000
 
-      if (state && now - state.lastFired < cooldownMs) continue;
+      if (state && now - state.lastFired < cooldownMs) continue
 
-      const currentValue = this.counters.get(threshold.metric) || 0;
-      let triggered = false;
+      const counterValue = this.counters.get(threshold.metric) || 0
+      const histogram = this.histograms.get(threshold.metric)
+      const currentValue = histogram && histogram.count > 0
+        ? histogram.sum / histogram.count
+        : counterValue
+
+      let triggered = false
       switch (threshold.operator) {
-        case 'gt': triggered = currentValue > threshold.value; break;
-        case 'lt': triggered = currentValue < threshold.value; break;
-        case 'gte': triggered = currentValue >= threshold.value; break;
-        case 'lte': triggered = currentValue <= threshold.value; break;
+        case 'gt': triggered = currentValue > threshold.value; break
+        case 'lt': triggered = currentValue < threshold.value; break
+        case 'gte': triggered = currentValue >= threshold.value; break
+        case 'lte': triggered = currentValue <= threshold.value; break
       }
 
       if (triggered) {
         const newState: AlertState = {
           lastFired: now,
           firedCount: (state?.firedCount || 0) + 1
-        };
-        this.alertStates.set(alertKey, newState);
+        }
+        this.alertStates.set(alertKey, newState)
 
-        const logFn = threshold.severity === 'error' ? logger.error.bind(logger) : logger.warn.bind(logger);
+        const logFn = threshold.severity === 'error' ? logger.error.bind(logger) : logger.warn.bind(logger)
         logFn(`alert.${threshold.metric}`, `[${threshold.severity.toUpperCase()}] ${threshold.message}`, {
           metric: threshold.metric,
           current_value: currentValue,
           threshold_value: threshold.value,
           operator: threshold.operator,
           fired_count: newState.firedCount
-        });
+        })
       }
     }
   }

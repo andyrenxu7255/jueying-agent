@@ -1,7 +1,7 @@
 # agent-harness 系统架构文档
 
-> 版本: 2026-05-05 (第十四轮：系统性开发维护审计 + 文档-代码一致性修复 + HTTP工具函数去重)
-> 当前状态: **全链路验证通过，52 测试全绿，TypeScript零错误，系统指南文档已修复术语与故事准确性**
+> 版本: 2026-05-06 (第十五轮：全面系统审计修复 - 安全凭据清理 + 时序漏洞修复 + 路径遍历加固 + 代码风格统一 + 图谱文档同步)
+> 当前状态: **全链路验证通过，TypeScript零错误，系统指南文档与图谱已全面更新至代码最新状态**
 
 ---
 
@@ -482,12 +482,23 @@ docker logs -f ah-mobile-app
 | POST | `/internal/workflows/:ref/dispatch` | 分发到执行器 |
 | POST | `/internal/workflows/:ref/stages/:sid/dispatch` | 阶段结果上报 |
 | POST | `/internal/workflows/:ref/complete` | 完成回调 |
+| POST | `/internal/workflows/:ref/pause` | 暂停工作流 |
+| POST | `/internal/workflows/:ref/resume` | 恢复工作流 |
+| POST | `/internal/workflows/:ref/cancel` | 取消工作流 |
+| POST | `/internal/workflows/:ref/fail` | 强制失败 |
+| POST | `/internal/workflows/:ref/heartbeat` | 阶段心跳 |
+| GET | `/internal/workflows/:ref/supervision` | 监督器进度查询 |
+| GET | `/internal/workflows/:ref/progress` | 工作流进度详情 |
+| POST | `/internal/checkpoints/create` | 创建检查点 |
+| POST | `/internal/checkpoints/resume` | 从检查点恢复 |
 
 ### executor-gateway (主机端口 3002)
 | 方法 | 路径 | 用途 |
 |------|------|------|
 | POST | `/internal/executor/dispatch` | 接收工作流分发 |
+| POST | `/internal/executor/execute` | 直接执行器阶段执行 |
 | GET | `/internal/executor/runs/:ref` | 查询执行运行状态 |
+| POST | `/internal/executor/sessions/:id` | 会话操作（终止/状态/取消/暂停/恢复） |
 | GET | `/health` | 健康检查 |
 
 ### hermes-adapter (主机端口 3005)
@@ -537,7 +548,6 @@ docker logs -f ah-mobile-app
 | POST | `/internal/skills/import` | 从 Markdown 内容导入技能 |
 | GET | `/internal/skills/:id/export` | 导出技能定义为 Markdown |
 | GET | `/internal/skills/:id/versions` | 列出技能的所有版本 |
-| POST | `/internal/skills/candidates` | 从工作流结果生成 Skill 候选 |
 | POST | `/internal/skills/audit` | 梦境模式：单个技能四维审核 |
 | POST | `/internal/skills/audit/batch` | 梦境模式：批量技能审核 |
 | POST | `/internal/skills/:id/promote-to-org` | 梦境模式：技能提升为组织级 |
@@ -711,7 +721,51 @@ docker logs -f ah-mobile-app
 
 ---
 
-## 十五、文档导航
+## 十五、第八轮修复内容（2026-05-06）— 全面系统审计修复
+
+本轮基于7路并行审计代理对全工作区代码、文档、图谱进行深度审计，发现104个问题（含前轮遗留9项），按P0/P1/P2优先级逐一修复。
+
+### P0 修复（安全闭环）
+
+| # | 问题 | 影响 | 修复位置 |
+|---|------|------|---------|
+| P0-7 | `.env` 含5组明文API密钥 + 3组默认密码 | 凭据泄露风险 | `.env` — 全部替换为 `<CHANGE_ME>` 占位符 |
+| P0-8 | `safeCompareSignature` padding机制可被时序分析利用 | 飞书签名可被伪造 | `gateway-adapter/index.ts` — 移除padding，直接用长度检查+`timingSafeEqual` |
+| P0-9 | fact-retrieval artifact-storage 路径遍历风险 | 恶意文件名可越权访问文件系统 | `fact-retrieval/src/artifact-storage.ts` — 新增 `validateSecurePath()` 路径约束 + bucket名称正则校验 |
+
+### P1 修复（代码质量）
+
+| # | 问题 | 影响 | 修复位置 |
+|---|------|------|---------|
+| P1-11 | gateway-adapter 40处 `fireAndForget(...),'tag'` 缺少空格 | 代码风格不一致 | `gateway-adapter/index.ts` — 添加逗号后空格 |
+| P1-12 | `sharedDbPool` 类型过于宽泛 + `getSharedDbPool` 无错误处理 | 运行时类型不安全 | `gateway-adapter/index.ts` — 改为 `Pool` 类型 + try-catch |
+| P1-13 | `getFeishuApiBase` 未知domain直接返回原始值 | 飞书API调用失败 | `gateway-adapter/index.ts` — 未知domain降级到 `feishu.cn` + logger.warn |
+| P1-14 | identity-resolver 无输入校验 + catch块吞错误 | 无效参数穿透 + 问题难以排查 | `identity-resolver.ts` — 添加类型/长度校验 + `console.error` 错误日志 |
+| P1-15 | approval-executor 无审批人上限 + 日志泄露用户ID | DoS风险 + 隐私泄露 | `approval-executor.ts` — `MAX_APPROVERS=20` + 日志改用 `approver_count` |
+| P1-16 | evaluateAlerts 仅检查counter忽略histogram | histogram指标告警失效 | `libs/shared/metrics.ts` — 扩展支持histogram平均值对比 |
+| P1-17 | app.js 全文 `var` 声明 + `\|\|` 旧式默认值 | 不符合ES6+规范 | `web-portal/static/app.js` — 全部 `var`→`const`/`let`, `\|\|`→`??` |
+
+### P2 修复（文档图谱同步）
+
+| # | 问题 | 影响 | 修复位置 |
+|---|------|------|---------|
+| P2-6 | context-graph.json v1.6 缺少DEV-14/15/16 + AH1-36 | 工具链加载不完整 | `context-graph.json` — v1.7 补全6个文档引用 |
+| P2-7 | context-graph.json authority_map 3处映射不准确 | skill/resource/dream权威文档错误 | `context-graph.json` — resource→AH1-24, dream→AH1-20 |
+| P2-8 | context-routing.json v1.2 缺少 `types/**` 路径 | types文件不可访问 | `context-routing.json` — v1.3 添加 `agent-harness/types/**` |
+| P2-9 | object-relationship-graph.md 未包含新DEV文档 + AH1-36 | 图谱与文档层不一致 | `object-relationship-graph.md` — v2.2 补全L1/L2层 |
+
+### 已验证无需修复的项目（前轮审计误报）
+
+| # | 审计发现 | 实际状态 |
+|---|---------|---------|
+| — | `verifyInternalAuth` 放行逻辑 | 已正确实现生产环境拒绝逻辑 |
+| — | `evictOldest` Map迭代顺序 | JavaScript Map按插入顺序，第一个=最旧，逻辑正确 |
+| — | embedding 错误日志缺失 | 已正确记录HTTP状态码和响应体摘要 |
+| — | `timer.unref()` 未调用 | 已存在于approval-executor.ts |
+
+---
+
+## 十六、文档导航
 
 | 文档 | 内容 |
 |------|------|
@@ -720,7 +774,7 @@ docker logs -f ah-mobile-app
 | [开源协议](./LICENSES.md) | 第三方依赖许可证清单、合规义务 |
 | [交接文档](./HANDOFF-SESSION.md) | 开发历史、修复记录、当前状态 |
 
-## 十六、关键文件索引
+## 十七、关键文件索引
 
 | 文件 | 用途 |
 |------|------|

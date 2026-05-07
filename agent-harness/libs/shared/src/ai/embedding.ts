@@ -12,6 +12,9 @@
 
 import { createHash } from 'node:crypto';
 import { configManager } from '../config/manager';
+import { createLogger } from '../logging/logger';
+
+const logger = createLogger('embedding');
 
 const EMBEDDING_DIMENSIONS = 1536;
 
@@ -127,6 +130,9 @@ export class EmbeddingAdapter {
       try {
         result = await this.embedViaProvider(text);
       } catch (error) {
+        logger.warn('embedding.provider_fallback', 'Provider embedding failed, falling back to deterministic', {
+          error: String(error).slice(0, 300)
+        });
         result = {
           embedding: deterministicEmbedding(text),
           model_version: 'local-deterministic-1536-v1',

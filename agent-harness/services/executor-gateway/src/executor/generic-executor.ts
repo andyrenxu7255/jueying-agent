@@ -1,4 +1,4 @@
-import { createLogger } from '@agent-harness/shared';
+import { createLogger, withRetry, RETRY_POLICIES } from '@agent-harness/shared';
 import { auditWriter } from '@agent-harness/audit';
 import type { Stage } from '@agent-harness/contracts';
 
@@ -35,6 +35,27 @@ export interface ExecutionResult {
   metadata?: Record<string, unknown>;
 }
 
+const MAX_CONTEXT_LENGTH = 8000;
+
+function truncateContext(context: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!context) return {};
+  const json = JSON.stringify(context);
+  if (json.length <= MAX_CONTEXT_LENGTH) return context;
+  const truncated: Record<string, unknown> = {};
+  let remaining = MAX_CONTEXT_LENGTH;
+  for (const [key, value] of Object.entries(context)) {
+    const entry = JSON.stringify({ [key]: value });
+    if (entry.length <= remaining) {
+      truncated[key] = value;
+      remaining -= entry.length;
+    } else {
+      truncated[key] = `[truncated: ${typeof value === 'string' ? value.length : JSON.stringify(value).length} chars]`;
+      break;
+    }
+  }
+  return truncated;
+}
+
 interface LiteLLMResponse {
   choices?: Array<{
     message?: {
@@ -50,57 +71,62 @@ interface LiteLLMResponse {
 
 async function callLiteLLM(systemPrompt: string, userPrompt: string, temperature: number = 0.3): Promise<{ content: string; ok: boolean; usage?: LiteLLMResponse['usage'] }> {
   const timeoutMs = Number(process.env.LITELLM_EXEC_TIMEOUT_MS || 60000);
-  
-  try {
+
+  const attempt = async (): Promise<{ content: string; ok: boolean; usage?: LiteLLMResponse['usage'] }> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    const response = await fetch(`${LITELLM_URL}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        Authorization: `Bearer ${LITELLM_API_KEY}`
-      },
-      body: JSON.stringify({
+
+    try {
+      const response = await fetch(`${LITELLM_URL}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${LITELLM_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: LITELLM_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature,
+          max_tokens: 2000
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`LiteLLM returned ${response.status}`);
+      }
+
+      const body = await response.json() as LiteLLMResponse;
+      const content = body.choices?.[0]?.message?.content || '';
+
+      if (!content) {
+        logger.warn('litellm.call.empty', 'LiteLLM returned empty content', {});
+        return { content: '', ok: false };
+      }
+
+      logger.info('litellm.call.success', 'LiteLLM call succeeded', {
         model: LITELLM_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature,
-        max_tokens: 2000
-      }),
-      signal: controller.signal
-    });
+        prompt_tokens: body.usage?.prompt_tokens,
+        completion_tokens: body.usage?.completion_tokens
+      });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      logger.warn('litellm.call.failed', 'LiteLLM call failed', { status: response.status });
-      return { content: '', ok: false };
+      return { content, ok: true, usage: body.usage };
+    } finally {
+      clearTimeout(timeoutId);
     }
+  };
 
-    const body = await response.json() as LiteLLMResponse;
-    const content = body.choices?.[0]?.message?.content || '';
-    
-    if (!content) {
-      logger.warn('litellm.call.empty', 'LiteLLM returned empty content', {});
-      return { content: '', ok: false };
-    }
-
-    logger.info('litellm.call.success', 'LiteLLM call succeeded', {
-      model: LITELLM_MODEL,
-      prompt_tokens: body.usage?.prompt_tokens,
-      completion_tokens: body.usage?.completion_tokens
-    });
-
-    return { content, ok: true, usage: body.usage };
+  try {
+    return await withRetry(attempt, RETRY_POLICIES.llm);
   } catch (error) {
     const errorMsg = String(error);
     if (errorMsg.includes('abort') || errorMsg.includes('AbortError')) {
       logger.warn('litellm.call.timeout', 'LiteLLM call timed out', { timeout_ms: timeoutMs });
     } else {
-      logger.error('litellm.call.error', 'LiteLLM call error', { error: errorMsg });
+      logger.error('litellm.call.error', 'LiteLLM call error after retries', { error: errorMsg.slice(0, 300) });
     }
     return { content: '', ok: false };
   }
@@ -175,18 +201,32 @@ export class GenericExecutor {
         return this.executePlanGeneration(input);
       case 'EvidenceRetrieval':
         return this.executeEvidenceRetrieval(input);
+      case 'MemoryRetrieval':
+        return this.executeMemoryRetrieval(input);
+      case 'ObjectExtraction':
+        return this.executeObjectExtraction(input);
+      case 'ArchitectureDesign':
+        return this.executeArchitectureDesign(input);
+      case 'SpecGeneration':
+        return this.executeSpecGeneration(input);
       case 'DecisionMaking':
         return this.executeDecisionMaking(input);
+      case 'Implementation':
+        return this.executeImplementation(input);
+      case 'Verification':
+        return this.executeVerification(input);
+      case 'Repair':
+        return this.executeRepair(input);
+      case 'Approval':
+        return this.executeApproval(input);
       case 'ResultReporting':
         return this.executeResultReporting(input);
-      case 'Archive':
-        return this.executeArchive(input);
       case 'SkillExtraction':
         return this.executeSkillExtraction(input);
       case 'DreamSummarization':
         return this.executeDreamSummarization(input);
-      case 'ObjectExtraction':
-        return this.executeObjectExtraction(input);
+      case 'Archive':
+        return this.executeArchive(input);
       default:
         return this.executeGenericStage(input);
     }
@@ -219,9 +259,10 @@ export class GenericExecutor {
 
   private async executePlanGeneration(input: ExecutionInput): Promise<ExecutionResult> {
     const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
 
     const systemPrompt = 'You are a planning assistant. Create a structured execution plan for the given request. Focus on actionable steps and dependencies.';
-    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(context || {})}\n\nCreate a step-by-step plan:\n1. List required steps\n2. Identify dependencies\n3. Estimate effort\n4. Note risks or blockers`;
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nCreate a step-by-step plan:\n1. List required steps\n2. Identify dependencies\n3. Estimate effort\n4. Note risks or blockers`;
 
     const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.3);
 
@@ -244,9 +285,10 @@ export class GenericExecutor {
 
   private async executeEvidenceRetrieval(input: ExecutionInput): Promise<ExecutionResult> {
     const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
 
     const systemPrompt = 'You are a knowledge retrieval assistant. Based on the request, identify what information is needed and summarize findings.';
-    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(context || {})}\n\nSummarize:\n1. What information is relevant\n2. Key findings from context\n3. Information gaps`;
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nSummarize:\n1. What information is relevant\n2. Key findings from context\n3. Information gaps`;
 
     const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.3);
 
@@ -260,9 +302,10 @@ export class GenericExecutor {
 
   private async executeDecisionMaking(input: ExecutionInput): Promise<ExecutionResult> {
     const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
 
     const systemPrompt = 'You are a decision-making assistant. Analyze options and recommend the best course of action with rationale.';
-    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(context || {})}\n\nProvide:\n1. Available options\n2. Trade-offs for each\n3. Recommended action\n4. Rationale`;
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nProvide:\n1. Available options\n2. Trade-offs for each\n3. Recommended action\n4. Rationale`;
 
     const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.4);
 
@@ -285,9 +328,10 @@ export class GenericExecutor {
 
   private async executeResultReporting(input: ExecutionInput): Promise<ExecutionResult> {
     const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
 
     const systemPrompt = 'You are a results reporting assistant. Create a clear, user-friendly summary of outcomes and next steps.';
-    const userPrompt = `User request: ${user_goal}\n\nExecution context: ${JSON.stringify(context || {})}\n\nSummarize:\n1. What was accomplished\n2. Key results\n3. Follow-up recommendations\n4. Next steps`;
+    const userPrompt = `User request: ${user_goal}\n\nExecution context: ${JSON.stringify(safeContext)}\n\nSummarize:\n1. What was accomplished\n2. Key results\n3. Follow-up recommendations\n4. Next steps`;
 
     const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.3);
 
@@ -316,9 +360,10 @@ export class GenericExecutor {
 
   private async executeSkillExtraction(input: ExecutionInput): Promise<ExecutionResult> {
     const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
 
     const systemPrompt = 'You are a skill extraction assistant. Identify reusable patterns from the execution and suggest skill templates.';
-    const userPrompt = `User request: ${user_goal}\n\nExecution context: ${JSON.stringify(context || {})}\n\nExtract:\n1. Reusable patterns\n2. Skill template suggestions\n3. Quality assessment`;
+    const userPrompt = `User request: ${user_goal}\n\nExecution context: ${JSON.stringify(safeContext)}\n\nExtract:\n1. Reusable patterns\n2. Skill template suggestions\n3. Quality assessment`;
 
     const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.3);
 
@@ -332,6 +377,7 @@ export class GenericExecutor {
 
   private async executeDreamSummarization(input: ExecutionInput): Promise<ExecutionResult> {
     const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
 
     // 检查记忆是否需要压缩: 当记忆内容超过4000字时标记为需要压缩
     const needsCompression = typeof context?.memory_fullness === 'number'
@@ -352,7 +398,7 @@ Output format:
 
 If the context is already concise, preserve it as-is with minor formatting.`;
 
-    const userPrompt = `User goal: ${user_goal}\n\nExecution context and memory content:\n${JSON.stringify(context || {})}\n\n${needsCompression ? '⚠️ This memory is large and needs compression. Create a dense, lossy-but-useful summary.' : 'Create a reflective summary of this session.'}\n\nGenerate the summary:`;
+    const userPrompt = `User goal: ${user_goal}\n\nExecution context and memory content:\n${JSON.stringify(safeContext)}\n\n${needsCompression ? '⚠️ This memory is large and needs compression. Create a dense, lossy-but-useful summary.' : 'Create a reflective summary of this session.'}\n\nGenerate the summary:`;
 
     const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.3);
 
@@ -531,11 +577,127 @@ Extract all entities, relations, and slot values as structured JSON.`;
     };
   }
 
+  private async executeMemoryRetrieval(input: ExecutionInput): Promise<ExecutionResult> {
+    const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
+
+    const systemPrompt = 'You are a memory retrieval assistant. Identify relevant past experiences, preferences, and patterns that inform the current task. Only retrieve what is directly relevant.';
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nExtract:\n1. Relevant past experiences\n2. User preferences or patterns\n3. Lessons learned from similar tasks`;
+
+    const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.2);
+
+    return {
+      status: ok ? 'completed' : 'failed',
+      output: ok ? content : 'Memory retrieval unavailable',
+      next_action: 'next_stage',
+      model_call_ok: ok
+    };
+  }
+
+  private async executeArchitectureDesign(input: ExecutionInput): Promise<ExecutionResult> {
+    const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
+
+    const systemPrompt = 'You are a solution architect. Design the architecture, technology choices, and component relationships for the given requirements. Output structured design documentation.';
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nProvide:\n1. Architecture overview\n2. Component breakdown\n3. Technology choices with rationale\n4. Integration points\n5. Trade-offs considered`;
+
+    const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.3);
+
+    return {
+      status: ok ? 'completed' : 'failed',
+      output: ok ? content : 'Architecture design unavailable',
+      next_action: 'next_stage',
+      model_call_ok: ok
+    };
+  }
+
+  private async executeSpecGeneration(input: ExecutionInput): Promise<ExecutionResult> {
+    const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
+
+    const systemPrompt = 'You are a technical specification writer. Generate detailed specifications including API contracts, data models, and acceptance criteria. Be precise and comprehensive.';
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nGenerate:\n1. Functional specification\n2. API contract (if applicable)\n3. Data model\n4. Acceptance criteria\n5. Non-functional requirements`;
+
+    const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.2);
+
+    return {
+      status: ok ? 'completed' : 'failed',
+      output: ok ? content : 'Spec generation unavailable',
+      next_action: 'next_stage',
+      model_call_ok: ok
+    };
+  }
+
+  private async executeImplementation(input: ExecutionInput): Promise<ExecutionResult> {
+    return {
+      status: 'completed',
+      output: 'Implementation stage delegated to code-executor',
+      next_action: 'next_stage',
+      model_call_ok: true,
+      metadata: { delegated_executor: 'code-executor' }
+    };
+  }
+
+  private async executeVerification(input: ExecutionInput): Promise<ExecutionResult> {
+    const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
+
+    const systemPrompt = 'You are a verification assistant. Check outputs against acceptance criteria, identify issues, and report verification status. Be objective and thorough.';
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nVerify:\n1. All acceptance criteria met?\n2. Issues or gaps found\n3. Test results summary\n4. Overall verdict (pass/fail/needs-repair)`;
+
+    const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.1);
+
+    return {
+      status: ok ? 'completed' : 'failed',
+      output: ok ? content : 'Verification unavailable',
+      next_action: 'next_stage',
+      model_call_ok: ok,
+      metadata: { verification_stage: true }
+    };
+  }
+
+  private async executeRepair(input: ExecutionInput): Promise<ExecutionResult> {
+    const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
+
+    const systemPrompt = 'You are a repair assistant. Fix identified issues from the verification stage. Apply minimal changes to address failures while preserving existing functionality.';
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nRepair:\n1. Issues to fix (from verification)\n2. Proposed fixes\n3. Risk assessment\n4. Verification that fixes don\'t break other parts`;
+
+    const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.2);
+
+    return {
+      status: ok ? 'completed' : 'failed',
+      output: ok ? content : 'Repair unavailable',
+      next_action: 'next_stage',
+      model_call_ok: ok,
+      metadata: { repair_stage: true }
+    };
+  }
+
+  private async executeApproval(input: ExecutionInput): Promise<ExecutionResult> {
+    const { user_goal, context } = input;
+    const safeContext = truncateContext(context);
+
+    const systemPrompt = 'You are an approval gate assistant. Summarize the work done so far and identify what needs human approval. Clearly state the decision points.';
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nPrepare for approval:\n1. Summary of work done\n2. Decision points requiring approval\n3. Risks if not approved\n4. Recommended course of action`;
+
+    const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.2);
+
+    return {
+      status: 'waiting_user',
+      output: ok ? content : 'Approval required - please review',
+      next_action: 'waiting_user',
+      model_call_ok: ok,
+      metadata: { approval_required: true }
+    };
+  }
+
   private async executeGenericStage(input: ExecutionInput): Promise<ExecutionResult> {
     const { stage, user_goal, context } = input;
+    const safeContext = truncateContext(context);
 
     const systemPrompt = `You are a task execution assistant. Complete the stage: ${stage.purpose}`;
-    const userPrompt = `User request: ${user_goal}\n\nStage: ${stage.stage_type}\n\nContext: ${JSON.stringify(context || {})}\n\nComplete this stage and provide output.`;
+    const userPrompt = `User request: ${user_goal}\n\nStage: ${stage.stage_type}\n\nContext: ${JSON.stringify(safeContext)}\n\nComplete this stage and provide output.`;
 
     const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.3);
 

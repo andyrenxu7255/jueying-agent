@@ -1077,7 +1077,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const orgId = url.searchParams.get('org_id') || '';
       const status = url.searchParams.get('status') || 'unconfirmed';
       const limit = url.searchParams.get('limit') || '50';
-      const r = await fetchFromService(factRetrievalUrl + '/knowledge/review?org_id=' + encodeURIComponent(orgId) + '&status=' + encodeURIComponent(status) + '&limit=' + encodeURIComponent(limit));
+      const r = await fetchFromService(factRetrievalUrl + '/internal/fact/review?org_id=' + encodeURIComponent(orgId) + '&status=' + encodeURIComponent(status) + '&limit=' + encodeURIComponent(limit));
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1086,7 +1086,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const body = await readJson(req);
-      const r = await fetchFromService(factRetrievalUrl + '/knowledge/review', { method: 'POST', body: JSON.stringify(body) });
+      const r = await fetchFromService(factRetrievalUrl + '/internal/fact/review', { method: 'POST', body: JSON.stringify(body) });
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1768,6 +1768,83 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const fileId = pathname.split('/')[3];
       const r = await fetchFromService(`${factRetrievalUrl}/internal/files/${encodeURIComponent(fileId)}?user_id=${encodeURIComponent(session.user_id)}`, { method: 'DELETE' });
       sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/policies' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const orgId = url.searchParams.get('org_id') || session.org_id;
+        const result = await pool.query(
+          `SELECT * FROM org_policy WHERE org_id = $1 ORDER BY created_at DESC LIMIT 100`,
+          [orgId]
+        );
+        sendJson(res, 200, { ok: true, policies: result.rows });
+      } catch (error) {
+        logger.error('policies.query_failed', 'Policy query failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
+      return;
+    }
+
+    if (pathname === '/api/admin/policies' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      const body = await readJson(req);
+      try {
+        const orgId = body.org_id || session.org_id;
+        await pool.query(
+          `INSERT INTO org_policy (org_id, role, resource, action, decision) VALUES ($1, $2, $3, $4, $5)`,
+          [orgId, body.role || 'user', body.resource || '*', body.action || 'read', body.decision || 'allow']
+        );
+        await auditWriter.write({ action: 'policy.create', user_id: session.user_id, resource_type: 'org_policy', resource_ref: 'new', resource_scope: `org:${orgId}`, result: 'success', detail_json: {} });
+        sendJson(res, 200, { ok: true });
+      } catch (error) {
+        logger.error('policies.create_failed', 'Policy create failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
+      return;
+    }
+
+    if (pathname === '/api/admin/organization-invitations' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const result = await pool.query(
+          `SELECT * FROM org_invitation WHERE org_id = $1 ORDER BY created_at DESC LIMIT 100`,
+          [session.org_id]
+        );
+        sendJson(res, 200, { ok: true, invitations: result.rows });
+      } catch {
+        sendJson(res, 200, { ok: true, invitations: [] });
+      }
+      return;
+    }
+
+    if (pathname === '/api/admin/organization-members' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const result = await pool.query(
+          `SELECT u.id, u.username, u.display_name, u.role, u.status, u.org_id, u.created_at
+           FROM "user" u WHERE u.org_id = $1 AND u.status = 'active'
+           ORDER BY u.username LIMIT 1000`,
+          [session.org_id]
+        );
+        sendJson(res, 200, { ok: true, members: result.rows });
+      } catch (error) {
+        logger.error('members.query_failed', 'Members query failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
       return;
     }
 

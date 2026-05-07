@@ -1,7 +1,7 @@
 # TeamClaw (agent-harness) 对象关系图谱
 
-> 版本: v2.1 | 生成日期: 2026-05-05
-> 基于: ARCHITECTURE.md + AH1-14/17 + DEV-08 + 源码分析 + docker-compose.yml
+> 版本: v2.2 | 生成日期: 2026-05-06
+> 基于: ARCHITECTURE.md + AH1-14/17 + DEV-08 + 源码分析 + docker-compose.yml + SYSTEM-AUDIT-2026-05-06
 > 目标: 单一文件承载全系统对象关系，减少 debug/优化场景的上下文加载量
 
 ---
@@ -954,7 +954,7 @@ gateway-adapter  →  workflow-service   POST /internal/workflows/plan          
 gateway-adapter  →  workflow-service   POST /internal/workflows/{}/dispatch      index.ts:483
 gateway-adapter  →  workflow-service   GET  /internal/workflows/{}               index.ts:850 (轮询)
 gateway-adapter  →  skill-library      POST /internal/skills/create             index.ts (技能提取)
-gateway-adapter  →  resource-scheduler   GET  /internal/quotas                    index.ts (限额检查)
+gateway-adapter  →  resource-scheduler   POST /internal/quotas/check               index.ts:485 (限额检查)
 gateway-adapter  →  LiteLLM            POST /chat/completions (意图分类)          index.ts:211
 gateway-adapter  →  LiteLLM            POST /chat/completions (Chat 回复)         index.ts:343
 gateway-adapter  →  飞书 API           POST /im/v1/messages                      index.ts:805
@@ -1147,6 +1147,9 @@ DreamSummarization → EvidenceRetrieval → ObjectExtraction
 │ DEV-05  →  M4 Hermes 增强接入                               │
 │ DEV-06  →  M5 容量验证收口                                  │
 │ DEV-07  →  主仓库骨架结构                                    │
+│ DEV-14  →  渠道配置与执行计划 (3天)                            │
+│ DEV-15  →  控制台优化与标准测试故事线                          │
+│ DEV-16  →  UX审计修复交接                                     │
 ├─────────────────────────────────────────────────────────────┤
 │ L2-Governance (计划与验收层)                                 │
 │─────────────────────────────────────────────────────────────│
@@ -1157,6 +1160,7 @@ DreamSummarization → EvidenceRetrieval → ObjectExtraction
 │ AH1-33  →  文档关系与一致性清单                              │
 │ AH1-34  →  安全架构增强                                     │
 │ AH1-35  →  版本管理规范                                     │
+│ AH1-36  →  生产级代码示例参考                                 │
 │ AH1-37  →  架构审计报告                                     │
 │ AH1-38  →  文档审计报告                                     │
 └─────────────────────────────────────────────────────────────┘

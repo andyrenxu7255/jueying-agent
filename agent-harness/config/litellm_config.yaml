@@ -54,6 +54,30 @@ model_list:
         - code
         - reasoning
 
+  - model_name: bge-reranker-v2-m3
+    litellm_params:
+      model: cohere/bge-reranker-v2-m3
+      api_base: https://api.siliconflow.cn/v1
+      api_key: os.environ/RERANK_PROVIDER_API_KEY
+      timeout: 60
+      max_retries: 3
+    model_info:
+      id: BAAI/bge-reranker-v2-m3
+      mode: rerank
+      context_window: 5120
+
+  - model_name: bce-embedding-base_v1
+    litellm_params:
+      model: baai/bge-m3
+      api_base: https://api.siliconflow.cn/v1
+      api_key: os.environ/EMBEDDING_PROVIDER_API_KEY
+      timeout: 60
+      max_retries: 3
+    model_info:
+      id: netease-youdao/bce-embedding-base_v1
+      mode: embeddings
+      context_window: 8192
+
 router_settings:
   routing_strategy: simple-shuffle
   enable_pre_call_checks: true

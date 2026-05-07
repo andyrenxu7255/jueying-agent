@@ -464,7 +464,9 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
 
   private buildPlanFromMarkdownSteps(input: PlannerInput): WorkflowPlan {
     const timestamp = Date.now();
-    const stageChain: Stage[] = (input.markdown_steps || []).map((step, idx) => {
+    const steps = input.markdown_steps || [];
+    const totalStages = steps.length > 0 ? steps.length : 2;
+    const stageChain: Stage[] = steps.map((step, idx) => {
       const stageType = this.inferStageTypeFromStepName(step.name);
       const executor = this.inferExecutorFromStageType(stageType);
       return this.createStage(
@@ -472,14 +474,15 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
         idx,
         stageType,
         step.description || step.name,
-        executor
+        executor,
+        totalStages
       );
     });
 
     if (stageChain.length === 0) {
       stageChain.push(
-        this.createStage(`st_${timestamp}_0`, 0, 'IntentClarification', input.user_goal, 'generic-executor'),
-        this.createStage(`st_${timestamp}_1`, 1, 'ResultReporting', 'Report results', 'generic-executor')
+        this.createStage(`st_${timestamp}_0`, 0, 'IntentClarification', input.user_goal, 'generic-executor', 2),
+        this.createStage(`st_${timestamp}_1`, 1, 'ResultReporting', 'Report results', 'generic-executor', 2)
       );
     }
 
@@ -603,40 +606,40 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
     switch (taskType) {
       case 'development':
         return [
-          this.createStage(`st_${timestamp}a`, 0, 'IntentClarification', `Clarify development intent: ${sanitizedGoal}`, 'generic-executor'),
-          this.createStage(`st_${timestamp}b`, 1, 'PlanGeneration', 'Generate implementation plan', 'generic-executor'),
-          this.createStage(`st_${timestamp}c`, 2, 'Implementation', 'Implement the solution', 'code-executor'),
-          this.createStage(`st_${timestamp}d`, 3, 'Verification', 'Verify implementation', 'verification-executor'),
-          this.createStage(`st_${timestamp}e`, 4, 'Approval', 'Approve implementation results', 'approval-executor'),
-          this.createStage(`st_${timestamp}f`, 5, 'ResultReporting', 'Report results', 'generic-executor')
+          this.createStage(`st_${timestamp}a`, 0, 'IntentClarification', `Clarify development intent: ${sanitizedGoal}`, 'generic-executor', 6),
+          this.createStage(`st_${timestamp}b`, 1, 'PlanGeneration', 'Generate implementation plan', 'generic-executor', 6),
+          this.createStage(`st_${timestamp}c`, 2, 'Implementation', 'Implement the solution', 'code-executor', 6),
+          this.createStage(`st_${timestamp}d`, 3, 'Verification', 'Verify implementation', 'verification-executor', 6),
+          this.createStage(`st_${timestamp}e`, 4, 'Approval', 'Approve implementation results', 'approval-executor', 6),
+          this.createStage(`st_${timestamp}f`, 5, 'ResultReporting', 'Report results', 'generic-executor', 6)
         ];
       case 'analysis':
         return [
-          this.createStage(`st_${timestamp}a`, 0, 'IntentClarification', `Clarify analysis intent: ${sanitizedGoal}`, 'generic-executor'),
-          this.createStage(`st_${timestamp}b`, 1, 'EvidenceRetrieval', 'Retrieve relevant data', 'retrieval-aware-executor'),
-          this.createStage(`st_${timestamp}c`, 2, 'DecisionMaking', 'Analyze and decide', 'generic-executor'),
-          this.createStage(`st_${timestamp}d`, 3, 'Approval', 'Approve analysis results', 'approval-executor'),
-          this.createStage(`st_${timestamp}e`, 4, 'ResultReporting', 'Report analysis results', 'generic-executor')
+          this.createStage(`st_${timestamp}a`, 0, 'IntentClarification', `Clarify analysis intent: ${sanitizedGoal}`, 'generic-executor', 5),
+          this.createStage(`st_${timestamp}b`, 1, 'EvidenceRetrieval', 'Retrieve relevant data', 'retrieval-aware-executor', 5),
+          this.createStage(`st_${timestamp}c`, 2, 'DecisionMaking', 'Analyze and decide', 'generic-executor', 5),
+          this.createStage(`st_${timestamp}d`, 3, 'Approval', 'Approve analysis results', 'approval-executor', 5),
+          this.createStage(`st_${timestamp}e`, 4, 'ResultReporting', 'Report analysis results', 'generic-executor', 5)
         ];
       case 'sales':
         return [
-          this.createStage(`st_${timestamp}a`, 0, 'IntentClarification', `Clarify sales request: ${sanitizedGoal}`, 'generic-executor'),
-          this.createStage(`st_${timestamp}b`, 1, 'EvidenceRetrieval', 'Retrieve customer and market data', 'retrieval-aware-executor'),
-          this.createStage(`st_${timestamp}c`, 2, 'DecisionMaking', 'Evaluate sales strategy', 'generic-executor'),
-          this.createStage(`st_${timestamp}d`, 3, 'Approval', 'Approve sales proposal', 'approval-executor'),
-          this.createStage(`st_${timestamp}e`, 4, 'ResultReporting', 'Deliver sales recommendation', 'generic-executor')
+          this.createStage(`st_${timestamp}a`, 0, 'IntentClarification', `Clarify sales request: ${sanitizedGoal}`, 'generic-executor', 5),
+          this.createStage(`st_${timestamp}b`, 1, 'EvidenceRetrieval', 'Retrieve customer and market data', 'retrieval-aware-executor', 5),
+          this.createStage(`st_${timestamp}c`, 2, 'DecisionMaking', 'Evaluate sales strategy', 'generic-executor', 5),
+          this.createStage(`st_${timestamp}d`, 3, 'Approval', 'Approve sales proposal', 'approval-executor', 5),
+          this.createStage(`st_${timestamp}e`, 4, 'ResultReporting', 'Deliver sales recommendation', 'generic-executor', 5)
         ];
       case 'knowledge':
       default:
         return [
-          this.createStage(`st_${timestamp}a`, 0, 'IntentClarification', `Clarify request: ${sanitizedGoal}`, 'generic-executor'),
-          this.createStage(`st_${timestamp}b`, 1, 'Approval', 'Approve response', 'approval-executor'),
-          this.createStage(`st_${timestamp}c`, 2, 'ResultReporting', 'Provide knowledge response', 'generic-executor')
+          this.createStage(`st_${timestamp}a`, 0, 'IntentClarification', `Clarify request: ${sanitizedGoal}`, 'generic-executor', 3),
+          this.createStage(`st_${timestamp}b`, 1, 'Approval', 'Approve response', 'approval-executor', 3),
+          this.createStage(`st_${timestamp}c`, 2, 'ResultReporting', 'Provide knowledge response', 'generic-executor', 3)
         ];
     }
   }
 
-  private createStage(stageId: string, seq: number, stageType: Stage['stage_type'], purpose: string, executor: Stage['assigned_executor']): Stage {
+  private createStage(stageId: string, seq: number, stageType: Stage['stage_type'], purpose: string, executor: Stage['assigned_executor'], totalStages: number = 5): Stage {
     return {
       stage_id: stageId,
       seq,
@@ -672,7 +675,7 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
         on_progress: false,
         on_exit: true
       },
-      on_success: seq < 4 ? 'next_stage' : 'succeeded',
+      on_success: seq < totalStages - 1 ? 'next_stage' : 'succeeded',
       on_failure: 'repair_or_fail'
     };
   }

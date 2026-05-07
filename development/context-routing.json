@@ -1,5 +1,5 @@
 {
-  "version": "v1.2",
+  "version": "v1.3",
   "default_bootstrap_docs": [
     "development/DEV-00-开发索引.md",
     "development/DEV-08-文件内容与依赖对象图谱.md",
@@ -17,7 +17,8 @@
       "agent-harness/tests/**",
       "agent-harness/config/**",
       "agent-harness/db/**",
-      "agent-harness/scripts/**"
+      "agent-harness/scripts/**",
+      "agent-harness/types/**"
     ],
     "deny": [
       "archive/**",
@@ -109,6 +110,46 @@
       "optional": [
         "agent-harness/apps/**",
         "agent-harness/services/**"
+      ]
+    },
+    "hermes_memory": {
+      "must_read": [
+        "development/",
+        "AH1-20-检索编排与Fact-Write.md",
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-26-Provider选择与配置.md",
+        "agent-harness/services/**",
+        "agent-harness/libs/**"
+      ],
+      "optional": [
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-23-审计日志指标与告警.md"
+      ]
+    },
+    "skill_management": {
+      "must_read": [
+        "development/",
+        "AH1-17-Workflow-DSL与Planner契约.md",
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "agent-harness/services/**",
+        "agent-harness/libs/**"
+      ],
+      "optional": [
+        "AH1-34-安全架构增强.md",
+        "AH1-35-版本管理规范.md"
+      ]
+    },
+    "dream_mode": {
+      "must_read": [
+        "development/",
+        "AH1-17-Workflow-DSL与Planner契约.md",
+        "AH1-20-检索编排与Fact-Write.md",
+        "agent-harness/services/**",
+        "agent-harness/apps/**"
+      ],
+      "optional": [
+        "AH1-23-审计日志指标与告警.md",
+        "AH1-31-错误处理与降级策略.md"
       ]
     }
   }

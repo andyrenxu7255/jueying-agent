@@ -1,4 +1,4 @@
-import { createLogger } from '@agent-harness/shared';
+import { createLogger, withRetry, RETRY_POLICIES } from '@agent-harness/shared';
 import type { ExecutionInput, ExecutionResult } from './generic-executor';
 
 const logger = createLogger('code-executor');
@@ -10,7 +10,8 @@ if (!LITELLM_API_KEY) logger.warn('config.missing', 'LITELLM_MASTER_KEY or LITEL
 
 async function callLiteLLM(systemPrompt: string, userPrompt: string, temperature: number = 0.2): Promise<{ content: string; ok: boolean }> {
   const timeoutMs = Number(process.env.LITELLM_EXEC_TIMEOUT_MS || 60000);
-  try {
+
+  const attempt = async (): Promise<{ content: string; ok: boolean }> => {
     const response = await fetch(`${LITELLM_URL}/v1/chat/completions`, {
       method: 'POST',
       headers: {
@@ -31,14 +32,18 @@ async function callLiteLLM(systemPrompt: string, userPrompt: string, temperature
 
     if (!response.ok) {
       logger.warn('litellm.call_failed', 'LiteLLM call failed', { status: response.status });
-      return { content: '', ok: false };
+      throw new Error(`LiteLLM returned ${response.status}`);
     }
 
     const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     const content = body.choices?.[0]?.message?.content || '';
     return { content, ok: true };
+  };
+
+  try {
+    return await withRetry(attempt, RETRY_POLICIES.llm);
   } catch (error) {
-    logger.warn('litellm.call_error', 'LiteLLM call error', { error: String(error) });
+    logger.warn('litellm.call_error', 'LiteLLM call error after retries', { error: String(error) });
     return { content: '', ok: false };
   }
 }

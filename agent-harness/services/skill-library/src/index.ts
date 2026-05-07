@@ -27,9 +27,16 @@ import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, s
  *   POST   /internal/skills/:id/publish  - 发布技能（draft → active）
  *   POST   /internal/skills/:id/archive  - 归档技能（active → archived）
  *   POST   /internal/skills/import       - 从 Markdown 内容导入技能
- *   POST   /internal/skills/:id/export   - 导出技能定义为 Markdown
+ *   GET    /internal/skills/:id/export   - 导出技能定义为 Markdown
  *   GET    /internal/skills/:id/versions - 列出技能的所有版本
  *   GET    /internal/skills              - 列出技能（支持分页和过滤）
+ *   POST   /internal/skills/audit        - 梦境模式：单技能四维审核
+ *   POST   /internal/skills/audit/batch  - 梦境模式：批量技能审核
+ *   POST   /internal/skills/:id/promote-to-org - 梦境模式：技能提升为组织级
+ *   GET    /internal/skills/org-registry - 梦境模式：组织技能注册表
+ *   GET    /internal/skills/audit-records - 梦境模式：审核记录查询
+ *   GET    /internal/skills/usage-stats  - 梦境模式：技能使用统计
+ *   GET    /internal/skills/scene-assessments - 梦境模式：场景价值评估
  */
 
 const logger = createLogger('skill-library', {

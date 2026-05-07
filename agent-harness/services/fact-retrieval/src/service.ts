@@ -431,7 +431,9 @@ class FactRetrievalService {
       intentType: input.intent_type,
       scopeSummary: { user_id: input.owner_user_id, allowed_scopes: input.allowed_scopes },
       retrievalPlan: { steps: plan },
+      stepTraceJson: retrievalSteps,
       resultSummary: { item_count: scoredItems.length, evidence_pack_id: evidencePackId, steps: retrievalSteps, degradation_reasons: degradationReasons },
+      evidencePackHash,
       durationMs: Date.now() - startTime,
       degraded
     }).returning());
@@ -717,9 +719,12 @@ class FactRetrievalService {
       }
     }
 
+    const MAX_AUTO_RELATIONS = 100;
+
     for (const [name, fromId] of entityNameToId) {
       for (const otherName of entityNameToId.keys()) {
         if (otherName === name) continue;
+        if (relationCount >= MAX_AUTO_RELATIONS) break;
         const toId = entityNameToId.get(otherName)!;
         try {
           await withRetry(() => requireDb().insert(relations).values({
@@ -1088,12 +1093,15 @@ class FactRetrievalService {
       updateData['scope_type'] = mapping.scope;
     }
 
-    // 附加审核元数据
+    // 附加审核元数据并使用乐观锁防止并发修改
     const existing = await requireDb().select().from(facts).where(eq(facts.id, input.fact_id)).limit(1);
     if (existing.length === 0) {
       return { success: false, new_status: '' };
     }
-    const currentMetadata = (existing[0].metadata || {}) as Record<string, unknown>;
+    const existingRecord = existing[0];
+    const currentMetadata = (existingRecord.metadata || {}) as Record<string, unknown>;
+    const currentUpdatedAt = existingRecord.updatedAt;
+
     updateData['metadata'] = {
       ...currentMetadata,
       reviewed_at: new Date().toISOString(),
@@ -1102,7 +1110,16 @@ class FactRetrievalService {
       review_action: input.action
     };
 
-    await requireDb().update(facts).set(updateData).where(eq(facts.id, input.fact_id));
+    const updateResult = await requireDb().update(facts)
+      .set(updateData)
+      .where(and(
+        eq(facts.id, input.fact_id),
+        eq(facts.updatedAt, currentUpdatedAt!)
+      ));
+
+    if ((updateResult as unknown as { rowCount?: number }).rowCount === 0) {
+      return { success: false, new_status: '' };
+    }
 
     logger.info('fact.reviewed', 'Fact reviewed by admin', {
       fact_id: input.fact_id,
@@ -1258,6 +1275,9 @@ class FactRetrievalService {
     const graphName = 'knowledge_graph';
 
     const safePattern = `(?i).*${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
+    if (!/^[a-zA-Z0-9\u4e00-\u9fff.*+?^${}()|[\]\\!\-_=:]+$/.test(safePattern.replace('(?i)', ''))) {
+      return [];
+    }
     const scopeFilterParts = [`e.owner_user_id = '${sanitizeCypherLiteral(ownerDbId)}'`];
     if (includePublic) scopeFilterParts.push(`e.scope_type = 'public'`);
     if (includeShared) scopeFilterParts.push(`e.scope_type = 'shared'`);

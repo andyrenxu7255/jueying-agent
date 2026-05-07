@@ -6,7 +6,7 @@
 
 ## 1) 图谱范围与使用方式
 
-- 范围：`AH1-00` 到 `AH1-38` 及 `development/DEV-00` 到 `DEV-07`
+- 范围：`AH1-00` 到 `AH1-38` 及 `development/DEV-00` 到 `DEV-16`
 - 粒度：文件级 + 核心对象级（Workflow、Policy、Retrieval、Executor、Artifact、Audit 等）
 - 用法：开发某功能时，只加载“对象权威源 + 直接依赖 + 对应开发计划文档”三组上下文
 
@@ -70,6 +70,11 @@ edge_types:
 | D05 | `development/DEV-05-M4Hermes增强接入.md` | Hermes增强接入 | F20, F26 |
 | D06 | `development/DEV-06-M5容量验证收口.md` | 收口、压测、告警、限流 | F23, F24, F27, F31 |
 | D07 | `development/DEV-07-主仓库骨架结构.md` | 工程目录与模块边界 | F13, F25 |
+| D14 | `development/DEV-14-Day1-渠道配置说明.md` | 渠道接入配置步骤 | F21 |
+| D14b| `development/DEV-14-2026-04-24-3天执行计划.md` | 三天执行计划 | F21, F25 |
+| D14c| `development/DEV-14-Day3-监督与落盘说明.md` | 监督与落盘机制 | F17, F19, F21 |
+| D15 | `development/DEV-15-控制台优化与标准测试故事线.md` | 控制台优化与测试故事线 | F21, F30 |
+| D16 | `development/DEV-16-UX审计修复交接.md` | UX审计与修复交接 | F21, F15 |
 
 ---
 
@@ -135,7 +140,7 @@ graph LR
 
 ```json
 {
-  "graph_version": "v1.0",
+  "graph_version": "v1.1",
   "entry": "development/DEV-00-开发索引.md",
   "authority": {
     "workflow": "AH1-17-Workflow-DSL与Planner契约.md",
@@ -149,7 +154,11 @@ graph LR
     "provider": "AH1-26-Provider选择与配置.md",
     "config": "AH1-28-配置管理.md",
     "error": "AH1-31-错误处理与降级策略.md",
-    "versioning": "AH1-32-API版本管理策略.md"
+    "versioning": "AH1-32-API版本管理策略.md",
+    "security": "AH1-34-安全架构增强.md",
+    "code_ref": "AH1-36-生产级代码示例参考.md",
+    "arch_audit": "AH1-37-架构审计报告.md",
+    "doc_audit": "AH1-38-文档审计报告.md"
   },
   "dev_mapping": {
     "M0": "development/DEV-01-M0开发准备.md",
@@ -157,7 +166,21 @@ graph LR
     "M2": "development/DEV-03-M2事实层检索主链路.md",
     "M3": "development/DEV-04-M3CodeExecutor集成.md",
     "M4": "development/DEV-05-M4Hermes增强接入.md",
-    "M5": "development/DEV-06-M5容量验证收口.md"
+    "M5": "development/DEV-06-M5容量验证收口.md",
+    "D14": "development/DEV-14-Day1-渠道配置说明.md",
+    "D15": "development/DEV-15-控制台优化与标准测试故事线.md",
+    "D16": "development/DEV-16-UX审计修复交接.md"
+  },
+  "source_code_mapping": {
+    "gateway-adapter": ["AH1-21", "AH1-15", "AH1-16"],
+    "workflow": ["AH1-17", "AH1-19"],
+    "fact-retrieval": ["AH1-20", "AH1-14"],
+    "executor-gateway/generic": ["AH1-18", "AH1-17"],
+    "executor-gateway/code": ["AH1-18", "AH1-31"],
+    "rate-limit": ["AH1-31"],
+    "security-check": ["AH1-34"],
+    "embedding": ["AH1-26", "AH1-31"],
+    "web-portal": ["AH1-21"]
   }
 }
 ```
@@ -245,12 +268,16 @@ task_context_manifest:
     - AH1-17-Workflow-DSL与Planner契约.md
     - development/DEV-04-M3CodeExecutor集成.md
 ```
-
----
-
 ## 12) 落地建议
 
 1. 每个开发任务开始前先生成 `task_context_manifest`。
-2. 提交前做一次“权威源回归检查”：实现是否与 L0 一致。
-3. 审计时检查“是否越层引用”（L1/L2 覆盖 L0）。
+2. 提交前做一次"权威源回归检查"：实现是否与 L0 一致。
+3. 审计时检查"是否越层引用"（L1/L2 覆盖 L0）。
 4. 将第 7 节 JSON 拆到独立文件以便自动校验（见 `development/context-graph.json`）。
+5. 每次代码修复后检查 `context-graph.json` 中 `source_to_authority` 映射是否完整。
+6. 修复变更记录在 `context-graph.json` 的 `fix_changelog` 中持久化。
+
+---
+<div align="center">
+<b><i>v1.1 — 2026-05-06 R4: 新增 DEV-14/15/16 文件节点、source_to_authority 映射规则、fix_changelog 持久化机制</i></b>
+</div>

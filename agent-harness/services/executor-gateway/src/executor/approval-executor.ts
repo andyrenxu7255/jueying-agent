@@ -4,6 +4,7 @@ import type { ExecutionInput, ExecutionResult } from './generic-executor';
 
 const logger = createLogger('approval-executor');
 
+const MAX_APPROVERS = 20
 const DEFAULT_APPROVAL_TIMEOUT_HOURS = 24;
 
 export class ApprovalExecutor {
@@ -26,7 +27,7 @@ export class ApprovalExecutor {
       workflow_instance_id,
       workflow_stage_id,
       stage_type: stage.stage_type,
-      approver_user_ids: approverUserIds,
+      approver_count: approverUserIds.length,
       timeout_hours: timeoutHours,
       timeout_at: timeoutAt
     });
@@ -84,8 +85,7 @@ export class ApprovalExecutor {
       logger.info('approval.notified', 'Approval notifications sent to approvers', {
         workflow_instance_id,
         workflow_stage_id,
-        approver_count: approverUserIds.length,
-        approver_user_ids: approverUserIds
+        approver_count: approverUserIds.length
       });
     }
 
@@ -107,7 +107,7 @@ export class ApprovalExecutor {
       workflow_instance_id: pending.workflow_instance_id,
       workflow_stage_id: pending.workflow_stage_id,
       timeout_at: pending.timeout_at,
-      approver_user_ids: pending.approver_user_ids
+      approver_count: pending.approver_user_ids.length
     });
 
     await auditWriter.write({
@@ -127,20 +127,21 @@ export class ApprovalExecutor {
   }
 
   private extractApproverUserIds(input: ExecutionInput): string[] {
-    const contextApprovers = (input.context as Record<string, unknown>)?.approver_user_ids;
+    const contextApprovers = (input.context as Record<string, unknown>)?.approver_user_ids
     if (Array.isArray(contextApprovers) && contextApprovers.length > 0) {
-      return contextApprovers.filter((id): id is string => typeof id === 'string');
+      const filtered = contextApprovers.filter((id): id is string => typeof id === 'string')
+      return filtered.slice(0, MAX_APPROVERS)
     }
 
-    const refs = input.stage.inputs?.required_refs;
+    const refs = input.stage.inputs?.required_refs
     if (Array.isArray(refs)) {
-      const approverRefs = refs.filter((ref): ref is string => typeof ref === 'string' && ref.startsWith('approver:'));
+      const approverRefs = refs.filter((ref): ref is string => typeof ref === 'string' && ref.startsWith('approver:'))
       if (approverRefs.length > 0) {
-        return approverRefs.map(ref => ref.replace('approver:', ''));
+        return approverRefs.map(ref => ref.replace('approver:', '')).slice(0, MAX_APPROVERS)
       }
     }
 
-    return [];
+    return []
   }
 
   private extractApprovalTimeoutHours(input: ExecutionInput): number {

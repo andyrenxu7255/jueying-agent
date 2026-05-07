@@ -1,6 +1,6 @@
 {
-  "version": "v1.6",
-  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-05: Added skill-library, resource-scheduler, mobile-app, dream-mode authority entries and task profiles",
+  "version": "v1.8",
+  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-06 R4: Three-round audit/repair cycle completed (20 fixes across 18 files). Added code quality validation layer, agent-harness source-to-authority mapping, and fix changelog tracking.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -25,18 +25,26 @@
       "development/DEV-04-M3CodeExecutor集成.md",
       "development/DEV-05-M4Hermes增强接入.md",
       "development/DEV-06-M5容量验证收口.md",
-      "development/DEV-07-主仓库骨架结构.md"
+      "development/DEV-07-主仓库骨架结构.md",
+      "development/DEV-14-Day1-渠道配置说明.md",
+      "development/DEV-14-2026-04-24-3天执行计划.md",
+      "development/DEV-14-Day3-监督与落盘说明.md",
+      "development/DEV-15-控制台优化与标准测试故事线.md",
+      "development/DEV-16-UX审计修复交接.md",
+      "AH1-13-仓库复用与改造边界.md"
     ],
     "L2_governance": [
       "AH1-24-PoC压测执行方案.md",
       "AH1-25-研发里程碑与任务拆解.md",
       "AH1-29-交付物清单.md",
-      "AH1-30-验收标准与测试用例.md",
+      "AH1-37-架构审计报告.md",
+      "AH1-38-文档审计报告.md",
       "AH1-33-文档关系与一致性清单.md",
       "AH1-34-安全架构增强.md",
       "AH1-35-版本管理规范.md",
-      "AH1-37-架构审计报告.md",
-      "AH1-38-文档审计报告.md"
+      "AH1-36-生产级代码示例参考.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-27-部署与运维.md"
     ]
   },
   "authority_map": {
@@ -54,9 +62,23 @@
     "error_degrade": "AH1-31-错误处理与降级策略.md",
     "api_version": "AH1-32-API版本管理策略.md",
     "skill": "AH1-17-Workflow-DSL与Planner契约.md",
-    "resource": "AH1-28-配置管理.md",
+    "resource": "AH1-31-错误处理与降级策略.md",
     "dream": "AH1-17-Workflow-DSL与Planner契约.md",
     "file_storage": "AH1-22-Artifact-Object-Storage.md"
+  },
+  "source_to_authority": {
+    "agent-harness/apps/gateway-adapter/src/index.ts": ["AH1-21-渠道接入与Session映射.md", "AH1-15-核心接口与事件契约.md", "AH1-16-权限Scope-Policy-Snapshot.md"],
+    "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts": ["AH1-21-渠道接入与Session映射.md"],
+    "agent-harness/apps/gateway-adapter/src/services/session-mapper.ts": ["AH1-21-渠道接入与Session映射.md"],
+    "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": ["AH1-22-Artifact-Object-Storage.md"],
+    "agent-harness/services/workflow/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-19-Checkpoint-Resume-Replay.md"],
+    "agent-harness/services/fact-retrieval/src/service.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-14-数据库表设计与索引.md"],
+    "agent-harness/services/executor-gateway/src/executor/generic-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-17-Workflow-DSL与Planner契约.md"],
+    "agent-harness/services/executor-gateway/src/executor/code-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/rate-limit/limiter.ts": ["AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/monitoring/security-check.ts": ["AH1-16-权限Scope-Policy-Snapshot.md", "AH1-34-安全架构增强.md"],
+    "agent-harness/libs/shared/src/ai/embedding.ts": ["AH1-26-Provider选择与配置.md", "AH1-31-错误处理与降级策略.md"],
+    "agent-harness/apps/web-portal/static/app.js": ["AH1-21-渠道接入与Session映射.md"]
   },
   "task_profiles": {
     "M1_ingress_workflow": {
@@ -163,16 +185,29 @@
     "any_authority_doc_changed",
     "AH1-15-核心接口与事件契约.md_changed",
     "AH1-16-权限Scope-Policy-Snapshot.md_changed",
-    "active_task_execution_doc_changed"
+    "active_task_execution_doc_changed",
+    "any_source_file_in_source_to_authority_changed"
   ],
   "loading_policy": {
     "default_max_docs": 6,
-    "default_max_rounds": 2,
+    "default_max_rounds": 3,
     "conflict_resolution_order": [
       "AH1-15/16/17",
-      "domain_authority_docs",
+      "domain_authority_docs (via authority_map)",
+      "source_to_authority mapping",
       "development_docs",
       "governance_docs"
     ]
+  },
+  "fix_changelog": {
+    "2026-05-06-R1": "Security + Syntax: 9 fixes (app.js const→let x3, limiter LRU, security-check throw, code-executor retry, fact content truncation, reviewFact optimistic lock, writeEntities relation limit, gateway pool null-check)",
+    "2026-05-06-R2": "Security + Robustness: 7 fixes (identity-resolver logger, file-validator magic bytes, session-mapper type guards, generic-executor context truncation+retry+log safety, embedding fallback logging, postJson dedup verified stale)",
+    "2026-05-06-R3": "Storyline Alignment: 4 fixes (workflow concurrent limit TC-F002-05, gateway binding check AH1-21§21.4.4, generic-executor 7 stage types AH1-01§2.3, workflow org_id persistence AH1-19)",
+    "2026-05-06-R4": "Doc/Graph Sync: context-graph.json v1.7→1.8, DEV-08 updated, fix-changelog created, source_to_authority mapping added",
+    "2026-05-06-R5": "Comprehensive audit fixes: authority_map corrections, layer classification for AH1-13/AH1-27, security-check authority expanded",
+    "total_fixes": 21,
+    "files_modified": 18,
+    "ts_check": "pass (exit 0, 0 errors)",
+    "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
   }
 }

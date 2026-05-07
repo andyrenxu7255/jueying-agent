@@ -35,6 +35,10 @@ export function checkProductionSecurity(): void {
       failures,
       message: 'Set strong passwords via environment variables or use docker-compose.prod.yml'
     })
+    throw new Error(
+      `Production security check failed: ${failures.join('; ')}. ` +
+      'Set strong passwords via environment variables or use docker-compose.prod.yml'
+    )
   }
 
   const corsOrigins = process.env.CORS_ORIGINS || ''
@@ -42,5 +46,6 @@ export function checkProductionSecurity(): void {
     logger.error('security.cors.insecure', 'CORS wildcard origin is not safe for production', {
       cors_origins: corsOrigins
     })
+    throw new Error('CORS wildcard origin is not safe for production')
   }
 }
