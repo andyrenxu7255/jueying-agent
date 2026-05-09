@@ -32,8 +32,25 @@ export async function readJson(req: import('node:http').IncomingMessage, maxBody
 
 export function sendJson(res: import('node:http').ServerResponse, statusCode: number, body: Record<string, unknown>): void {
   if (res.headersSent) return;
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
   res.writeHead(statusCode, { 'content-type': 'application/json' });
   res.end(JSON.stringify(body));
+}
+
+export function sendError(
+  res: import('node:http').ServerResponse,
+  statusCode: number,
+  code: string,
+  message: string,
+  detail?: Record<string, unknown>
+): void {
+  sendJson(res, statusCode, {
+    ok: false,
+    error: { code, message, ...(detail ? { detail } : {}) }
+  });
 }
 
 export async function postJson(url: string, payload: Record<string, unknown>, timeoutMs: number = 60000, extraHeaders?: Record<string, string>, retries: number = 0): Promise<{ ok: boolean; status: number; body: Record<string, unknown> | null }> {

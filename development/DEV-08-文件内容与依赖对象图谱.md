@@ -140,7 +140,7 @@ graph LR
 
 ```json
 {
-  "graph_version": "v1.8",
+  "graph_version": "v1.9",
   "entry": "development/DEV-00-开发索引.md",
   "authority": {
     "workflow": "AH1-17-Workflow-DSL与Planner契约.md",
@@ -279,5 +279,5 @@ task_context_manifest:
 
 ---
 <div align="center">
-<b><i>v1.8 — 2026-05-08: 同步版本至 context-graph.json v1.8，修复路由命名一致性，权威源映射对齐</i></b>
+<b><i>v1.9 — 2026-05-08: 同步版本至 context-graph.json v1.9，修复路由命名一致性，权威源映射对齐</i></b>
 </div>

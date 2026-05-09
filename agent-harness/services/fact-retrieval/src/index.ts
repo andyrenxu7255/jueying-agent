@@ -71,8 +71,8 @@ const server = createServer(async (req, res) => {
     }
 
     if (pathname === '/internal/test/reset' && req.method === 'POST') {
-      if (process.env.NODE_ENV === 'production') {
-        sendJson(res, 403, { ok: false, error: 'forbidden_in_production' });
+      if (process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test') {
+        sendJson(res, 404, { ok: false, error: 'not_found' });
         return;
       }
       const resetToken = process.env.TEST_RESET_TOKEN;

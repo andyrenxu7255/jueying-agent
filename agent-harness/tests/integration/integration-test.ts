@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   const executorUrl = process.env.EXECUTOR_URL || 'http://localhost:3002';
   const webPortalUrl = process.env.WEB_PORTAL_URL || 'http://localhost:3003';
   const factRetrievalUrl = process.env.FACT_RETRIEVAL_URL || 'http://localhost:3004';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'dev-password';
+  const adminPassword = process.env.ADMIN_PASSWORD || '<ADMIN_PASSWORD>';
   let adminSessionId = '';
   let hasAdminAccess = false;
   let createdPolicyId = '';

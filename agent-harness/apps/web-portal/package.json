@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@agent-harness/audit": "*",
-    "@agent-harness/shared": "*"
+    "@agent-harness/shared": "*",
+    "pg": "^8.15.3"
   },
   "optionalDependencies": {
     "redis": "^5.12.1"

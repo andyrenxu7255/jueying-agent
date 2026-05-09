@@ -141,22 +141,29 @@ const IDEMPOTENCY_CACHE_SIZE = 10000;
 const USAGE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
+let dbPoolPromise: Promise<InstanceType<typeof import('pg').Pool> | null> | null = null;
 
 async function getDbPool() {
   if (dbPool) return dbPool;
+  if (dbPoolPromise) return dbPoolPromise;
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return null;
-  try {
-    const { Pool } = await import('pg');
-    dbPool = new Pool({ connectionString: dbUrl, max: 4 });
-    await dbPool.query('SELECT 1');
-    logger.info('db.connected', 'Resource-scheduler connected to database');
-    return dbPool;
-  } catch (error) {
-    logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
-    dbPool = null;
-    return null;
-  }
+  dbPoolPromise = (async () => {
+    try {
+      const { Pool } = await import('pg');
+      const pool = new Pool({ connectionString: dbUrl, max: 4 });
+      await pool.query('SELECT 1');
+      logger.info('db.connected', 'Resource-scheduler connected to database');
+      dbPool = pool;
+      return dbPool;
+    } catch (error) {
+      logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
+      return null;
+    } finally {
+      dbPoolPromise = null;
+    }
+  })();
+  return dbPoolPromise;
 }
 
 async function ensureQuotaTables(pool: InstanceType<typeof import('pg').Pool>): Promise<void> {

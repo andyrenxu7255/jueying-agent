@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { createHash, randomBytes } from 'node:crypto';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport } from '@agent-harness/shared';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport, readJson, sendJson } from '@agent-harness/shared';
 
 /**
  * skill-library 服务 - 技能库管理服务
@@ -131,68 +131,42 @@ interface ImportSkillInput {
 /* ---- 数据库连接管理 ---- */
 
 let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
+let dbPoolPromise: Promise<InstanceType<typeof import('pg').Pool> | null> | null = null;
 
 /**
- * 获取数据库连接池（懒初始化，单例模式）
+ * 获取数据库连接池（懒初始化，并发安全）
  * 数据库连接失败时降级为空存储运行，不阻塞服务启动
  *
  * @returns 数据库连接池实例，不可用时返回 null
  */
 async function getDbPool() {
   if (dbPool) return dbPool;
+  if (dbPoolPromise) return dbPoolPromise;
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return null;
-  try {
-    const { Pool } = await import('pg');
-    dbPool = new Pool({ connectionString: dbUrl, max: 4 });
-    await dbPool.query('SELECT 1');
-    logger.info('db.connected', 'Skill-library connected to database');
-    return dbPool;
-  } catch (error) {
-    logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
-    dbPool = null;
-    return null;
-  }
+  dbPoolPromise = (async () => {
+    try {
+      const { Pool } = await import('pg');
+      const pool = new Pool({ connectionString: dbUrl, max: 4 });
+      await pool.query('SELECT 1');
+      logger.info('db.connected', 'Skill-library connected to database');
+      dbPool = pool;
+      return dbPool;
+    } catch (error) {
+      logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
+      return null;
+    } finally {
+      dbPoolPromise = null;
+    }
+  })();
+  return dbPoolPromise;
 }
 
 /* ---- HTTP 工具函数 ---- */
 
-/**
- * 从 HTTP 请求中读取并解析 JSON Body
- * 支持流式读取，最大 10MB 限制防止内存溢出攻击
- */
-async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk: Buffer) => {
-      body += chunk.toString();
-      if (body.length > 10 * 1024 * 1024) {
-        reject(new Error('request_body_too_large'));
-      }
-    });
-    req.on('end', () => {
-      try { resolve(JSON.parse(body || '{}')); }
-      catch { resolve({}); }
-    });
-    req.on('error', reject);
-  });
-}
-
-/**
- * 发送 JSON 响应
- *
- * @param res - HTTP Response 对象
- * @param statusCode - HTTP 状态码
- * @param data - 响应数据，将被 JSON.stringify 序列化
- */
-function sendJson(res: ServerResponse, statusCode: number, data: unknown): void {
-  res.writeHead(statusCode, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(data));
-}
-
 /** 生成标准 UUID（非安全上下文时回退到 Math.random） */
 function generateId(): string {
-  try { return crypto.randomUUID(); }
+  try { return randomUUID(); }
   catch { return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
 }
 

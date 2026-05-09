@@ -1652,22 +1652,6 @@ async function extractTextFromFile(buffer: Buffer, fileName: string): Promise<st
       }
     }
 
-    if (ext === 'xlsx' || ext === 'xls') {
-      try {
-        const XLSX = await import('xlsx');
-        const workbook = XLSX.read(buffer, { type: 'buffer' });
-        const textParts: string[] = [];
-        for (const sheetName of workbook.SheetNames) {
-          const sheet = workbook.Sheets[sheetName];
-          const csv = XLSX.utils.sheet_to_csv(sheet);
-          textParts.push(`=== Sheet: ${sheetName} ===\n${csv}`);
-        }
-        return textParts.join('\n\n');
-      } catch (error) {
-        logger.warn('file.parse.xlsx_fallback_failed', 'XLSX fallback parsing failed', { file_name: fileName, error: String(error) });
-      }
-    }
-
     return buffer.toString('utf-8').replace(/[^\x20-\x7E\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\n\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50000);
   }
 

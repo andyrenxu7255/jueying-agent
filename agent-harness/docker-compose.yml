@@ -426,6 +426,12 @@ services:
     ports:
       - "3003:3000"
     depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      gateway-adapter:
+        condition: service_started
       workflow-service:
         condition: service_started
     networks:

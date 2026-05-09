@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@agent-harness/contracts": "file:../contracts",
-    "@agent-harness/shared": "file:../shared"
+    "@agent-harness/shared": "file:../shared",
+    "pg": "^8.15.3"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

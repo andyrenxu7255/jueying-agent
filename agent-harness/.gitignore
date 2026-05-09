@@ -18,3 +18,4 @@ signoz_data/
 executor_worktrees/
 deprecated/
 .trae/
+.backup/

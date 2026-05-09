@@ -62,34 +62,36 @@ function hashPassword(password: string): string {
   return `scrypt:${SCRYPT_COST}:${salt}:${derived}`;
 }
 
-function verifyPassword(password: string, storedHash: string): boolean {
+function verifyPassword(password: string, storedHash: string): { valid: boolean; needsMigration: boolean; newHash?: string } {
   if (storedHash.startsWith('scrypt:')) {
     const parts = storedHash.split(':');
-    if (parts.length !== 4) return false;
+    if (parts.length !== 4) return { valid: false, needsMigration: false };
     const cost = Number(parts[1]);
     const salt = parts[2];
     const expected = parts[3];
     const derived = scryptSync(password, salt, SCRYPT_KEY_LENGTH, { N: cost || SCRYPT_COST }).toString('hex');
     try {
-      return timingSafeEqual(Buffer.from(derived), Buffer.from(expected));
+      return { valid: timingSafeEqual(Buffer.from(derived), Buffer.from(expected)), needsMigration: false };
     } catch {
-      return false;
+      return { valid: false, needsMigration: false };
     }
   }
   if (storedHash.startsWith('sha256:')) {
     const plain = storedHash.slice(7);
     const computed = createHash('sha256').update(password).digest('hex');
     try {
-      return timingSafeEqual(Buffer.from(plain), Buffer.from(computed));
+      const valid = timingSafeEqual(Buffer.from(plain), Buffer.from(computed));
+      return { valid, needsMigration: valid, newHash: valid ? hashPassword(password) : undefined };
     } catch {
-      return false;
+      return { valid: false, needsMigration: false };
     }
   }
   const computed = createHash('sha256').update(password).digest('hex');
   try {
-    return timingSafeEqual(Buffer.from(storedHash), Buffer.from(computed));
+    const valid = timingSafeEqual(Buffer.from(storedHash), Buffer.from(computed));
+    return { valid, needsMigration: valid, newHash: valid ? hashPassword(password) : undefined };
   } catch {
-    return false;
+    return { valid: false, needsMigration: false };
   }
 }
 
@@ -148,22 +150,31 @@ async function deleteSessionFromStore(sessionId: string): Promise<void> {
 }
 
 let dbPool: Pool | null = null;
+let dbPoolPromise: Promise<Pool | null> | null = null;
 
 async function getDbPool(): Promise<Pool | null> {
   if (dbPool) return dbPool;
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) return null;
-  try {
-    dbPool = new Pool({ connectionString: databaseUrl, max: 5 });
-    const client = await dbPool.connect();
-    client.release();
-    logger.info('db.connected', 'Database pool connected');
-    return dbPool;
-  } catch (error) {
-    logger.warn('db.connect_failed', 'Database connection failed', { error: String(error) });
-    dbPool = null;
-    return null;
-  }
+  if (dbPoolPromise) return dbPoolPromise;
+
+  dbPoolPromise = (async () => {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) return null;
+    try {
+      const newPool = new Pool({ connectionString: databaseUrl, max: 5 });
+      const client = await newPool.connect();
+      client.release();
+      logger.info('db.connected', 'Database pool connected');
+      dbPool = newPool;
+      return dbPool;
+    } catch (error) {
+      logger.warn('db.connect_failed', 'Database connection failed', { error: String(error) });
+      return null;
+    } finally {
+      dbPoolPromise = null;
+    }
+  })();
+
+  return dbPoolPromise;
 }
 
 async function evictExpiredSessions(): Promise<void> {
@@ -175,9 +186,20 @@ async function evictExpiredSessions(): Promise<void> {
   }
 }
 
+const MAX_BODY_SIZE = 1 * 1024 * 1024;
+
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const contentLength = Number(req.headers['content-length'] || 0);
+  if (contentLength > MAX_BODY_SIZE) {
+    throw new Error('request_body_too_large');
+  }
   const chunks: Buffer[] = [];
+  let totalSize = 0;
   for await (const chunk of req) {
+    totalSize += chunk.length;
+    if (totalSize > MAX_BODY_SIZE) {
+      throw new Error('request_body_too_large');
+    }
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   if (chunks.length === 0) return {};
@@ -191,6 +213,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 function sendJson(res: ServerResponse, statusCode: number, data: unknown): void {
   const body = JSON.stringify(data);
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'");
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(body, 'utf8'),
@@ -204,6 +227,7 @@ function sendFile(res: ServerResponse, filePath: string, contentType: string): v
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'");
     const isHtml = contentType.includes('text/html');
     const cacheControl = isHtml ? 'no-cache' : 'public, max-age=3600';
     res.writeHead(200, {
@@ -568,8 +592,19 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
             if (userResult.rows.length > 0) {
               const metadata = userResult.rows[0].metadata || {};
               const storedHash = metadata.password_hash || '';
-              if (storedHash && verifyPassword(password, storedHash)) {
-                dbPasswordVerified = true;
+              if (storedHash) {
+                const verified = verifyPassword(password, storedHash);
+                if (verified.valid) {
+                  dbPasswordVerified = true;
+                  if (verified.needsMigration && verified.newHash) {
+                    try {
+                      await pool.query(
+                        `UPDATE "user" SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{password_hash}', $2::jsonb) WHERE id = $1`,
+                        [userResult.rows[0].id, JSON.stringify(verified.newHash)]
+                      );
+                    } catch { /* migration failure is non-fatal */ }
+                  }
+                }
               }
             }
           }
@@ -650,7 +685,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         }
         const metadata = userResult.rows[0].metadata || {};
         const storedHash = metadata.password_hash || '';
-        if (!verifyPassword(oldPassword, storedHash) && oldPassword !== ADMIN_PASSWORD) {
+        if (!verifyPassword(oldPassword, storedHash).valid && oldPassword !== ADMIN_PASSWORD) {
           sendJson(res, 401, { ok: false, error: 'invalid_old_password', message: '旧密码不正确' });
           return;
         }

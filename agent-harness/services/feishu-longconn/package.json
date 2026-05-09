@@ -10,7 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@larksuiteoapi/node-sdk": "^1.30.0",
+    "@larksuiteoapi/node-sdk": "^1.61.1",
     "@agent-harness/shared": "file:../../libs/shared"
   },
   "devDependencies": {

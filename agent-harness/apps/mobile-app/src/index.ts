@@ -1,5 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport } from '@agent-harness/shared';
+import { randomUUID } from 'node:crypto';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson } from '@agent-harness/shared';
 
 /**
  * mobile-app 服务 - 移动端通知桥接服务
@@ -90,22 +91,29 @@ const notificationStore = new Map<string, PushNotification[]>();
 const MAX_NOTIFICATIONS_PER_USER = 200;
 
 let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
+let dbPoolPromise: Promise<InstanceType<typeof import('pg').Pool> | null> | null = null;
 
 async function getDbPool() {
   if (dbPool) return dbPool;
+  if (dbPoolPromise) return dbPoolPromise;
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return null;
-  try {
-    const { Pool } = await import('pg');
-    dbPool = new Pool({ connectionString: dbUrl, max: 4 });
-    await dbPool.query('SELECT 1');
-    logger.info('db.connected', 'Mobile-app connected to database');
-    return dbPool;
-  } catch (error) {
-    logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
-    dbPool = null;
-    return null;
-  }
+  dbPoolPromise = (async () => {
+    try {
+      const { Pool } = await import('pg');
+      const pool = new Pool({ connectionString: dbUrl, max: 4 });
+      await pool.query('SELECT 1');
+      logger.info('db.connected', 'Mobile-app connected to database');
+      dbPool = pool;
+      return dbPool;
+    } catch (error) {
+      logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
+      return null;
+    } finally {
+      dbPoolPromise = null;
+    }
+  })();
+  return dbPoolPromise;
 }
 
 async function ensureTables(pool: InstanceType<typeof import('pg').Pool>): Promise<void> {
@@ -158,13 +166,8 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   });
 }
 
-function sendJson(res: ServerResponse, statusCode: number, data: unknown): void {
-  res.writeHead(statusCode, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(data));
-}
-
 function generateId(): string {
-  try { return crypto.randomUUID(); }
+  try { return randomUUID(); }
   catch { return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
 }
 

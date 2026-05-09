@@ -35,7 +35,7 @@ const VALID_TRANSITIONS: Record<WorkflowState, Partial<Record<WorkflowEvent['typ
   draft: { PLAN: 'planned', FAIL: 'failed', CANCEL: 'cancelled' },
   planned: { START: 'running', CANCEL: 'cancelled', FAIL: 'failed' },
   running: { VERIFY: 'verifying', WAIT_USER: 'waiting_user', BLOCK: 'blocked', PAUSE: 'paused', FAIL: 'failed', CANCEL: 'cancelled' },
-  verifying: { REPAIR: 'repairing', REPORT: 'reporting', FAIL: 'failed', PAUSE: 'paused' },
+  verifying: { REPAIR: 'repairing', REPORT: 'reporting', FAIL: 'failed' },
   repairing: { VERIFY: 'verifying', FAIL: 'failed', PAUSE: 'paused' },
   reporting: { START: 'running', COMPLETE: 'succeeded', FAIL: 'failed', PAUSE: 'paused' },
   waiting_user: { START: 'running', CANCEL: 'cancelled', FAIL: 'failed' },

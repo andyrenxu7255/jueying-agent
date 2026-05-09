@@ -32,7 +32,7 @@ async function main() {
   console.log('[USERS]', JSON.stringify(users));
 
   // 4. Try creating a user (must be admin)
-  const create = await api('POST', '/api/users', { username: 'test1', password: 'pass1', role: 'user' }, sid);
+  const create = await api('POST', '/api/users', { username: 'test1', password: '<USER_PASSWORD>', role: 'user' }, sid);
   console.log('[CREATE]', JSON.stringify(create));
 }
 main().catch(e => console.error(e));

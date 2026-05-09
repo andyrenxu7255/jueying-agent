@@ -32,14 +32,23 @@ function createMockReq(body?: string): IncomingMessage {
 
 function createMockRes(): ServerResponse {
   const emitter = new EventEmitter();
+  const internalHeaders: Record<string, string> = {};
   const res = Object.assign(emitter, {
     statusCode: 200,
     headersSent: false,
     _headers: {} as Record<string, string>,
     _data: '',
-    writeHead(code: number, headers: Record<string, string>) {
+    setHeader(name: string, value: string) {
+      internalHeaders[name.toLowerCase()] = value;
+      return this;
+    },
+    writeHead(code: number, headers?: Record<string, string>) {
       this.statusCode = code;
-      this._headers = headers;
+      if (headers) {
+        this._headers = { ...internalHeaders, ...headers };
+      } else {
+        this._headers = { ...internalHeaders };
+      }
       this.headersSent = true;
       return this;
     },

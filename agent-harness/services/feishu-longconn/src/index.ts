@@ -1,6 +1,6 @@
 import * as http from 'node:http';
 import * as Lark from '@larksuiteoapi/node-sdk';
-import { createLogger } from '@agent-harness/shared';
+import { createLogger, sendJson } from '@agent-harness/shared';
 
 const logger = createLogger('feishu-longconn');
 
@@ -60,11 +60,9 @@ if (!appId || !appSecret) {
   const healthServer = http.createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://localhost');
     if (url.pathname === '/health/live' || url.pathname === '/health/ready') {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, service: 'feishu-longconn', status: 'idle', reason: 'missing_credentials' }));
+      sendJson(res, 200, { ok: true, service: 'feishu-longconn', status: 'idle', reason: 'missing_credentials' });
     } else {
-      res.writeHead(404, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: 'not_found' }));
+      sendJson(res, 404, { ok: false, error: 'not_found' });
     }
   });
 

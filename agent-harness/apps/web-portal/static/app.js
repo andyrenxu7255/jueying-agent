@@ -76,10 +76,15 @@ function emptyState(icon, title, desc, actionHtml) {
 
 function passwordStrengthHtml(score) {
   const pct = Math.min(score / 6 * 100, 100);
-  const color = score < 3 ? 'const(--danger)' : score < 5 ? 'const(--warning)' : 'const(--success)';
+  const color = score < 3 ? 'var(--danger)' : score < 5 ? 'var(--warning)' : 'var(--success)';
   return '<div class="password-strength"><div class="password-strength-bar" style="width:' + pct + '%;background:' + color + '"></div></div>';
 }
 
+/**
+ * 显示模态对话框
+ * WARNING: bodyHtml 参数不会被转义，调用者必须确保传入的是安全的硬编码 HTML
+ * 或者使用 escapeHtml() 对用户输入进行转义
+ */
 function showModal(title, bodyHtml, onClose) {
   closeModal();
   const overlay = document.createElement('div');
@@ -200,7 +205,7 @@ function renderSetupStep(stepIndex, steps) {
   const content = document.getElementById('setup-content');
   if (stepIndex < 0 || stepIndex >= steps.length) return;
   const step = steps[stepIndex];
-  let html = '<div class="setup-step"><h3>' + escapeHtml(step.label) + '</h3><p style="color:const(--text2);margin-bottom:16px">' + escapeHtml(step.description || '') + '</p>';
+  let html = '<div class="setup-step"><h3>' + escapeHtml(step.label) + '</h3><p style="color:var(--text2);margin-bottom:16px">' + escapeHtml(step.description || '') + '</p>';
   if (step.key === 'organization') {
     html += '<div class="form-group"><label>组织名称</label><input type="text" id="setup-org-name" value="default" placeholder="请输入组织名称"></div>';
     html += '<div class="form-group"><label>显示名称</label><input type="text" id="setup-org-display" value="Default Organization" placeholder="请输入显示名称"></div>';
@@ -289,7 +294,7 @@ function renderApp() {
 
   document.getElementById('app').innerHTML = '<div class="app-container"><div class="sidebar"><div class="sidebar-brand">JueYing</div><nav class="sidebar-nav">' +
     navItems.map(function(g) { return '<div class="nav-section">' + g.section + '</div>' + g.items.map(function(i) { return '<a href="#" data-view="' + i.key + '" class="' + (currentView === i.key ? 'active' : '') + '">' + i.icon + ' ' + i.label + '</a>'; }).join(''); }).join('') +
-    '</nav><div class="sidebar-footer"><div class="user-info"><div class="user-avatar">' + escapeHtml(initial) + '</div><div class="user-details"><div class="user-name">' + escapeHtml(username) + '</div><div class="user-role">' + escapeHtml(role) + '</div></div><div class="user-menu"><button class="btn btn-sm btn-outline" onclick="toggleUserMenu()">&#x25B2;</button><div class="user-menu-dropdown" id="user-menu-dropdown"><a href="#" onclick="showChangePasswordModal(false);return false;">修改密码</a><a href="#" onclick="doLogout();return false;" style="color:const(--danger)">退出登录</a></div></div></div></div></div><div class="main-content" id="main-content"></div></div>';
+    '</nav><div class="sidebar-footer"><div class="user-info"><div class="user-avatar">' + escapeHtml(initial) + '</div><div class="user-details"><div class="user-name">' + escapeHtml(username) + '</div><div class="user-role">' + escapeHtml(role) + '</div></div><div class="user-menu"><button class="btn btn-sm btn-outline" onclick="toggleUserMenu()">&#x25B2;</button><div class="user-menu-dropdown" id="user-menu-dropdown"><a href="#" onclick="showChangePasswordModal(false);return false;">修改密码</a><a href="#" onclick="doLogout();return false;" style="color:var(--danger)">退出登录</a></div></div></div></div></div><div class="main-content" id="main-content"></div></div>';
   document.querySelectorAll('.sidebar-nav a[data-view]').forEach(function(a) {
     a.addEventListener('click', function(e) { e.preventDefault(); currentView = a.dataset.view; document.querySelectorAll('.sidebar-nav a').forEach(function(x) { x.classList.remove('active'); }); a.classList.add('active'); renderView(); });
   });
@@ -429,8 +434,8 @@ function renderGuideArch() {
     '<div class="card"><h3>工作流状态机</h3>' +
     '<p class="section-desc">工作流从创建到完成经历以下状态流转，支持暂停、恢复、修复等操作：</p>' +
     '<div style="text-align:center;padding:12px 0;font-size:14px;line-height:2.2">' +
-    '<span class="badge badge-info">draft</span> → <span class="badge badge-info">planned</span> → <span class="badge badge-warning">running</span> → <span class="badge badge-warning">verifying</span> → <span class="badge badge-warning">reporting</span> → <span class="badge badge-success">succeeded</span> → <span class="badge" style="background:const(--surface2);color:const(--text2)">archived</span>' +
-    '<br><span style="font-size:13px;color:const(--text2)">分支: running 可进入 <span class="badge badge-warning">waiting_user</span> / <span class="badge badge-danger">blocked</span> / <span class="badge" style="background:const(--surface2)">paused</span>；verifying 可进入 <span class="badge badge-warning">repairing</span>；任意运行态可进入 <span class="badge badge-danger">failed</span> / <span class="badge badge-danger">cancelled</span></span>' +
+    '<span class="badge badge-info">draft</span> → <span class="badge badge-info">planned</span> → <span class="badge badge-warning">running</span> → <span class="badge badge-warning">verifying</span> → <span class="badge badge-warning">reporting</span> → <span class="badge badge-success">succeeded</span> → <span class="badge" style="background:var(--surface2);color:var(--text2)">archived</span>' +
+    '<br><span style="font-size:13px;color:var(--text2)">分支: running 可进入 <span class="badge badge-warning">waiting_user</span> / <span class="badge badge-danger">blocked</span> / <span class="badge" style="background:var(--surface2)">paused</span>；verifying 可进入 <span class="badge badge-warning">repairing</span>；任意运行态可进入 <span class="badge badge-danger">failed</span> / <span class="badge badge-danger">cancelled</span></span>' +
     '</div></div>';
 }
 
@@ -744,7 +749,7 @@ function renderGuideQuickstart() {
 }
 
 async function renderDashboard(el) {
-  el.innerHTML = '<div class="page-header"><h2>系统总览</h2></div><div class="stat-grid" id="stats-grid"><div class="stat-card"><div class="stat-value">-</div><div class="stat-label">加载中...</div></div></div><div class="card"><h3>服务状态 <span id="svc-refresh-indicator" style="font-size:12px;color:const(--text2)"></span></h3><div id="services-list">加载中...</div></div>';
+  el.innerHTML = '<div class="page-header"><h2>系统总览</h2></div><div class="stat-grid" id="stats-grid"><div class="stat-card"><div class="stat-value">-</div><div class="stat-label">加载中...</div></div></div><div class="card"><h3>服务状态 <span id="svc-refresh-indicator" style="font-size:12px;color:var(--text2)"></span></h3><div id="services-list">加载中...</div></div>';
   const r = await api('/api/system/overview');
   if (r.ok && r.data.overview) {
     const o = r.data.overview;
@@ -758,7 +763,7 @@ async function renderDashboard(el) {
         return '<tr><td><span class="status-dot ' + dot + '"></span>' + escapeHtml(s.name) + '</td><td>' + statusBadge(s.status) + '</td><td>' + escapeHtml(String(s.latency_ms || '-')) + 'ms</td></tr>';
       }).join('') + '</table>';
     } else {
-      svcList.innerHTML = '<p style="color:const(--text2)">暂无服务状态信息</p>';
+      svcList.innerHTML = '<p style="color:var(--text2)">暂无服务状态信息</p>';
     }
     startServiceStatusPolling();
   } else {
@@ -820,7 +825,7 @@ async function viewWorkflow(ref) {
     if (w.stages && w.stages.length > 0) {
       document.getElementById('wf-stages').innerHTML = '<table><tr><th>序号</th><th>名称</th><th>类型</th><th>状态</th></tr>' + w.stages.map(function(s, i) { return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(s.name || '-') + '</td><td>' + escapeHtml(s.stage_type || '-') + '</td><td>' + statusBadge(s.status) + '</td></tr>'; }).join('') + '</table>';
     } else {
-      document.getElementById('wf-stages').innerHTML = '<p style="color:const(--text2)">暂无阶段信息</p>';
+      document.getElementById('wf-stages').innerHTML = '<p style="color:var(--text2)">暂无阶段信息</p>';
     }
   } else {
     el.innerHTML = emptyState('⚠️', '无法加载工作流详情', '请检查工作流服务状态', '<button class="btn btn-primary" onclick="renderView()">返回</button>');
@@ -873,13 +878,13 @@ async function submitLUITask() {
   const input = document.getElementById('lui-input').value.trim();
   if (!input) { showToast('请输入问题', 'error'); return; }
   const respEl = document.getElementById('lui-response');
-  respEl.innerHTML = '<p style="color:const(--text2)">正在调研中...</p>';
+  respEl.innerHTML = '<p style="color:var(--text2)">正在调研中...</p>';
   const body = { goal: input, task_type: 'research', risk_level: 'low' };
   const r = await api('/api/workflows/create-from-markdown', { method: 'POST', body: JSON.stringify(body) });
   if (r.ok) {
-    respEl.innerHTML = '<p style="color:const(--success)">调研任务已提交，请前往Workflow控制台查看结果</p><button class="btn btn-sm btn-outline" onclick="currentView=\'workflows\';renderView()">查看工作流</button>';
+    respEl.innerHTML = '<p style="color:var(--success)">调研任务已提交，请前往Workflow控制台查看结果</p><button class="btn btn-sm btn-outline" onclick="currentView=\'workflows\';renderView()">查看工作流</button>';
   } else {
-    respEl.innerHTML = '<p style="color:const(--danger)">提交失败: ' + escapeHtml((r.data && r.data.error) || '未知错误') + '</p>';
+    respEl.innerHTML = '<p style="color:var(--danger)">提交失败: ' + escapeHtml((r.data && r.data.error) || '未知错误') + '</p>';
   }
 }
 
@@ -931,7 +936,7 @@ async function renderConfig(el) {
       window.CONFIG_SECTIONS = meta.data.sections;
       makeTabs(meta.data.sections);
     } else {
-      document.getElementById('config-content').innerHTML = '<p style="color:const(--text2)">无法加载配置</p>';
+      document.getElementById('config-content').innerHTML = '<p style="color:var(--text2)">无法加载配置</p>';
     }
   }
 }
@@ -989,7 +994,7 @@ async function loadLLMModels() {
   if (!el) return;
   const r = await api('/api/admin/llm-models');
   if (!r.ok || !r.data.models) {
-    el.innerHTML = '<p style="color:const(--text2)">无法加载模型列表</p>';
+    el.innerHTML = '<p style="color:var(--text2)">无法加载模型列表</p>';
     return;
   }
   const models = r.data.models;
@@ -1003,7 +1008,7 @@ async function loadLLMModels() {
     html += '<tr><td>' +
       (i > 0 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelUp(\'' + escJsAttr(m.id) + '\')" title="上移优先级">▲</button> ' : '') +
       (i < models.length - 1 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelDown(\'' + escJsAttr(m.id) + '\')" title="下移优先级">▼</button>' : '') +
-      '</td><td><strong>' + escapeHtml(m.name) + '</strong></td><td>' + typeLabel + '</td><td style="font-size:13px;color:const(--text2)">' + escapeHtml(m.url || '-') + '</td><td>' +
+      '</td><td><strong>' + escapeHtml(m.name) + '</strong></td><td>' + typeLabel + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(m.url || '-') + '</td><td>' +
       (i > 0 ? '<button class="btn btn-sm btn-danger" onclick="deleteLLMModel(\'' + escJsAttr(m.id) + '\',\'' + escJsAttr(m.name) + '\')">删除</button>' : '<span class="hint-text">主模型不可删除</span>') +
       '</td></tr>';
   });
@@ -1158,7 +1163,7 @@ async function renderOrganizations(el) {
       const settings = o.settings || {};
       const quotaInfo = '用户上限: ' + (settings.max_users || '-') + ' / Workflow/天: ' + (settings.max_workflows_per_day || '-');
       const statusClass = o.status === 'active' ? 'badge-success' : o.status === 'suspended' ? 'badge-warning' : 'badge-danger';
-      return '<tr><td>' + escapeHtml(o.org_name) + '</td><td>' + escapeHtml(o.display_name || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(o.status) + '</span></td><td style="font-size:13px;color:const(--text2)">' + escapeHtml(quotaInfo) + '</td><td>' + escapeHtml(o.created_at || '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="showEditOrg(\'' + escJsAttr(String(o.id)) + '\')">编辑</button> <button class="btn btn-sm btn-danger" onclick="deleteOrg(\'' + escJsAttr(String(o.id)) + '\',\'' + escJsAttr(o.org_name) + '\')">删除</button></td></tr>';
+      return '<tr><td>' + escapeHtml(o.org_name) + '</td><td>' + escapeHtml(o.display_name || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(o.status) + '</span></td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(quotaInfo) + '</td><td>' + escapeHtml(o.created_at || '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="showEditOrg(\'' + escJsAttr(String(o.id)) + '\')">编辑</button> <button class="btn btn-sm btn-danger" onclick="deleteOrg(\'' + escJsAttr(String(o.id)) + '\',\'' + escJsAttr(o.org_name) + '\')">删除</button></td></tr>';
     }).join('') + '</table>';
   } else {
     document.getElementById('org-list').innerHTML = emptyState('🏢', '暂无组织', '创建第一个组织开始使用系统', '<button class="btn btn-primary" onclick="showAddOrg()">创建组织</button>');
@@ -1187,7 +1192,7 @@ async function showEditOrg(orgId) {
   const settings = org.settings || {};
   const body = '<div class="form-group"><label>显示名称</label><input type="text" id="edit-org-display" value="' + escapeHtml(org.display_name || '') + '"></div>' +
     '<div class="form-group"><label>状态</label><select id="edit-org-status"><option value="active"' + (org.status === 'active' ? ' selected' : '') + '>active</option><option value="suspended"' + (org.status === 'suspended' ? ' selected' : '') + '>suspended</option><option value="deleted"' + (org.status === 'deleted' ? ' selected' : '') + '>deleted</option></select></div>' +
-    '<h4 style="margin-top:16px;margin-bottom:8px;color:const(--text2);font-size:14px">资源配额</h4>' +
+    '<h4 style="margin-top:16px;margin-bottom:8px;color:var(--text2);font-size:14px">资源配额</h4>' +
     '<div class="form-group"><label>用户上限</label><input type="number" id="edit-org-max-users" value="' + (settings.max_users || 100) + '" min="1"></div>' +
     '<div class="form-group"><label>每日 Workflow 上限</label><input type="number" id="edit-org-max-wf" value="' + (settings.max_workflows_per_day || 500) + '" min="0"></div>' +
     '<button class="btn btn-primary" onclick="doEditOrg(\'' + escJsAttr(String(orgId)) + '\')">保存修改</button> <button class="btn btn-outline" onclick="closeModal()">取消</button>';
@@ -1217,7 +1222,7 @@ async function deleteOrg(orgId, orgName) {
 }
 
 async function renderSharedKnowledge(el) {
-  el.innerHTML = '<div class="page-header"><h2>共享知识库</h2><span style="color:const(--text2);font-size:14px">此文件夹中的内容默认对所有租户开放</span></div>' +
+  el.innerHTML = '<div class="page-header"><h2>共享知识库</h2><span style="color:var(--text2);font-size:14px">此文件夹中的内容默认对所有租户开放</span></div>' +
     '<div class="card"><h3>上传共享文档</h3>' +
     '<div class="form-group"><label>标题</label><input type="text" id="shared-title" placeholder="文档标题"></div>' +
     '<div class="form-group"><label>内容</label><textarea id="shared-content" style="min-height:160px" placeholder="文档内容..."></textarea></div>' +
@@ -1239,7 +1244,7 @@ async function loadSharedDocs() {
         r.data.documents.map(function(d) { return '<tr><td>' + escapeHtml(d.title) + '</td><td>' + escapeHtml(d.source_kind || '-') + '</td><td>' + escapeHtml(d.created_at || '-') + '</td><td><button class="btn btn-sm btn-danger" onclick="deleteSharedDoc(\'' + escJsAttr(String(d.id)) + '\')">移除</button></td></tr>'; }).join('') + '</table>';
     }
   } else {
-    el.innerHTML = '<p style="color:const(--text2)">无法加载共享文档</p>';
+    el.innerHTML = '<p style="color:var(--text2)">无法加载共享文档</p>';
   }
 }
 
@@ -1305,7 +1310,7 @@ async function loadOrgTasks() {
           const stats = t.assignment_stats || [];
           const completed = stats.filter(function(s) { return s.status === 'completed'; }).length;
           const total = stats.length;
-          return '<tr><td><strong>' + escapeHtml(t.title) + '</strong></td><td>' + escapeHtml(t.task_type) + '</td><td>' + escapeHtml(t.schedule_type) + (t.cron_expression ? ' (' + escapeHtml(t.cron_expression) + ')' : '') + '</td><td>' + escapeHtml(t.status) + (total > 0 ? ' <span style="font-size:12px;color:const(--text2)">(' + completed + '/' + total + ' 完成)</span>' : '') + '</td><td>' + escapeHtml((t.created_at && t.created_at.slice(0, 10)) || '-') + '</td><td>' +
+          return '<tr><td><strong>' + escapeHtml(t.title) + '</strong></td><td>' + escapeHtml(t.task_type) + '</td><td>' + escapeHtml(t.schedule_type) + (t.cron_expression ? ' (' + escapeHtml(t.cron_expression) + ')' : '') + '</td><td>' + escapeHtml(t.status) + (total > 0 ? ' <span style="font-size:12px;color:var(--text2)">(' + completed + '/' + total + ' 完成)</span>' : '') + '</td><td>' + escapeHtml((t.created_at && t.created_at.slice(0, 10)) || '-') + '</td><td>' +
             '<button class="btn btn-sm btn-primary" onclick="triggerOrgTask(\'' + escJsAttr(String(t.id)) + '\')">立即分发</button> ' +
             (t.status === 'active' ? '<button class="btn btn-sm btn-warning" onclick="pauseOrgTask(\'' + escJsAttr(String(t.id)) + '\')">暂停</button>' : '') +
             ' <button class="btn btn-sm btn-danger" onclick="archiveOrgTask(\'' + escJsAttr(String(t.id)) + '\')">归档</button></td></tr>';
@@ -1379,10 +1384,10 @@ async function loadMyTasks() {
       el.innerHTML = items.map(function(a) {
         const completed = a.status === 'completed';
         const statusLabel = completed ? '✅ 已完成' : a.status === 'notified' ? '🔔 待反馈' : '⏳ 待通知';
-        return '<div class="card" style="margin-bottom:12px"><h4>' + escapeHtml(a.title) + ' <span style="font-size:13px;color:const(--text2)">' + statusLabel + '</span></h4>' +
-          '<p style="color:const(--text2);margin:4px 0">' + escapeHtml(a.prompt_message || '') + '</p>' +
+        return '<div class="card" style="margin-bottom:12px"><h4>' + escapeHtml(a.title) + ' <span style="font-size:13px;color:var(--text2)">' + statusLabel + '</span></h4>' +
+          '<p style="color:var(--text2);margin:4px 0">' + escapeHtml(a.prompt_message || '') + '</p>' +
           (completed
-            ? '<p style="color:const(--success);font-size:13px">已于 ' + escapeHtml((a.completed_at && a.completed_at.slice(0, 16)) || '') + ' 提交</p>'
+            ? '<p style="color:var(--success);font-size:13px">已于 ' + escapeHtml((a.completed_at && a.completed_at.slice(0, 16)) || '') + ' 提交</p>'
             : '<div class="form-group"><textarea id="task-resp-' + a.id + '" style="min-height:80px" placeholder="请输入您的总结..."></textarea></div>' +
               '<button class="btn btn-primary btn-sm" onclick="submitTaskResponse(\'' + escJsAttr(String(a.id)) + '\')">提交反馈</button>') +
           '</div>';
@@ -1439,15 +1444,15 @@ async function doSearchSkillMirror() {
   const query = document.getElementById('skill-search-query').value.trim();
   if (!query) { showToast('请输入搜索关键词', 'error'); return; }
   let el = document.getElementById('skill-search-results');
-  el.innerHTML = '<p style="color:const(--text2)">正在搜索镜像站...</p>';
+  el.innerHTML = '<p style="color:var(--text2)">正在搜索镜像站...</p>';
   const r = await api('/api/admin/skills/mirror-search?query=' + encodeURIComponent(query));
   if (!r.ok || !r.data.skills) {
-    el.innerHTML = '<p style="color:const(--text2)">搜索失败，请检查技能库服务状态</p>';
+    el.innerHTML = '<p style="color:var(--text2)">搜索失败，请检查技能库服务状态</p>';
     return;
   }
   const results = r.data.skills;
   if (results.length === 0) {
-    el.innerHTML = '<p style="color:const(--text2)">未找到匹配的技能，请尝试其他关键词</p>';
+    el.innerHTML = '<p style="color:var(--text2)">未找到匹配的技能，请尝试其他关键词</p>';
     return;
   }
   el.innerHTML = '<table><tr><th>名称</th><th>类型</th><th>描述</th><th>操作</th></tr>' + results.map(function(s) {
@@ -1585,7 +1590,7 @@ async function renderDbMaint(el) {
     const s = r.data.stats;
     document.getElementById('db-stats').innerHTML = '<p>连接数: ' + escapeHtml(String(s.connections || '-')) + '</p><p>数据库大小: ' + escapeHtml(s.db_size || '-') + '</p><p>表数量: ' + escapeHtml(String(s.table_count || '-')) + '</p>';
   } else {
-    document.getElementById('db-stats').innerHTML = '<p style="color:const(--text2)">无法获取数据库统计</p>';
+    document.getElementById('db-stats').innerHTML = '<p style="color:var(--text2)">无法获取数据库统计</p>';
   }
 }
 
@@ -1680,8 +1685,8 @@ async function reviewAction(factId, action) {
 async function renderResources(el) {
   el.innerHTML = '<div class="page-header"><h2>资源监控</h2><div><button class="btn btn-outline btn-sm" onclick="renderView()">刷新</button> <button class="btn btn-primary btn-sm" onclick="triggerInspection()">触发巡检</button></div></div>' +
     '<div class="stat-grid" id="quota-stats-grid"></div>' +
-    '<div class="card"><h3>Docker 容器监控 <span id="container-stats-time" style="font-size:12px;color:const(--text2)"></span></h3><div id="container-stats">加载中...</div></div>' +
-    '<div class="card"><h3>系统资源 <span id="docker-stats-time" style="font-size:12px;color:const(--text2)"></span></h3><div id="docker-stats">加载中...</div></div>' +
+    '<div class="card"><h3>Docker 容器监控 <span id="container-stats-time" style="font-size:12px;color:var(--text2)"></span></h3><div id="container-stats">加载中...</div></div>' +
+    '<div class="card"><h3>系统资源 <span id="docker-stats-time" style="font-size:12px;color:var(--text2)"></span></h3><div id="docker-stats">加载中...</div></div>' +
     '<div class="card"><h3>服务巡检报告</h3><div id="inspection-report">加载中...</div></div>' +
     '<div class="card"><h3>配额配置</h3><div id="quota-config">加载中...</div></div>';
 
@@ -1704,13 +1709,13 @@ async function loadContainerStats() {
     el.innerHTML = '<table><tr><th>容器名</th><th>镜像</th><th>状态</th><th>CPU</th><th>内存</th><th>内存用量</th><th>网络I/O</th><th>磁盘I/O</th></tr>' +
       containers.map(function(c) {
         const statusClass = c.status && c.status.includes('Up') ? 'badge-success' : 'badge-danger';
-        return '<tr><td>' + escapeHtml(c.name) + '</td><td style="font-size:13px;color:const(--text2)">' + escapeHtml(c.image || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(c.status || '-') + '</span></td><td>' + escapeHtml(c.cpu_percent) + '</td><td>' + escapeHtml(c.memory_percent) + '</td><td style="font-size:13px">' + escapeHtml(c.memory_usage) + '</td><td style="font-size:13px">' + escapeHtml(c.net_io) + '</td><td style="font-size:13px">' + escapeHtml(c.block_io) + '</td></tr>';
+        return '<tr><td>' + escapeHtml(c.name) + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(c.image || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(c.status || '-') + '</span></td><td>' + escapeHtml(c.cpu_percent) + '</td><td>' + escapeHtml(c.memory_percent) + '</td><td style="font-size:13px">' + escapeHtml(c.memory_usage) + '</td><td style="font-size:13px">' + escapeHtml(c.net_io) + '</td><td style="font-size:13px">' + escapeHtml(c.block_io) + '</td></tr>';
       }).join('') + '</table>';
     if (timeEl) timeEl.textContent = '更新于 ' + new Date().toLocaleTimeString();
   } else if (r.ok && !r.data.docker_available) {
-    el.innerHTML = '<p style="color:const(--text2)">Docker 不可用或未检测到运行中的容器。请确保Docker服务正常运行且当前用户有Docker访问权限。</p>';
+    el.innerHTML = '<p style="color:var(--text2)">Docker 不可用或未检测到运行中的容器。请确保Docker服务正常运行且当前用户有Docker访问权限。</p>';
   } else {
-    el.innerHTML = '<p style="color:const(--text2)">无法获取容器监控数据</p>';
+    el.innerHTML = '<p style="color:var(--text2)">无法获取容器监控数据</p>';
   }
 }
 
@@ -1740,7 +1745,7 @@ async function loadDockerStats() {
       '</div>';
     if (timeEl) timeEl.textContent = '更新于 ' + new Date().toLocaleTimeString();
   } else {
-    el.innerHTML = '<p style="color:const(--text2)">无法获取Docker资源数据，请确保数据库服务正常运行</p>';
+    el.innerHTML = '<p style="color:var(--text2)">无法获取Docker资源数据，请确保数据库服务正常运行</p>';
   }
 }
 
@@ -1781,14 +1786,14 @@ async function loadInspectionReport() {
 
   const r = await api('/api/admin/quotas/report');
   if (!r.ok || !r.data || !r.data.report) {
-    report.innerHTML = '<p style="color:const(--text2)">暂无巡检报告，点击"触发巡检"生成</p>';
+    report.innerHTML = '<p style="color:var(--text2)">暂无巡检报告，点击"触发巡检"生成</p>';
     return;
   }
   const data = r.data.report;
   const results = data.results || data.services || [];
   const inspectedAt = data.inspected_at || data.timestamp || '';
   if (results.length === 0) {
-    report.innerHTML = '<p style="color:const(--text2)">暂无巡检数据</p>';
+    report.innerHTML = '<p style="color:var(--text2)">暂无巡检数据</p>';
     return;
   }
   report.innerHTML = '<p class="hint-text" style="margin-bottom:8px">巡检时间: ' + escapeHtml(String(inspectedAt)) + '</p>' +
@@ -1806,7 +1811,7 @@ async function loadQuotaConfig() {
 
   const r = await api('/api/admin/quotas');
   if (!r.ok) {
-    config.innerHTML = '<p style="color:const(--text2)">无法加载配额配置</p>';
+    config.innerHTML = '<p style="color:var(--text2)">无法加载配额配置</p>';
     return;
   }
   const quotas = r.data.quotas || r.data || {};
@@ -1855,7 +1860,7 @@ async function triggerInspection() {
 async function renderDreamMemory(el) {
   el.innerHTML = '<div class="page-header"><h2>💤 记忆分析 - 梦境模式</h2></div>' +
     '<div class="card"><h3>记忆分析运行记录</h3><div id="dream-runs-list">加载中...</div></div>' +
-    '<div class="card"><h3>组织级记忆汇总 <span style="font-size:12px;color:const(--text2)">(管理员可见)</span></h3><div id="dream-summary-list">加载中...</div></div>' +
+    '<div class="card"><h3>组织级记忆汇总 <span style="font-size:12px;color:var(--text2)">(管理员可见)</span></h3><div id="dream-summary-list">加载中...</div></div>' +
     '<div class="card"><h3>记忆压缩日志</h3><div id="dream-compression-list">加载中...</div></div>' +
     '<div class="card"><h3>记忆访问日志</h3><div id="dream-access-list">加载中...</div></div>';
   await loadDreamRuns();

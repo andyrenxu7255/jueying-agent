@@ -4,18 +4,15 @@ module.exports = {
   roots: ['<rootDir>/../../'],
   testMatch: ['**/*.test.ts'],
   globalTeardown: './globalTeardown.cjs',
-  extensionsToTreatAsEsm: ['.ts'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
-      useESM: true,
       tsconfig: {
-        module: 'ESNext',
+        module: 'CommonJS',
         moduleResolution: 'Node',
         esModuleInterop: true,
         target: 'ES2022',
         strict: true,
-        skipLibCheck: true,
-        allowImportingTsExtensions: true
+        skipLibCheck: true
       },
       diagnostics: { ignoreCodes: [151002, 2307, 2339, 2540] }
     }]

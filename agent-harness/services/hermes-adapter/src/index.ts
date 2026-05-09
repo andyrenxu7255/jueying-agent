@@ -1,4 +1,5 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson as sendJsonShared } from '@agent-harness/shared';
 import { hermesMemories } from '@agent-harness/shared';
 import { db } from './db';
@@ -41,22 +42,29 @@ const LITELLM_MASTER_KEY = process.env.LITELLM_MASTER_KEY || process.env.LLM_API
 if (!LITELLM_MASTER_KEY) logger.warn('config.missing', 'LITELLM_MASTER_KEY or LLM_API_KEY environment variable is not set');
 
 let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
+let dbPoolPromise: Promise<InstanceType<typeof import('pg').Pool> | null> | null = null;
 
 async function getDbPool() {
   if (dbPool) return dbPool;
+  if (dbPoolPromise) return dbPoolPromise;
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return null;
-  try {
-    const { Pool } = await import('pg');
-    dbPool = new Pool({ connectionString: dbUrl, max: 4 });
-    await dbPool.query('SELECT 1');
-    logger.info('db.connected', 'Hermes adapter connected to database');
-    return dbPool;
-  } catch (error) {
-    logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
-    dbPool = null;
-    return null;
-  }
+  dbPoolPromise = (async () => {
+    try {
+      const { Pool } = await import('pg');
+      const pool = new Pool({ connectionString: dbUrl, max: 4 });
+      await pool.query('SELECT 1');
+      logger.info('db.connected', 'Hermes adapter connected to database');
+      dbPool = pool;
+      return dbPool;
+    } catch (error) {
+      logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
+      return null;
+    } finally {
+      dbPoolPromise = null;
+    }
+  })();
+  return dbPoolPromise;
 }
 
 async function ensureMemoryTable(pool: InstanceType<typeof import('pg').Pool>): Promise<void> {
@@ -82,7 +90,7 @@ function getMemoryKey(ownerUserId: string, sessionId: string): string {
 }
 
 function generateId(): string {
-  return crypto.randomUUID();
+  return randomUUID();
 }
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {

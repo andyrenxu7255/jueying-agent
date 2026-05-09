@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, readJson as readJsonShared, sendJson as sendJsonShared } from '@agent-harness/shared';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, readJson as readJsonShared, sendJson as sendJsonShared, sendError as sendErrorShared } from '@agent-harness/shared';
 import { auditWriter } from '@agent-harness/audit';
 import { createDefaultStage } from '@agent-harness/contracts';
 import { genericExecutor } from './executor/generic-executor';
@@ -59,6 +59,7 @@ function selectExecutor(executorName: string) {
 
 const readJson = readJsonShared
 const sendJson = sendJsonShared
+const sendError = sendErrorShared
 
 const server = createServer(async (req, res) => {
   httpRequestLogger(req);
@@ -86,9 +87,10 @@ const server = createServer(async (req, res) => {
     const body = await readJson(req);
     const workflowRef = body.workflow_instance_ref as string | undefined;
     if (!workflowRef || typeof workflowRef !== 'string' || !workflowRef.trim()) {
-      sendJson(res, 400, { ok: false, error: 'missing_workflow_instance_ref', message: 'workflow_instance_ref is required' });
+      sendError(res, 400, 'WORKFLOW_INVALID_REQUEST', 'workflow_instance_ref is required');
       return;
     }
+    const policySnapshotHash = (body.policy_snapshot_hash as string) || '';
     const trigger = (body.trigger as string) || 'manual';
 
     const runRef = `run_${Date.now()}_${randomUUID().substring(0, 6)}`;
@@ -102,7 +104,8 @@ const server = createServer(async (req, res) => {
       result: 'success',
       detail_json: {
         workflow_instance_ref: workflowRef,
-        trigger
+        trigger,
+        policy_snapshot_hash: policySnapshotHash
       }
     });
 
@@ -117,7 +120,12 @@ const server = createServer(async (req, res) => {
       state: 'queued'
     });
 
-    void autoExecuteWorkflowStages(workflowRef, runRef);
+    void autoExecuteWorkflowStages(workflowRef, runRef).catch(err => {
+      logger.error('auto_execute.failed', 'Background auto-execution failed', {
+        workflow_ref: workflowRef,
+        error: (err as Error).message
+      });
+    });
     return;
   }
 

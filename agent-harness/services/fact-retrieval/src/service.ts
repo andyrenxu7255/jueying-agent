@@ -32,6 +32,16 @@ import { artifactStorage } from './artifact-storage';
 
 const logger = createLogger('fact-retrieval');
 
+const GRAPH_NAME = 'knowledge_graph';
+const ALLOWED_GRAPH_NAMES = new Set([GRAPH_NAME]);
+
+function validateGraphName(name: string): string {
+  if (!ALLOWED_GRAPH_NAMES.has(name)) {
+    throw new Error(`Invalid graph name: ${name}`);
+  }
+  return name;
+}
+
 export interface DocumentIndexInput {
   owner_user_id: string;
   title: string;
@@ -111,7 +121,12 @@ function sanitizeCypherLiteral(value: string): string {
   return cleaned
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "''")
-    .replace(/\$/g, '')
+    .replace(/\$/g, '\\$')
+    .replace(/;/g, '')
+    .replace(/--/g, '')
+    .replace(/\/\*/g, '')
+    .replace(/\*\//g, '')
+    .replace(/\/\//g, '')
     .replace(/[\n\r]/g, ' ')
     .slice(0, 4096);
 }
@@ -514,7 +529,7 @@ class FactRetrievalService {
     try {
       if (input.subject_ref) {
         await requireDb().insert(projectionEvents).values({
-          graphName: 'knowledge_graph',
+          graphName: GRAPH_NAME,
           vertexLabel: 'entity',
           operation: 'create',
           entityRef: input.subject_ref,
@@ -532,7 +547,7 @@ class FactRetrievalService {
 
       if (input.subject_ref && input.predicate && input.object_value) {
         await requireDb().insert(projectionEvents).values({
-          graphName: 'knowledge_graph',
+          graphName: GRAPH_NAME,
           edgeLabel: input.predicate,
           operation: 'create',
           entityRef: input.subject_ref,
@@ -720,11 +735,17 @@ class FactRetrievalService {
     }
 
     const MAX_AUTO_RELATIONS = 100;
+    const MAX_ENTITIES_FOR_RELATIONS = 20;
+    const entityNames = [...entityNameToId.keys()];
+    const entityNamesForRelations = entityNames.slice(0, MAX_ENTITIES_FOR_RELATIONS);
 
-    for (const [name, fromId] of entityNameToId) {
-      for (const otherName of entityNameToId.keys()) {
-        if (otherName === name) continue;
+    for (let i = 0; i < entityNamesForRelations.length; i++) {
+      if (relationCount >= MAX_AUTO_RELATIONS) break;
+      const name = entityNamesForRelations[i];
+      const fromId = entityNameToId.get(name)!;
+      for (let j = i + 1; j < entityNamesForRelations.length; j++) {
         if (relationCount >= MAX_AUTO_RELATIONS) break;
+        const otherName = entityNamesForRelations[j];
         const toId = entityNameToId.get(otherName)!;
         try {
           await withRetry(() => requireDb().insert(relations).values({
@@ -876,7 +897,7 @@ class FactRetrievalService {
     for (const event of ordered) {
       try {
         const payload = (event.payload || {}) as Record<string, unknown>;
-        const graphName = event.graphName || 'knowledge_graph';
+        const graphName = validateGraphName((event.graphName as string) || GRAPH_NAME);
 
         if (!pool) throw new Error('Pool not available');
         const client = await pool.connect();
@@ -1272,7 +1293,7 @@ class FactRetrievalService {
     const includePublic = allowedScopes.some(s => s.startsWith('public'));
     const includeShared = allowedScopes.some(s => s === 'shared');
 
-    const graphName = 'knowledge_graph';
+    const graphName = GRAPH_NAME;
 
     const safePattern = `(?i).*${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`;
     if (!/^[a-zA-Z0-9\u4e00-\u9fff.*+?^${}()|[\]\\!\-_=:]+$/.test(safePattern.replace('(?i)', ''))) {

@@ -42,12 +42,12 @@ cp .env.example .env
 | 配置项 | 当前值 |
 |--------|--------|
 | POSTGRES_USER | `agent_harness` |
-| POSTGRES_PASSWORD | `change_me_123` |
+| POSTGRES_PASSWORD | `<SECURE_PASSWORD>` |
 | POSTGRES_DB | `agent_harness` |
-| REDIS_PASSWORD | `change_me_123` |
+| REDIS_PASSWORD | `<SECURE_PASSWORD>` |
 | MINIO_ROOT_USER | `minioadmin` |
 | MINIO_ROOT_PASSWORD | `change_me_123` |
-| ADMIN_PASSWORD | `admin123` |
+| ADMIN_PASSWORD | `<SECURE_PASSWORD>` |
 | CORS_ORIGINS | `http://localhost:3003` |
 
 **关键环境变量说明:**
