@@ -1,20 +1,23 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import { hermesMemories } from '@agent-harness/shared';
-import { configManager, getDatabaseSslConfig } from '@agent-harness/shared';
+import { configManager, getDatabaseSslConfig, getPool } from '@agent-harness/shared';
 
 const schema = { hermesMemories };
 
-const databaseUrl = process.env.DATABASE_URL || configManager.getPath<string>('database.url');
+let _pool: Pool | null = null;
+let _db: ReturnType<typeof drizzle> | null = null;
 
-export const pool = databaseUrl ? new Pool({
-  connectionString: databaseUrl,
-  max: Number(process.env.DB_POOL_MAX || 5),
-  ssl: getDatabaseSslConfig(configManager.get())
-}) : null;
-
-export const db = pool ? drizzle(pool, { schema }) : null;
+export async function initDb(): Promise<ReturnType<typeof drizzle> | null> {
+  if (_db !== null) return _db;
+  _pool = await getPool('hermes-adapter', { max: Number(process.env.DB_POOL_MAX || 5) });
+  if (!_pool) return null;
+  _db = drizzle(_pool, { schema });
+  return _db;
+}
 
 export async function closeDbPool(): Promise<void> {
-  if (pool) await pool.end();
+  if (_pool) { await _pool.end(); }
+  _pool = null;
+  _db = null;
 }

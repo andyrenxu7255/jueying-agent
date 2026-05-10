@@ -56,6 +56,19 @@ export class TTLMap<K, V> {
     }
   }
 
+  *entries(): IterableIterator<[K, V]> {
+    const now = Date.now();
+    for (const [key, entry] of this.store) {
+      if (now <= entry.expiresAt) {
+        yield [key, entry.value];
+      }
+    }
+  }
+
+  [Symbol.iterator](): IterableIterator<[K, V]> {
+    return this.entries();
+  }
+
   private startCleanup(): void {
     if (this.cleanupTimer) return;
     this.cleanupTimer = setInterval(() => {

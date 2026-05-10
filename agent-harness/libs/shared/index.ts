@@ -13,5 +13,6 @@ export * from './src/monitoring';
 export * from './src/retry/strategy';
 export * from './src/rate-limit/limiter';
 export * from './src/archive';
+export * from './src/intent/classifier';
 export * from './src/server/bootstrap';
 export * from './src/utils/ttl-map';

@@ -1,9 +1,9 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson as sendJsonShared } from '@agent-harness/shared';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson as sendJsonShared, getPool } from '@agent-harness/shared';
 import { hermesMemories } from '@agent-harness/shared';
 import { TTLMap } from '@agent-harness/shared';
-import { db } from './db';
+import { initDb } from './db';
 
 const logger = createLogger('hermes-adapter', {
   logFile: process.env.LOG_FILE || 'logs/hermes-adapter.log'
@@ -42,30 +42,8 @@ const LITELLM_MODEL = process.env.LITELLM_MODEL || 'gpt-4o-mini';
 const LITELLM_MASTER_KEY = process.env.LITELLM_MASTER_KEY || process.env.LLM_API_KEY || '';
 if (!LITELLM_MASTER_KEY) logger.warn('config.missing', 'LITELLM_MASTER_KEY or LLM_API_KEY environment variable is not set');
 
-let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
-let dbPoolPromise: Promise<InstanceType<typeof import('pg').Pool> | null> | null = null;
-
 async function getDbPool() {
-  if (dbPool) return dbPool;
-  if (dbPoolPromise) return dbPoolPromise;
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) return null;
-  dbPoolPromise = (async () => {
-    try {
-      const { Pool } = await import('pg');
-      const pool = new Pool({ connectionString: dbUrl, max: 4 });
-      await pool.query('SELECT 1');
-      logger.info('db.connected', 'Hermes adapter connected to database');
-      dbPool = pool;
-      return dbPool;
-    } catch (error) {
-      logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
-      return null;
-    } finally {
-      dbPoolPromise = null;
-    }
-  })();
-  return dbPoolPromise;
+  return getPool('hermes-adapter-sql', { max: 4 });
 }
 
 async function ensureMemoryTable(pool: InstanceType<typeof import('pg').Pool>): Promise<void> {
@@ -206,7 +184,9 @@ async function fetchSkillsFromDb(ownerUserId: string, query?: string): Promise<S
 }
 
 async function persistMemoryToDb(entries: MemoryEntry[]): Promise<void> {
-  if (!db || entries.length === 0) return;
+  if (entries.length === 0) return;
+  const db = await initDb();
+  if (!db) return;
 
   try {
     for (const entry of entries) {

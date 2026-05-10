@@ -1,12 +1,16 @@
 import { createServer } from 'node:http'
 import { createHash, createHmac, createDecipheriv, timingSafeEqual } from 'node:crypto'
-import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity, extractPathname, postJson, sendJson } from '@agent-harness/shared'
+import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity, extractPathname, postJson, sendJson, FeishuAdapter, WecomAdapter, classifyIntent } from '@agent-harness/shared'
+import type { IntentClassification } from '@agent-harness/shared'
 import { identityResolver } from './services/identity-resolver'
 import { sessionMapper } from './services/session-mapper'
 import { validateFileForImport, sanitizeFileName, validateTextContent } from './services/file-validator'
 import { gatewayState } from './services/gateway-state'
 
 import type { Pool } from 'pg'
+
+const feishuAdapter = new FeishuAdapter();
+const wecomAdapter = new WecomAdapter();
 
 const logger = createLogger('gateway-adapter', {
   logFile: process.env.LOG_FILE || 'logs/gateway-adapter.log'
@@ -191,177 +195,8 @@ async function resolveIdentity(normalized: Record<string, unknown>): Promise<Rec
   };
 }
 
-function isTaskIntent(text: string): boolean {
-  const normalized = text.trim().toLowerCase();
-  if (!normalized) return false;
-  const patterns = [
-    /^(请|帮我|麻烦|执行|创建|生成|实现|修复|分析|整理|制定)/,
-    /^(please|help me|create|build|implement|fix|analyze|plan|draft)/,
-    /(任务|计划|执行|workflow|dispatch|todo|里程碑|roadmap|方案|report)/
-  ];
-  return patterns.some((pattern) => pattern.test(normalized));
-}
-
-function isTaskDispatchIntent(text: string): boolean {
-  const normalized = text.trim().toLowerCase();
-  if (!normalized) return false;
-  const patterns = [
-    /(通知.*提交|下发.*任务|下发.*工作|分配.*任务|派发.*任务)/,
-    /(全员.*提交|团队.*完成|要求.*提交|要求.*完成|安排.*工作)/,
-    /(通知所有人|通知全员|通知团队|给.*下发|给.*分配)/,
-    /(dispatch.*task|assign.*task|notify.*team|team.*submit)/,
-    /(周报|日报|月报|总结|汇报).*(提交|完成|上交)/
-  ];
-  return patterns.some((pattern) => pattern.test(normalized));
-}
-
-// isKnowledgeSubmitIntent: 基于关键词检测用户是否在主动提交知识
-// 匹配「我想提交一条知识」「这是客户信息」「分享一个知识点」等模式
-function isKnowledgeSubmitIntent(text: string): boolean {
-  const normalized = text.trim().toLowerCase();
-  if (!normalized) return false;
-  const patterns = [
-    /(提交.*知识|分享.*知识|记录.*知识|录入.*知识|新增.*知识)/,
-    /(这是.*客户|这是.*联系人|这是.*项目.*信息|这是.*公司)/,
-    /(补充.*信息|添加.*信息|记录.*信息)/,
-    /(submit.*knowledge|share.*knowledge|record.*fact|add.*entry)/,
-    /^(知识点|知识条目|客户信息|公司信息|联系人)/
-  ];
-  return patterns.some((pattern) => pattern.test(normalized));
-}
-
-// isQuickLookupIntent: 检测用户快速信息查询（非长任务、非对话闲聊）
-// 识别「XX的电话多少？」「查一下XX公司的信息」等快速检索场景
-function isQuickLookupIntent(text: string): boolean {
-  const normalized = text.trim().toLowerCase();
-  if (!normalized) return false;
-  if (isTaskIntent(text)) return false;
-  const patterns = [
-    /^(查|查一下|查找|搜索|检索|查询|帮我查|帮我找|帮我搜)/,
-    /(的电话|的联系方式|的邮箱|的地址|的信息|的简介|的报价)/,
-    /^(\/find|\/search|\/lookup|\/查)/,
-    /^(find |search |lookup |query |what is |who is |how many )/i
-  ];
-  return patterns.some((pattern) => pattern.test(normalized));
-}
-
-interface IntentClassification {
-  is_task: boolean;
-  task_type_hint: 'development' | 'analysis' | 'knowledge' | 'sales' | 'implementation';
-  risk_level: 'low' | 'medium' | 'high';
-  confidence: number;
-  intent_type: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch';
-}
-
 async function classifyIntentWithLLM(text: string): Promise<IntentClassification> {
-  const fallback: IntentClassification = {
-    is_task: isTaskIntent(text),
-    task_type_hint: 'knowledge',
-    risk_level: 'medium',
-    confidence: 0.0,
-    intent_type: isTaskDispatchIntent(text) ? 'task_dispatch' : (isKnowledgeSubmitIntent(text) ? 'knowledge_submit' : (isQuickLookupIntent(text) ? 'quick_lookup' : (isTaskIntent(text) ? 'task' : 'chat')))
-  };
-
-  const litellmUrl = process.env.LITELLM_URL || '';
-  const litellmApiKey = process.env.LITELLM_MASTER_KEY || process.env.LITELLM_API_KEY || '';
-  const litellmModel = process.env.LITELLM_MODEL || 'minimax-m2.7';
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-    const response = await fetch(`${litellmUrl}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${litellmApiKey}`
-      },
-      body: JSON.stringify({
-        model: litellmModel,
-        messages: [
-          {
-            role: 'system',
-            content: `Classify the user message. Output JSON with:
-- "is_task": boolean - true if the user wants to execute a workflow or dispatch a task to others, false for chat or knowledge submission
-- "task_type_hint": one of "development", "analysis", "knowledge", "sales", "implementation"
-- "risk_level": one of "low", "medium", "high"
-- "confidence": 0.0-1.0
-- "intent_type": one of "chat" (casual conversation), "task" (execute workflow), "knowledge_submit" (user is sharing a piece of knowledge), "quick_lookup" (simple fact lookup), "task_dispatch" (admin dispatching/assigning a task to team members)
-
-KEY DISTINCTION:
-- "task_dispatch": admin/manager is ASSIGNING a task to team members (e.g. "通知所有人提交周报", "给团队下发任务：完成Q3总结", "下发工作要求：每日拜访总结")
-- "task": user wants the AI to EXECUTE a workflow for them (e.g. "帮我分析销售数据")
-- "knowledge_submit": user is PROVIDING information (e.g. "这是客户张三的信息", "A公司的联系方式是...", "我想提交一条知识")
-- "knowledge" task_type_hint: user is ASKING for information (e.g. "什么是RAG?", "查一下销售数据")
-
-Examples:
-"帮我分析一下销售数据" -> {"is_task":true,"task_type_hint":"analysis","risk_level":"medium","confidence":0.9,"intent_type":"task"}
-"修复登录页面的bug" -> {"is_task":true,"task_type_hint":"development","risk_level":"medium","confidence":0.85,"intent_type":"task"}
-"今天天气怎么样" -> {"is_task":false,"task_type_hint":"knowledge","risk_level":"low","confidence":0.95,"intent_type":"chat"}
-"请制定Q2营销方案" -> {"is_task":true,"task_type_hint":"sales","risk_level":"high","confidence":0.8,"intent_type":"task"}
-"张三是A公司的技术总监，电话138xxxx" -> {"is_task":false,"task_type_hint":"knowledge","risk_level":"low","confidence":0.9,"intent_type":"knowledge_submit"}
-"我想提交一条知识：B公司最近融资了5000万" -> {"is_task":false,"task_type_hint":"knowledge","risk_level":"low","confidence":0.95,"intent_type":"knowledge_submit"}
-"什么是RAG?" -> {"is_task":true,"task_type_hint":"knowledge","risk_level":"low","confidence":0.7,"intent_type":"task"}
-"查一下A公司的联系电话" -> {"is_task":false,"task_type_hint":"knowledge","risk_level":"low","confidence":0.95,"intent_type":"quick_lookup"}
-"张三的邮箱是多少？" -> {"is_task":false,"task_type_hint":"knowledge","risk_level":"low","confidence":0.9,"intent_type":"quick_lookup"}
-"通知全员提交周报" -> {"is_task":true,"task_type_hint":"implementation","risk_level":"low","confidence":0.9,"intent_type":"task_dispatch"}
-"给销售团队下发任务：本周五前提交客户拜访报告" -> {"is_task":true,"task_type_hint":"sales","risk_level":"low","confidence":0.95,"intent_type":"task_dispatch"}
-"下发工作要求：每天20点提交当日总结" -> {"is_task":true,"task_type_hint":"implementation","risk_level":"low","confidence":0.95,"intent_type":"task_dispatch"}`
-          },
-          { role: 'user', content: text }
-        ],
-        temperature: 0.1,
-        max_tokens: 200,
-        response_format: { type: 'json_object' }
-      }),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      logger.warn('intent.classify_failed', 'LLM intent classification HTTP error', {
-        status: response.status,
-        status_text: response.statusText
-      });
-      return fallback;
-    }
-
-    const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const content = body.choices?.[0]?.message?.content;
-    if (!content) {
-      logger.warn('intent.classify_no_content', 'LLM intent classification returned empty content');
-      return fallback;
-    }
-
-    try {
-      let jsonContent = content;
-      const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (fenceMatch && fenceMatch[1]) {
-        jsonContent = fenceMatch[1].trim();
-      }
-      const parsed = JSON.parse(jsonContent) as Partial<IntentClassification>;
-      return {
-        is_task: typeof parsed.is_task === 'boolean' ? parsed.is_task : fallback.is_task,
-        task_type_hint: ['development', 'analysis', 'knowledge', 'sales', 'implementation'].includes(parsed.task_type_hint as string) ? parsed.task_type_hint as IntentClassification['task_type_hint'] : fallback.task_type_hint,
-        risk_level: ['low', 'medium', 'high'].includes(parsed.risk_level as string) ? parsed.risk_level as IntentClassification['risk_level'] : fallback.risk_level,
-        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-        intent_type: ['chat', 'task', 'knowledge_submit', 'quick_lookup', 'task_dispatch'].includes(parsed.intent_type as string) ? parsed.intent_type as IntentClassification['intent_type'] : fallback.intent_type
-      };
-    } catch (parseError) {
-      logger.warn('intent.classify_parse_error', 'LLM intent classification JSON parse error', {
-        error: String(parseError),
-        raw_content: content.substring(0, 300)
-      });
-      return fallback;
-    }
-  } catch (error) {
-    logger.warn('intent.classify_exception', 'LLM intent classification exception', {
-      error: String(error),
-      is_abort: error instanceof Error && error.name === 'AbortError'
-    });
-    return fallback;
-  }
+  return classifyIntent(text);
 }
 
 async function rememberContext(ownerUserId: string, sessionId: string, role: string, content: string): Promise<void> {
@@ -1237,89 +1072,13 @@ function verifyFeishuSignature(req: import('node:http').IncomingMessage, rawBody
 }
 
 async function getFeishuTenantAccessToken(): Promise<string | null> {
-  const now = Date.now();
-  if (gatewayState.feishuTokenCache.token && gatewayState.feishuTokenCache.expiresAtMs > now + 10_000) {
-    return gatewayState.feishuTokenCache.token;
-  }
-
-  const appId = process.env.FEISHU_APP_ID;
-  const appSecret = process.env.FEISHU_APP_SECRET;
-  if (!appId || !appSecret) return null;
-
-  try {
-    const response = await fetch(`${getFeishuApiBase()}/open-apis/auth/v3/tenant_access_token/internal`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
-      signal: AbortSignal.timeout(10000)
-    });
-
-    const body = await response.json() as {
-      code?: number;
-      tenant_access_token?: string;
-      expire?: number;
-      msg?: string;
-    };
-
-    if (!response.ok || body.code !== 0 || !body.tenant_access_token) {
-      logger.warn('feishu.token.fetch_failed', 'Failed to fetch Feishu tenant token', {
-        status: response.status,
-        code: body.code,
-        msg: body.msg
-      });
-      return null;
-    }
-
-    const expireSec = typeof body.expire === 'number' && body.expire > 0 ? body.expire : 7200;
-    gatewayState.feishuTokenCache.token = body.tenant_access_token;
-    gatewayState.feishuTokenCache.expiresAtMs = now + (expireSec * 1000);
-    return gatewayState.feishuTokenCache.token;
-  } catch (error) {
-    logger.warn('feishu.token.fetch_error', 'Unexpected error when fetching Feishu tenant token', {
-      error: String(error)
-    });
-    return null;
-  }
+  return feishuAdapter.getAccessToken();
 }
 
 type FeishuReceiveIdType = 'chat_id' | 'user_id' | 'open_id' | 'union_id';
 
 async function sendFeishuTextReply(receiveId: string, receiveIdType: FeishuReceiveIdType, text: string): Promise<boolean> {
-  const token = await getFeishuTenantAccessToken();
-  if (!token) return false;
-
-  try {
-    const response = await fetch(`${getFeishuApiBase()}/open-apis/im/v1/messages?receive_id_type=${receiveIdType}`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        receive_id: receiveId,
-        msg_type: 'text',
-        content: JSON.stringify({ text })
-      }),
-      signal: AbortSignal.timeout(10000)
-    });
-
-    const body = await response.json() as { code?: number; msg?: string };
-    if (response.ok && body.code === 0) return true;
-
-    logger.warn('feishu.reply.failed', 'Failed to send Feishu reply message', {
-      receiveIdType,
-      status: response.status,
-      code: body.code,
-      msg: body.msg
-    });
-    return false;
-  } catch (error) {
-    logger.warn('feishu.reply.error', 'Unexpected error when sending Feishu reply', {
-      receiveIdType,
-      error: String(error)
-    });
-    return false;
-  }
+  return feishuAdapter.sendTextMessage(receiveId, text, { msgType: receiveIdType });
 }
 
 async function pollAndReplyWorkflowResult(workflowRef: string, targets: Array<{ receiveIdType: FeishuReceiveIdType; receiveId: string }>): Promise<void> {
@@ -1439,156 +1198,21 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
   fireAndForget(sendWecomTextMessage(wecomUserId, timeoutMsg, agentId), '');
 }
 async function getWecomAccessToken(): Promise<string | null> {
-  const now = Date.now();
-  if (gatewayState.wecomTokenCache.token && gatewayState.wecomTokenCache.expiresAtMs > now + 10_000) {
-    return gatewayState.wecomTokenCache.token;
-  }
-
-  const corpId = process.env.WECOM_CORP_ID;
-  const corpSecret = process.env.WECOM_CORP_SECRET;
-  if (!corpId || !corpSecret) return null;
-
-  try {
-    const response = await fetch(
-      `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${encodeURIComponent(corpId)}&corpsecret=${encodeURIComponent(corpSecret)}`,
-      { signal: AbortSignal.timeout(10000) }
-    );
-
-    const body = await response.json() as {
-      errcode?: number;
-      access_token?: string;
-      expires_in?: number;
-      errmsg?: string;
-    };
-
-    if (!response.ok || body.errcode !== 0 || !body.access_token) {
-      logger.warn('wecom.token.fetch_failed', 'Failed to fetch WeCom access token', {
-        status: response.status,
-        errcode: body.errcode,
-        errmsg: body.errmsg
-      });
-      return null;
-    }
-
-    const expireSec = typeof body.expires_in === 'number' && body.expires_in > 0 ? body.expires_in : 7200;
-    gatewayState.wecomTokenCache.token = body.access_token;
-    gatewayState.wecomTokenCache.expiresAtMs = now + (expireSec * 1000);
-    return gatewayState.wecomTokenCache.token;
-  } catch (error) {
-    logger.warn('wecom.token.fetch_error', 'Unexpected error when fetching WeCom access token', {
-      error: String(error)
-    });
-    return null;
-  }
+  return wecomAdapter.getAccessToken();
 }
 
 async function sendWecomTextMessage(userId: string, text: string, agentId?: string): Promise<boolean> {
-  const token = await getWecomAccessToken();
-  if (!token) return false;
-
-  const msgAgentId = agentId || process.env.WECOM_AGENT_ID || '';
-  if (!msgAgentId) {
-    logger.warn('wecom.reply.no_agent', 'WECOM_AGENT_ID not set, cannot send message');
-    return false;
-  }
-
-  try {
-    const response = await fetch(
-      `https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${encodeURIComponent(token)}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          touser: userId,
-          msgtype: 'text',
-          agentid: Number(msgAgentId),
-          text: { content: text }
-        }),
-        signal: AbortSignal.timeout(10000)
-      }
-    );
-
-    const body = await response.json() as { errcode?: number; errmsg?: string; invaliduser?: string };
-    if (response.ok && body.errcode === 0) return true;
-
-    logger.warn('wecom.reply.failed', 'Failed to send WeCom message', {
-      status: response.status,
-      errcode: body.errcode,
-      errmsg: body.errmsg,
-      invaliduser: body.invaliduser
-    });
-    return false;
-  } catch (error) {
-    logger.warn('wecom.reply.error', 'Unexpected error when sending WeCom reply', {
-      error: String(error)
-    });
-    return false;
-  }
+  return wecomAdapter.sendTextMessage(userId, text, { agentId });
 }
 
 async function downloadFeishuFile(fileKey: string, fileType: string = 'file'): Promise<Buffer | null> {
-  const token = await getFeishuTenantAccessToken();
-  if (!token) return null;
-
-  try {
-    const endpoint = fileType === 'image'
-      ? `${getFeishuApiBase()}/open-apis/im/v1/images/${fileKey}`
-      : `${getFeishuApiBase()}/open-apis/im/v1/files/${fileKey}`;
-
-    const response = await fetch(endpoint, {
-      headers: { authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(60000)
-    });
-
-    if (!response.ok) {
-      logger.warn('feishu.file.download_failed', 'Failed to download Feishu file', {
-        file_key: fileKey, file_type: fileType, status: response.status
-      });
-      return null;
-    }
-
-    return Buffer.from(await response.arrayBuffer());
-  } catch (error) {
-    logger.warn('feishu.file.download_error', 'Error downloading Feishu file', {
-      file_key: fileKey, error: String(error)
-    });
-    return null;
-  }
+  const result = await feishuAdapter.downloadFile(fileKey, fileType);
+  return result?.buffer ?? null;
 }
 
 async function downloadWecomFile(mediaId: string): Promise<Buffer | null> {
-  const token = await getWecomAccessToken();
-  if (!token) return null;
-
-  try {
-    const response = await fetch(
-      `https://qyapi.weixin.qq.com/cgi-bin/media/get?access_token=${encodeURIComponent(token)}&media_id=${encodeURIComponent(mediaId)}`,
-      { signal: AbortSignal.timeout(60000) }
-    );
-
-    if (!response.ok) {
-      logger.warn('wecom.file.download_failed', 'Failed to download WeCom file', {
-        media_id: mediaId, status: response.status
-      });
-      return null;
-    }
-
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      const body = await response.json() as { errcode?: number; errmsg?: string };
-      logger.warn('wecom.file.download_error', 'WeCom file download returned error', {
-        media_id: mediaId, errcode: body.errcode, errmsg: body.errmsg
-      });
-      return null;
-    }
-
-    return Buffer.from(await response.arrayBuffer());
-  } catch (error) {
-    logger.warn('wecom.file.download_error', 'Error downloading WeCom file', {
-      media_id: mediaId, error: String(error)
-    });
-    return null;
-  }
+  const result = await wecomAdapter.downloadFile(mediaId);
+  return result?.buffer ?? null;
 }
 
 async function extractTextFromFile(buffer: Buffer, fileName: string): Promise<string> {

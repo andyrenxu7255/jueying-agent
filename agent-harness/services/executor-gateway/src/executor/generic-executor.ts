@@ -1,13 +1,8 @@
-import { createLogger, withRetry, RETRY_POLICIES } from '@agent-harness/shared';
+import { createLogger, withRetry, RETRY_POLICIES, llmClient } from '@agent-harness/shared';
 import { auditWriter } from '@agent-harness/audit';
 import type { Stage } from '@agent-harness/contracts';
 
 const logger = createLogger('generic-executor');
-
-const LITELLM_URL = process.env.LITELLM_URL || '';
-const LITELLM_MODEL = process.env.LITELLM_MODEL || 'minimax-m2.7';
-const LITELLM_API_KEY = process.env.LITELLM_MASTER_KEY || process.env.LITELLM_API_KEY || '';
-if (!LITELLM_API_KEY) logger.warn('config.missing', 'LITELLM_MASTER_KEY or LITELLM_API_KEY environment variable is not set');
 
 export type ExecutorStatus = 'pending' | 'running' | 'completed' | 'failed' | 'waiting_user' | 'blocked' | 'succeeded';
 
@@ -56,78 +51,42 @@ function truncateContext(context: Record<string, unknown> | undefined): Record<s
   return truncated;
 }
 
-interface LiteLLMResponse {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-  usage?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-  };
+interface LiteLLMUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
 }
 
-async function callLiteLLM(systemPrompt: string, userPrompt: string, temperature: number = 0.3): Promise<{ content: string; ok: boolean; usage?: LiteLLMResponse['usage'] }> {
+async function callLiteLLM(systemPrompt: string, userPrompt: string, temperature: number = 0.3): Promise<{ content: string; ok: boolean; usage?: LiteLLMUsage }> {
   const timeoutMs = Number(process.env.LITELLM_EXEC_TIMEOUT_MS || 60000);
 
-  const attempt = async (): Promise<{ content: string; ok: boolean; usage?: LiteLLMResponse['usage'] }> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      const response = await fetch(`${LITELLM_URL}/v1/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          Authorization: `Bearer ${LITELLM_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: LITELLM_MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature,
-          max_tokens: 2000
-        }),
-        signal: controller.signal
-      });
-
-      if (!response.ok) {
-        throw new Error(`LiteLLM returned ${response.status}`);
-      }
-
-      const body = await response.json() as LiteLLMResponse;
-      const content = body.choices?.[0]?.message?.content || '';
-
-      if (!content) {
-        logger.warn('litellm.call.empty', 'LiteLLM returned empty content', {});
-        return { content: '', ok: false };
-      }
-
-      logger.info('litellm.call.success', 'LiteLLM call succeeded', {
-        model: LITELLM_MODEL,
-        prompt_tokens: body.usage?.prompt_tokens,
-        completion_tokens: body.usage?.completion_tokens
-      });
-
-      return { content, ok: true, usage: body.usage };
-    } finally {
-      clearTimeout(timeoutId);
+  const attempt = async () => {
+    const result = await llmClient.call({
+      systemPrompt,
+      userPrompt,
+      temperature,
+      maxTokens: 2000,
+      timeoutMs
+    });
+    if (!result.ok) {
+      throw new Error('LLM call returned not-ok');
     }
+    return {
+      content: result.content,
+      ok: true,
+      usage: result.usage ? {
+        prompt_tokens: result.usage.promptTokens,
+        completion_tokens: result.usage.completionTokens,
+        total_tokens: result.usage.totalTokens
+      } : undefined
+    };
   };
 
   try {
     return await withRetry(attempt, RETRY_POLICIES.llm);
   } catch (error) {
     const errorMsg = String(error);
-    if (errorMsg.includes('abort') || errorMsg.includes('AbortError')) {
-      logger.warn('litellm.call.timeout', 'LiteLLM call timed out', { timeout_ms: timeoutMs });
-    } else {
-      logger.error('litellm.call.error', 'LiteLLM call error after retries', { error: errorMsg.slice(0, 300) });
-    }
+    logger.warn('litellm.call.error', 'LLM call failed after retries', { error: errorMsg.slice(0, 300) });
     return { content: '', ok: false };
   }
 }

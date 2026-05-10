@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
-import { configManager, createLogger, getDatabaseSslConfig } from '@agent-harness/shared';
+import { configManager, createLogger, getDatabaseSslConfig, getPool } from '@agent-harness/shared';
 
 const logger = createLogger('workflow-persistence-db');
 
@@ -33,13 +33,7 @@ export async function getWorkflowDbPool(): Promise<Pool | null> {
     return null;
   }
 
-  const pg = await import('pg');
-  pool = new pg.Pool({
-    connectionString: databaseUrl,
-    max: Number(process.env.DB_POOL_MAX || 10),
-    idleTimeoutMillis: 30000,
-    ssl: getDatabaseSslConfig(configManager.get())
-  });
+  pool = await getPool('workflow', { max: Number(process.env.DB_POOL_MAX || 10) });
 
   return pool;
 }
