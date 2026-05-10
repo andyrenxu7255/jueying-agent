@@ -1,46 +1,7 @@
-import { createLogger } from '@agent-harness/shared';
+import { createLogger, llmClient } from '@agent-harness/shared';
 import type { ExecutionInput, ExecutionResult } from './generic-executor';
 
 const logger = createLogger('repair-executor');
-
-const LITELLM_URL = process.env.LITELLM_URL || '';
-const LITELLM_MODEL = process.env.LITELLM_MODEL || 'minimax-m2.7';
-const LITELLM_API_KEY = process.env.LITELLM_MASTER_KEY || process.env.LITELLM_API_KEY || '';
-if (!LITELLM_API_KEY) logger.warn('config.missing', 'LITELLM_MASTER_KEY or LITELLM_API_KEY environment variable is not set');
-
-async function callLiteLLM(systemPrompt: string, userPrompt: string, temperature: number = 0.2): Promise<{ content: string; ok: boolean }> {
-  const timeoutMs = Number(process.env.LITELLM_EXEC_TIMEOUT_MS || 60000);
-  try {
-    const response = await fetch(`${LITELLM_URL}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'authorization': `Bearer ${LITELLM_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: LITELLM_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature,
-        max_tokens: 4096
-      }),
-      signal: AbortSignal.timeout(timeoutMs)
-    });
-
-    if (!response.ok) {
-      return { content: '', ok: false };
-    }
-
-    const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const content = body.choices?.[0]?.message?.content || '';
-    return { content, ok: true };
-  } catch (error) {
-    logger.warn('litellm.call_error', 'LiteLLM call error', { error: String(error) });
-    return { content: '', ok: false };
-  }
-}
 
 export class RepairExecutor {
   async execute(input: ExecutionInput): Promise<ExecutionResult> {
@@ -77,7 +38,7 @@ ${JSON.stringify(context?.original_context || {}, null, 2)}
 
 Repair the issues identified in the verification output.`;
 
-    const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.2);
+    const { content, ok } = await llmClient.call({ systemPrompt, userPrompt, temperature: 0.2, maxTokens: 4096 });
 
     if (!ok || !content) {
       return {

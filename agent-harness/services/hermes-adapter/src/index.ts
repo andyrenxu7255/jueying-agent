@@ -2,6 +2,7 @@ import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson as sendJsonShared } from '@agent-harness/shared';
 import { hermesMemories } from '@agent-harness/shared';
+import { TTLMap } from '@agent-harness/shared';
 import { db } from './db';
 
 const logger = createLogger('hermes-adapter', {
@@ -32,7 +33,7 @@ interface SkillRecord {
   definition_json: Record<string, unknown>;
 }
 
-const memoryStore = new Map<string, MemoryEntry[]>();
+const memoryStore = new TTLMap<string, MemoryEntry[]>(24 * 60 * 60 * 1000); // 24h TTL
 const MAX_MEMORY_PER_SESSION = Number(process.env.MAX_MEMORY_PER_SESSION || 100);
 const MEMORY_SUMMARY_THRESHOLD = Number(process.env.MEMORY_SUMMARY_THRESHOLD || 50);
 const FACT_RETRIEVAL_URL = process.env.FACT_RETRIEVAL_URL || 'http://fact-retrieval:3000';

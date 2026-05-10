@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson } from '@agent-harness/shared';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson, TTLMap } from '@agent-harness/shared';
 
 /**
  * mobile-app 服务 - 移动端通知桥接服务
@@ -87,7 +87,7 @@ interface PushNotification {
 /* ---- 存储层 ---- */
 
 const deviceStore = new Map<string, DeviceRegistration[]>();
-const notificationStore = new Map<string, PushNotification[]>();
+const notificationStore = new TTLMap<string, PushNotification[]>(7 * 24 * 60 * 60 * 1000); // 7天TTL
 const MAX_NOTIFICATIONS_PER_USER = 200;
 
 let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
