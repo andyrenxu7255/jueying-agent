@@ -1,0 +1,216 @@
+{
+  "version": "v1.0",
+  "audit_date": "2026-05-10",
+  "project": "TeamClaw (Agent Harness V1)",
+  "document_count": {
+    "total": 56,
+    "ah1_series": 26,
+    "dev_series": 17,
+    "system_docs": 5,
+    "audit_reports": 8
+  },
+  "redundancy_summary": {
+    "high_priority": 4,
+    "medium_priority": 5,
+    "low_priority": 3,
+    "total_redundant_lines": 6500,
+    "savings_percentage": 22
+  },
+  "redundancy_items": [
+    {
+      "id": "RED-001",
+      "priority": "high",
+      "type": "document_overlap",
+      "files": ["AH1-33-文档关系与一致性清单.md", "DEV-08-文件内容与依赖对象图谱.md"],
+      "overlap_percentage": 60,
+      "action": "merge",
+      "keep": "DEV-08",
+      "delete_from": "AH1-33"
+    },
+    {
+      "id": "RED-002",
+      "priority": "high",
+      "type": "document_overlap",
+      "files": ["object-relationship-graph.md", "DEV-08-文件内容与依赖对象图谱.md"],
+      "overlap_percentage": 70,
+      "action": "merge",
+      "keep": "both_with_different_scope",
+      "delete_sections": ["§9", "§11"]
+    },
+    {
+      "id": "RED-003",
+      "priority": "high",
+      "type": "document_overlap",
+      "files": ["ARCHITECTURE.md", "用户故事线.md"],
+      "overlap_percentage": 40,
+      "action": "reference",
+      "keep": "both",
+      "delete_from": "ARCHITECTURE.md §3.1"
+    },
+    {
+      "id": "RED-004",
+      "priority": "high",
+      "type": "audit_report_overlap",
+      "files": [
+        "SYSTEM-AUDIT-2026-05-05.md",
+        "SYSTEM-AUDIT-2026-05-06.md",
+        "SYSTEM-AUDIT-2026-05-06-COMPREHENSIVE.md",
+        "SYSTEM-AUDIT-2026-05-08-MAX.md"
+      ],
+      "overlap_percentage": 50,
+      "action": "archive",
+      "keep": "SYSTEM-AUDIT-2026-05-08-MAX.md",
+      "archive": ["others"]
+    },
+    {
+      "id": "GRP-001",
+      "priority": "high",
+      "type": "graph_overlap",
+      "files": ["context-graph.json", "DEV-08§7"],
+      "overlap_percentage": 100,
+      "action": "single_source",
+      "keep": "context-graph.json",
+      "delete_from": "DEV-08§7"
+    },
+    {
+      "id": "GRP-002",
+      "priority": "high",
+      "type": "graph_overlap",
+      "files": ["object-relationship-graph.md§9", "context-graph.json authority"],
+      "overlap_percentage": 100,
+      "action": "reference",
+      "delete_from": "object-relationship-graph.md§9"
+    }
+  ],
+  "optimization_summary": {
+    "architecture": {
+      "high_priority": 3,
+      "medium_priority": 4,
+      "low_priority": 1
+    },
+    "performance": {
+      "high_priority": 2,
+      "medium_priority": 2,
+      "low_priority": 1
+    }
+  },
+  "optimization_items": [
+    {
+      "id": "OPT-001",
+      "priority": "high",
+      "type": "database_simplification",
+      "description": "梦境模式9张表合并为4张",
+      "tables_to_merge": [
+        {"from": "dream_mode_config", "to": "org_policy.metadata"},
+        {"from": "memory_access_log", "to": "audit_event"},
+        {"from": "memory_compression_log", "to": "memory_analysis_run.metadata"},
+        {"from": "scene_value_assessment", "to": "skill_usage_stats.metadata"},
+        {"from": "org_skill_registry", "to": "skill.scope_type='org'"}
+      ],
+      "benefit": "减少5张表，降低维护成本"
+    },
+    {
+      "id": "OPT-002",
+      "priority": "high",
+      "type": "executor_simplification",
+      "description": "6种执行器合并为4种",
+      "executors_to_merge": [
+        {"from": "verification-executor", "to": "generic-executor"},
+        {"from": "repair-executor", "to": "code-executor"}
+      ],
+      "benefit": "减少33%执行器类型"
+    },
+    {
+      "id": "OPT-003",
+      "priority": "high",
+      "type": "state_machine_simplification",
+      "description": "13种状态简化为10种",
+      "states_to_merge": [
+        {"from": ["verifying", "repairing", "reporting"], "to": "processing"}
+      ],
+      "benefit": "减少23%状态数量"
+    },
+    {
+      "id": "PERF-001",
+      "priority": "high",
+      "type": "database_performance",
+      "description": "pgvector查询优化",
+      "actions": [
+        "添加复合索引(org_id, scope_type) + embedding",
+        "使用分区表按org_id分区",
+        "实现查询结果缓存"
+      ],
+      "benefit": "向量检索性能提升50%"
+    },
+    {
+      "id": "PERF-002",
+      "priority": "high",
+      "type": "database_performance",
+      "description": "AGE图查询优化",
+      "actions": [
+        "限制图查询深度max_hops≤2",
+        "实现图查询结果缓存",
+        "添加图投影事件批量处理"
+      ],
+      "benefit": "AGE查询性能提升30%"
+    }
+  ],
+  "execution_plan": {
+    "phase_1": {
+      "name": "文档精简",
+      "duration": "1周",
+      "tasks": [
+        "创建archive/audit-history目录",
+        "移动历史审计报告",
+        "精简AH1-33重复内容",
+        "精简object-relationship-graph.md",
+        "更新交叉引用链接"
+      ]
+    },
+    "phase_2": {
+      "name": "架构优化",
+      "duration": "2周",
+      "tasks": [
+        "执行器合并",
+        "状态机简化",
+        "配置统一"
+      ]
+    },
+    "phase_3": {
+      "name": "性能优化",
+      "duration": "2周",
+      "tasks": [
+        "数据库索引优化",
+        "服务调用缓存",
+        "LLM调用优化"
+      ]
+    },
+    "phase_4": {
+      "name": "表合并",
+      "duration": "1周",
+      "tasks": [
+        "梦境模式表合并",
+        "数据迁移",
+        "验证测试"
+      ]
+    }
+  },
+  "risk_assessment": [
+    {
+      "risk": "表合并数据迁移风险",
+      "mitigation": "分步迁移，保留备份"
+    },
+    {
+      "risk": "状态简化兼容性风险",
+      "mitigation": "保留旧状态映射"
+    },
+    {
+      "risk": "执行器合并功能缺失风险",
+      "mitigation": "合并前验证功能覆盖"
+    },
+    {
+      "risk": "文档引用断裂风险",
+      "mitigation": "更新所有交叉引用链接"
+    }
+  ]
+}

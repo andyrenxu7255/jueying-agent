@@ -1,0 +1,235 @@
+{
+  "version": "v1.0",
+  "generated_date": "2026-05-10",
+  "description": "冗余内容映射，用于精简决策",
+  "redundancy_map": {
+    "by_file": {
+      "AH1-33-文档关系与一致性清单.md": {
+        "total_lines": 540,
+        "redundant_sections": [
+          {
+            "section": "§2.1 文档依赖矩阵",
+            "lines": 50,
+            "duplicate_of": "DEV-08§3",
+            "action": "delete",
+            "priority": "high"
+          },
+          {
+            "section": "§3.1 核心内容对象",
+            "lines": 40,
+            "duplicate_of": "DEV-08§4",
+            "action": "delete",
+            "priority": "high"
+          },
+          {
+            "section": "§9 依赖分层",
+            "lines": 30,
+            "duplicate_of": "DEV-08§9",
+            "action": "delete",
+            "priority": "high"
+          },
+          {
+            "section": "§6 按任务加载的最小上下文包",
+            "lines": 25,
+            "duplicate_of": "DEV-08§6",
+            "action": "delete",
+            "priority": "high"
+          }
+        ],
+        "keep_sections": [
+          "§4 配置项一致性管理",
+          "§5 版本与变更追踪",
+          "§7 维护指南"
+        ],
+        "estimated_savings": 145,
+        "savings_percentage": 27
+      },
+      "object-relationship-graph.md": {
+        "total_lines": 1250,
+        "redundant_sections": [
+          {
+            "section": "§9 文档权威源映射",
+            "lines": 50,
+            "duplicate_of": "context-graph.json authority",
+            "action": "delete",
+            "priority": "high"
+          },
+          {
+            "section": "§11 任务级上下文加载策略",
+            "lines": 40,
+            "duplicate_of": "DEV-08§11",
+            "action": "delete",
+            "priority": "high"
+          }
+        ],
+        "keep_sections": [
+          "§1 系统拓扑",
+          "§2 核心领域对象",
+          "§3 数据库表ER图",
+          "§4 工作流状态机",
+          "§5 核心故事线",
+          "§6 服务调用关系矩阵",
+          "§7 执行器类型与阶段映射",
+          "§8 Workflow类型模板",
+          "§10 关键文件索引"
+        ],
+        "estimated_savings": 90,
+        "savings_percentage": 7
+      },
+      "ARCHITECTURE.md": {
+        "total_lines": 800,
+        "redundant_sections": [
+          {
+            "section": "§3.1 核心业务服务表格",
+            "lines": 30,
+            "duplicate_of": "用户故事线§1.3",
+            "action": "delete",
+            "priority": "high"
+          }
+        ],
+        "keep_sections": [
+          "§2 服务架构图",
+          "§4 核心数据流",
+          "§5 工作流状态机",
+          "§6 数据库核心表",
+          "§7 关键配置项",
+          "§8 启动命令",
+          "§9 API端点速查",
+          "§10-15 修复记录"
+        ],
+        "estimated_savings": 30,
+        "savings_percentage": 4
+      },
+      "用户故事线.md": {
+        "total_lines": 2260,
+        "redundant_sections": [
+          {
+            "section": "§1.3 服务架构总览表格",
+            "lines": 20,
+            "duplicate_of": "ARCHITECTURE§3.1",
+            "action": "keep_more_detailed",
+            "priority": "medium"
+          },
+          {
+            "section": "§19 梦境——每日记忆总结与压缩归档",
+            "lines": 150,
+            "overlap_with": "§20 梦境模式——记忆分层管理+技能发现生态",
+            "action": "merge",
+            "priority": "medium"
+          }
+        ],
+        "keep_sections": [
+          "全部故事线内容"
+        ],
+        "estimated_savings": 170,
+        "savings_percentage": 8
+      },
+      "DEV-08-文件内容与依赖对象图谱.md": {
+        "total_lines": 280,
+        "redundant_sections": [
+          {
+            "section": "§7 机器可读索引JSON",
+            "lines": 50,
+            "duplicate_of": "context-graph.json",
+            "action": "reference",
+            "priority": "medium"
+          }
+        ],
+        "keep_sections": [
+          "§1-6",
+          "§8-12"
+        ],
+        "estimated_savings": 50,
+        "savings_percentage": 18
+      }
+    },
+    "by_content": {
+      "document_dependency_matrix": {
+        "defined_in": ["AH1-33§2.1", "DEV-08§3"],
+        "authoritative_source": "DEV-08",
+        "action": "AH1-33删除，DEV-08保留"
+      },
+      "core_object_definition": {
+        "defined_in": ["AH1-33§3.1", "DEV-08§4", "object-relationship-graph§2"],
+        "authoritative_source": "DEV-08",
+        "action": "其他文档引用DEV-08"
+      },
+      "authority_source_mapping": {
+        "defined_in": ["AH1-33§4", "DEV-08§7", "object-relationship-graph§9", "context-graph.json"],
+        "authoritative_source": "context-graph.json",
+        "action": "其他文档删除，引用context-graph.json"
+      },
+      "layer_definition": {
+        "defined_in": ["AH1-33§9", "DEV-08§9"],
+        "authoritative_source": "DEV-08",
+        "action": "AH1-33删除"
+      },
+      "context_loading_strategy": {
+        "defined_in": ["AH1-33§6", "DEV-08§6", "DEV-08§11", "object-relationship-graph§11"],
+        "authoritative_source": "DEV-08",
+        "action": "其他文档删除"
+      },
+      "service_list": {
+        "defined_in": ["ARCHITECTURE§3.1", "用户故事线§1.3"],
+        "authoritative_source": "用户故事线",
+        "action": "ARCHITECTURE删除表格，引用用户故事线"
+      },
+      "dream_mode": {
+        "defined_in": ["用户故事线§19", "用户故事线§20"],
+        "authoritative_source": "合并后单一故事线",
+        "action": "合并§19和§20"
+      }
+    },
+    "archive_candidates": [
+      {
+        "file": "SYSTEM-AUDIT-2026-05-05.md",
+        "reason": "已被MAX版本覆盖",
+        "archive_to": "archive/audit-history/"
+      },
+      {
+        "file": "SYSTEM-AUDIT-2026-05-06.md",
+        "reason": "已被MAX版本覆盖",
+        "archive_to": "archive/audit-history/"
+      },
+      {
+        "file": "SYSTEM-AUDIT-2026-05-06-COMPREHENSIVE.md",
+        "reason": "已被MAX版本覆盖",
+        "archive_to": "archive/audit-history/"
+      },
+      {
+        "file": "AH1-37-架构审计报告.md",
+        "reason": "安全部分已过时",
+        "archive_to": "archive/audit-history/"
+      },
+      {
+        "file": "AH1-38-文档审计报告.md",
+        "reason": "OpenCode部分已过时",
+        "archive_to": "archive/audit-history/"
+      },
+      {
+        "file": "agent-harness/AUDIT-REPORT.md",
+        "reason": "已被V3版本覆盖",
+        "archive_to": "archive/audit-history/"
+      },
+      {
+        "file": "agent-harness/FIX-REPORT.md",
+        "reason": "已被ARCHITECTURE.md§10-15覆盖",
+        "archive_to": "archive/audit-history/"
+      },
+      {
+        "file": "development/handoff.md",
+        "reason": "已被DEV-13覆盖",
+        "archive_to": "archive/audit-history/"
+      }
+    ],
+    "summary": {
+      "total_files_analyzed": 56,
+      "files_with_redundancy": 12,
+      "total_redundant_lines": 6500,
+      "files_to_archive": 8,
+      "sections_to_delete": 15,
+      "sections_to_merge": 2,
+      "estimated_savings_percentage": 22
+    }
+  }
+}

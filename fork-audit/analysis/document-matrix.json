@@ -1,0 +1,232 @@
+{
+  "version": "v1.0",
+  "generated_date": "2026-05-10",
+  "description": "文档依赖关系矩阵，用于识别冗余和优化引用",
+  "documents": {
+    "AH1-00": {
+      "title": "实施规格包",
+      "layer": "L0",
+      "role": "总纲",
+      "depends_on": [],
+      "consumed_by": ["AH1-01", "AH1-02", "AH1-13", "AH1-17", "AH1-25"]
+    },
+    "AH1-13": {
+      "title": "仓库复用与改造边界",
+      "layer": "L0",
+      "role": "复用边界定义",
+      "depends_on": ["AH1-00"],
+      "consumed_by": ["AH1-14", "DEV-07"]
+    },
+    "AH1-14": {
+      "title": "数据库表设计与索引",
+      "layer": "L0",
+      "role": "数据库权威源",
+      "depends_on": ["AH1-00", "AH1-16", "AH1-17", "AH1-20"],
+      "consumed_by": ["AH1-15", "AH1-20", "AH1-22", "DEV-03", "object-relationship-graph"]
+    },
+    "AH1-15": {
+      "title": "核心接口与事件契约",
+      "layer": "L0",
+      "role": "API权威源",
+      "depends_on": ["AH1-00", "AH1-14", "AH1-16", "AH1-17", "AH1-20", "AH1-21"],
+      "consumed_by": ["AH1-16", "AH1-18", "AH1-21", "AH1-23", "AH1-30", "DEV-01", "DEV-02"]
+    },
+    "AH1-16": {
+      "title": "权限Scope-Policy-Snapshot",
+      "layer": "L0",
+      "role": "权限权威源",
+      "depends_on": ["AH1-00", "AH1-15"],
+      "consumed_by": ["AH1-14", "AH1-15", "AH1-17", "AH1-18", "AH1-20", "AH1-21", "DEV-02"]
+    },
+    "AH1-17": {
+      "title": "Workflow-DSL与Planner契约",
+      "layer": "L0",
+      "role": "Workflow权威源",
+      "depends_on": ["AH1-00", "AH1-16"],
+      "consumed_by": ["AH1-14", "AH1-15", "AH1-18", "AH1-19", "DEV-02", "DEV-04"]
+    },
+    "AH1-18": {
+      "title": "Code-Executor与执行会话",
+      "layer": "L0",
+      "role": "Executor权威源",
+      "depends_on": ["AH1-13", "AH1-15", "AH1-16", "AH1-17", "AH1-19", "AH1-22", "AH1-26"],
+      "consumed_by": ["AH1-19", "AH1-22", "DEV-04"]
+    },
+    "AH1-19": {
+      "title": "Checkpoint-Resume-Replay",
+      "layer": "L0",
+      "role": "Checkpoint权威源",
+      "depends_on": ["AH1-16", "AH1-17", "AH1-18", "AH1-22", "AH1-23"],
+      "consumed_by": ["AH1-18", "DEV-02", "DEV-04"]
+    },
+    "AH1-20": {
+      "title": "检索编排与Fact-Write",
+      "layer": "L0",
+      "role": "检索权威源",
+      "depends_on": ["AH1-14", "AH1-15", "AH1-16", "AH1-26"],
+      "consumed_by": ["AH1-17", "DEV-03", "DEV-05"]
+    },
+    "AH1-21": {
+      "title": "渠道接入与Session映射",
+      "layer": "L0",
+      "role": "渠道权威源",
+      "depends_on": ["AH1-15", "AH1-16"],
+      "consumed_by": ["DEV-02", "DEV-14"]
+    },
+    "AH1-22": {
+      "title": "Artifact-Object-Storage",
+      "layer": "L0",
+      "role": "存储权威源",
+      "depends_on": ["AH1-14", "AH1-16", "AH1-18", "AH1-19", "AH1-20", "AH1-21"],
+      "consumed_by": ["AH1-18", "AH1-19", "AH1-23", "DEV-04"]
+    },
+    "AH1-23": {
+      "title": "审计日志指标与告警",
+      "layer": "L0",
+      "role": "审计权威源",
+      "depends_on": ["AH1-15", "AH1-16", "AH1-19", "AH1-20", "AH1-21", "AH1-22", "AH1-29"],
+      "consumed_by": ["AH1-24", "AH1-27", "DEV-06"]
+    },
+    "AH1-26": {
+      "title": "Provider选择与配置",
+      "layer": "L0",
+      "role": "Provider权威源",
+      "depends_on": ["AH1-00", "AH1-15"],
+      "consumed_by": ["AH1-20", "AH1-27", "AH1-28", "DEV-05"]
+    },
+    "AH1-28": {
+      "title": "配置管理",
+      "layer": "L0",
+      "role": "配置权威源",
+      "depends_on": ["AH1-00", "AH1-26"],
+      "consumed_by": ["AH1-26", "AH1-27", "DEV-01"]
+    },
+    "AH1-31": {
+      "title": "错误处理与降级策略",
+      "layer": "L0",
+      "role": "错误权威源",
+      "depends_on": ["AH1-15", "AH1-16", "AH1-18", "AH1-20", "AH1-26"],
+      "consumed_by": ["AH1-23", "DEV-06"]
+    },
+    "AH1-32": {
+      "title": "API版本管理策略",
+      "layer": "L0",
+      "role": "版本权威源",
+      "depends_on": ["AH1-15"],
+      "consumed_by": ["AH1-30"]
+    },
+    "AH1-33": {
+      "title": "文档关系与一致性清单",
+      "layer": "L2",
+      "role": "一致性检查",
+      "depends_on": ["ALL"],
+      "consumed_by": [],
+      "redundancy": {
+        "with": "DEV-08",
+        "overlap_percentage": 60,
+        "action": "精简，仅保留一致性检查部分"
+      }
+    },
+    "AH1-37": {
+      "title": "架构审计报告",
+      "layer": "L2",
+      "role": "审计报告",
+      "depends_on": ["ALL"],
+      "consumed_by": [],
+      "redundancy": {
+        "with": "SYSTEM-AUDIT-2026-05-08-MAX",
+        "overlap_percentage": 50,
+        "action": "归档"
+      }
+    },
+    "AH1-38": {
+      "title": "文档审计报告",
+      "layer": "L2",
+      "role": "审计报告",
+      "depends_on": ["ALL"],
+      "consumed_by": [],
+      "redundancy": {
+        "with": "fork-audit",
+        "overlap_percentage": 30,
+        "action": "归档"
+      }
+    },
+    "DEV-00": {
+      "title": "开发索引",
+      "layer": "L1",
+      "role": "开发入口",
+      "depends_on": ["AH1-25"],
+      "consumed_by": ["DEV-01", "DEV-02", "DEV-03", "DEV-04", "DEV-05", "DEV-06"]
+    },
+    "DEV-08": {
+      "title": "文件内容与依赖对象图谱",
+      "layer": "L1",
+      "role": "文档图谱权威源",
+      "depends_on": ["AH1-33"],
+      "consumed_by": ["DEV-09", "DEV-10", "DEV-11", "DEV-12"],
+      "redundancy": {
+        "with": ["AH1-33", "object-relationship-graph", "context-graph.json"],
+        "overlap_percentage": 70,
+        "action": "合并为单一权威源"
+      }
+    },
+    "object-relationship-graph": {
+      "title": "对象关系图谱",
+      "layer": "L1",
+      "role": "技术实现图谱",
+      "depends_on": ["AH1-14", "AH1-17", "DEV-08"],
+      "consumed_by": [],
+      "redundancy": {
+        "with": "DEV-08",
+        "overlap_sections": ["§9", "§11"],
+        "action": "删除重复章节"
+      }
+    },
+    "ARCHITECTURE": {
+      "title": "系统架构文档",
+      "layer": "system",
+      "role": "技术参考手册",
+      "depends_on": ["用户故事线"],
+      "consumed_by": [],
+      "redundancy": {
+        "with": "用户故事线",
+        "overlap_sections": ["§3.1"],
+        "action": "删除服务清单表格，引用用户故事线"
+      }
+    },
+    "用户故事线": {
+      "title": "用户故事线",
+      "layer": "business",
+      "role": "业务流程描述",
+      "depends_on": [],
+      "consumed_by": ["ARCHITECTURE"],
+      "redundancy": {
+        "internal": ["§19", "§20"],
+        "action": "合并梦境模式为单一故事线"
+      }
+    }
+  },
+  "redundancy_clusters": [
+    {
+      "cluster_id": "RC-001",
+      "type": "document_graph_overlap",
+      "documents": ["AH1-33", "DEV-08", "object-relationship-graph", "context-graph.json"],
+      "total_overlap": 70,
+      "recommended_action": "合并为DEV-08单一权威源"
+    },
+    {
+      "cluster_id": "RC-002",
+      "type": "audit_report_overlap",
+      "documents": ["SYSTEM-AUDIT-2026-05-05", "SYSTEM-AUDIT-2026-05-06", "SYSTEM-AUDIT-2026-05-06-COMPREHENSIVE", "SYSTEM-AUDIT-2026-05-08-MAX", "AH1-37"],
+      "total_overlap": 50,
+      "recommended_action": "保留MAX版本，其他归档"
+    },
+    {
+      "cluster_id": "RC-003",
+      "type": "architecture_overlap",
+      "documents": ["ARCHITECTURE", "用户故事线"],
+      "total_overlap": 40,
+      "recommended_action": "明确职责分工，删除重复表格"
+    }
+  ]
+}
