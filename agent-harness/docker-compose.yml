@@ -22,7 +22,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - agent-harness-net
+      - agent-harness-backend
     deploy:
       resources:
         limits:
@@ -45,7 +45,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - agent-harness-net
+      - agent-harness-backend
     deploy:
       resources:
         limits:
@@ -72,7 +72,7 @@ services:
       timeout: 20s
       retries: 3
     networks:
-      - agent-harness-net
+      - agent-harness-backend
     deploy:
       resources:
         limits:
@@ -103,6 +103,7 @@ services:
       start_period: 30s
     networks:
       - agent-harness-net
+      - agent-harness-backend
     depends_on:
       redis:
         condition: service_healthy
@@ -125,6 +126,7 @@ services:
       - "4318:4318"     # OTLP HTTP
     networks:
       - agent-harness-net
+      - agent-harness-backend
     depends_on:
       - clickhouse
 
@@ -143,7 +145,7 @@ services:
       - "9002:9000"
       - "8123:8123"
     networks:
-      - agent-harness-net
+      - agent-harness-backend
     deploy:
       resources:
         limits:
@@ -161,6 +163,7 @@ services:
       - SIGNOZ_API_URL=http://signoz-query-service:8080
     networks:
       - agent-harness-net
+      - agent-harness-backend
     depends_on:
       - signoz-query-service
 
@@ -180,6 +183,7 @@ services:
       - "8080:8080"
     networks:
       - agent-harness-net
+      - agent-harness-backend
     depends_on:
       - clickhouse
     restart: unless-stopped
@@ -232,6 +236,7 @@ services:
         condition: service_started
     networks:
       - agent-harness-net
+      - agent-harness-backend
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
@@ -281,6 +286,7 @@ services:
         condition: service_started
     networks:
       - agent-harness-net
+      - agent-harness-backend
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
@@ -333,6 +339,7 @@ services:
         condition: service_healthy
     networks:
       - agent-harness-net
+      - agent-harness-backend
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
@@ -386,6 +393,7 @@ services:
         condition: service_started
     networks:
       - agent-harness-net
+      - agent-harness-backend
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
@@ -436,6 +444,7 @@ services:
         condition: service_started
     networks:
       - agent-harness-net
+      - agent-harness-backend
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
@@ -465,6 +474,7 @@ services:
         condition: service_started
     networks:
       - agent-harness-net
+      - agent-harness-backend
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
@@ -506,6 +516,7 @@ services:
         condition: service_started
     networks:
       - agent-harness-net
+      - agent-harness-backend
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
@@ -530,6 +541,7 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - agent-harness-net
+      - agent-harness-backend
     deploy:
       resources:
         limits:
@@ -564,6 +576,7 @@ services:
         condition: service_healthy
     networks:
       - agent-harness-net
+      - agent-harness-backend
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
@@ -606,6 +619,7 @@ services:
         condition: service_healthy
     networks:
       - agent-harness-net
+      - agent-harness-backend
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
@@ -650,6 +664,7 @@ services:
         condition: service_healthy
     networks:
       - agent-harness-net
+      - agent-harness-backend
     deploy:
       resources:
         limits:
@@ -674,6 +689,7 @@ services:
       OLLAMA_HOST: http://ollama:11434
     networks:
       - agent-harness-net
+      - agent-harness-backend
     restart: "no"
 
 volumes:
@@ -691,3 +707,9 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/16
+  agent-harness-backend:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16

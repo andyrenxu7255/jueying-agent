@@ -573,6 +573,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         return;
       }
       const adminOverride = ADMIN_PASSWORD && password === ADMIN_PASSWORD;
+      const isDefaultPassword = !adminOverride && (password === 'admin' || password === 'admin123' || password === rawUsername);
+      if (isDefaultPassword) {
+        sendJson(res, 403, { ok: false, error: 'default_password_blocked', message: '检测到默认密码。为了安全，请使用管理员覆盖密码登录或通过密码重置流程修改密码。' });
+        return;
+      }
       if (!adminOverride) {
         const rateCheck = checkLoginRateLimit(rateLimitKey);
         if (rateCheck.blocked) {
@@ -651,9 +656,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         created_at: Date.now(),
         context_workflows: {},
       });
-      const mustChangePassword = password === 'admin' || password === 'admin123' || password === rawUsername;
       await auditWriter.write({ action: 'user.login', user_id: userId, resource_type: 'session', resource_ref: sessionId, resource_scope: 'system', result: 'success', detail_json: { username: rawUsername } });
-      sendJson(res, 200, { ok: true, session_id: sessionId, role, org_id: orgId, must_change_password: mustChangePassword, username: rawUsername });
+      sendJson(res, 200, { ok: true, session_id: sessionId, role, org_id: orgId, username: rawUsername });
       return;
     }
 
@@ -882,9 +886,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/users' && method === 'GET') {
       const session = await requireSession(req, res);
       if (!session) return;
-      // TODO: gateway-adapter does not expose '/users' - should query DB directly or add endpoint to gateway
-      const r = await fetchFromService(gatewayUrl + '/users');
-      sendJson(res, r.status, r.data);
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const result = await pool.query(
+          `SELECT id, username, display_name, role, org_id, status, metadata, created_at, updated_at FROM "user" WHERE org_id = $1 ORDER BY created_at DESC`,
+          [session.org_id || '00000000-0000-0000-0000-000000000001']
+        );
+        sendJson(res, 200, { ok: true, users: result.rows });
+      } catch (err) {
+        logger.error('users.query_failed', 'Failed to query users', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'query_failed' });
+      }
       return;
     }
 
@@ -900,9 +913,36 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           return;
         }
       }
-      // TODO: gateway-adapter does not expose '/users' POST - should query DB directly or add endpoint to gateway
-      const r = await fetchFromService(gatewayUrl + '/users', { method: 'POST', body: JSON.stringify(body) });
-      sendJson(res, r.status, r.data);
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const username = String(body.username || '').trim();
+        if (!username) { sendJson(res, 400, { ok: false, error: 'missing_username' }); return; }
+        const orgId = String(body.org_id || session.org_id || '00000000-0000-0000-0000-000000000001');
+        const existing = await pool.query('SELECT id FROM "user" WHERE username = $1 AND org_id = $2', [username, orgId]);
+        if (existing.rows.length > 0) {
+          sendJson(res, 409, { ok: false, error: 'username_already_exists' });
+          return;
+        }
+        const displayName = String(body.display_name || username);
+        const role = String(body.role || 'member');
+        const passwordHash = newPassword ? hashPassword(newPassword) : null;
+        const mustChangePassword = !newPassword;
+        const result = await pool.query(
+          `INSERT INTO "user" (username, display_name, role, org_id, status, password_hash, must_change_password, created_at, updated_at)
+           VALUES ($1,$2,$3,$4,'active',$5,$6,now(),now()) RETURNING id, username, display_name, role, org_id, status, created_at`,
+          [username, displayName, role, orgId, passwordHash, mustChangePassword]
+        );
+        const user = result.rows[0];
+        if (user) {
+          delete user.password_hash;
+          delete user.must_change_password;
+        }
+        sendJson(res, 201, { ok: true, user });
+      } catch (err) {
+        logger.error('users.create_failed', 'Failed to create user', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'create_failed' });
+      }
       return;
     }
 
@@ -1315,15 +1355,10 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const pool = await getDbPool();
       if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
-      // TODO: gateway-adapter does not expose '/internal/query' - should query DB directly
-      const r = await fetchFromService(gatewayUrl + '/internal/query', {
-        method: 'POST',
-        body: JSON.stringify({ sql: 'SELECT * FROM dream_mode_config WHERE org_id = $1', params: [session.org_id || '00000000-0000-0000-0000-000000000001'] })
-      }).catch(() => null);
-      if (r && r.status === 200) {
-        const result = r.data as { rows?: Array<Record<string, unknown>> };
+      try {
+        const result = await pool.query('SELECT * FROM dream_mode_config WHERE org_id = $1 LIMIT 1', [session.org_id || '00000000-0000-0000-0000-000000000001']);
         sendJson(res, 200, { ok: true, config: result.rows?.[0] || null });
-      } else {
+      } catch {
         sendJson(res, 200, { ok: true, config: null });
       }
       return;
@@ -1655,6 +1690,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           for (const line of containers) {
             const [id, name, status, image] = line.split('|');
             if (!id || !name) continue;
+            if (!/^[a-fA-F0-9]{6,64}$/.test(id)) continue;
             let cpuPct = '0', memPct = '0', memUsage = '-', netIo = '-', blockIo = '-';
             try {
               const statsOutput = execSync(`docker stats --no-stream --format "{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}" ${id}`, { timeout: 10000, encoding: 'utf8' });

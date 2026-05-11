@@ -20,14 +20,22 @@
         "pool_size": { "type": "integer", "minimum": 1, "maximum": 100 },
         "connection_timeout_ms": { "type": "integer", "minimum": 100 },
         "statement_timeout_ms": { "type": "integer", "minimum": 100 },
-        "ssl": { "type": "boolean" }
+        "ssl": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
       }
     },
     "redis": {
       "type": "object",
       "properties": {
         "url": { "type": "string" },
+        "key_prefix": { "type": "string" },
         "prefix": { "type": "string" },
+        "max_retries": { "type": "integer" },
+        "retry_delay_ms": { "type": "integer" },
         "retry_strategy": { "type": "object" }
       }
     },
@@ -35,11 +43,13 @@
       "type": "object",
       "properties": {
         "backend": { "type": "string", "enum": ["localfs", "minio", "s3"] },
+        "local_root": { "type": "string" },
         "endpoint": { "type": "string" },
         "bucket": { "type": "string" },
         "access_key": { "type": "string" },
         "secret_key": { "type": "string" },
-        "region": { "type": "string" }
+        "region": { "type": "string" },
+        "use_ssl": { "type": "boolean" }
       }
     },
     "workflow": {
@@ -48,7 +58,12 @@
         "max_concurrent": { "type": "integer", "minimum": 1 },
         "default_timeout_sec": { "type": "integer", "minimum": 30 },
         "checkpoint_interval_sec": { "type": "integer", "minimum": 10 },
-        "max_retries": { "type": "integer", "minimum": 0, "maximum": 10 }
+        "max_retries": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "max_repairs": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "poll_interval_sec": { "type": "integer", "minimum": 1 },
+        "plan_budget_sec": { "type": "integer", "minimum": 60 },
+        "supervisor_budget_sec": { "type": "integer", "minimum": 60 },
+        "poll_max_iterations": { "type": "integer", "minimum": 1 }
       }
     },
     "llm": {
@@ -56,10 +71,32 @@
       "properties": {
         "primary_model": { "type": "string" },
         "fallback_model": { "type": "string" },
+        "fallback_models": { "type": "array", "items": { "type": "string" } },
         "litellm_url": { "type": "string" },
         "litellm_master_key": { "type": "string" },
+        "litellm_api_key": { "type": "string" },
+        "default_timeout_ms": { "type": "integer" },
+        "planner_model": { "type": "string" },
+        "executor_model": { "type": "string" },
         "minimax_api_key": { "type": "string" },
-        "dashscope_api_key": { "type": "string" }
+        "dashscope_api_key": { "type": "string" },
+        "minimax": {
+          "type": "object",
+          "properties": {
+            "api_base": { "type": "string" },
+            "api_key": { "type": "string" },
+            "model": { "type": "string" },
+            "max_tokens": { "type": "integer" }
+          }
+        },
+        "dashscope": {
+          "type": "object",
+          "properties": {
+            "api_base": { "type": "string" },
+            "api_key": { "type": "string" },
+            "models": { "type": "array", "items": { "type": "string" } }
+          }
+        }
       }
     },
     "executor": {
@@ -67,6 +104,7 @@
       "properties": {
         "max_concurrent_sessions": { "type": "integer", "minimum": 1 },
         "worktree_base": { "type": "string" },
+        "worktree_root": { "type": "string" },
         "default_timeout_sec": { "type": "integer", "minimum": 30 }
       }
     },
@@ -93,7 +131,9 @@
     "logging": {
       "type": "object",
       "properties": {
-        "level": { "type": "string", "enum": ["debug", "info", "warn", "error"] }
+        "level": { "type": "string", "enum": ["debug", "info", "warn", "error"] },
+        "format": { "type": "string", "enum": ["json", "text"] },
+        "output": { "type": "string", "enum": ["stdout", "file"] }
       }
     },
     "metrics": {
@@ -109,6 +149,32 @@
         "enabled": { "type": "boolean" },
         "endpoint": { "type": "string" },
         "sample_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "feishu": {
+      "type": "object",
+      "properties": {
+        "app_id": { "type": "string" },
+        "app_secret": { "type": "string" },
+        "verification_token": { "type": "string" },
+        "encrypt_key": { "type": "string" },
+        "bot_name": { "type": "string" }
+      }
+    },
+    "cors": {
+      "type": "object",
+      "properties": {
+        "origins": { "type": "array", "items": { "type": "string" } },
+        "allow_credentials": { "type": "boolean" }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "jwt_secret": { "type": "string" },
+        "session_secret": { "type": "string" },
+        "internal_auth_secret": { "type": "string" },
+        "admin_password": { "type": "string" }
       }
     }
   }

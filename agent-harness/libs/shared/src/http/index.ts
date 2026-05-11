@@ -113,11 +113,8 @@ export function getInternalAuthHeaders(): Record<string, string> {
 export function verifyInternalAuth(req: import('node:http').IncomingMessage): boolean {
   const secret = getInternalAuthSecret();
   if (!secret) {
-if (process.env.NODE_ENV === 'production') {
-      console.error('[SECURITY] INTERNAL_AUTH_SECRET not set in production - rejecting internal request');
-      return false;
-    }
-    return true;
+    console.error('[SECURITY] INTERNAL_AUTH_SECRET not set - rejecting all internal requests');
+    return false;
   }
 
   const authHeader = req.headers[INTERNAL_AUTH_HEADER];

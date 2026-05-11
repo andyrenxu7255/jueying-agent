@@ -19,7 +19,7 @@ storage:
   secret_key: ${MINIO_SECRET_KEY}
   bucket: ${MINIO_BUCKET:-agent-harness}
   region: us-east-1
-  use_ssl: false
+  use_ssl: true
 
 workflow:
   max_concurrent: 50

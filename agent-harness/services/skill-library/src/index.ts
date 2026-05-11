@@ -2,6 +2,22 @@ import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport, readJson, sendJson } from '@agent-harness/shared';
 
+function sanitizeSkillName(raw: string): string {
+  return raw.replace(/[<>"'&/\\]/g, '').trim().slice(0, 200);
+}
+
+async function verifySkillOwnership(pool: unknown, skillId: string, requesterUserId: string): Promise<{ ok: boolean; skill?: Record<string, unknown> }> {
+  try {
+    const result = await (pool as { query: (sql: string, params: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> }).query('SELECT owner_user_id, scope_type, status, org_id FROM skill WHERE id = $1', [skillId]);
+    if (result.rows.length === 0) return { ok: false };
+    const skill = result.rows[0];
+    if (skill.owner_user_id !== requesterUserId) return { ok: false };
+    return { ok: true, skill };
+  } catch {
+    return { ok: false };
+  }
+}
+
 /**
  * skill-library 服务 - 技能库管理服务
  *
@@ -931,8 +947,8 @@ const server = createServer(async (req, res) => {
         return;
       }
 
-      const skillName = String(body.skill_name || '');
-      if (!skillName.trim()) {
+      const skillName = sanitizeSkillName(String(body.skill_name || ''));
+      if (!skillName) {
         sendJson(res, 400, { ok: false, error: 'missing_skill_name' });
         return;
       }
@@ -1023,8 +1039,17 @@ const server = createServer(async (req, res) => {
     // 路由匹配：/internal/skills/:id/publish
     if (pathname.startsWith('/internal/skills/') && pathname.endsWith('/publish') && req.method === 'POST') {
       const skillId = pathname.split('/')[3];
-      if (!skillId) {
-        sendJson(res, 400, { ok: false, error: 'missing_skill_id' });
+      const body = await readJson(req);
+      const requesterUserId = String(body.requester_user_id || '');
+      if (!skillId || !requesterUserId) {
+        sendJson(res, 400, { ok: false, error: !skillId ? 'missing_skill_id' : 'missing_requester_user_id' });
+        return;
+      }
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+      const ownership = await verifySkillOwnership(pool, skillId, requesterUserId);
+      if (!ownership.ok) {
+        sendJson(res, 403, { ok: false, error: 'forbidden: not the owner of this skill' });
         return;
       }
       const result = await publishSkill(skillId);
@@ -1035,8 +1060,17 @@ const server = createServer(async (req, res) => {
     // 路由匹配：/internal/skills/:id/archive
     if (pathname.startsWith('/internal/skills/') && pathname.endsWith('/archive') && req.method === 'POST') {
       const skillId = pathname.split('/')[3];
-      if (!skillId) {
-        sendJson(res, 400, { ok: false, error: 'missing_skill_id' });
+      const body = await readJson(req);
+      const requesterUserId = String(body.requester_user_id || '');
+      if (!skillId || !requesterUserId) {
+        sendJson(res, 400, { ok: false, error: !skillId ? 'missing_skill_id' : 'missing_requester_user_id' });
+        return;
+      }
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+      const ownership = await verifySkillOwnership(pool, skillId, requesterUserId);
+      if (!ownership.ok) {
+        sendJson(res, 403, { ok: false, error: 'forbidden: not the owner of this skill' });
         return;
       }
       const result = await archiveSkill(skillId);
@@ -1055,6 +1089,19 @@ const server = createServer(async (req, res) => {
 
       if (!body.definition_json) {
         sendJson(res, 400, { ok: false, error: 'missing_definition_json' });
+        return;
+      }
+
+      const requesterUserId = String(body.requester_user_id || '');
+      if (!requesterUserId) {
+        sendJson(res, 400, { ok: false, error: 'missing_requester_user_id' });
+        return;
+      }
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
+      const ownership = await verifySkillOwnership(pool, skillId, requesterUserId);
+      if (!ownership.ok) {
+        sendJson(res, 403, { ok: false, error: 'forbidden: not the owner of this skill' });
         return;
       }
 
@@ -1232,24 +1279,28 @@ const server = createServer(async (req, res) => {
     if (pathname.match(/^\/internal\/skills\/[0-9a-f-]{36}\/promote-to-org$/) && req.method === 'POST') {
       const skillId = pathname.split('/')[3];
       const body = await readJson(req);
-      const promotedBy = String(body.promoted_by || '');
+      const requesterUserId = String(body.requester_user_id || body.promoted_by || '');
+      if (!requesterUserId) {
+        sendJson(res, 400, { ok: false, error: 'missing_requester_user_id' });
+        return;
+      }
       const pool = await getDbPool();
 
       if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
 
       try {
-        const skillResult = await pool.query(`SELECT * FROM skill WHERE id = $1`, [skillId]);
-        if (skillResult.rows.length === 0) {
-          sendJson(res, 404, { ok: false, error: 'skill_not_found' });
+        const ownership = await verifySkillOwnership(pool, skillId, requesterUserId);
+        if (!ownership.ok) {
+          sendJson(res, 403, { ok: false, error: 'forbidden: not the owner of this skill' });
           return;
         }
-        const skill = skillResult.rows[0];
+        const skill = ownership.skill as Record<string, unknown>;
         await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skillId]);
         await pool.query(
           `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
            VALUES ($1,$2,$3,$2,'user_upgrade',$4,'other','active')
            ON CONFLICT DO NOTHING`,
-          [skill.org_id || '00000000-0000-0000-0000-000000000001', skillId, promotedBy || null, skill.owner_user_id]
+          [skill.org_id || '00000000-0000-0000-0000-000000000001', skillId, requesterUserId, skill.owner_user_id]
         );
         sendJson(res, 200, { ok: true, skill_id: skillId, scope_type: 'org' });
       } catch (err) {

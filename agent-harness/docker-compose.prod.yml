@@ -18,3 +18,45 @@ services:
     environment:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:?CLICKHOUSE_USER is required for production}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD is required for production}
+
+  litellm:
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?LITELLM_MASTER_KEY is required for production}
+
+  gateway-adapter:
+    environment:
+      NODE_ENV: production
+
+  web-portal:
+    environment:
+      NODE_ENV: production
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required for production}
+      INTERNAL_AUTH_SECRET: ${INTERNAL_AUTH_SECRET:?INTERNAL_AUTH_SECRET is required for production}
+
+  workflow:
+    environment:
+      NODE_ENV: production
+
+  executor-gateway:
+    environment:
+      NODE_ENV: production
+
+  fact-retrieval:
+    environment:
+      NODE_ENV: production
+
+  hermes-adapter:
+    environment:
+      NODE_ENV: production
+
+  skill-library:
+    environment:
+      NODE_ENV: production
+
+  resource-scheduler:
+    environment:
+      NODE_ENV: production
+
+  mobile-app:
+    environment:
+      NODE_ENV: production

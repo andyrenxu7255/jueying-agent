@@ -1,3 +1,45 @@
 *.log
 *.zip
 config-backup/
+
+# Secrets & Credentials
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.crt
+*.cer
+**/secrets/
+**/credentials/
+
+# Build Artifacts
+node_modules/
+dist/
+*.tsbuildinfo
+*.pyc
+__pycache__/
+.virtual_documents/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.trae/
+
+# Runtime Data
+postgres_data/
+redis_data/
+minio_data/
+clickhouse_data/
+ollama_data/
+signoz_data/
+executor_worktrees/
+
+# Deprecated
+deprecated/
+archive/
+.backup/
+.runtime/

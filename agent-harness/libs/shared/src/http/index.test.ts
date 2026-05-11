@@ -146,10 +146,10 @@ describe('verifyInternalAuth', () => {
     process.env = originalEnv;
   });
 
-  it('should return true when INTERNAL_AUTH_SECRET is not set', () => {
+  it('should return false when INTERNAL_AUTH_SECRET is not set (fail-closed)', () => {
     delete (process.env as Record<string, string>).INTERNAL_AUTH_SECRET;
     const req = createMockReq();
-    expect(verifyInternalAuth(req)).toBe(true);
+    expect(verifyInternalAuth(req)).toBe(false);
   });
 
   it('should return false when header is missing but secret is set', () => {

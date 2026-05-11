@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson as sendJsonShared } from '@agent-harness/shared';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson as sendJsonShared, verifyInternalAuth } from '@agent-harness/shared';
 import { hermesMemories } from '@agent-harness/shared';
 import { db } from './db';
 
@@ -671,13 +671,31 @@ const server = createServer(async (req, res) => {
               const parsed = JSON.parse(extracted);
               const facts = parsed.facts || [];
               for (const fact of facts) {
-                // TODO: Should go through fact-retrieval /internal/fact/submit for proper validation
-                await pool.query(
-                  `INSERT INTO fact (owner_user_id, org_id, scope_type, subject_ref, predicate, object_value, status, confidence, metadata)
-                   VALUES ($1,$2,'private',$3,$4,$5,'unconfirmed',0.6,jsonb_build_object('source','dream_extraction','date',$6))`,
-                  [ownerUserId, orgId, String(fact.subject || '').substring(0, 500), String(fact.predicate || '').substring(0, 500), String(fact.object || '').substring(0, 500), dateStr]
-                );
-                factsGenerated++;
+                try {
+                  const factRes = await fetch(`${FACT_RETRIEVAL_URL}/internal/facts/write`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                      owner_user_id: ownerUserId,
+                      org_id: orgId,
+                      scope: ['private'],
+                      mode: 'insert',
+                      subject_ref: String(fact.subject || '').substring(0, 500),
+                      predicate: String(fact.predicate || '').substring(0, 500),
+                      object_value: String(fact.object || '').substring(0, 500),
+                      confidence: 0.6,
+                      source: 'dream_extraction',
+                      date: dateStr,
+                    }),
+                  });
+                  if (factRes.ok) {
+                    factsGenerated++;
+                  } else {
+                    logger.warn('dream.fact_write_rejected', 'Fact-retrieval rejected dream fact', { status: factRes.status });
+                  }
+                } catch (factErr) {
+                  logger.warn('dream.fact_write_failed', 'Failed to write dream fact to fact-retrieval', { error: String(factErr) });
+                }
               }
             } catch (parseErr) {
               logger.warn('dream.extract_parse_failed', 'Failed to parse extraction result', { error: String(parseErr) });
@@ -823,6 +841,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (pathname === '/internal/memory/compression-logs' && req.method === 'GET') {
+    if (!verifyInternalAuth(req)) { sendJson(res, 403, { ok: false, error: 'internal_auth_required' }); return; }
     const pool = await getDbPool();
     if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
     try {
@@ -839,6 +858,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (pathname === '/internal/memory/access-log' && req.method === 'GET') {
+    if (!verifyInternalAuth(req)) { sendJson(res, 403, { ok: false, error: 'internal_auth_required' }); return; }
     const pool = await getDbPool();
     if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
     try {

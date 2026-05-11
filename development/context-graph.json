@@ -206,7 +206,8 @@
     "2026-05-06-R4": "Doc/Graph Sync: context-graph.json v1.7→1.8, DEV-08 updated, fix-changelog created, source_to_authority mapping added",
     "2026-05-06-R5": "Comprehensive audit fixes: authority_map corrections, layer classification for AH1-13/AH1-27, security-check authority expanded",
     "2026-05-08-R6": "Graph Sync Round 2: DEV-08 version sync (v1.1→v1.8), context-routing.json task_routes naming aligned (M1-M5 prefix convention), authority_map['resource'] corrected from AH1-31→AH1-26 (Provider/Budget L0 authority)",
-    "total_fixes": 24,
+    "2026-05-11-R7": "Security Audit Remediation Sync: S-03 verifyInternalAuth fail-closed, S-07 default password blocked, A-05 storage.use_ssl=true, S-05 container ID sanitization, S-08 docker-compose.prod.yml env overrides, A-06 Docker network split (agent-harness-backend internal), A-01 config.schema.json expanded (40+ fields). Object-relationship-graph.md v2.3 topology updated with network isolation diagram.",
+    "total_fixes": 31,
     "files_modified": 20,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
