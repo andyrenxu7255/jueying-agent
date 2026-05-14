@@ -1,7 +1,7 @@
 # agent-harness 系统架构文档
 
-> 版本: 2026-05-06 (第十五轮：全面系统审计修复 - 安全凭据清理 + 时序漏洞修复 + 路径遍历加固 + 代码风格统一 + 图谱文档同步)
-> 当前状态: **全链路验证通过，TypeScript零错误，系统指南文档与图谱已全面更新至代码最新状态**
+> 版本: 2026-05-14 (第十七轮：四轮安全深度审计完成 — 23项修复 + Ollama移除 + 前端安全加固 + Docker标签固定)
+> 当前状态: **全链路验证通过，TypeScript零错误 / Lint 0 errors，文档图谱与代码完全一致**
 
 ---
 
@@ -472,6 +472,23 @@ docker logs -f ah-mobile-app
 | POST | `/channels/wecom/webhook` | 接收企微回调 |
 | POST | `/webhook/feishu` | 飞书回调（兼容路径） |
 | POST | `/webhook/wecom` | 企微回调（兼容路径） |
+| GET  | `/channels/identity` | 查询渠道身份绑定 |
+| POST | `/channels/identity/:id/rebind` | 重新绑定渠道身份 |
+| GET  | `/tasks` | 用户查询自己的任务列表 |
+| POST | `/tasks/:id/submit` | 用户提交任务反馈 |
+| GET  | `/admin/tasks` | 管理员列出所有任务 |
+| POST | `/admin/tasks` | 管理员创建任务 |
+| PUT  | `/admin/tasks` | 管理员更新任务 |
+| DELETE | `/admin/tasks` | 管理员删除任务 |
+| GET  | `/admin/organizations` | 管理员列出组织 |
+| POST | `/admin/organizations` | 管理员创建组织 |
+| PUT  | `/admin/organizations` | 管理员更新组织 |
+| DELETE | `/admin/organizations` | 管理员删除组织 |
+| POST | `/internal/channel-ingress/normalize` | 内部：渠道消息标准化 |
+| POST | `/internal/tasks/assign` | 内部：分配任务给用户 |
+| POST | `/internal/tasks/notify` | 内部：通知被分配用户 |
+| POST | `/internal/notify/wecom` | 内部：企微消息推送 |
+| GET  | `/health` | 健康检查 |
 
 ### workflow-service (主机端口 3001)
 | 方法 | 路径 | 用途 |
@@ -508,6 +525,8 @@ docker logs -f ah-mobile-app
 | POST | `/internal/memory/recall` | 召回记忆（含压缩上下文） |
 | POST | `/internal/memory/clear` | 清理会话记忆 |
 | POST | `/internal/context/compress` | 压缩上下文 |
+| POST | `/internal/skills/search` | 搜索技能（关键词匹配） |
+| GET | `/internal/skills/:id` | 获取技能详情 |
 | POST | `/internal/memory/analyze` | 梦境模式：个人记忆分析（收集→压缩→抽取） |
 | POST | `/internal/memory/analyze/org` | 梦境模式：组织级记忆整合 |
 | GET | `/internal/memory/summary` | 梦境模式：组织级记忆汇总查询 |
@@ -774,6 +793,38 @@ docker logs -f ah-mobile-app
 | [开源协议](./LICENSES.md) | 第三方依赖许可证清单、合规义务 |
 | [交接文档](./HANDOFF-SESSION.md) | 开发历史、修复记录、当前状态 |
 
+## 十六-B、关键设计模式
+
+### fireAndForget — 异步非阻塞操作模式
+
+Gateway Adapter 大量使用 `fireAndForget` 模式来处理不阻塞主流程的异步操作：
+
+```typescript
+function fireAndForget(promise: Promise<unknown>, tag: string): void {
+  promise.catch(err => logger.warn(`${tag}.failed`, `Fire-and-forget operation failed`, { error: String(err) }));
+}
+```
+
+**使用场景（20+ 处调用）：**
+- 记忆持久化 (rememberContext) — 不阻塞用户即时回复
+- 移动推送通知 (sendMobilePushNotification) — 异步检查 workflow 完成
+- 技能候选提取 (extractWorkflowAsSkillCandidate) — workflow 成功后静默触发
+- 飞书/企微文本回复 (sendFeishuTextReply / sendWecomTextMessage) — 失败时记录 warn 不影响流程
+- Workflow 结果轮询 (pollAndReplyWorkflowResult) — 后台异步跟踪任务状态
+
+**设计原则：**
+- catch 所有 Promise rejection，仅记录 warn 日志，绝不抛出
+- 带 tag 参数便于日志过滤和问题排查
+- 调用方无需 await，实现真正的"发射后不管"
+
+### clearHealthChecks — 健康检查器清理
+
+[health.ts](file:///d:/teamclaw/agent-harness/libs/shared/src/monitoring/health.ts) 中的健康检查器存储为全局 Map，`clearHealthChecks()` 用于清理所有已注册的检查器，主要使用场景：
+- 测试套件的 afterEach/teardown 阶段，防止测试间污染
+- 服务重新配置时重置健康检查清单
+
+---
+
 ## 十七、关键文件索引
 
 | 文件 | 用途 |
@@ -781,25 +832,53 @@ docker logs -f ah-mobile-app
 | `docker-compose.yml` | 全部服务编排，环境变量 |
 | `.env` | 环境变量配置（密钥、密码） |
 | `.env.example` | 环境变量模板 |
-| `apps/gateway-adapter/src/index.ts` | Gateway 主逻辑（5路意图分类 + 知识提交/快速查询/Skill提取/推送） |
-| `apps/gateway-adapter/src/services/identity-resolver.ts` | 身份解析与绑定 |
+| `apps/gateway-adapter/src/index.ts` | Gateway 主逻辑（5路意图分类 + 知识提交/快速查询/Skill提取/推送 + fireAndForget 异步模式） |
+| `apps/gateway-adapter/src/services/identity-resolver.ts` | 身份解析与自动绑定 |
+| `apps/gateway-adapter/src/services/session-mapper.ts` | 会话引用生成（channel:account:conv/dm:thread:org 格式） |
+| `apps/gateway-adapter/src/services/file-validator.ts` | 文件上传安全校验（扩展名白名单/魔法字节/MIME/大小/文本内容） |
+| `apps/gateway-adapter/src/services/gateway-state.ts` | 去重缓存 + 飞书/企微 Token 缓存管理 |
+| `apps/gateway-adapter/src/services/gateway-state.test.ts` | 去重缓存单元测试 |
+| `apps/gateway-adapter/src/services/file-validator.test.ts` | 文件校验单元测试（52 tests） |
+| `apps/gateway-adapter/src/services/session-mapper.test.ts` | 会话映射单元测试（15 tests） |
 | `services/workflow/src/index.ts` | Workflow CRUD + 调度 |
 | `services/workflow/src/planner/planner.ts` | LLM 任务规划 |
+| `services/workflow/src/planner/planner.test.ts` | Planner 单元测试 |
 | `services/workflow/src/supervisor/manager.ts` | 心跳监控 |
+| `services/workflow/src/supervisor/manager.test.ts` | Supervisor 单元测试 |
 | `services/workflow/src/engine/workflow-machine.ts` | XState 状态机 |
+| `services/workflow/src/engine/workflow-machine.test.ts` | 工作流状态机单元测试 |
+| `services/workflow/src/persistence/db.test.ts` | 数据库持久化单元测试 |
 | `services/executor-gateway/src/index.ts` | 自动执行编排 |
 | `services/executor-gateway/src/executor/generic-executor.ts` | 通用执行器（含 Dream 压缩增强） |
-| `services/hermes-adapter/src/index.ts` | 记忆管理 |
+| `services/hermes-adapter/src/index.ts` | 记忆管理（含梦境分析 + 技能搜索） |
+| `services/hermes-adapter/src/repositories/memory-repository.ts` | 会话记忆 CRUD（Drizzle ORM） |
+| `services/hermes-adapter/src/repositories/skill-repository.ts` | 技能搜索与详情查询（Drizzle ORM） |
+| `services/hermes-adapter/src/repositories/memory-analysis-repository.ts` | 梦境分析数据访问（analysis runs / compression logs / access logs / org summaries） |
+| `services/hermes-adapter/src/services/memory-service.ts` | 记忆业务逻辑（DB 持久化 + fact-retrieval 同步 + 召回编排） |
+| `services/hermes-adapter/src/db.ts` | Drizzle ORM 数据库连接管理 |
 | `services/fact-retrieval/src/service.ts` | 事实检索核心业务逻辑（含知识审核/提取 + AGE图标签扩展） |
+| `services/fact-retrieval/src/cypher-safety.test.ts` | Cypher 安全检查测试 |
+| `services/fact-retrieval/src/support.test.ts` | 支持工具测试 |
 | `services/skill-library/src/index.ts` | 技能库管理 |
 | `services/resource-scheduler/src/index.ts` | 资源配额与巡检 |
 | `apps/mobile-app/src/index.ts` | 移动推送服务 |
 | `apps/web-portal/src/index.ts` | Web管理后台（含知识审核渲染 + 文件管理API） |
 | `apps/web-portal/static/app.js` | Web管理前端（含文件浏览器UI） |
-| `libs/shared/src/db/schema.ts` | 数据库 schema 定义（含 user_profile + user_file 表 + GIN索引） |
-| `services/fact-retrieval/src/artifact-storage.ts` | 文件存储后端抽象（双后端：localFS + MinIO，用户隔离 + staging） |
+| `apps/web-portal/static/index.html` | Web管理入口页面 |
+| `libs/shared/src/db/schema.ts` | 数据库 schema 定义（47 表，含 user_profile + user_file 表 + GIN索引） |
+| `libs/shared/src/http/index.ts` | HTTP 工具函数（readJson/sendJson/postJson/内部认证） |
 | `libs/shared/src/http/index.test.ts` | HTTP 工具函数单元测试 |
-| `services/workflow/src/engine/workflow-machine.test.ts` | 工作流状态机单元测试 |
-| `services/workflow/src/persistence/db.test.ts` | 数据库持久化单元测试 |
-| `db/migrations/022_user_file_storage.sql` | 用户文件存储迁移（user_file 表 + 索引） |
+| `libs/shared/src/logging/logger.ts` | 结构化日志系统（JSON输出/敏感脱敏/日志轮转/timed()计时） |
+| `libs/shared/src/logging/logger.test.ts` | Logger 单元测试（12 tests） |
+| `libs/shared/src/metrics/metrics.ts` | 指标注册（Counter/Histogram/告警/内存监控） |
+| `libs/shared/src/metrics/metrics.test.ts` | Metrics 单元测试（15 tests） |
+| `libs/shared/src/retry/strategy.ts` | 重试策略（指数退避+抖动+自定义分类器） |
+| `libs/shared/src/retry/strategy.test.ts` | 重试策略单元测试（10 tests） |
+| `libs/shared/src/rate-limit/limiter.ts` | 令牌桶限流器（50000 key 上限 + 空闲回收） |
+| `libs/shared/src/rate-limit/limiter.test.ts` | 限流器单元测试（10 tests） |
+| `libs/shared/src/monitoring/health.ts` | 健康检查（注册/聚合/clearHealthChecks） |
+| `libs/shared/src/monitoring/health.test.ts` | 健康检查单元测试（8 tests） |
+| `libs/shared/src/monitoring/security-check.ts` | 生产环境安全检查（密码策略/CORS校验） |
+| `libs/shared/src/monitoring/security-check.test.ts` | 安全检查单元测试（5 tests） |
+| `services/fact-retrieval/src/artifact-storage.ts` | 文件存储后端抽象（双后端：localFS + MinIO，用户隔离 + staging） |
 | `db/migrations/` | 数据库迁移文件 |

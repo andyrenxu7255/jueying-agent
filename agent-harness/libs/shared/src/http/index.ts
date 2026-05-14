@@ -12,7 +12,7 @@
  * @module http-utils
  */
 
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export async function readJson(req: import('node:http').IncomingMessage, maxBodySize: number = 10 * 1024 * 1024): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
@@ -102,7 +102,7 @@ export function getInternalAuthHeaders(): Record<string, string> {
   const secret = getInternalAuthSecret();
   if (!secret) return {};
   const timestamp = String(Date.now());
-  const nonce = Math.random().toString(36).slice(2, 10);
+  const nonce = randomBytes(12).toString('hex');
   const payload = `${timestamp}:${nonce}`;
   const signature = createHash('sha256').update(`${payload}:${secret}`).digest('hex');
   return {

@@ -3,8 +3,6 @@ import { WorkflowSupervisor } from './manager';
 describe('WorkflowSupervisor', () => {
   const supervisor = new WorkflowSupervisor();
 
-  const testWorkflowRef = 'wf_test_supervisor_001';
-
   describe('heartbeat handling', () => {
     it('returns alive=false for unregistered workflow', () => {
       const status = supervisor.recordHeartbeat('wf_unknown_xyz');

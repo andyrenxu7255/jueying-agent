@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'crypto';
 import { dirname, resolve } from 'path';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
+import { promises as fsp } from 'fs';
 import { createLogger } from '@agent-harness/shared';
 import { auditWriter } from '@agent-harness/audit';
 import type { Checkpoint } from '@agent-harness/contracts';
@@ -48,7 +49,9 @@ export class CheckpointManager {
 
   constructor() {
     this.loadFromDisk();
-    void this.loadFromDatabase();
+    this.loadFromDatabase().catch(err => {
+      logger.warn('checkpoint.db_load.failed', 'Failed to load checkpoints from database on startup', { error: String(err) });
+    });
   }
 
   private evictOldCheckpoints(): void {
@@ -88,8 +91,13 @@ export class CheckpointManager {
     this.checkpoints.set(checkpointId, checkpoint);
     this.resumeTokens.set(resumeToken, checkpointId);
     this.evictOldCheckpoints();
-    this.persistToDisk();
-    void persistCheckpointRecord(checkpoint);
+    await this.persistToDisk();
+    persistCheckpointRecord(checkpoint).catch(err => {
+      logger.warn('checkpoint.db_persist.failed', 'Failed to persist checkpoint to database', {
+        checkpoint_id: checkpointId,
+        error: String(err)
+      });
+    });
 
     await auditWriter.write({
       user_id: 'system',
@@ -270,7 +278,7 @@ export class CheckpointManager {
 
     this.checkpoints.delete(checkpointId);
     this.resumeTokens.delete(checkpoint.resume_token);
-    this.persistToDisk();
+    await this.persistToDisk();
 
     logger.info('checkpoint.deleted', 'Checkpoint deleted', {
       checkpoint_id: checkpointId
@@ -280,7 +288,7 @@ export class CheckpointManager {
   }
 
   async shutdown(): Promise<void> {
-    this.persistToDisk();
+    await this.persistToDisk();
   }
 
   private generateResumeToken(): string {
@@ -400,7 +408,7 @@ export class CheckpointManager {
     }
 
     if (recent.length > 0) {
-      this.persistToDisk();
+      await this.persistToDisk();
     }
   }
 
@@ -434,12 +442,10 @@ export class CheckpointManager {
     this.resumeTokens.set(resumeToken, checkpointId);
   }
 
-  private persistToDisk(): void {
+  private async persistToDisk(): Promise<void> {
     try {
       const dir = dirname(this.storePath);
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
+      await fsp.mkdir(dir, { recursive: true });
 
       const payload = JSON.stringify(
         {
@@ -451,8 +457,8 @@ export class CheckpointManager {
       );
 
       const tempPath = `${this.storePath}.tmp`;
-      writeFileSync(tempPath, payload, 'utf8');
-      renameSync(tempPath, this.storePath);
+      await fsp.writeFile(tempPath, payload, 'utf8');
+      await fsp.rename(tempPath, this.storePath);
     } catch (error) {
       logger.error('checkpoint.store.persist_failed', 'Failed to persist checkpoint store', {
         error: String(error)

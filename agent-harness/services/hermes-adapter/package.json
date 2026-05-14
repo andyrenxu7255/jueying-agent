@@ -11,6 +11,7 @@
   "dependencies": {
     "@agent-harness/contracts": "file:../../libs/contracts",
     "@agent-harness/shared": "file:../../libs/shared",
-    "pg": "^8.15.3"
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.20.0"
   }
 }

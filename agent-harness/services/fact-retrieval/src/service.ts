@@ -108,7 +108,6 @@ export interface EntityWriteInput {
 
 const ALLOWED_VERTEX_LABELS = new Set(['Entity', 'Person', 'Organization', 'Location', 'Event', 'Concept', 'Technology', 'Product', 'Client', 'Contact', 'Opportunity', 'Project']);
 const ALLOWED_EDGE_LABELS = new Set(['RELATED', 'works_for', 'located_in', 'uses', 'manages', 'depends_on', 'co_occurs_with', 'has_slot_value', 'BELONGS_TO', 'EMPLOYES', 'INVOLVED_IN', 'INTERACTS_WITH', 'REPORTS_TO', 'PARTNERS_WITH', 'COMPETES_WITH', 'SUPPLIES_TO']);
-const DOLLAR_QUOTE_TAG = 'tag';
 
 function sanitizeCypherLabel(value: string, allowedSet: Set<string>, fallback: string): string {
   const trimmed = value.trim();
@@ -129,22 +128,6 @@ function sanitizeCypherLiteral(value: string): string {
     .replace(/\/\//g, '')
     .replace(/[\n\r]/g, ' ')
     .slice(0, 4096);
-}
-
-function sanitizeCypherString(value: string): string {
-  const cleaned = String(value || '');
-  const sanitized = cleaned
-    .replace(/['"\\`]/g, '')
-    .replace(/--/g, '')
-    .replace(/\/\*/g, '')
-    .replace(/\*\//g, '')
-    .replace(/;/g, '')
-    .replace(/[$]/g, '')
-    .replace(/[{}]/g, '')
-    .replace(/\/\//g, '')
-    .replace(/[\n\r]/g, ' ')
-    .slice(0, 4096);
-  return sanitized;
 }
 
 class FactRetrievalService {
@@ -1708,7 +1691,7 @@ class FactRetrievalService {
     scope: string;
     file_category: string;
   }): Promise<{ ok: boolean; error?: string; file?: Record<string, unknown> }> {
-    const userId = await withRetry(() => this.ensureUser(input.owner_user_id));
+    await withRetry(() => this.ensureUser(input.owner_user_id));
     if (!input.file_buffer_b64) return { ok: false, error: 'missing_file_buffer' };
 
     const buffer = Buffer.from(input.file_buffer_b64, 'base64');

@@ -7,7 +7,7 @@
  * @module verification-executor
  */
 
-import { createLogger } from '@agent-harness/shared';
+import { createLogger, withRetry, RETRY_POLICIES } from '@agent-harness/shared';
 import type { ExecutionInput, ExecutionResult } from './generic-executor';
 
 const logger = createLogger('verification-executor');
@@ -19,34 +19,57 @@ if (!LITELLM_API_KEY) logger.warn('config.missing', 'LITELLM_MASTER_KEY or LITEL
 
 async function callLiteLLM(systemPrompt: string, userPrompt: string, temperature: number = 0.1): Promise<{ content: string; ok: boolean }> {
   const timeoutMs = Number(process.env.LITELLM_EXEC_TIMEOUT_MS || 60000);
-  try {
-    const response = await fetch(`${LITELLM_URL}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'authorization': `Bearer ${LITELLM_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: LITELLM_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature,
-        max_tokens: 2048
-      }),
-      signal: AbortSignal.timeout(timeoutMs)
-    });
 
-    if (!response.ok) {
-      return { content: '', ok: false };
+  const attempt = async (): Promise<{ content: string; ok: boolean }> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${LITELLM_URL}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${LITELLM_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: LITELLM_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature,
+          max_tokens: 2048
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`LiteLLM returned ${response.status}`);
+      }
+
+      const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+      const content = body.choices?.[0]?.message?.content || '';
+
+      if (!content) {
+        logger.warn('litellm.call.empty', 'LiteLLM returned empty content', {});
+        return { content: '', ok: false };
+      }
+
+      return { content, ok: true };
+    } finally {
+      clearTimeout(timeoutId);
     }
+  };
 
-    const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const content = body.choices?.[0]?.message?.content || '';
-    return { content, ok: true };
+  try {
+    return await withRetry(attempt, RETRY_POLICIES.llm);
   } catch (error) {
-    logger.warn('litellm.call_error', 'LiteLLM call error', { error: String(error) });
+    const errorMsg = String(error);
+    if (errorMsg.includes('abort') || errorMsg.includes('AbortError')) {
+      logger.warn('litellm.call.timeout', 'Verification LiteLLM call timed out', { timeout_ms: timeoutMs });
+    } else {
+      logger.error('litellm.call.error', 'Verification LiteLLM call error after retries', { error: errorMsg.slice(0, 300) });
+    }
     return { content: '', ok: false };
   }
 }
@@ -133,6 +156,7 @@ Verify whether the implementation meets the acceptance criteria.`;
         status: 'failed',
         output: 'Verification failed - model call unsuccessful',
         error: 'model_call_failed',
+        next_action: 'repair',
         model_call_ok: false
       };
     }

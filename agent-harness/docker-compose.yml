@@ -40,7 +40,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_changeme}", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"${REDIS_PASSWORD:-redis_changeme}\" redis-cli ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -81,7 +81,7 @@ services:
 
   # LiteLLM Proxy (LLM Gateway)
   litellm:
-    image: ghcr.io/berriai/litellm:main-latest
+    image: ghcr.io/berriai/litellm:main-v1.74.4-stable
     container_name: ah-litellm
     restart: unless-stopped
     command: --config /app/config.yaml
@@ -430,7 +430,7 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
       FEISHU_APP_ID: ${FEISHU_APP_ID:-}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-default_admin_changeme}
     ports:
       - "3003:3000"
     depends_on:
@@ -528,31 +528,6 @@ services:
         limits:
           cpus: '0.3'
           memory: 400M
-    restart: unless-stopped
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ah-ollama
-    profiles:
-      - local-llm
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - agent-harness-net
-      - agent-harness-backend
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 8G
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
     restart: unless-stopped
 
   # Skill Library - 技能库管理微服务
@@ -672,26 +647,6 @@ services:
           memory: 250M
     restart: unless-stopped
 
-  ollama-pull:
-    image: ollama/ollama:0.12.13
-    container_name: ah-ollama-pull
-    profiles:
-      - local-llm
-    depends_on:
-      ollama:
-        condition: service_healthy
-    entrypoint: ["sh", "-c"]
-    command:
-      - |
-        ollama pull qwen3:8b 2>/dev/null || true
-        echo "Ollama models pulled successfully"
-    environment:
-      OLLAMA_HOST: http://ollama:11434
-    networks:
-      - agent-harness-net
-      - agent-harness-backend
-    restart: "no"
-
 volumes:
   postgres_data:
   redis_data:
@@ -699,7 +654,6 @@ volumes:
   clickhouse_data:
   signoz_data:
   executor_worktrees:
-  ollama_data:
 
 networks:
   agent-harness-net:

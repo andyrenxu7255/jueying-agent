@@ -1,5 +1,4 @@
-import { describe, it, expect, jest as vi, beforeEach, afterEach } from '@jest/globals';
-import { createServer } from 'node:http';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
@@ -7,7 +6,6 @@ import { EventEmitter } from 'node:events';
 import {
   readJson,
   sendJson,
-  postJson,
   extractPathname,
   verifyInternalAuth,
   getInternalAuthHeaders,
@@ -207,6 +205,26 @@ describe('getInternalAuthHeaders', () => {
     const parts = authValue.split(':');
     expect(parts).toHaveLength(3);
     expect(Number.isFinite(Number(parts[0]))).toBe(true);
+  });
+
+  it('should generate a cryptographically random nonce of sufficient length', () => {
+    process.env.INTERNAL_AUTH_SECRET = 'test-secret';
+    const headers = getInternalAuthHeaders();
+    const authValue = headers['x-internal-auth'];
+    const nonce = authValue.split(':')[1];
+    expect(nonce.length).toBeGreaterThanOrEqual(16);
+    expect(/^[0-9a-f]+$/.test(nonce)).toBe(true);
+  });
+
+  it('should generate different nonces on successive calls', () => {
+    process.env.INTERNAL_AUTH_SECRET = 'test-secret';
+    const nonces = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      const headers = getInternalAuthHeaders();
+      const nonce = headers['x-internal-auth'].split(':')[1];
+      nonces.add(nonce);
+    }
+    expect(nonces.size).toBe(50);
   });
 });
 

@@ -628,7 +628,8 @@ Extract all entities, relations, and slot values as structured JSON.`;
     };
   }
 
-  private async executeImplementation(input: ExecutionInput): Promise<ExecutionResult> {
+  private async executeImplementation(_input: ExecutionInput): Promise<ExecutionResult> {
+    void _input;
     return {
       status: 'completed',
       output: 'Implementation stage delegated to code-executor',
@@ -661,7 +662,7 @@ Extract all entities, relations, and slot values as structured JSON.`;
     const safeContext = truncateContext(context);
 
     const systemPrompt = 'You are a repair assistant. Fix identified issues from the verification stage. Apply minimal changes to address failures while preserving existing functionality.';
-    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nRepair:\n1. Issues to fix (from verification)\n2. Proposed fixes\n3. Risk assessment\n4. Verification that fixes don\'t break other parts`;
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nRepair:\n1. Issues to fix (from verification)\n2. Proposed fixes\n3. Risk assessment\n4. Verification that fixes don't break other parts`;
 
     const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.2);
 

@@ -102,6 +102,70 @@ function parseJson(rawBody: string): Record<string, unknown> | null {
   }
 }
 
+async function assignTaskInternal(taskId: string): Promise<number> {
+  const pool = await getSharedDbPool()
+  if (!pool) return 0
+  const taskResult = await pool.query(`SELECT * FROM org_task WHERE id = $1`, [taskId])
+  if (taskResult.rows.length === 0) return 0
+  const task = taskResult.rows[0]
+  const taskOrgId = task.org_id
+  if (!taskOrgId) {
+    logger.warn('tasks.assign.no_org', 'Task has no org_id, refusing to assign to avoid cross-org leakage', { taskId })
+    return 0
+  }
+  const userResult = await pool.query(`SELECT id, username FROM "user" WHERE org_id = $1`, [taskOrgId])
+  const users = userResult.rows
+  let assigned = 0
+  for (const user of users) {
+    const existing = await pool.query(
+      `SELECT id FROM org_task_assignment WHERE task_id = $1 AND user_id = $2 AND status IN ('pending','notified')`,
+      [taskId, user.id]
+    )
+    if (existing.rows.length > 0) continue
+    await pool.query(
+      `INSERT INTO org_task_assignment (task_id, user_id, org_id, status, response_data, metadata) VALUES ($1,$2,$3,'pending','{}'::jsonb,'{}'::jsonb)`,
+      [taskId, user.id, taskOrgId]
+    )
+    assigned++
+  }
+  return assigned
+}
+
+async function notifyTaskInternal(taskId: string): Promise<number> {
+  const pool = await getSharedDbPool()
+  if (!pool) return 0
+  const taskResult = await pool.query(`SELECT * FROM org_task WHERE id = $1`, [taskId])
+  if (taskResult.rows.length === 0) return 0
+  const task = taskResult.rows[0]
+  const pendingResult = await pool.query(
+    `SELECT a.*, u.username FROM org_task_assignment a JOIN "user" u ON u.id = a.user_id WHERE a.task_id = $1 AND a.status = 'pending'`,
+    [taskId]
+  )
+  let notified = 0
+  for (const assignment of pendingResult.rows) {
+    const content = `\u{1F4CB} **${task.title}**\n${task.prompt_message || task.description}\n请及时提交您的反馈。`
+    let delivered = false
+    const channels = (task.target_channels || ['wecom']) as string[]
+    if (channels.includes('wecom')) {
+      try { delivered = await sendWecomTextMessage(String(assignment.username), content) } catch { /* ignore */ }
+    }
+    if (channels.includes('feishu')) {
+      try { delivered = await sendFeishuTextReply(String(assignment.username), 'open_id', content) || delivered } catch { /* ignore */ }
+    }
+    if (mobileAppUrl) {
+      try {
+        await fetch(`${mobileAppUrl}/internal/notifications/send`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: assignment.user_id, title: task.title, body: task.prompt_message || task.description, category: 'task_dispatch', deep_link: `/my-tasks` })
+        })
+      } catch { /* ignore mobile push failure */ }
+    }
+    await pool.query(`UPDATE org_task_assignment SET status = 'notified', notified_at = now() WHERE id = $1`, [assignment.id])
+    notified++
+  }
+  return notified
+}
+
 function sendText(res: import('node:http').ServerResponse, statusCode: number, body: string): void {
   res.writeHead(statusCode, { 'content-type': 'text/plain; charset=utf-8' });
   res.end(body);
@@ -726,7 +790,7 @@ async function generateChatReply(userText: string, ownerUserId: string, context?
 
 // quickLookup: 快速信息查询 — 通过 workflow 单阶段 rapid-retrieval 获得即时结果
 // 与完整 task 路径不同：使用短超时(15s)、少量检索预算、失败后降级到 chat
-async function quickLookup(text: string, ownerUserId: string, orgId: string): Promise<{ replyText: string; modelCallOk: boolean }> {
+async function quickLookup(text: string, ownerUserId: string): Promise<{ replyText: string; modelCallOk: boolean }> {
   const workflowUrl = process.env.WORKFLOW_URL || '';
   if (!workflowUrl) return { replyText: '', modelCallOk: false };
 
@@ -845,7 +909,7 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
       return { requestType, replyText, modelCallOk: false };
     }
 
-    const { replyText, modelCallOk } = await quickLookup(text, ownerUserId, orgId);
+    const { replyText, modelCallOk } = await quickLookup(text, ownerUserId);
     if (!replyText) {
       // quickLookup 降级为空 → 回退到 chat 路径
       const chatResult = await generateChatReply(text, ownerUserId);
@@ -887,7 +951,7 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
       logger.warn('policy.snapshot.missing', 'Missing or invalid policy_snapshot_hash, rejecting workflow creation', {
         user_id: normalized.user_id
       });
-      const replyText = '权限策略校验暂不可用，请稍后重试。若持续出现请联系管理员。';
+      const replyText = '任务创建暂时受阻，请稍后重试或通过 Web 管理门户手动创建任务。若持续出现，请联系管理员。';
       fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
       fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
       return { requestType, replyText, modelCallOk: false };
@@ -965,10 +1029,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
         [orgId || null, ownerUserId, text.substring(0, 100), text, text, String(normalized.channel_type || 'unknown')]
       );
       const task = taskResult.rows[0];
-      const assignResult = await postJson(`http://localhost:${port}/internal/tasks/assign`, { task_id: task.id }, 15000);
-      const notifyResult = await postJson(`http://localhost:${port}/internal/tasks/notify`, { task_id: task.id }, 15000);
-      const assignedCount = (assignResult.body as Record<string, unknown>)?.assigned || 0;
-      const notifiedCount = (notifyResult.body as Record<string, unknown>)?.notified || 0;
+      const assignedCount = await assignTaskInternal(task.id);
+      const notifiedCount = await notifyTaskInternal(task.id);
       const replyText = `✅ 工作要求已创建并下发！\n📋 任务: ${task.title}\n👥 已分配: ${assignedCount} 人\n📢 已通知: ${notifiedCount} 人\n任务编号: ${task.id}`;
       fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
       fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
@@ -1117,6 +1179,12 @@ async function handleFeishuEvent(body: Record<string, unknown>): Promise<void> {
       deliveredVia = target.receiveIdType;
       break;
     }
+  }
+  if (!delivered) {
+    logger.warn('feishu.reply.all_failed', 'All Feishu reply targets failed, user may not receive response', {
+      targetCount: receiveTargets.length,
+      targetTypes: receiveTargets.map((target) => target.receiveIdType)
+    })
   }
 
   if (processed.requestType === 'task' && processed.workflowRef) {
@@ -2065,8 +2133,9 @@ const server = createServer(async (req, res) => {
         const userResult = await pool.query(`SELECT id, username FROM "user" WHERE org_id = $1`, [taskOrgId]);
         users = userResult.rows;
       } else {
-        const userResult = await pool.query(`SELECT id, username FROM "user" LIMIT 100`);
-        users = userResult.rows;
+        logger.warn('tasks.assign.no_org', 'Task has no org_id in HTTP endpoint, refusing to assign', { taskId });
+        sendJson(res, 400, { ok: false, error: 'task_has_no_org' });
+        return;
       }
       let assigned = 0;
       for (const user of users) {
@@ -2162,6 +2231,128 @@ const server = createServer(async (req, res) => {
       sendJson(res, 200, { ok: true });
     } catch (err) {
       sendJson(res, 500, { ok: false, error: 'submit_failed' });
+    }
+    return;
+  }
+
+  // Admin: List organizations
+  if (pathname === '/admin/organizations' && req.method === 'GET') {
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const result = await pool.query(`SELECT id, org_name, display_name, status, settings, metadata, created_at, updated_at FROM organization ORDER BY created_at DESC`);
+      sendJson(res, 200, { ok: true, organizations: result.rows });
+    } catch (err) {
+      logger.error('admin_org.list_failed', 'Failed to list organizations', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'list_failed' });
+    }
+    return;
+  }
+
+  // Admin: Create organization
+  if (pathname === '/admin/organizations' && req.method === 'POST') {
+    const body = await readBody(req).then(raw => parseJson(raw) || {});
+    const orgName = String((body as Record<string, unknown>).org_name || (body as Record<string, unknown>).name || '');
+    const displayName = String((body as Record<string, unknown>).display_name || '');
+    if (!orgName) { sendJson(res, 400, { ok: false, error: 'missing_org_name' }); return; }
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const result = await pool.query(
+        `INSERT INTO organization (org_name, display_name, status) VALUES ($1,$2,'active') RETURNING id, org_name, display_name, status, created_at`,
+        [orgName, displayName || orgName]
+      );
+      sendJson(res, 201, { ok: true, organization: result.rows[0] });
+    } catch (err) {
+      logger.error('admin_org.create_failed', 'Failed to create organization', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'create_failed' });
+    }
+    return;
+  }
+
+  // Admin: Get organization by ID
+  if (pathname.startsWith('/admin/organizations/') && req.method === 'GET') {
+    const orgId = pathname.slice('/admin/organizations/'.length);
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const result = await pool.query(`SELECT id, org_name, display_name, status, settings, metadata, created_at, updated_at FROM organization WHERE id = $1`, [orgId]);
+      if (result.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'not_found' }); return; }
+      sendJson(res, 200, { ok: true, organization: result.rows[0] });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: 'query_failed' });
+    }
+    return;
+  }
+
+  // Admin: Update organization
+  if (pathname.startsWith('/admin/organizations/') && req.method === 'PUT') {
+    const orgId = pathname.slice('/admin/organizations/'.length);
+    const body = await readBody(req).then(raw => parseJson(raw) || {});
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const fields = [];
+      const values = [orgId];
+      let idx = 2;
+      const orgName = String((body as Record<string, unknown>).org_name || '');
+      const displayName = String((body as Record<string, unknown>).display_name || '');
+      const statusVal = String((body as Record<string, unknown>).status || '');
+      if (orgName) { fields.push(`org_name = $${idx}`); values.push(orgName); idx++; }
+      if (displayName) { fields.push(`display_name = $${idx}`); values.push(displayName); idx++; }
+      if (statusVal) { fields.push(`status = $${idx}`); values.push(statusVal); idx++; }
+      if (fields.length === 0) { sendJson(res, 400, { ok: false, error: 'no_fields_to_update' }); return; }
+      fields.push('updated_at = now()');
+      await pool.query(`UPDATE organization SET ${fields.join(', ')} WHERE id = $1`, values);
+      const result = await pool.query(`SELECT id, org_name, display_name, status, created_at, updated_at FROM organization WHERE id = $1`, [orgId]);
+      sendJson(res, 200, { ok: true, organization: result.rows[0] });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: 'update_failed' });
+    }
+    return;
+  }
+
+  // Admin: Delete organization
+  if (pathname.startsWith('/admin/organizations/') && req.method === 'DELETE') {
+    const orgId = pathname.slice('/admin/organizations/'.length);
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      await pool.query(`DELETE FROM organization WHERE id = $1`, [orgId]);
+      sendJson(res, 200, { ok: true });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: 'delete_failed' });
+    }
+    return;
+  }
+
+  // Channels: List identity bindings
+  if (pathname === '/channels/identity' && req.method === 'GET') {
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const result = await pool.query(`SELECT id, user_id, org_id, channel_type, external_identity, metadata, binding_status, created_at, updated_at FROM channel_identity ORDER BY created_at DESC LIMIT 100`);
+      sendJson(res, 200, { ok: true, identities: result.rows });
+    } catch (err) {
+      logger.error('identity.list_failed', 'Failed to list identities', { error: String(err) });
+      sendJson(res, 500, { ok: false, error: 'list_failed' });
+    }
+    return;
+  }
+
+  // Channels: Rebind identity
+  if (pathname.startsWith('/channels/identity/') && pathname.endsWith('/rebind') && req.method === 'POST') {
+    const id = pathname.slice('/channels/identity/'.length, -'/rebind'.length);
+    const body = await readBody(req).then(raw => parseJson(raw) || {});
+    const pool = await getSharedDbPool();
+    if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+    try {
+      const existing = await pool.query(`SELECT id FROM channel_identity WHERE id = $1`, [id]);
+      if (existing.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'not_found' }); return; }
+      await pool.query(`UPDATE channel_identity SET user_id = $1, updated_at = now() WHERE id = $2`, [body.user_id || null, id]);
+      sendJson(res, 200, { ok: true });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, error: 'rebind_failed' });
     }
     return;
   }

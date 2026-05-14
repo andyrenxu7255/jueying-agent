@@ -47,9 +47,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_SESSIONS = 10000;
 const MAX_AUDIT_ROWS = 500;
-const MAX_WORKFLOW_ROWS = 500;
 const MAX_RETRIEVAL_ROWS = 300;
-const MAX_USER_ROWS = 1000;
 const ENV_FILE_PATH = process.env.PORTAL_ENV_FILE || resolve(process.cwd(), '.env');
 const SETUP_TOKEN = process.env.SETUP_TOKEN || '';
 
@@ -2105,6 +2103,28 @@ function stopTaskScheduler(): void {
   }
 }
 
+// 梦境模式调度器内部辅助函数 — 直接调用下游服务，绕过 HTTP 路由层
+async function runDreamAnalyze(user_id: string, org_id: string): Promise<void> {
+  await fetchFromService(hermesUrl + '/internal/memory/analyze', {
+    method: 'POST',
+    body: JSON.stringify({ user_id, org_id }),
+  })
+}
+
+async function runDreamAnalyzeOrg(org_id: string): Promise<void> {
+  await fetchFromService(hermesUrl + '/internal/memory/analyze/org', {
+    method: 'POST',
+    body: JSON.stringify({ org_id }),
+  })
+}
+
+async function runDreamSkillAuditBatch(org_id: string): Promise<void> {
+  await fetchFromService(skillLibraryUrl + '/internal/skills/audit/batch', {
+    method: 'POST',
+    body: JSON.stringify({ org_id }),
+  })
+}
+
 // ============================================================
 // 梦境模式调度器 (Dream Mode Scheduler)
 // ============================================================
@@ -2125,9 +2145,7 @@ async function runDreamScheduler(): Promise<void> {
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 
-      // 梦境个人分析：在配置的小时执行
       if (config.dream_scheduled_hour === currentHour && currentMinute < 5) {
-        // 获取该组织所有活跃用户
         const usersResult = await pool.query(
           `SELECT id FROM "user" WHERE org_id = $1 AND status = 'active' LIMIT 50`,
           [config.org_id]
@@ -2136,29 +2154,21 @@ async function runDreamScheduler(): Promise<void> {
         let processed = 0;
         for (const user of usersResult.rows) {
           try {
-            await fetch(`http://127.0.0.1:${port}/api/admin/dream/analyze`, {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ user_id: user.id, org_id: config.org_id }),
-            });
+            await runDreamAnalyze(String(user.id), String(config.org_id));
             processed++;
-            // 每个用户之间延迟 2 秒，避免 LLM 限流
             await new Promise(r => setTimeout(r, 2000));
-          } catch { /* skip */ }
+          } catch (err) {
+            logger.warn('dream_scheduler.user_analyze_failed', 'Dream analyze failed for user', { user_id: user.id, error: String(err) });
+          }
         }
 
         if (processed > 0) {
           logger.info('dream_scheduler.user_dreams_completed', 'User dream analysis completed', { org_id: config.org_id, users_processed: processed });
         }
 
-        // 组织级记忆分析（在第 55分钟后执行）
         if (currentMinute >= 55) {
           try {
-            await fetch(`http://127.0.0.1:${port}/api/admin/dream/analyze-org`, {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ org_id: config.org_id }),
-            });
+            await runDreamAnalyzeOrg(String(config.org_id));
             logger.info('dream_scheduler.org_analysis_completed', 'Org memory analysis completed', { org_id: config.org_id });
           } catch (err) {
             logger.warn('dream_scheduler.org_analysis_failed', 'Org memory analysis failed', { error: String(err) });
@@ -2166,14 +2176,9 @@ async function runDreamScheduler(): Promise<void> {
         }
       }
 
-      // 技能批量审核：在配置的小时执行
       if (config.skill_audit_enabled && config.skill_audit_scheduled_hour === currentHour && currentMinute < 5) {
         try {
-          await fetch(`http://127.0.0.1:${port}/api/admin/dream/skill-audit-batch`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ org_id: config.org_id }),
-          });
+          await runDreamSkillAuditBatch(String(config.org_id));
           logger.info('dream_scheduler.skill_audit_completed', 'Skill audit completed', { org_id: config.org_id });
         } catch (err) {
           logger.warn('dream_scheduler.skill_audit_failed', 'Skill audit failed', { error: String(err) });

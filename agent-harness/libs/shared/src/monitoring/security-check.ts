@@ -1,15 +1,5 @@
 import { createLogger } from '../logging/logger'
 
-const DEV_PASSWORDS = new Set([
-  'dev_password',
-  'dev_password_changeme',
-  'redis_changeme',
-  'minioadmin',
-  'minioadmin_changeme',
-  'clickhouse',
-  'clickhouse_changeme',
-])
-
 export function checkProductionSecurity(): void {
   if (process.env.NODE_ENV !== 'production') return
 

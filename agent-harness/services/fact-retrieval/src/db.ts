@@ -22,7 +22,13 @@ const schema = {
 const databaseUrl = process.env.DATABASE_URL || configManager.getPath<string>('database.url');
 
 if (!databaseUrl) {
-  console.warn('[fact-retrieval] DATABASE_URL not set — service will run in degraded mode (no DB persistence)');
+  process.stderr.write(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: 'warn',
+    service: 'fact-retrieval',
+    event: 'db.config_missing',
+    message: 'DATABASE_URL not set — service will run in degraded mode (no DB persistence)'
+  }) + '\n');
 }
 
 export const pool = databaseUrl ? new Pool({

@@ -1,0 +1,906 @@
+{
+  "version": "v1.2",
+  "description": "Object-level context routing graph — maps files to functions/classes with line ranges, authority doc sections, debug scenarios, and token budgets. Designed for precise context injection during development and debugging.",
+  "created": "2026-05-12",
+  "updated": "2026-05-13",
+  "metadata": {
+    "total_objects": 66,
+    "total_debug_scenarios": 14,
+    "total_functions": 73,
+    "target_token_per_injection": 2000,
+    "max_token_per_injection": 4000
+  },
+  "fix_changelog": "v1.1→v1.2: Updated all 14 gateway-adapter/src/index.ts function line ranges (offset +55~68 after assignTaskInternal/notifyTaskInternal extraction). Added 2 new functions: assignTaskInternal, notifyTaskInternal. Updated cross_references versions.",
+
+  "objects": {
+    "agent-harness/apps/gateway-adapter/src/index.ts": {
+      "summary": "Gateway main logic: multi-channel ingress, 5-way intent classification, workflow routing, poll-and-reply, task dispatch with assign/notify",
+      "token_estimate": 8000,
+      "functions": {
+        "assignTaskInternal": {
+          "line": "105:132",
+          "token_estimate": 250,
+          "purpose": "assign_task_to_org_users_directly",
+          "authority_section": "AH1-21 §6.2 任务分配, AH1-16 §3.2 组织配额",
+          "debug_scenarios": ["ds_task_not_created", "ds_quota_exceeded"]
+        },
+        "notifyTaskInternal": {
+          "line": "134:167",
+          "token_estimate": 300,
+          "purpose": "notify_assigned_users_via_wecom_feishu_push",
+          "authority_section": "AH1-21 §6.2 任务通知, AH1-21 §4.3 飞书消息发送, AH1-21 §5.3 企微消息发送",
+          "debug_scenarios": ["ds_push_notification_failed"]
+        },
+        "resolveIdentity": {
+          "line": "219:256",
+          "token_estimate": 300,
+          "purpose": "resolve_channel_identity_to_user",
+          "authority_section": "AH1-21 §2.1 身份解析",
+          "debug_scenarios": ["ds_identity_not_bound", "ds_policy_snapshot_missing"]
+        },
+        "classifyIntentWithLLM": {
+          "line": "320:429",
+          "token_estimate": 700,
+          "purpose": "llm_intent_classification",
+          "authority_section": "AH1-21 §3.1 意图分类",
+          "debug_scenarios": ["ds_wrong_intent", "ds_llm_timeout"]
+        },
+        "fireAndForget": {
+          "line": "502:504",
+          "token_estimate": 50,
+          "purpose": "async_non_blocking_error_safe_pattern",
+          "authority_section": "ARCHITECTURE.md §16-B fireAndForget",
+          "debug_scenarios": ["ds_async_operation_silent_fail"]
+        },
+        "checkOrgQuota": {
+          "line": "522:604",
+          "token_estimate": 500,
+          "purpose": "check_organization_resource_quota",
+          "authority_section": "AH1-16 §3.2 组织配额",
+          "debug_scenarios": ["ds_quota_exceeded"]
+        },
+        "submitKnowledge": {
+          "line": "691:731",
+          "token_estimate": 250,
+          "purpose": "submit_user_knowledge_to_fact_pool",
+          "authority_section": "AH1-20 §2.3 知识提交",
+          "debug_scenarios": ["ds_knowledge_submit_failed"]
+        },
+        "generateChatReply": {
+          "line": "733:789",
+          "token_estimate": 400,
+          "purpose": "llm_chat_reply_generation",
+          "authority_section": "AH1-21 §3.3 对话回复",
+          "debug_scenarios": ["ds_chat_no_context", "ds_persona_not_loaded"]
+        },
+        "quickLookup": {
+          "line": "791:849",
+          "token_estimate": 400,
+          "purpose": "quick_fact_lookup_with_fallback",
+          "authority_section": "AH1-20 §3.4 快速查询",
+          "debug_scenarios": ["ds_lookup_timeout", "ds_lookup_fallback_chat"]
+        },
+        "processIncomingText": {
+          "line": "851:1056",
+          "token_estimate": 1400,
+          "purpose": "classify_and_route_message",
+          "authority_section": "AH1-21 §3.2 消息分类与路由, AH1-15 §2.1 事件信封",
+          "debug_scenarios": ["ds_wrong_intent", "ds_task_not_created", "ds_quota_exceeded"]
+        },
+        "handleFeishuEvent": {
+          "line": "1058:1200",
+          "token_estimate": 900,
+          "purpose": "process_feishu_webhook_event",
+          "authority_section": "AH1-21 §4.1 飞书事件处理",
+          "debug_scenarios": ["ds_feishu_no_reply", "ds_identity_not_bound", "ds_duplicate_event"]
+        },
+        "verifyWecomSignature": {
+          "line": "1202:1240",
+          "token_estimate": 300,
+          "purpose": "verify_wecom_webhook_sha1_signature",
+          "authority_section": "AH1-21 §5.2 企微签名验证",
+          "debug_scenarios": ["ds_wecom_signature_invalid"]
+        },
+        "verifyFeishuSignature": {
+          "line": "1279:1305",
+          "token_estimate": 200,
+          "purpose": "verify_feishu_webhook_hmac_signature",
+          "authority_section": "AH1-21 §4.2 飞书签名验证",
+          "debug_scenarios": ["ds_feishu_signature_invalid"]
+        },
+        "sendFeishuTextReply": {
+          "line": "1355:1391",
+          "token_estimate": 300,
+          "purpose": "send_text_reply_via_feishu_api",
+          "authority_section": "AH1-21 §4.3 飞书消息发送",
+          "debug_scenarios": ["ds_feishu_no_reply", "ds_feishu_token_expired"]
+        },
+        "pollAndReplyWorkflowResult": {
+          "line": "1393:1456",
+          "token_estimate": 500,
+          "purpose": "background_poll_workflow_and_push_result",
+          "authority_section": "AH1-17 §5.2 轮询与结果推送",
+          "debug_scenarios": ["ds_workflow_poll_timeout", "ds_push_notification_failed"]
+        },
+        "importFileAsKnowledge": {
+          "line": "1729:1779",
+          "token_estimate": 400,
+          "purpose": "validate_and_import_file_into_knowledge_base",
+          "authority_section": "AH1-22 §3.1 文件导入",
+          "debug_scenarios": ["ds_file_import_failed", "ds_file_validation_failed"]
+        }
+      }
+    },
+    "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts": {
+      "summary": "Channel identity resolution and auto-binding for Feishu/WeCom users",
+      "token_estimate": 1500,
+      "functions": {
+        "resolve": {
+          "line": "88:224",
+          "token_estimate": 800,
+          "purpose": "resolve_identity_from_channel",
+          "authority_section": "AH1-21 §2.1 身份解析流程",
+          "debug_scenarios": ["ds_identity_not_bound", "ds_identity_conflict"]
+        },
+        "createUserForChannel": {
+          "line": "226:263",
+          "token_estimate": 300,
+          "purpose": "auto_create_user_and_bind_channel",
+          "authority_section": "AH1-21 §2.2 自动绑户",
+          "debug_scenarios": ["ds_identity_not_bound"]
+        },
+        "ensurePendingBinding": {
+          "line": "65:86",
+          "token_estimate": 200,
+          "purpose": "create_pending_binding_for_new_channel_user",
+          "authority_section": "AH1-21 §2.3 待绑定状态",
+          "debug_scenarios": ["ds_identity_not_bound"]
+        }
+      }
+    },
+    "agent-harness/apps/gateway-adapter/src/services/gateway-state.ts": {
+      "summary": "In-memory dedupe cache + Feishu/WeCom token cache management",
+      "token_estimate": 500,
+      "functions": {
+        "checkAndSetDedupe": {
+          "line": "21:33",
+          "token_estimate": 150,
+          "purpose": "deduplicate_incoming_events",
+          "authority_section": "AH1-21 §4.4 事件去重",
+          "debug_scenarios": ["ds_duplicate_event"]
+        },
+        "sweepDedupeCache": {
+          "line": "11:19",
+          "token_estimate": 100,
+          "purpose": "evict_expired_dedupe_entries",
+          "authority_section": "AH1-21 §4.4 事件去重",
+          "debug_scenarios": ["ds_memory_leak"]
+        }
+      }
+    },
+    "agent-harness/apps/gateway-adapter/src/services/session-mapper.ts": {
+      "summary": "Session reference generation (channel:account:conv/dm:thread:org format)",
+      "token_estimate": 300,
+      "functions": {
+        "createSessionRef": {
+          "line": "9:30",
+          "token_estimate": 200,
+          "purpose": "generate_session_reference_string",
+          "authority_section": "AH1-21 §3.4 会话引用",
+          "debug_scenarios": ["ds_session_ref_malformed"]
+        }
+      }
+    },
+    "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": {
+      "summary": "File upload security validation (extension whitelist, magic bytes, MIME, size, text content)",
+      "token_estimate": 1200,
+      "functions": {
+        "validateFileForImport": {
+          "line": "200:220",
+          "token_estimate": 200,
+          "purpose": "full_file_validation_pipeline",
+          "authority_section": "AH1-22 §3.1 文件校验",
+          "debug_scenarios": ["ds_file_validation_failed"]
+        },
+        "validateExtension": {
+          "line": "79:109",
+          "token_estimate": 250,
+          "purpose": "check_file_extension_against_whitelist",
+          "authority_section": "AH1-22 §3.1.1 扩展名校验",
+          "debug_scenarios": ["ds_file_validation_failed"]
+        },
+        "sanitizeFileName": {
+          "line": "57:77",
+          "token_estimate": 200,
+          "purpose": "sanitize_filename_remove_path_traversal",
+          "authority_section": "AH1-22 §3.1.2 文件名清洗",
+          "debug_scenarios": ["ds_path_traversal"]
+        },
+        "validateMagicBytes": {
+          "line": "187:198",
+          "token_estimate": 150,
+          "purpose": "detect_file_type_via_magic_bytes",
+          "authority_section": "AH1-22 §3.1.3 魔法字节",
+          "debug_scenarios": ["ds_file_type_mismatch"]
+        }
+      }
+    },
+    "agent-harness/services/workflow/src/planner/planner.ts": {
+      "summary": "LLM-based workflow planner — generates multi-stage execution plans",
+      "token_estimate": 2500,
+      "functions": {
+        "plan": {
+          "line": "85:230",
+          "token_estimate": 1000,
+          "purpose": "generate_workflow_plan_via_llm",
+          "authority_section": "AH1-17 §2.1 规划器契约",
+          "debug_scenarios": ["ds_plan_generation_failed", "ds_plan_validation_failed"]
+        }
+      }
+    },
+    "agent-harness/services/workflow/src/planner/plan-validator.ts": {
+      "summary": "Workflow plan validation — seq continuity, stage_key uniqueness, executor legality",
+      "token_estimate": 500,
+      "functions": {
+        "validatePlan": {
+          "line": "1:80",
+          "token_estimate": 400,
+          "purpose": "validate_workflow_plan_structure",
+          "authority_section": "AH1-17 §2.2 计划验证",
+          "debug_scenarios": ["ds_plan_validation_failed"]
+        }
+      }
+    },
+    "agent-harness/services/workflow/src/engine/workflow-machine.ts": {
+      "summary": "XState-based workflow state machine (13 states + full transition matrix)",
+      "token_estimate": 1500,
+      "functions": {
+        "createWorkflowMachine": {
+          "line": "1:200",
+          "token_estimate": 1000,
+          "purpose": "create_xstate_workflow_machine",
+          "authority_section": "AH1-17 §4 状态机定义, object-relationship-graph.md §4 状态迁移矩阵",
+          "debug_scenarios": ["ds_state_transition_failed", "ds_workflow_stuck"]
+        }
+      }
+    },
+    "agent-harness/services/workflow/src/supervisor/manager.ts": {
+      "summary": "Workflow heartbeat monitoring and timeout detection",
+      "token_estimate": 600,
+      "functions": {
+        "recordHeartbeat": {
+          "line": "30:60",
+          "token_estimate": 200,
+          "purpose": "record_stage_execution_heartbeat",
+          "authority_section": "AH1-17 §6 监督器",
+          "debug_scenarios": ["ds_heartbeat_timeout"]
+        },
+        "checkTimeout": {
+          "line": "62:90",
+          "token_estimate": 200,
+          "purpose": "detect_heartbeat_timeout_for_workflow",
+          "authority_section": "AH1-17 §6 监督器",
+          "debug_scenarios": ["ds_heartbeat_timeout", "ds_workflow_stuck"]
+        }
+      }
+    },
+    "agent-harness/services/workflow/src/checkpoint/manager.ts": {
+      "summary": "Workflow checkpoint and resume token management",
+      "token_estimate": 500,
+      "functions": {
+        "createCheckpoint": {
+          "line": "1:80",
+          "token_estimate": 300,
+          "purpose": "create_workflow_checkpoint",
+          "authority_section": "AH1-19 §3 检查点创建",
+          "debug_scenarios": ["ds_checkpoint_failed"]
+        },
+        "resumeFromCheckpoint": {
+          "line": "82:150",
+          "token_estimate": 200,
+          "purpose": "resume_workflow_from_checkpoint",
+          "authority_section": "AH1-19 §4 检查点恢复",
+          "debug_scenarios": ["ds_resume_failed"]
+        }
+      }
+    },
+    "agent-harness/services/executor-gateway/src/index.ts": {
+      "summary": "Executor dispatch orchestration and auto stage execution loop",
+      "token_estimate": 1500,
+      "functions": {
+        "autoExecuteWorkflowStages": {
+          "line": "250:400",
+          "token_estimate": 1000,
+          "purpose": "auto_execute_workflow_stages_loop",
+          "authority_section": "AH1-18 §3 执行编排, object-relationship-graph.md §5.3",
+          "debug_scenarios": ["ds_execution_failed", "ds_stage_not_dispatched"]
+        }
+      }
+    },
+    "agent-harness/services/executor-gateway/src/executor/generic-executor.ts": {
+      "summary": "Generic LLM-based executor — handles most stage types including Dream summarization",
+      "token_estimate": 2500,
+      "functions": {
+        "execute": {
+          "line": "200:350",
+          "token_estimate": 900,
+          "purpose": "execute_generic_llm_stage",
+          "authority_section": "AH1-18 §2.1 通用执行器",
+          "debug_scenarios": ["ds_execution_failed", "ds_llm_timeout"]
+        },
+        "executeImplementation": {
+          "line": "629:639",
+          "token_estimate": 100,
+          "purpose": "delegate_implementation_to_code_executor",
+          "authority_section": "AH1-18 §2.2 实现阶段",
+          "debug_scenarios": ["ds_implementation_delegated"]
+        },
+        "executeRepair": {
+          "line": "659:675",
+          "token_estimate": 200,
+          "purpose": "analyze_and_repair_failed_stages",
+          "authority_section": "AH1-31 §4 修复策略",
+          "debug_scenarios": ["ds_repair_loop", "ds_execution_failed"]
+        }
+      }
+    },
+    "agent-harness/services/fact-retrieval/src/service.ts": {
+      "summary": "Core retrieval logic — vector search + graph search + reranking + knowledge CRUD",
+      "token_estimate": 5000,
+      "functions": {
+        "submitUserFact": {
+          "line": "660:720",
+          "token_estimate": 400,
+          "purpose": "submit_user_knowledge_to_unconfirmed_pool",
+          "authority_section": "AH1-20 §2.3 知识提交",
+          "debug_scenarios": ["ds_knowledge_submit_failed"]
+        },
+        "reviewFact": {
+          "line": "722:800",
+          "token_estimate": 450,
+          "purpose": "review_and_approve_reject_fact",
+          "authority_section": "AH1-20 §2.4 知识审核",
+          "debug_scenarios": ["ds_knowledge_review_failed"]
+        },
+        "retrievalQuery": {
+          "line": "300:450",
+          "token_estimate": 900,
+          "purpose": "execute_vector_fulltext_hybrid_search",
+          "authority_section": "AH1-20 §3.1 混合检索",
+          "debug_scenarios": ["ds_retrieval_no_results", "ds_embedding_failed"]
+        },
+        "uploadAndStoreFile": {
+          "line": "1701:1750",
+          "token_estimate": 400,
+          "purpose": "upload_file_to_storage_and_index",
+          "authority_section": "AH1-22 §3.2 文件入库",
+          "debug_scenarios": ["ds_file_upload_failed"]
+        }
+      }
+    },
+    "agent-harness/services/hermes-adapter/src/index.ts": {
+      "summary": "Conversation memory management — store, recall, compress, dream analysis",
+      "token_estimate": 3000,
+      "functions": {
+        "storeMemory": {
+          "line": "151:201",
+          "token_estimate": 450,
+          "purpose": "store_conversation_memory_entry",
+          "authority_section": "AH1-20 §4.1 记忆存储",
+          "debug_scenarios": ["ds_memory_not_persisted"]
+        },
+        "recallMemory": {
+          "line": "203:239",
+          "token_estimate": 500,
+          "purpose": "recall_compressed_context_for_chat",
+          "authority_section": "AH1-20 §4.2 记忆召回",
+          "debug_scenarios": ["ds_chat_no_context"]
+        },
+        "analyzeDream": {
+          "line": "384:539",
+          "token_estimate": 900,
+          "purpose": "dream_mode_personal_memory_analysis",
+          "authority_section": "AH1-20 §5.1 梦境分析",
+          "debug_scenarios": ["ds_dream_analysis_failed"]
+        }
+      }
+    },
+    "agent-harness/services/hermes-adapter/src/repositories/memory-repository.ts": {
+      "summary": "Hermes memory CRUD via Drizzle ORM — save, recall, clear session/all memories",
+      "token_estimate": 800,
+      "functions": {
+        "saveMemory": {
+          "line": "18:31",
+          "token_estimate": 150,
+          "purpose": "insert_single_memory_entry_with_conflict_skip",
+          "authority_section": "AH1-20 §4.1 记忆存储",
+          "debug_scenarios": ["ds_memory_not_persisted"]
+        },
+        "saveMemories": {
+          "line": "33:48",
+          "token_estimate": 150,
+          "purpose": "batch_insert_memory_entries",
+          "authority_section": "AH1-20 §4.1 记忆存储",
+          "debug_scenarios": ["ds_memory_not_persisted"]
+        },
+        "recallMemories": {
+          "line": "50:84",
+          "token_estimate": 250,
+          "purpose": "query_memories_by_owner_session_limit_with_optional_org_filter",
+          "authority_section": "AH1-20 §4.2 记忆召回",
+          "debug_scenarios": ["ds_chat_no_context"]
+        },
+        "clearSessionMemories": {
+          "line": "86:97",
+          "token_estimate": 100,
+          "purpose": "delete_all_memories_for_session",
+          "authority_section": "AH1-20 §4.3 记忆清理",
+          "debug_scenarios": ["ds_memory_not_persisted"]
+        },
+        "clearAllMemories": {
+          "line": "99:107",
+          "token_estimate": 80,
+          "purpose": "delete_all_memories_for_user",
+          "authority_section": "AH1-20 §4.3 记忆清理",
+          "debug_scenarios": ["ds_memory_not_persisted"]
+        }
+      }
+    },
+    "agent-harness/services/hermes-adapter/src/repositories/skill-repository.ts": {
+      "summary": "Skill search and retrieval via Drizzle ORM — search by keyword, get by ID",
+      "token_estimate": 600,
+      "functions": {
+        "searchSkills": {
+          "line": "17:68",
+          "token_estimate": 350,
+          "purpose": "search_skills_by_owner_and_optional_keyword_with_latest_version",
+          "authority_section": "AH1-17 §7 技能管理",
+          "debug_scenarios": ["ds_skill_search_failed"]
+        },
+        "getSkillById": {
+          "line": "70:112",
+          "token_estimate": 250,
+          "purpose": "get_single_skill_by_id_with_latest_version",
+          "authority_section": "AH1-17 §7 技能管理",
+          "debug_scenarios": ["ds_skill_search_failed"]
+        }
+      }
+    },
+    "agent-harness/services/hermes-adapter/src/repositories/memory-analysis-repository.ts": {
+      "summary": "Memory analysis queries — analysis runs, compression logs, access logs, org summaries, dream facts",
+      "token_estimate": 1500,
+      "functions": {
+        "getMemoryItemsForAnalysis": {
+          "line": "195:234",
+          "token_estimate": 300,
+          "purpose": "fetch_memory_items_for_date_range_analysis",
+          "authority_section": "AH1-20 §5.1 梦境分析",
+          "debug_scenarios": ["ds_dream_analysis_failed"]
+        },
+        "insertAnalysisRun": {
+          "line": "236:264",
+          "token_estimate": 200,
+          "purpose": "record_memory_analysis_run_result",
+          "authority_section": "AH1-20 §5.1 梦境分析",
+          "debug_scenarios": ["ds_dream_analysis_failed"]
+        },
+        "getOrgMemorySummaries": {
+          "line": "150:193",
+          "token_estimate": 300,
+          "purpose": "query_org_memory_summaries_with_pagination",
+          "authority_section": "AH1-20 §5.2 组织记忆整合",
+          "debug_scenarios": ["ds_dream_analysis_failed"]
+        },
+        "getDreamFacts": {
+          "line": "266:300",
+          "token_estimate": 250,
+          "purpose": "fetch_dream_extraction_facts_for_org_integration",
+          "authority_section": "AH1-20 §5.2 组织记忆整合",
+          "debug_scenarios": ["ds_dream_analysis_failed"]
+        },
+        "getAnalysisRuns": {
+          "line": "50:88",
+          "token_estimate": 250,
+          "purpose": "list_recent_analysis_run_records",
+          "authority_section": "AH1-20 §5.3 分析历史",
+          "debug_scenarios": ["ds_dream_analysis_failed"]
+        },
+        "getCompressionLogs": {
+          "line": "90:118",
+          "token_estimate": 200,
+          "purpose": "list_recent_compression_log_entries",
+          "authority_section": "AH1-20 §5.3 分析历史",
+          "debug_scenarios": ["ds_dream_analysis_failed"]
+        },
+        "getAccessLogs": {
+          "line": "120:148",
+          "token_estimate": 200,
+          "purpose": "list_recent_memory_access_audit_logs",
+          "authority_section": "AH1-20 §5.3 分析历史",
+          "debug_scenarios": ["ds_dream_analysis_failed"]
+        }
+      }
+    },
+    "agent-harness/services/hermes-adapter/src/services/memory-service.ts": {
+      "summary": "Memory business logic — DB persistence, fact-retrieval sync, recall orchestration",
+      "token_estimate": 500,
+      "functions": {
+        "persistToDb": {
+          "line": "12:20",
+          "token_estimate": 100,
+          "purpose": "batch_persist_memories_to_db_via_repository",
+          "authority_section": "AH1-20 §4.1 记忆存储",
+          "debug_scenarios": ["ds_memory_not_persisted"]
+        },
+        "persistToFactRetrieval": {
+          "line": "22:53",
+          "token_estimate": 250,
+          "purpose": "sync_memory_summary_to_fact_retrieval_service",
+          "authority_section": "AH1-20 §2.3 知识提交",
+          "debug_scenarios": ["ds_knowledge_submit_failed"]
+        },
+        "recallFromDb": {
+          "line": "63:76",
+          "token_estimate": 100,
+          "purpose": "recall_memories_from_db_with_error_handling",
+          "authority_section": "AH1-20 §4.2 记忆召回",
+          "debug_scenarios": ["ds_chat_no_context"]
+        },
+        "clearSessionFromDb": {
+          "line": "78:85",
+          "token_estimate": 80,
+          "purpose": "clear_session_memories_from_db",
+          "authority_section": "AH1-20 §4.3 记忆清理",
+          "debug_scenarios": ["ds_memory_not_persisted"]
+        }
+      }
+    },
+    "agent-harness/services/skill-library/src/index.ts": {
+      "summary": "Skill library management — CRUD, audit, promotion, usage stats",
+      "token_estimate": 2500,
+      "functions": {
+        "createSkill": {
+          "line": "200:350",
+          "token_estimate": 500,
+          "purpose": "create_skill_with_v1_version",
+          "authority_section": "AH1-17 §7 技能管理",
+          "debug_scenarios": ["ds_skill_create_failed"]
+        },
+        "auditSkill": {
+          "line": "500:620",
+          "token_estimate": 700,
+          "purpose": "four_dimension_skill_audit",
+          "authority_section": "AH1-17 §7.2 技能审核",
+          "debug_scenarios": ["ds_skill_audit_failed"]
+        }
+      }
+    },
+    "agent-harness/apps/web-portal/src/index.ts": {
+      "summary": "Web admin portal — login, setup wizard, workflow/skill/knowledge/org management",
+      "token_estimate": 6000,
+      "functions": {
+        "handleLogin": {
+          "line": "559:662",
+          "token_estimate": 600,
+          "purpose": "authenticate_user_and_create_session",
+          "authority_section": "AH1-16 §5.1 认证流程",
+          "debug_scenarios": ["ds_login_failed", "ds_session_expired"]
+        },
+        "handleSetupInitialize": {
+          "line": "749:808",
+          "token_estimate": 400,
+          "purpose": "bootstrap_organization_admin_channel_llm",
+          "authority_section": "AH1-28 §2 初始化向导",
+          "debug_scenarios": ["ds_setup_incomplete"]
+        },
+        "handleConfigSave": {
+          "line": "1054:1070",
+          "token_estimate": 150,
+          "purpose": "save_env_config_to_file",
+          "authority_section": "AH1-28 §3 配置持久化",
+          "debug_scenarios": ["ds_config_save_failed"]
+        }
+      }
+    },
+    "agent-harness/libs/shared/src/logging/logger.ts": {
+      "summary": "Structured JSON logger with level filtering, sensitive data redaction, file rotation, timed() wrapper",
+      "token_estimate": 1000,
+      "functions": {
+        "Logger.timed": {
+          "line": "207:233",
+          "token_estimate": 200,
+          "purpose": "time_and_log_function_execution",
+          "authority_section": "AH1-23 §2.1 性能计时",
+          "debug_scenarios": ["ds_performance_degraded"]
+        },
+        "scrubSensitive": {
+          "line": "62:75",
+          "token_estimate": 100,
+          "purpose": "redact_sensitive_data_from_logs",
+          "authority_section": "AH1-23 §2.2 敏感脱敏",
+          "debug_scenarios": ["ds_secret_leaked_in_log"]
+        },
+        "Logger.shutdown": {
+          "line": "240:243",
+          "token_estimate": 50,
+          "purpose": "flush_log_buffer_and_stop_timer",
+          "authority_section": "AH1-23 §2.3 日志关闭",
+          "debug_scenarios": ["ds_process_exit_hang"]
+        }
+      }
+    },
+    "agent-harness/libs/shared/src/rate-limit/limiter.ts": {
+      "summary": "Token bucket rate limiter with auto-cleanup, 50000 key capacity",
+      "token_estimate": 600,
+      "functions": {
+        "RateLimiter.check": {
+          "line": "62:76",
+          "token_estimate": 150,
+          "purpose": "check_and_consume_rate_limit_token",
+          "authority_section": "AH1-31 §7 限流策略",
+          "debug_scenarios": ["ds_rate_limit_triggered"]
+        },
+        "TokenBucket.consume": {
+          "line": "137:163",
+          "token_estimate": 200,
+          "purpose": "token_bucket_consume_with_refill",
+          "authority_section": "AH1-31 §7.1 令牌桶算法",
+          "debug_scenarios": ["ds_rate_limit_triggered"]
+        }
+      }
+    },
+    "agent-harness/libs/shared/src/retry/strategy.ts": {
+      "summary": "Exponential backoff retry with jitter and custom error classification",
+      "token_estimate": 500,
+      "functions": {
+        "withRetry": {
+          "line": "51:92",
+          "token_estimate": 300,
+          "purpose": "execute_with_retry_backoff",
+          "authority_section": "AH1-31 §3 重试策略",
+          "debug_scenarios": ["ds_retry_exhausted", "ds_llm_timeout"]
+        }
+      }
+    },
+    "agent-harness/libs/shared/src/monitoring/health.ts": {
+      "summary": "Health check registry and aggregation, clearHealthChecks for test isolation",
+      "token_estimate": 500,
+      "functions": {
+        "runHealthCheck": {
+          "line": "36:104",
+          "token_estimate": 400,
+          "purpose": "aggregate_all_registered_health_checks",
+          "authority_section": "AH1-23 §3 健康检查",
+          "debug_scenarios": ["ds_service_unhealthy"]
+        }
+      }
+    },
+    "agent-harness/libs/shared/src/metrics/metrics.ts": {
+      "summary": "Metrics registry — Counter, Histogram, alerts, memory/heap monitoring",
+      "token_estimate": 600,
+      "functions": {
+        "MetricsRegistry.evaluateAlerts": {
+          "line": "120:160",
+          "token_estimate": 300,
+          "purpose": "evaluate_metric_alert_thresholds",
+          "authority_section": "AH1-23 §4 告警",
+          "debug_scenarios": ["ds_alert_not_firing", "ds_performance_degraded"]
+        }
+      }
+    },
+    "agent-harness/libs/shared/src/monitoring/security-check.ts": {
+      "summary": "Production environment security validation (password strength, CORS policy)",
+      "token_estimate": 250,
+      "functions": {
+        "checkProductionSecurity": {
+          "line": "13:51",
+          "token_estimate": 250,
+          "purpose": "validate_production_security_config",
+          "authority_section": "AH1-34 §2 生产安全检查",
+          "debug_scenarios": ["ds_startup_security_fail"]
+        }
+      }
+    },
+    "agent-harness/apps/web-portal/static/app.js": {
+      "summary": "Web admin SPA frontend — dashboard, workflow/skill/knowledge/file management UI",
+      "token_estimate": 5000,
+      "functions": {
+        "renderDashboard": {
+          "line": "100:250",
+          "token_estimate": 600,
+          "purpose": "render_admin_dashboard_with_stats",
+          "authority_section": "AH1-21 §6 Web管理界面",
+          "debug_scenarios": ["ds_web_ui_blank"]
+        }
+      }
+    }
+  },
+
+  "debug_scenarios": {
+    "ds_feishu_no_reply": {
+      "description": "用户飞书发消息后无回复",
+      "symptom_patterns": ["飞书无响应", "消息已读不回", "没有反应"],
+      "objects": [
+        {"file": "agent-harness/apps/gateway-adapter/src/index.ts", "function": "handleFeishuEvent", "line": "1058:1200"},
+        {"file": "agent-harness/apps/gateway-adapter/src/index.ts", "function": "sendFeishuTextReply", "line": "1355:1391"},
+        {"file": "agent-harness/apps/gateway-adapter/src/services/gateway-state.ts", "function": "checkAndSetDedupe", "line": "21:33"}
+      ],
+      "authority_refs": ["AH1-21 §4.1 事件处理", "AH1-21 §4.3 消息发送"],
+      "token_estimate": 1400
+    },
+    "ds_identity_not_bound": {
+      "description": "用户身份无法绑定/绑定失败",
+      "symptom_patterns": ["身份验证失败", "绑定失败", "未绑定"],
+      "objects": [
+        {"file": "agent-harness/apps/gateway-adapter/src/index.ts", "function": "resolveIdentity", "line": "219:256"},
+        {"file": "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts", "function": "resolve", "line": "88:224"},
+        {"file": "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts", "function": "createUserForChannel", "line": "226:263"}
+      ],
+      "authority_refs": ["AH1-21 §2.1 身份解析", "AH1-21 §2.2 自动绑户"],
+      "token_estimate": 1300
+    },
+    "ds_wrong_intent": {
+      "description": "意图分类错误（chat被当成task / task被当成chat）",
+      "symptom_patterns": ["不该创建任务却创建了", "该创建任务却直接回复"],
+      "objects": [
+        {"file": "agent-harness/apps/gateway-adapter/src/index.ts", "function": "classifyIntentWithLLM", "line": "320:429"},
+        {"file": "agent-harness/apps/gateway-adapter/src/index.ts", "function": "processIncomingText", "line": "851:1056"}
+      ],
+      "authority_refs": ["AH1-21 §3.1 意图分类", "AH1-21 §3.2 消息路由"],
+      "token_estimate": 2100
+    },
+    "ds_plan_generation_failed": {
+      "description": "工作流计划生成失败",
+      "symptom_patterns": ["规划失败", "plan生成失败", "workflow创建失败"],
+      "objects": [
+        {"file": "agent-harness/services/workflow/src/planner/planner.ts", "function": "plan", "line": "85:230"},
+        {"file": "agent-harness/services/workflow/src/planner/plan-validator.ts", "function": "validatePlan", "line": "1:80"}
+      ],
+      "authority_refs": ["AH1-17 §2.1 规划器契约", "AH1-17 §2.2 计划验证"],
+      "token_estimate": 1400
+    },
+    "ds_execution_failed": {
+      "description": "工作流执行阶段失败",
+      "symptom_patterns": ["执行失败", "executor报错", "stage执行失败"],
+      "objects": [
+        {"file": "agent-harness/services/executor-gateway/src/index.ts", "function": "autoExecuteWorkflowStages", "line": "250:400"},
+        {"file": "agent-harness/services/executor-gateway/src/executor/generic-executor.ts", "function": "execute", "line": "200:350"},
+        {"file": "agent-harness/services/executor-gateway/src/executor/generic-executor.ts", "function": "executeRepair", "line": "659:675"}
+      ],
+      "authority_refs": ["AH1-18 §3 执行编排", "AH1-31 §4 修复策略"],
+      "token_estimate": 2100
+    },
+    "ds_workflow_poll_timeout": {
+      "description": "轮询超时，任务状态未更新",
+      "symptom_patterns": ["任务一直在执行", "没有最终回复", "poll timeout"],
+      "objects": [
+        {"file": "agent-harness/apps/gateway-adapter/src/index.ts", "function": "pollAndReplyWorkflowResult", "line": "1393:1456"},
+        {"file": "agent-harness/services/workflow/src/supervisor/manager.ts", "function": "checkTimeout", "line": "62:90"}
+      ],
+      "authority_refs": ["AH1-17 §5.2 轮询", "AH1-17 §6 监督器"],
+      "token_estimate": 700
+    },
+    "ds_retrieval_no_results": {
+      "description": "知识检索无结果或结果不相关",
+      "symptom_patterns": ["检索无结果", "搜不到东西", "向量匹配失败"],
+      "objects": [
+        {"file": "agent-harness/services/fact-retrieval/src/service.ts", "function": "retrievalQuery", "line": "300:450"}
+      ],
+      "authority_refs": ["AH1-20 §3.1 混合检索"],
+      "token_estimate": 900
+    },
+    "ds_knowledge_submit_failed": {
+      "description": "知识提交/审核流程失败",
+      "symptom_patterns": ["知识提交失败", "审核失败", "fact写入失败"],
+      "objects": [
+        {"file": "agent-harness/apps/gateway-adapter/src/index.ts", "function": "submitKnowledge", "line": "691:731"},
+        {"file": "agent-harness/services/fact-retrieval/src/service.ts", "function": "submitUserFact", "line": "660:720"},
+        {"file": "agent-harness/services/fact-retrieval/src/service.ts", "function": "reviewFact", "line": "722:800"}
+      ],
+      "authority_refs": ["AH1-20 §2.3 知识提交", "AH1-20 §2.4 知识审核"],
+      "token_estimate": 1100
+    },
+    "ds_quota_exceeded": {
+      "description": "组织配额耗尽导致任务创建被拒绝",
+      "symptom_patterns": ["配额不足", "超过限制", "任务创建被拒"],
+      "objects": [
+        {"file": "agent-harness/apps/gateway-adapter/src/index.ts", "function": "checkOrgQuota", "line": "522:604"}
+      ],
+      "authority_refs": ["AH1-16 §3.2 组织配额"],
+      "token_estimate": 500
+    },
+    "ds_chat_no_context": {
+      "description": "对话缺少历史上下文",
+      "symptom_patterns": ["没有上下文", "不记得之前说的", "重复问同一问题"],
+      "objects": [
+        {"file": "agent-harness/apps/gateway-adapter/src/index.ts", "function": "generateChatReply", "line": "733:789"},
+        {"file": "agent-harness/services/hermes-adapter/src/index.ts", "function": "recallMemory", "line": "203:239"}
+      ],
+      "authority_refs": ["AH1-20 §4.2 记忆召回"],
+      "token_estimate": 900
+    },
+    "ds_state_transition_failed": {
+      "description": "工作流状态转换异常",
+      "symptom_patterns": ["状态卡住", "workflow stuck", "planned→running失败"],
+      "objects": [
+        {"file": "agent-harness/services/workflow/src/engine/workflow-machine.ts", "function": "createWorkflowMachine", "line": "1:200"}
+      ],
+      "authority_refs": ["AH1-17 §4 状态机", "object-relationship-graph.md §4 状态迁移矩阵"],
+      "token_estimate": 1000
+    },
+    "ds_service_unhealthy": {
+      "description": "某服务健康检查失败",
+      "symptom_patterns": ["服务挂了", "health check fail", "unhealthy"],
+      "objects": [
+        {"file": "agent-harness/libs/shared/src/monitoring/health.ts", "function": "runHealthCheck", "line": "36:104"}
+      ],
+      "authority_refs": ["AH1-23 §3 健康检查"],
+      "token_estimate": 400
+    },
+    "ds_rate_limit_triggered": {
+      "description": "请求被限流拒绝",
+      "symptom_patterns": ["限流", "rate limited", "too many requests"],
+      "objects": [
+        {"file": "agent-harness/libs/shared/src/rate-limit/limiter.ts", "function": "RateLimiter.check", "line": "62:76"},
+        {"file": "agent-harness/libs/shared/src/rate-limit/limiter.ts", "function": "TokenBucket.consume", "line": "137:163"}
+      ],
+      "authority_refs": ["AH1-31 §7 限流策略"],
+      "token_estimate": 350
+    },
+    "ds_memory_leak": {
+      "description": "内存持续增长，怀疑有对象未清理",
+      "symptom_patterns": ["内存增长", "heap上升", "dedupe缓存过大"],
+      "objects": [
+        {"file": "agent-harness/apps/gateway-adapter/src/services/gateway-state.ts", "function": "sweepDedupeCache", "line": "11:19"},
+        {"file": "agent-harness/libs/shared/src/rate-limit/limiter.ts", "function": "RateLimiter.check", "line": "62:76"},
+        {"file": "agent-harness/libs/shared/src/metrics/metrics.ts", "function": "MetricsRegistry.evaluateAlerts", "line": "120:160"}
+      ],
+      "authority_refs": ["AH1-23 §4.1 内存监控"],
+      "token_estimate": 600
+    }
+  },
+
+  "token_budgets": {
+    "debug_initial_injection": 3000,
+    "debug_max_rounds": 3,
+    "debug_expand_per_round": 1000,
+    "per_object": {
+      "function_simple": 200,
+      "function_complex": 600,
+      "class_definition": 400,
+      "authority_section": 500,
+      "error_handling": 300
+    },
+    "scenario_full_context": 5000,
+    "architecture_overview": 1500,
+    "test_failure_analysis": 2500
+  },
+
+  "loading_policy": {
+    "default_strategy": "objects_first",
+    "strategies": {
+      "objects_first": {
+        "description": "加载对象级定义 → 按需展开 → 触及上限时裁剪低优先级对象",
+        "max_objects": 5,
+        "expansion_trigger": "insufficient_context_for_fix"
+      },
+      "debug_scenario": {
+        "description": "按 debug_scenario 预定义的对象列表加载",
+        "max_objects": 4,
+        "expansion_trigger": "root_cause_not_found"
+      },
+      "authority_first": {
+        "description": "先加载权威文档段落 → 再按需加载代码对象",
+        "max_objects": 3,
+        "expansion_trigger": "implementation_detail_needed"
+      }
+    }
+  },
+
+  "cross_references": {
+    "context_graph_version": "v2.4",
+    "context_routing_version": "v1.6",
+    "object_relationship_graph_version": "v2.5",
+    "architecture_md_version": "2026-05-14"
+  }
+}

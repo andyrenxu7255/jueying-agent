@@ -1,7 +1,6 @@
 # TeamClaw (agent-harness) 对象关系图谱
 
-> 版本: v2.3 | 生成日期: 2026-05-06 | 更新: 2026-05-11 (审计修复同步)
-> 基于: ARCHITECTURE.md + AH1-14/17 + DEV-08 + 源码分析 + docker-compose.yml + SYSTEM-AUDIT-2026-05-06 + SYSTEM-AUDIT-2026-05-11 (修复)
+> 版本: v2.5 | 生成日期: 2026-05-06 | 更新: 2026-05-13 (hermes-adapter 重构同步 — 补齐读写矩阵 + 新增 repository/service 文件索引)
 > 目标: 单一文件承载全系统对象关系，减少 debug/优化场景的上下文加载量
 
 ---
@@ -1039,8 +1038,8 @@ memory_source                  -         -         -         -         R/W      
 memory_usage_log               -         -         -         -         W        -        -          -         -       -
 memory_access_log              -         -         -         -         W        R        -          -         -       -
 memory_compression_log         -         -         -         -         W        R        -          -         -       -
-memory_analysis_run            -         -         -         -         -        R/W      -          -         -       -
-org_memory_summary             -         -         -         -         -        R/W      -          -         -       -
+memory_analysis_run            -         -         -         -         W        R/W      -          -         -       -
+org_memory_summary             -         -         -         -         R        R/W      -          -         -       -
 dream_mode_config              -         -         -         -         -        R/W      -          -         -       -
 
 skill / skill_version          -         -         -         -         R/W      R        R/W        -         -       -
@@ -1188,8 +1187,11 @@ DreamSummarization → EvidenceRetrieval → ObjectExtraction
 
 | 文件 | 核心职责 | 关键函数/类 |
 |------|---------|------------|
-| `apps/gateway-adapter/src/index.ts` | 多渠道消息入口, Chat/Task 分发, 轮询 | `handleFeishuEvent`, `processIncomingText`, `pollAndReplyWorkflowResult` |
+| `apps/gateway-adapter/src/index.ts` | 多渠道消息入口, Chat/Task 分发, 轮询, fireAndForget 模式 | `handleFeishuEvent`, `processIncomingText`, `pollAndReplyWorkflowResult`, `fireAndForget` |
 | `apps/gateway-adapter/src/services/identity-resolver.ts` | 身份解析与自动绑定 | `resolveIdentity` (查+创建+绑定) |
+| `apps/gateway-adapter/src/services/session-mapper.ts` | 会话引用生成 (channel:account:conv/dm:thread:org) | `SessionMapper.createSessionRef()` |
+| `apps/gateway-adapter/src/services/file-validator.ts` | 文件上传安全校验 (扩展名/魔法字节/MIME/大小/文本) | `validateFileForImport`, `sanitizeFileName`, `validateTextContent` |
+| `apps/gateway-adapter/src/services/gateway-state.ts` | 去重缓存 + Token 缓存管理 | `GatewayState.checkAndSetDedupe()`, Feishu/WeCom token cache |
 | `services/workflow/src/index.ts` | CRUD, plan/dispatch/stage/complete | 所有 `/internal/workflows/*` 端点 |
 | `services/workflow/src/planner/planner.ts` | LLM 规划器 | `workflowPlanner.plan()` |
 | `services/workflow/src/planner/plan-validator.ts` | 计划校验 | stage chain 合法性检查 |
@@ -1205,7 +1207,12 @@ DreamSummarization → EvidenceRetrieval → ObjectExtraction
 | `services/executor-gateway/src/executor/approval-executor.ts` | 审批执行器 | 等待用户确认 |
 | `services/fact-retrieval/src/index.ts` | 事实检索入口 | documents/index, retrieval/query, facts/write |
 | `services/fact-retrieval/src/service.ts` | 核心检索逻辑 | 向量检索 + 图检索 + 重排序 |
-| `services/hermes-adapter/src/index.ts` | 记忆管理 | memory/memory/recall/clear, context/compress |
+| `services/hermes-adapter/src/index.ts` | 记忆管理（含梦境分析 + 技能搜索） | memory, memory/recall, memory/clear, context/compress, memory/analyze, skills/search |
+| `services/hermes-adapter/src/repositories/memory-repository.ts` | 会话记忆 CRUD（Drizzle ORM） | `MemoryRepository` — saveMemory, saveMemories, recallMemories, clearSessionMemories, clearAllMemories |
+| `services/hermes-adapter/src/repositories/skill-repository.ts` | 技能搜索与详情查询（Drizzle ORM） | `SkillRepository` — searchSkills, getSkillById |
+| `services/hermes-adapter/src/repositories/memory-analysis-repository.ts` | 梦境分析数据访问层（Drizzle ORM） | `MemoryAnalysisRepository` — getMemoryItemsForAnalysis, insertAnalysisRun, getOrgMemorySummaries, getDreamFacts, getAnalysisRuns, getCompressionLogs, getAccessLogs |
+| `services/hermes-adapter/src/services/memory-service.ts` | 记忆业务逻辑编排 | `MemoryService` — persistToDb, persistToFactRetrieval, recallFromDb, clearSessionFromDb, clearAllFromDb |
+| `services/hermes-adapter/src/db.ts` | Drizzle ORM 数据库连接管理 | drizzle() 初始化、closeDbPool() |
 | `services/skill-library/src/index.ts` | 技能库管理 | 技能 CRUD, 审核, 搜索, 注册表 |
 | `services/resource-scheduler/src/index.ts` | 资源配额调度 | 配额管理, 使用统计, 巡检 |
 | `apps/mobile-app/src/index.ts` | 移动端通知服务 | 设备注册, 推送通知, 历史查询 |
@@ -1213,12 +1220,37 @@ DreamSummarization → EvidenceRetrieval → ObjectExtraction
 | `apps/web-portal/src/index.ts` | Web 管理后台 | 全量管理 API |
 | `libs/shared/src/db/schema.ts` | 数据库 Schema (47表) | 所有 pgTable 定义 |
 | `libs/shared/src/ai/embedding.ts` | 向量嵌入 | embedding 生成 |
+| `libs/shared/src/logging/logger.ts` | 结构化日志 | `Logger`, `createLogger`, timed(), 敏感脱敏 |
+| `libs/shared/src/metrics/metrics.ts` | 指标收集 | `MetricsRegistry`, Counter/Histogram/告警 |
+| `libs/shared/src/retry/strategy.ts` | 重试策略 | `withRetry`, `RetryError`, `RETRY_POLICIES` |
+| `libs/shared/src/rate-limit/limiter.ts` | 令牌桶限流 | `RateLimiter`, `getRateLimiter()` |
+| `libs/shared/src/monitoring/health.ts` | 健康检查 | `registerHealthCheck`, `runHealthCheck`, `clearHealthChecks` |
+| `libs/shared/src/monitoring/security-check.ts` | 生产安全检查 | `checkProductionSecurity` |
 | `libs/policy/src/manager.ts` | 策略管理器 | `checkPermission` |
 | `libs/shared/src/config/manager.ts` | 配置管理器 | 环境变量加载 |
-| `libs/shared/src/monitoring/health.ts` | 健康检查 | 各服务 `/health` 端点 |
 | `libs/shared/src/monitoring/log-aggregator.ts` | 日志聚合 | 结构化日志输出 |
-| `libs/shared/src/metrics/metrics.ts` | 指标收集 | OpenTelemetry metrics |
 | `libs/contracts/events/types.ts` | 事件类型定义 | 事件信封结构 |
+
+### 测试文件清单 (16 suites, 209 tests)
+
+| 测试文件 | 测试数 | 覆盖模块 |
+|---------|--------|---------|
+| `apps/gateway-adapter/src/services/gateway-state.test.ts` | 8 | 去重缓存 |
+| `apps/gateway-adapter/src/services/file-validator.test.ts` | 52 | 文件校验 |
+| `apps/gateway-adapter/src/services/session-mapper.test.ts` | 15 | 会话映射 |
+| `libs/shared/src/http/index.test.ts` | 22 | HTTP 工具 |
+| `libs/shared/src/logging/logger.test.ts` | 12 | 日志系统 |
+| `libs/shared/src/metrics/metrics.test.ts` | 15 | 指标注册 |
+| `libs/shared/src/retry/strategy.test.ts` | 10 | 重试策略 |
+| `libs/shared/src/rate-limit/limiter.test.ts` | 10 | 令牌桶限流 |
+| `libs/shared/src/monitoring/health.test.ts` | 8 | 健康检查 |
+| `libs/shared/src/monitoring/security-check.test.ts` | 5 | 安全检查 |
+| `services/workflow/src/engine/workflow-machine.test.ts` | 8 | 状态机 |
+| `services/workflow/src/persistence/db.test.ts` | 8 | 持久化 |
+| `services/workflow/src/planner/planner.test.ts` | 14 | 规划器 |
+| `services/workflow/src/supervisor/manager.test.ts` | 8 | 心跳监控 |
+| `services/fact-retrieval/src/cypher-safety.test.ts` | 7 | Cypher 安全 |
+| `services/fact-retrieval/src/support.test.ts` | 7 | 支持工具 |
 
 ---
 

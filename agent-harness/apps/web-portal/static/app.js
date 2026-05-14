@@ -41,18 +41,18 @@ async function api(path, options) {
 
 function showToast(msg, type) {
   type = type ?? 'success';
-  const container = document.getElementById('toast-container');
+  let container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
     container.id = 'toast-container';
     container.className = 'toast-container';
     document.body.appendChild(container);
   }
-  let el = document.createElement('div');
+  var el = document.createElement('div');
   el.className = 'toast toast-' + type;
   el.textContent = msg;
   container.appendChild(el);
-  setTimeout(function() { el.remove(); if (container.children.length === 0) container.remove(); }, 3000);
+  setTimeout(function() { el.remove(); if (container && container.children.length === 0) container.remove(); }, 3000);
 }
 
 function escapeHtml(s) {
@@ -70,8 +70,13 @@ function statusBadge(status) {
   return '<span class="badge badge-' + (map[status] || 'info') + '">' + escapeHtml(status) + '</span>';
 }
 
+/**
+ * 生成空状态占位 HTML
+ * icon — 已使用 escapeHtml 转义(2026-05-14 安全加固)
+ * actionHtml — WARNING: 不受转义的 HTML 字符串。调用者必须只传入硬编码常量 HTML，不可传入用户/API 数据
+ */
 function emptyState(icon, title, desc, actionHtml) {
-  return '<div class="empty-state"><div class="empty-icon">' + icon + '</div><h3>' + escapeHtml(title) + '</h3><p>' + escapeHtml(desc) + '</p>' + (actionHtml || '') + '</div>';
+  return '<div class="empty-state"><div class="empty-icon">' + escapeHtml(icon) + '</div><h3>' + escapeHtml(title) + '</h3><p>' + escapeHtml(desc) + '</p>' + (actionHtml || '') + '</div>';
 }
 
 function passwordStrengthHtml(score) {
@@ -1097,25 +1102,25 @@ async function renderUsers(el) {
   el.innerHTML = '<div class="page-header"><h2>用户管理</h2><button class="btn btn-primary" onclick="showAddUser()">新增用户</button></div><div class="card"><div id="user-list">加载中...</div></div>';
   const r = await api('/api/users');
   if (r.ok && r.data.users) {
-    document.getElementById('user-list').innerHTML = '<table><tr><th>用户名</th><th>角色</th><th>状态</th><th>组织</th><th>操作</th></tr>' + r.data.users.map(function(u) { return '<tr><td>' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.role) + '</td><td>' + statusBadge(u.status) + '</td><td>' + escapeHtml(u.org_id || '-') + '</td><td><button class="btn btn-sm btn-outline" onclick="showAssignOrg(\'' + escJsAttr(u.username) + '\',\'' + escJsAttr(String(u.org_id || '')) + '\')">分配组织</button></td></tr>'; }).join('') + '</table>';
+    document.getElementById('user-list').innerHTML = '<table><tr><th>用户名</th><th>角色</th><th>状态</th><th>组织</th><th>操作</th></tr>' + r.data.users.map(function(u) { return '<tr><td>' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.role) + '</td><td>' + statusBadge(u.status) + '</td><td>' + escapeHtml(u.org_id || '-') + '</td><td><button class="btn btn-sm btn-outline" onclick="showAssignOrg(\'' + escJsAttr(String(u.id)) + '\',\'' + escJsAttr(u.username) + '\',\'' + escJsAttr(String(u.org_id || '')) + '\')">分配组织</button></td></tr>'; }).join('') + '</table>';
   } else {
     document.getElementById('user-list').innerHTML = emptyState('⚠️', '无法加载用户列表', '请检查服务状态', '<button class="btn btn-primary" onclick="renderView()">重试</button>');
   }
 }
 
-async function showAssignOrg(username, currentOrgId) {
+async function showAssignOrg(userId, username, currentOrgId) {
   const r = await api('/api/admin/organizations');
   const orgs = (r.ok && r.data.organizations) ? r.data.organizations : [];
   const body = '<div class="form-group"><label>用户: ' + escapeHtml(username) + '</label></div>' +
     '<div class="form-group"><label>选择组织</label><select id="assign-org-id"><option value="">无组织</option>' +
     orgs.map(function(o) { return '<option value="' + escapeHtml(o.id) + '"' + (String(o.id) === currentOrgId ? ' selected' : '') + '>' + escapeHtml(o.display_name || o.org_name) + '</option>'; }).join('') +
-    '</select></div><button class="btn btn-primary" onclick="doAssignOrg(\'' + escJsAttr(username) + '\')">确认分配</button>';
+    '</select></div><button class="btn btn-primary" onclick="doAssignOrg(\'' + escJsAttr(userId) + '\')">确认分配</button>';
   showModal('分配组织', body);
 }
 
-async function doAssignOrg(username) {
+async function doAssignOrg(userId) {
   const orgId = document.getElementById('assign-org-id').value;
-  const r = await api('/api/admin/users-orgs', { method: 'PUT', body: JSON.stringify({ user_id: username, org_id: orgId }) });
+  const r = await api('/api/admin/users-orgs', { method: 'PUT', body: JSON.stringify({ user_id: userId, org_id: orgId }) });
   if (r.ok) { showToast('组织分配成功'); closeModal(); renderView(); }
   else { showToast((r.data && r.data.error) || '分配失败', 'error'); }
 }
@@ -1193,8 +1198,8 @@ async function showEditOrg(orgId) {
   const body = '<div class="form-group"><label>显示名称</label><input type="text" id="edit-org-display" value="' + escapeHtml(org.display_name || '') + '"></div>' +
     '<div class="form-group"><label>状态</label><select id="edit-org-status"><option value="active"' + (org.status === 'active' ? ' selected' : '') + '>active</option><option value="suspended"' + (org.status === 'suspended' ? ' selected' : '') + '>suspended</option><option value="deleted"' + (org.status === 'deleted' ? ' selected' : '') + '>deleted</option></select></div>' +
     '<h4 style="margin-top:16px;margin-bottom:8px;color:var(--text2);font-size:14px">资源配额</h4>' +
-    '<div class="form-group"><label>用户上限</label><input type="number" id="edit-org-max-users" value="' + (settings.max_users || 100) + '" min="1"></div>' +
-    '<div class="form-group"><label>每日 Workflow 上限</label><input type="number" id="edit-org-max-wf" value="' + (settings.max_workflows_per_day || 500) + '" min="0"></div>' +
+    '<div class="form-group"><label>用户上限</label><input type="number" id="edit-org-max-users" value="' + escapeHtml(String(settings.max_users || 100)) + '" min="1"></div>' +
+    '<div class="form-group"><label>每日 Workflow 上限</label><input type="number" id="edit-org-max-wf" value="' + escapeHtml(String(settings.max_workflows_per_day || 500)) + '" min="0"></div>' +
     '<button class="btn btn-primary" onclick="doEditOrg(\'' + escJsAttr(String(orgId)) + '\')">保存修改</button> <button class="btn btn-outline" onclick="closeModal()">取消</button>';
   showModal('编辑组织: ' + org.org_name, body);
 }

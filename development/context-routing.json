@@ -1,12 +1,14 @@
 {
-  "version": "v1.4",
-  "description": "Task routing configuration - Updated 2026-05-08: Aligned task_routes naming with context-graph.json task_profiles (M1-M5 prefix convention)",
+  "version": "v1.6",
+  "description": "Task routing configuration - Updated 2026-05-12: Added context-object-routes.json for function-level context injection, debug scenario routing, and token budget awareness.",
   "default_bootstrap_docs": [
     "development/DEV-00-开发索引.md",
     "development/DEV-08-文件内容与依赖对象图谱.md",
     "development/DEV-09-上下文防腐执行标准.md",
-    "development/DEV-10-工作区结构与读取白名单.md"
+    "development/DEV-10-工作区结构与读取白名单.md",
+    "development/context-object-routes.json"
   ],
+  "object_routes_file": "development/context-object-routes.json",
   "path_policy": {
     "allow": [
       "development/*.md",

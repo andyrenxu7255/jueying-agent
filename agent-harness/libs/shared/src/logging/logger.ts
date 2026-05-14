@@ -211,22 +211,24 @@ export class Logger {
     detail?: Record<string, unknown>
   ): Promise<T> {
     const start = performance.now();
+    let result: T | Promise<T>;
     try {
-      const result = fn();
-      const end = performance.now();
-      if (result instanceof Promise) {
-        return result.then(
-          (val) => { this.log('info', event, message, detail, Math.round(end - start)); return val; },
-          (err) => { this.log('error', event, `${message} failed: ${(err as Error).message}`, detail, Math.round(end - start)); throw err; }
-        );
-      }
-      this.log('info', event, message, detail, Math.round(end - start));
-      return Promise.resolve(result);
+      result = fn();
     } catch (err) {
       const end = performance.now();
       this.log('error', event, `${message} failed: ${(err as Error).message}`, detail, Math.round(end - start));
-      throw err;
+      return Promise.reject(err);
     }
+    if (result instanceof Promise) {
+      const promiseStart = start;
+      return result.then(
+        (val) => { this.log('info', event, message, detail, Math.round(performance.now() - promiseStart)); return val; },
+        (err) => { this.log('error', event, `${message} failed: ${(err as Error).message}`, detail, Math.round(performance.now() - promiseStart)); throw err; }
+      );
+    }
+    const end = performance.now();
+    this.log('info', event, message, detail, Math.round(end - start));
+    return Promise.resolve(result as T);
   }
 
   withContext(context: { trace_id?: string; workflow_instance_id?: string; workflow_stage_id?: string }): Logger {

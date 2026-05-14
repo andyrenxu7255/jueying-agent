@@ -33,6 +33,10 @@ export function registerHealthCheck(name: string, check: HealthChecker): void {
   logger.info('health.checker.registered', `Health check registered: ${name}`, { checker_name: name });
 }
 
+export function clearHealthChecks(): void {
+  checkers.clear();
+}
+
 export async function runHealthCheck(): Promise<HealthStatus> {
   const components: Record<string, ComponentHealth> = {};
   let overallStatus: HealthStatus['status'] = 'healthy';

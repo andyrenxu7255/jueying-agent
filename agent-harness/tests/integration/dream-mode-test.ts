@@ -35,7 +35,6 @@ async function main(): Promise<void> {
 
   const hermesUrl = process.env.HERMES_URL || 'http://localhost:3005';
   const skillUrl = process.env.SKILL_LIBRARY_URL || 'http://localhost:3007';
-  const portalUrl = process.env.WEB_PORTAL_URL || 'http://localhost:3003';
 
   // ============================================================
   // Phase 1: 记忆分析端点测试

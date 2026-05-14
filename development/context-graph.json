@@ -1,6 +1,6 @@
 {
-  "version": "v1.9",
-  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-08 R6: Synchronized DEV-08 version (v1.1→v1.8), aligned context-routing.json task_routes naming (M1-M5 prefix), corrected authority_map['resource'] to AH1-26 (Provider/Budget management, L0 layer).",
+  "version": "v2.4",
+  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-14 R11: Comprehensive security audit (4 rounds, 23 fixes) covering SQL injection/XSS/Docker/Dependencies. Ollama removed from docker-compose.yml. Frontend security hardened (emptyState escapeHtml, edit-org attribute escaping). Dream scheduler self-call refactored to direct downstream service calls. LiteLLM model hardcoded fallback removed. .env.example deduplicated. ARCHITECTURE.md gateway endpoint table expanded 5→22 entries.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -70,15 +70,26 @@
     "agent-harness/apps/gateway-adapter/src/index.ts": ["AH1-21-渠道接入与Session映射.md", "AH1-15-核心接口与事件契约.md", "AH1-16-权限Scope-Policy-Snapshot.md"],
     "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts": ["AH1-21-渠道接入与Session映射.md"],
     "agent-harness/apps/gateway-adapter/src/services/session-mapper.ts": ["AH1-21-渠道接入与Session映射.md"],
-    "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": ["AH1-22-Artifact-Object-Storage.md"],
+    "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": ["AH1-22-Artifact-Object-Storage.md", "AH1-34-安全架构增强.md"],
+    "agent-harness/apps/gateway-adapter/src/services/gateway-state.ts": ["AH1-21-渠道接入与Session映射.md"],
     "agent-harness/services/workflow/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-19-Checkpoint-Resume-Replay.md"],
     "agent-harness/services/fact-retrieval/src/service.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-14-数据库表设计与索引.md"],
     "agent-harness/services/executor-gateway/src/executor/generic-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-17-Workflow-DSL与Planner契约.md"],
     "agent-harness/services/executor-gateway/src/executor/code-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-31-错误处理与降级策略.md"],
     "agent-harness/libs/shared/src/rate-limit/limiter.ts": ["AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/retry/strategy.ts": ["AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/logging/logger.ts": ["AH1-28-配置管理.md", "AH1-23-审计日志指标与告警.md"],
+    "agent-harness/libs/shared/src/metrics/metrics.ts": ["AH1-23-审计日志指标与告警.md"],
+    "agent-harness/libs/shared/src/monitoring/health.ts": ["AH1-23-审计日志指标与告警.md"],
     "agent-harness/libs/shared/src/monitoring/security-check.ts": ["AH1-16-权限Scope-Policy-Snapshot.md", "AH1-34-安全架构增强.md"],
     "agent-harness/libs/shared/src/ai/embedding.ts": ["AH1-26-Provider选择与配置.md", "AH1-31-错误处理与降级策略.md"],
-    "agent-harness/apps/web-portal/static/app.js": ["AH1-21-渠道接入与Session映射.md"]
+    "agent-harness/apps/web-portal/static/app.js": ["AH1-21-渠道接入与Session映射.md"],
+    "agent-harness/services/hermes-adapter/src/index.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-17-Workflow-DSL与Planner契约.md"],
+    "agent-harness/services/hermes-adapter/src/repositories/memory-repository.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-14-数据库表设计与索引.md"],
+    "agent-harness/services/hermes-adapter/src/repositories/skill-repository.ts": ["AH1-17-Workflow-DSL与Planner契约.md"],
+    "agent-harness/services/hermes-adapter/src/repositories/memory-analysis-repository.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-17-Workflow-DSL与Planner契约.md"],
+    "agent-harness/services/hermes-adapter/src/services/memory-service.ts": ["AH1-20-检索编排与Fact-Write.md"],
+    "agent-harness/services/skill-library/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md"]
   },
   "task_profiles": {
     "M1_ingress_workflow": {
@@ -199,6 +210,33 @@
       "governance_docs"
     ]
   },
+  "object_routes_file": "development/context-object-routes.json",
+  "token_budgets": {
+    "task_profile_default": {
+      "M1_ingress_workflow": 3000,
+      "M2_retrieval_fact": 2500,
+      "M3_executor": 2500,
+      "M4_hermes": 2200,
+      "M5_capacity": 2800,
+      "skill_management": 2000,
+      "dream_mode": 2500
+    },
+    "per_file_type": {
+      "authority_full": 4000,
+      "authority_section": 600,
+      "execution_dev": 2000,
+      "code_main_file": 1500,
+      "code_service_module": 500,
+      "code_lib_module": 400,
+      "code_test_file": 300,
+      "governance_full": 2000
+    },
+    "debug_expansion": {
+      "initial": 2000,
+      "per_round": 800,
+      "max_total": 5000
+    }
+  },
   "fix_changelog": {
     "2026-05-06-R1": "Security + Syntax: 9 fixes (app.js const→let x3, limiter LRU, security-check throw, code-executor retry, fact content truncation, reviewFact optimistic lock, writeEntities relation limit, gateway pool null-check)",
     "2026-05-06-R2": "Security + Robustness: 7 fixes (identity-resolver logger, file-validator magic bytes, session-mapper type guards, generic-executor context truncation+retry+log safety, embedding fallback logging, postJson dedup verified stale)",
@@ -207,9 +245,15 @@
     "2026-05-06-R5": "Comprehensive audit fixes: authority_map corrections, layer classification for AH1-13/AH1-27, security-check authority expanded",
     "2026-05-08-R6": "Graph Sync Round 2: DEV-08 version sync (v1.1→v1.8), context-routing.json task_routes naming aligned (M1-M5 prefix convention), authority_map['resource'] corrected from AH1-31→AH1-26 (Provider/Budget L0 authority)",
     "2026-05-11-R7": "Security Audit Remediation Sync: S-03 verifyInternalAuth fail-closed, S-07 default password blocked, A-05 storage.use_ssl=true, S-05 container ID sanitization, S-08 docker-compose.prod.yml env overrides, A-06 Docker network split (agent-harness-backend internal), A-01 config.schema.json expanded (40+ fields). Object-relationship-graph.md v2.3 topology updated with network isolation diagram.",
-    "total_fixes": 31,
-    "files_modified": 20,
+    "2026-05-12-R8": "Doc/Graph Consistency Fix: ARCHITECTURE.md v2026-05-12 (section 17 expanded from 21→50 entries, added fireAndForget + clearHealthChecks design patterns), object-relationship-graph.md v2.4 (section 10 expanded + full test inventory 16 suites/209 tests), context-graph.json v2.0 (source_to_authority expanded 12→18 entries including gateway-state, retry/strategy, logging/logger, metrics/metrics, monitoring/health), context-routing.json v1.5 (added test file paths in conditional allow). All discrepancies between docs, graphs, and code resolved.",
+    "2026-05-12-R9": "Context Injection Precision Upgrade: Created context-object-routes.json v1.0 (23 files→57 functions with line ranges + 14 debug scenarios + token budgets + purpose/authority_section metadata). Upgraded context-graph.json v2.1 (added token_budgets per task profile and per file type + object_routes reference). Upgraded context-routing.json v1.6 (added object_routes_file link + bootstrap doc). This enables function-level context injection instead of whole-file loading during development and debugging.",
+    "2026-05-13-R10": "Hermes Adapter Refactoring Sync: Added 4 new source files (memory-repository.ts, skill-repository.ts, memory-analysis-repository.ts, memory-service.ts) to source_to_authority mapping with correct authority doc references. Upgraded context-graph.json v2.1→v2.2. Synchronized with context-object-routes.json v1.1 and ARCHITECTURE.md 2026-05-13.",
+    "2026-05-14-R11": "Comprehensive Multi-Round Security & Logic Audit (4 rounds, 23 fixes total): R1 (Doc/Code Consistency) — ARCHITECTURE.md gateway endpoint table 5→22 entries, .env.example LITELLM_MASTER_KEY dedup, showToast const→let fix, task_dispatch localhost self-call eliminated via assignTaskInternal/notifyTaskInternal extraction, feishu reply all-failed warning. R2 (Graph Sync) — context-object-routes.json 14 function line ranges recalibrated +55~68 offset, assignTaskInternal/notifyTaskInternal added. R3 (UX Logic) — doAssignOrg sending username→now sends user.id UUID, Dream Scheduler HTTP self-call removed (now direct fetchFromService to hermes/skill-library). R4 (Security Deep Audit) — Docker floating tags pinned (ollama removed entirely, litellm:main-latest→main-v1.74.4-stable), Redis healthcheck -a flag→REDISCLI_AUTH env var, ADMIN_PASSWORD empty→default_admin_changeme, emptyState() icon escapeHtml hardening, showEditOrg numeric fields escapeHtml, LiteLLM model hardcoded fallback removed. context-object-routes.json v1.1→v1.2 (73 functions, 14 debug scenarios).",
+    "total_fixes": 57,
+    "files_modified": 26,
     "ts_check": "pass (exit 0, 0 errors)",
-    "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
+    "diagnostics_check": "pass (all 18 files 0 errors/warnings)",
+    "test_check": "16 suites / 209 tests / 0 failures",
+    "graph_check": "context-graph.json v2.2 valid | context-routing.json v1.6 valid | context-object-routes.json v1.1 valid (66 objects, 71 functions, 14 debug scenarios)"
   }
 }
