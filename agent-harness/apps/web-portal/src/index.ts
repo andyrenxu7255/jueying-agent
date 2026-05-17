@@ -717,6 +717,15 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
 
+    if (pathname === '/api/auth/logout' && method === 'POST') {
+      const sessionId = getSessionId(req);
+      if (sessionId) {
+        await deleteSessionFromStore(sessionId);
+      }
+      sendJson(res, 200, { ok: true, message: '已退出登录' });
+      return;
+    }
+
     if (pathname === '/api/auth/session' && method === 'GET') {
       const session = await requireSession(req, res);
       if (!session) return;
@@ -761,16 +770,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const forwarded = (req.headers['x-forwarded-for'] as string) || '';
       const clientIp = (forwarded ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || '';
       const LOCAL_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+      const body = await readJson(req);
       if (!LOCAL_IPS.has(clientIp)) {
-        if (SETUP_TOKEN) {
-          const body = await readJson(req);
-          if (body.setup_token !== SETUP_TOKEN) {
-            sendJson(res, 403, { ok: false, error: 'forbidden', message: '仅限本地访问或提供有效 SETUP_TOKEN' });
-            return;
-          }
+        if (!SETUP_TOKEN || body.setup_token !== SETUP_TOKEN) {
+          sendJson(res, 403, { ok: false, error: 'forbidden', message: '仅限本地访问或提供有效 SETUP_TOKEN' });
+          return;
         }
       }
-      const body = await readJson(req);
       const step = String(body.step || '');
       const pool = await getDbPool();
       if (!pool) {
@@ -905,11 +911,19 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     }
 
     if (pathname === '/api/users' && method === 'GET') {
-      const session = await requireSession(req, res);
+      const session = await requireAdmin(req, res);
       if (!session) return;
-      // TODO: gateway-adapter does not expose '/users' - should query DB directly or add endpoint to gateway
-      const r = await fetchFromService(gatewayUrl + '/users');
-      sendJson(res, r.status, r.data);
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const result = await pool.query(
+          `SELECT id, username, display_name, role, status, org_id, created_at FROM "user" ORDER BY created_at DESC LIMIT 1000`
+        );
+        sendJson(res, 200, { ok: true, users: result.rows });
+      } catch (error) {
+        logger.error('users.query_failed', 'Users query failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
       return;
     }
 
@@ -925,9 +939,24 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           return;
         }
       }
-      // TODO: gateway-adapter does not expose '/users' POST - should query DB directly or add endpoint to gateway
-      const r = await fetchFromService(gatewayUrl + '/users', { method: 'POST', body: JSON.stringify(body) });
-      sendJson(res, r.status, r.data);
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const username = String(body.username || '').trim();
+        const displayName = String(body.display_name || body.username || '').trim();
+        const role = String(body.role || 'user').trim();
+        if (!username) { sendJson(res, 400, { ok: false, error: 'missing_username' }); return; }
+        const metadata: Record<string, unknown> = {};
+        if (newPassword) metadata.password_hash = hashPassword(newPassword);
+        const result = await pool.query(
+          `INSERT INTO "user" (username, display_name, role, status, metadata) VALUES ($1, $2, $3, 'active', $4::jsonb) ON CONFLICT (username) DO UPDATE SET display_name = $2, role = $3, metadata = $4::jsonb RETURNING *`,
+          [username, displayName, role, JSON.stringify(metadata)]
+        );
+        sendJson(res, 201, { ok: true, user: result.rows[0] });
+      } catch (error) {
+        logger.error('users.create_failed', 'User create failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
       return;
     }
 

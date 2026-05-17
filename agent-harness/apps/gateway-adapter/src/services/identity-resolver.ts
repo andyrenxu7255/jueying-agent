@@ -7,6 +7,7 @@ export type BindingAction = 'continue' | 'binding_required' | 'admin_resolution_
 
 export interface IdentityResolutionResult {
   user_id: string | null
+  username: string | null
   org_id: string | null
   identity_binding_state: IdentityBindingState
   binding_action: BindingAction
@@ -89,6 +90,7 @@ export class IdentityResolver {
     if (!channelIdentity || typeof channelIdentity !== 'string' || channelIdentity === 'unknown') {
       return {
         user_id: null,
+        username: null,
         org_id: null,
         identity_binding_state: 'pending',
         binding_action: 'binding_required'
@@ -98,6 +100,7 @@ export class IdentityResolver {
     if (channelIdentity.length > 512) {
       return {
         user_id: null,
+        username: null,
         org_id: null,
         identity_binding_state: 'pending',
         binding_action: 'binding_required'
@@ -110,6 +113,7 @@ export class IdentityResolver {
         logger.error('identity.db_unavailable', 'Database pool unavailable');
         return {
           user_id: null,
+          username: null,
           org_id: null,
           identity_binding_state: 'pending',
           binding_action: 'binding_required'
@@ -124,7 +128,8 @@ export class IdentityResolver {
       if (bindingResult.rows.length === 0) {
         const newUser = await this.createUserForChannel(pool, channelType, channelIdentity);
         return {
-          user_id: newUser.username,
+          user_id: newUser.id,
+          username: newUser.username,
           org_id: newUser.org_id,
           identity_binding_state: 'bound',
           binding_action: 'continue'
@@ -140,7 +145,8 @@ export class IdentityResolver {
         );
 
         if (userResult.rows.length > 0 && userResult.rows[0].status === 'active') {
-          const resolvedUserId = userResult.rows[0].username || binding.user_id;
+          const resolvedUserId = userResult.rows[0].id;
+          const resolvedUsername = userResult.rows[0].username;
           const resolvedOrgId = userResult.rows[0].org_id || null;
           void auditWriter.write({
             user_id: resolvedUserId,
@@ -158,6 +164,7 @@ export class IdentityResolver {
           });
           return {
             user_id: resolvedUserId,
+            username: resolvedUsername,
             org_id: resolvedOrgId,
             identity_binding_state: 'bound',
             binding_action: 'continue'
@@ -166,6 +173,7 @@ export class IdentityResolver {
 
         return {
           user_id: null,
+          username: null,
           org_id: null,
           identity_binding_state: 'pending',
           binding_action: 'binding_required'
@@ -188,6 +196,7 @@ export class IdentityResolver {
         });
         return {
           user_id: null,
+          username: null,
           org_id: null,
           identity_binding_state: 'conflicted',
           binding_action: 'admin_resolution_required'
@@ -197,7 +206,8 @@ export class IdentityResolver {
       if (binding.binding_status === 'pending') {
         const newUser = await this.createUserForChannel(pool, channelType, channelIdentity);
         return {
-          user_id: newUser.username,
+          user_id: newUser.id,
+          username: newUser.username,
           org_id: newUser.org_id,
           identity_binding_state: 'bound',
           binding_action: 'continue'
@@ -206,6 +216,7 @@ export class IdentityResolver {
 
       return {
         user_id: null,
+        username: null,
         org_id: null,
         identity_binding_state: 'pending',
         binding_action: 'binding_required'
@@ -216,6 +227,7 @@ export class IdentityResolver {
       });
       return {
         user_id: null,
+        username: null,
         org_id: null,
         identity_binding_state: 'pending',
         binding_action: 'binding_required'

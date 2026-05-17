@@ -308,7 +308,7 @@ function getCurrentUsage(scope: string): ResourceUsage {
 function checkQuota(input: ConsumeQuotaInput): { allowed: boolean; reason?: string; remaining?: number } {
   const quota = quotaStore.get(input.scope);
   if (!quota) {
-    return { allowed: true };
+    return { allowed: false, reason: 'no_quota_configured' };
   }
 
   if (quota.status === 'suspended') {

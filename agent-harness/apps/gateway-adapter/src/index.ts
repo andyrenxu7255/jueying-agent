@@ -85,10 +85,22 @@ function getFeishuApiBase(): string {
   return FEISHU_API_BASE_MAP['feishu']
 }
 
+const MAX_BODY_SIZE = 10 * 1024 * 1024;
+
 async function readBody(req: import('node:http').IncomingMessage): Promise<string> {
+  const contentLength = Number(req.headers['content-length'] || 0);
+  if (contentLength > MAX_BODY_SIZE) {
+    throw new Error('request_body_too_large');
+  }
   const chunks: Buffer[] = [];
+  let totalSize = 0;
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalSize += buf.length;
+    if (totalSize > MAX_BODY_SIZE) {
+      throw new Error('request_body_too_large');
+    }
+    chunks.push(buf);
   }
   return Buffer.concat(chunks).toString('utf8');
 }
@@ -1133,7 +1145,7 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
     }
 
     const roleCheck = await pool.query(
-      `SELECT role FROM "user" WHERE username = $1 LIMIT 1`,
+      `SELECT role FROM "user" WHERE id = $1 LIMIT 1`,
       [ownerUserId]
     );
     if (roleCheck.rows.length === 0 || roleCheck.rows[0].role !== 'admin') {
@@ -1316,7 +1328,7 @@ async function handleFeishuEvent(body: Record<string, unknown>): Promise<void> {
   });
 }
 
-function verifyWecomSignature(requestUrl: URL, rawBody?: string): boolean {
+function verifyWecomSignature(requestUrl: URL): boolean {
   const token = process.env.WECOM_TOKEN;
   if (!token) {
     logger.warn('wecom.signature.skipped', 'WECOM_TOKEN not set, rejecting request');
@@ -1328,7 +1340,7 @@ function verifyWecomSignature(requestUrl: URL, rawBody?: string): boolean {
   const nonce = requestUrl.searchParams.get('nonce') || '';
   if (!signature || !timestamp || !nonce) return false;
 
-  if (rawBody && process.env.WECOM_ENCODING_AES_KEY) {
+  if (process.env.WECOM_ENCODING_AES_KEY) {
     const echostr = requestUrl.searchParams.get('echostr') || '';
     const encryptType = requestUrl.searchParams.get('encrypt_type');
     if (encryptType === 'aes' || echostr) {
@@ -1977,6 +1989,10 @@ const server = createServer(async (req, res) => {
 
   if (pathname === '/channels/feishu/longconn/event' && req.method === 'POST') {
     const rawBody = await readBody(req);
+    if (!verifyFeishuSignature(req, rawBody)) {
+      sendJson(res, 401, { ok: false, error: 'signature_invalid' });
+      return;
+    }
     const body = parseJson(rawBody);
     if (!body) {
       sendJson(res, 400, { ok: false, error: 'invalid_json' });
@@ -1999,8 +2015,7 @@ const server = createServer(async (req, res) => {
     const requestUrl = new URL(req.url || '/', 'http://localhost');
 
     if (req.method === 'GET') {
-      const rawBody = await readBody(req);
-      if (!verifyWecomSignature(requestUrl, rawBody)) {
+      if (!verifyWecomSignature(requestUrl)) {
         sendText(res, 401, 'signature_invalid');
         return;
       }
@@ -2011,7 +2026,7 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'POST') {
       const rawBody = await readBody(req);
-      if (!verifyWecomSignature(requestUrl, rawBody)) {
+      if (!verifyWecomSignature(requestUrl)) {
         sendJson(res, 401, { ok: false, error: 'signature_invalid' });
         return;
       }
@@ -2136,6 +2151,11 @@ const server = createServer(async (req, res) => {
 
   // Internal: send WeChat Work notification (from web-portal task scheduler)
   if (pathname === '/internal/notify/wecom' && req.method === 'POST') {
+    const internalToken = req.headers['x-internal-token'];
+    if (process.env.INTERNAL_TOKEN && internalToken !== process.env.INTERNAL_TOKEN) {
+      sendJson(res, 401, { ok: false, error: 'unauthorized' });
+      return;
+    }
     const body = await readBody(req).then(raw => parseJson(raw) || {});
     const userId = String(body.user_id || '');
     const content = String(body.content || '');
@@ -2153,6 +2173,11 @@ const server = createServer(async (req, res) => {
 
   // Admin: Create org task
   if (pathname === '/admin/tasks' && req.method === 'POST') {
+    const internalToken = req.headers['x-internal-token'];
+    if (process.env.INTERNAL_TOKEN && internalToken !== process.env.INTERNAL_TOKEN) {
+      sendJson(res, 401, { ok: false, error: 'unauthorized' });
+      return;
+    }
     const body = await readBody(req).then(raw => parseJson(raw) || {});
     const { title, description, task_type, schedule_type, cron_expression, prompt_message, target_channels, org_id, created_by } = body;
     if (!title || !task_type || !schedule_type) {
@@ -2177,6 +2202,11 @@ const server = createServer(async (req, res) => {
 
   // Admin: List org tasks
   if (pathname === '/admin/tasks' && req.method === 'GET') {
+    const internalToken = req.headers['x-internal-token'];
+    if (process.env.INTERNAL_TOKEN && internalToken !== process.env.INTERNAL_TOKEN) {
+      sendJson(res, 401, { ok: false, error: 'unauthorized' });
+      return;
+    }
     const pool = await getSharedDbPool();
     if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
     try {
@@ -2191,6 +2221,11 @@ const server = createServer(async (req, res) => {
 
   // Admin: Update org task
   if (pathname.startsWith('/admin/tasks/') && req.method === 'PUT') {
+    const internalToken = req.headers['x-internal-token'];
+    if (process.env.INTERNAL_TOKEN && internalToken !== process.env.INTERNAL_TOKEN) {
+      sendJson(res, 401, { ok: false, error: 'unauthorized' });
+      return;
+    }
     const taskId = pathname.slice('/admin/tasks/'.length);
     const body = await readBody(req).then(raw => parseJson(raw) || {});
     const pool = await getSharedDbPool();
@@ -2200,7 +2235,7 @@ const server = createServer(async (req, res) => {
       const vals: unknown[] = [];
       let idx = 1;
       for (const [k, v] of Object.entries(body)) {
-        if (['title', 'description', 'status', 'prompt_message', 'cron_expression', 'target_channels'].includes(k)) {
+        if (['title', 'description', 'status', 'prompt_message', 'cron_expression', 'target_channels'].includes(k) && typeof k === 'string' && /^[a-z_]+$/.test(k)) {
           sets.push(`"${k}" = $${idx}`);
           vals.push(v);
           idx++;
@@ -2220,6 +2255,11 @@ const server = createServer(async (req, res) => {
 
   // Admin: Delete org task
   if (pathname.startsWith('/admin/tasks/') && req.method === 'DELETE') {
+    const internalToken = req.headers['x-internal-token'];
+    if (process.env.INTERNAL_TOKEN && internalToken !== process.env.INTERNAL_TOKEN) {
+      sendJson(res, 401, { ok: false, error: 'unauthorized' });
+      return;
+    }
     const taskId = pathname.slice('/admin/tasks/'.length);
     const pool = await getSharedDbPool();
     if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
@@ -2236,6 +2276,11 @@ const server = createServer(async (req, res) => {
 
   // Internal: Assign task to users
   if (pathname === '/internal/tasks/assign' && req.method === 'POST') {
+    const internalToken = req.headers['x-internal-token'];
+    if (process.env.INTERNAL_TOKEN && internalToken !== process.env.INTERNAL_TOKEN) {
+      sendJson(res, 401, { ok: false, error: 'unauthorized' });
+      return;
+    }
     const body = await readBody(req).then(raw => parseJson(raw) || {});
     const taskId = String(body.task_id || '');
     if (!taskId) { sendJson(res, 400, { ok: false, error: 'missing_task_id' }); return; }
@@ -2274,6 +2319,11 @@ const server = createServer(async (req, res) => {
 
   // Internal: Notify assigned users
   if (pathname === '/internal/tasks/notify' && req.method === 'POST') {
+    const internalToken = req.headers['x-internal-token'];
+    if (process.env.INTERNAL_TOKEN && internalToken !== process.env.INTERNAL_TOKEN) {
+      sendJson(res, 401, { ok: false, error: 'unauthorized' });
+      return;
+    }
     const body = await readBody(req).then(raw => parseJson(raw) || {});
     const taskId = String(body.task_id || '');
     if (!taskId) { sendJson(res, 400, { ok: false, error: 'missing_task_id' }); return; }
@@ -2354,13 +2404,20 @@ const server = createServer(async (req, res) => {
 
   sendJson(res, 404, { ok: false, error: 'not_found' });
   } catch (error) {
-    logger.error('request.unhandled_error', 'Unhandled request error', {
-      error: (error as Error).message,
-      stack: (error as Error).stack?.slice(0, 500)
-    });
-    recordCriticalLog('gateway.error');
-    if (!res.headersSent) {
-      sendJson(res, 500, { ok: false, error: 'internal_error' });
+    const errorMsg = (error as Error).message || String(error);
+    if (errorMsg === 'request_body_too_large') {
+      if (!res.headersSent) {
+        sendJson(res, 413, { ok: false, error: 'request_body_too_large', message: '请求体超过10MB上限' });
+      }
+    } else {
+      logger.error('request.unhandled_error', 'Unhandled request error', {
+        error: (error as Error).message,
+        stack: (error as Error).stack?.slice(0, 500)
+      });
+      recordCriticalLog('gateway.error');
+      if (!res.headersSent) {
+        sendJson(res, 500, { ok: false, error: 'internal_error' });
+      }
     }
   }
   await httpResponseLogger(req, res, responseBody);
@@ -2396,12 +2453,21 @@ server.listen(port, () => {
   if (aggregationInterval.unref) aggregationInterval.unref();
 });
 
+server.on('error', (err: NodeJS.ErrnoException) => {
+  logger.error('server.listen_failed', 'Failed to start server', { error: err.message, port });
+  if (err.code === 'EADDRINUSE') {
+    logger.error('server.port_in_use', `Port ${port} is already in use`);
+  }
+  process.exit(1);
+});
+
 const gracefulShutdown = async (signal: string) => {
   logger.info('service.shutdown', 'Gateway adapter shutting down', { signal });
   if (aggregationInterval) { clearInterval(aggregationInterval); aggregationInterval = null; }
   const finalReport = analyze();
   writeAggregationReport(finalReport);
   metricsRegistry.shutdown();
+  if (sharedDbPool) await sharedDbPool.end();
   await logger.shutdown();
   server.close(() => {
     logger.info('service.shutdown.complete', 'Gateway adapter shutdown complete', {});
