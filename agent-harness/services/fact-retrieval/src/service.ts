@@ -1,4 +1,4 @@
-import { createLogger } from '@agent-harness/shared';
+import { createLogger, metricsRegistry } from '@agent-harness/shared';
 import { eq, sql, and, or, type SQL } from 'drizzle-orm';
 import { artifactObjects, auditEvents, documentChunks, documents, documentVersions, embeddingAdapter, entities, entityAttributes, factConflicts, factEvidence, facts, projectionEvents, relations, retrievalTraces, rerankAdapter, userFiles, users } from '@agent-harness/shared';
 import { db, pool } from './db';
@@ -87,6 +87,7 @@ export interface ArtifactReadInput {
   owner_user_id: string;
   artifact_id: string;
   scope: string[];
+  org_id?: string;
 }
 
 export interface EntityWriteInput {
@@ -319,7 +320,7 @@ class FactRetrievalService {
     const maxResults = input.max_results || 10;
     const plan = this.buildPlan(input.intent_type);
 
-    const cacheKey = `retrieval:${input.owner_user_id}:${input.org_id || ''}:${input.intent_type}:${input.query_text.slice(0, 200)}:${input.allowed_scopes.join(',')}`;
+    const cacheKey = `retrieval:${input.owner_user_id}:${input.org_id || input.owner_user_id}:${input.intent_type}:${input.query_text.slice(0, 200)}:${input.allowed_scopes.join(',')}`;
     const cachedResult = await this.checkCache(cacheKey);
     if (cachedResult) {
       return { ...cachedResult, items: cachedResult.items.slice(0, maxResults) };
@@ -613,7 +614,7 @@ class FactRetrievalService {
     return { artifact_id: artifact.id, artifact_hash: artifactHash, storage_backend: writeResult.backend, degraded };
   }
 
-  async readArtifact(input: ArtifactReadInput): Promise<{ artifact_id: string; content_text: string; scope: string[] } | null> {
+  async readArtifact(input: ArtifactReadInput): Promise<{ artifact_id: string; content_text: string; scope: string[] } | { error: 'not_found' } | { error: 'access_denied' }> {
     const ownerDbId = userRefToDbId(input.owner_user_id);
     const conditions = [eq(artifactObjects.id, input.artifact_id)];
     conditions.push(
@@ -628,7 +629,19 @@ class FactRetrievalService {
       .where(and(...conditions))
       .limit(1);
 
-    if (!artifact) return null;
+    if (!artifact) return { error: 'not_found' };
+
+    if (artifact.ownerUserId !== ownerDbId && (artifact.scopeType === 'public' || artifact.scopeType === 'shared')) {
+      if (input.org_id) {
+        const ownerOrgResult = await requireDb().select({ orgId: users.orgId })
+          .from(users)
+          .where(eq(users.id, artifact.ownerUserId))
+          .limit(1);
+        if (ownerOrgResult.length === 0 || ownerOrgResult[0].orgId !== input.org_id) {
+          return { error: 'access_denied' };
+        }
+      }
+    }
 
     const content = await artifactStorage.readText(artifact.storageBackend, artifact.storageRef);
 
@@ -774,6 +787,7 @@ class FactRetrievalService {
       logger.info('retrieval.cache.redis', 'Redis retrieval cache connected');
     } catch (error) {
       logger.warn('retrieval.cache.redis_failed', 'Redis cache unavailable, using memory', { error: String(error) });
+      metricsRegistry.increment('retrieval.cache.redis_fallback', 1, { reason: String(error).slice(0, 100) });
       this.redisCacheClient = null;
     }
   }
@@ -886,6 +900,7 @@ class FactRetrievalService {
         const client = await pool.connect();
         try {
           await client.query('SET search_path = ag_catalog, public');
+          await client.query('SET statement_timeout = 10000');
 
           const applyCypher = async (cypherSql: string): Promise<void> => {
             try {
@@ -1270,7 +1285,7 @@ class FactRetrievalService {
 
     if (searchTerms.length === 0) return [];
 
-    const searchTerm = sanitizeCypherLiteral(searchTerms[0].replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, ''));
+    const searchTerm = sanitizeCypherLiteral(searchTerms[0].replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '').slice(0, 200));
     if (!searchTerm) return [];
 
     const includePublic = allowedScopes.some(s => s.startsWith('public'));
@@ -1295,6 +1310,7 @@ class FactRetrievalService {
     let cypherResult;
     try {
       await client.query('SET search_path = ag_catalog, public');
+      await client.query('SET statement_timeout = 10000');
       cypherResult = await client.query(
         `SELECT * FROM cypher('${graphName}', $tag$ ${cypher} $tag$) AS (seed_name text, seed_type text, connected_name text, connected_type text, scope_type text, hop_distance integer)`
       );
@@ -1694,7 +1710,16 @@ class FactRetrievalService {
     await withRetry(() => this.ensureUser(input.owner_user_id));
     if (!input.file_buffer_b64) return { ok: false, error: 'missing_file_buffer' };
 
+    const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+    const decodedSize = (input.file_buffer_b64.length * 3) / 4;
+    if (decodedSize > MAX_FILE_SIZE_BYTES) {
+      return { ok: false, error: `file_too_large: exceeds ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB limit` };
+    }
+
     const buffer = Buffer.from(input.file_buffer_b64, 'base64');
+    if (buffer.byteLength > MAX_FILE_SIZE_BYTES) {
+      return { ok: false, error: `file_too_large: decoded exceeds ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB limit` };
+    }
     const now = new Date();
     const monthStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
     const backend = artifactStorage.preferredBackend();

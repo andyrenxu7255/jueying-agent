@@ -196,7 +196,7 @@ function loadWorkflowStore(): Map<string, WorkflowRecord> {
   }
 }
 
-function persistWorkflowStore(): void {
+async function persistWorkflowStore(): Promise<void> {
   try {
     const dir = dirname(WORKFLOW_STORE_PATH);
     if (!existsSync(dir)) {
@@ -239,7 +239,7 @@ function persistWorkflowStore(): void {
   }));
 
   for (const record of records) {
-    void persistWorkflowRecord(record);
+    await persistWorkflowRecord(record);
   }
 }
 
@@ -272,10 +272,10 @@ async function bootstrapWorkflowStoreFromDatabase(): Promise<void> {
   });
 }
 
-function transitionWorkflow(workflow: WorkflowRecord, event: WorkflowEvent['type']): { ok: boolean; fromStatus: string; toStatus: string } {
+function transitionWorkflow(workflow: WorkflowRecord, event: WorkflowEvent['type'], error?: string): { ok: boolean; fromStatus: string; toStatus: string } {
   const fromStatus = workflow.machine.getCurrentState();
 
-  const result = workflow.machine.send({ type: event });
+  const result = workflow.machine.send({ type: event, error } as WorkflowEvent);
   const toStatus = workflow.machine.getCurrentState();
 
   if (!result.changed) {
@@ -425,7 +425,7 @@ const server = createServer(async (req, res) => {
           archivedKeys.push(key);
         }
       }
-      for (const key of archivedKeys.slice(0, Math.max(archivedKeys.length, 100))) {
+      for (const key of archivedKeys.slice(0, Math.min(archivedKeys.length, 100))) {
         workflowStore.delete(key);
       }
       if (workflowStore.size >= WORKFLOW_STORE_MAX_SIZE) {
@@ -453,7 +453,7 @@ const server = createServer(async (req, res) => {
       created_at: new Date().toISOString(),
       machine
     });
-    persistWorkflowStore();
+    await persistWorkflowStore();
 
     sendJson(res, 200, {
       ok: result.validation.ok,
@@ -507,7 +507,7 @@ const server = createServer(async (req, res) => {
     const budgetSeconds = Number(process.env.WORKFLOW_BUDGET_SECONDS || 3600);
     void workflowSupervisor.registerWorkflow(workflowRef, workflow.owner_user_id, totalStages, budgetSeconds);
 
-    persistWorkflowStore();
+    await persistWorkflowStore();
 
     await auditWriter.write({
       user_id: workflow.owner_user_id,
@@ -614,7 +614,7 @@ const server = createServer(async (req, res) => {
         nextStage.status = 'running';
       }
     }
-    persistWorkflowStore();
+    await persistWorkflowStore();
 
     await auditWriter.write({
       user_id: workflow.owner_user_id,
@@ -707,7 +707,7 @@ const server = createServer(async (req, res) => {
     }
 
     workflowSupervisor.unregisterWorkflow(workflowRef);
-    persistWorkflowStore();
+    await persistWorkflowStore();
 
     await auditWriter.write({
       user_id: workflow.owner_user_id,
@@ -768,7 +768,7 @@ const server = createServer(async (req, res) => {
     }
 
     workflowSupervisor.unregisterWorkflow(workflowRef);
-    persistWorkflowStore();
+    await persistWorkflowStore();
 
     await auditWriter.write({
       user_id: actingUserId,
@@ -816,7 +816,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    persistWorkflowStore();
+    await persistWorkflowStore();
 
     await auditWriter.write({
       user_id: actingUserId,
@@ -866,7 +866,7 @@ const server = createServer(async (req, res) => {
     }
 
     workflowSupervisor.unregisterWorkflow(workflowRef);
-    persistWorkflowStore();
+    await persistWorkflowStore();
 
     await auditWriter.write({
       user_id: actingUserId,
@@ -909,7 +909,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    const transition = transitionWorkflow(workflow, 'FAIL');
+    const transition = transitionWorkflow(workflow, 'FAIL', reason);
 
     if (!transition.ok) {
       sendJson(res, 409, { ok: false, error: 'invalid_state_transition', from_status: transition.fromStatus });
@@ -917,7 +917,7 @@ const server = createServer(async (req, res) => {
     }
 
     workflowSupervisor.unregisterWorkflow(workflowRef);
-    persistWorkflowStore();
+    await persistWorkflowStore();
 
     await auditWriter.write({
       user_id: actingUserId,
@@ -1085,15 +1085,17 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (!ownerUserId && !orgId && actingRole === 'admin') {
+      sendJson(res, 400, { ok: false, error: 'filter_required', message: 'owner_user_id or org_id is required for admin listing' });
+      return;
+    }
+
     let workflows = Array.from(workflowStore.values());
     if (ownerUserId) {
       workflows = workflows.filter(w => w.owner_user_id === ownerUserId);
     }
     if (orgId) {
       workflows = workflows.filter(w => w.org_id === orgId);
-    }
-    if (actingRole !== 'admin' && !ownerUserId) {
-      workflows = [];
     }
     workflows = workflows.slice(0, limit);
     sendJson(res, 200, {
@@ -1111,13 +1113,13 @@ const server = createServer(async (req, res) => {
   }
 
   if (pathname.startsWith('/internal/workflows/') && req.method === 'GET') {
-    const pathParts = pathname.split('/');
-    if (pathParts.length > 4 && pathParts[4]) {
+    const match = pathname.match(/^\/internal\/workflows\/([^/]+)$/);
+    if (!match) {
       sendJson(res, 404, { ok: false, error: 'not_found' });
       return;
     }
 
-    const workflowRef = pathParts[3];
+    const workflowRef = match[1];
     const workflow = workflowStore.get(workflowRef);
 
     if (!workflow) {
@@ -1137,8 +1139,8 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (orgId && workflow.org_id && workflow.org_id !== orgId) {
-      sendJson(res, 403, { ok: false, error: 'org_mismatch' });
+    if (workflow.org_id && workflow.org_id !== orgId) {
+      sendJson(res, 403, { ok: false, error: 'org_mismatch', message: `org_id must be "${workflow.org_id}"` });
       return;
     }
 

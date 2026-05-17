@@ -18,3 +18,44 @@ services:
     environment:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:?CLICKHOUSE_USER is required for production}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD is required for production}
+
+  gateway-adapter:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+
+  workflow-service:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+
+  fact-retrieval:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+
+  executor-gateway:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+
+  web-portal:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required for production}
+
+  hermes-adapter:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+
+  skill-library:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+
+  resource-scheduler:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+
+  mobile-app:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+
+  feishu-longconn:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}

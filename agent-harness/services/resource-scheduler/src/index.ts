@@ -136,8 +136,48 @@ interface InspectionReport {
 
 const quotaStore = new Map<string, ResourceQuota>();
 const usageStore = new Map<string, ResourceUsage>();
-const idempotencyCache = new Map<string, string>();
+const idempotencyCache = new Map<string, { result: string; expiresAt: number }>();
+const scopeLocks = new Map<string, boolean>();
 const IDEMPOTENCY_CACHE_SIZE = 10000;
+const IDEMPOTENCY_TTL_MS = 300000;
+
+async function loadQuotasFromDb(pool: InstanceType<typeof import('pg').Pool>): Promise<void> {
+  try {
+    const quotas = await pool.query(`SELECT * FROM resource_quota WHERE status = 'active'`);
+    for (const row of quotas.rows) {
+      quotaStore.set(row.scope, {
+        scope: row.scope,
+        created_by: row.created_by,
+        concurrent_workflows: Number(row.concurrent_workflows),
+        daily_api_calls: Number(row.daily_api_calls),
+        retrieval_queries: Number(row.retrieval_queries),
+        execution_seconds: Number(row.execution_seconds),
+        storage_bytes: Number(row.storage_bytes),
+        llm_tokens: Number(row.llm_tokens),
+        status: row.status,
+        created_at: String(row.created_at),
+        updated_at: String(row.updated_at)
+      });
+    }
+    const usages = await pool.query(`SELECT * FROM resource_usage`);
+    for (const row of usages.rows) {
+      usageStore.set(row.scope, {
+        scope: row.scope,
+        active_workflows: Number(row.active_workflows),
+        daily_api_calls_used: Number(row.daily_api_calls_used),
+        retrieval_queries_used: Number(row.retrieval_queries_used),
+        execution_seconds_used: Number(row.execution_seconds_used),
+        storage_bytes_used: Number(row.storage_bytes_used),
+        llm_tokens_used: Number(row.llm_tokens_used),
+        window_start: String(row.window_start),
+        last_updated: String(row.last_updated)
+      });
+    }
+    logger.info('startup.quotas_loaded', `Loaded ${quotaStore.size} quotas and ${usageStore.size} usage records from DB`);
+  } catch (error) {
+    logger.warn('startup.quotas_load_failed', 'Failed to load quotas from DB', { error: String(error) });
+  }
+}
 
 let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
 let dbPoolPromise: Promise<InstanceType<typeof import('pg').Pool> | null> | null = null;
@@ -351,46 +391,57 @@ function consumeQuota(input: ConsumeQuotaInput): { ok: boolean; error?: string }
   if (input.idempotency_key) {
     const cached = idempotencyCache.get(input.idempotency_key);
     if (cached) {
-      return { ok: cached === 'success', error: cached !== 'success' ? cached : undefined };
-    }
-  }
-
-  const check = checkQuota(input);
-  if (!check.allowed) {
-    if (input.idempotency_key) {
-      idempotencyCache.set(input.idempotency_key, check.reason || 'quota_exceeded');
-      if (idempotencyCache.size > IDEMPOTENCY_CACHE_SIZE) {
-        const firstKey = idempotencyCache.keys().next().value;
-        if (firstKey) idempotencyCache.delete(firstKey);
+      if (Date.now() > cached.expiresAt) {
+        idempotencyCache.delete(input.idempotency_key);
+      } else {
+        return { ok: cached.result === 'success', error: cached.result !== 'success' ? cached.result : undefined };
       }
     }
-    return { ok: false, error: check.reason };
   }
 
-  const usage = getCurrentUsage(input.scope);
-  switch (input.resource_type) {
-    case 'concurrent_workflows': usage.active_workflows += input.amount; break;
-    case 'daily_api_calls': usage.daily_api_calls_used += input.amount; break;
-    case 'retrieval_queries': usage.retrieval_queries_used += input.amount; break;
-    case 'execution_seconds': usage.execution_seconds_used += input.amount; break;
-    case 'storage_bytes': usage.storage_bytes_used += input.amount; break;
-    case 'llm_tokens': usage.llm_tokens_used += input.amount; break;
+  if (scopeLocks.get(input.scope)) {
+    return { ok: false, error: 'scope_locked' };
   }
-  usage.last_updated = new Date().toISOString();
+  scopeLocks.set(input.scope, true);
 
-  if (input.idempotency_key) {
-    idempotencyCache.set(input.idempotency_key, 'success');
-    // 幂等键 5 分钟后自动过期
-    setTimeout(() => idempotencyCache.delete(input.idempotency_key!), 300000);
+  try {
+    const check = checkQuota(input);
+    if (!check.allowed) {
+      if (input.idempotency_key) {
+        idempotencyCache.set(input.idempotency_key, { result: check.reason || 'quota_exceeded', expiresAt: Date.now() + IDEMPOTENCY_TTL_MS });
+        if (idempotencyCache.size > IDEMPOTENCY_CACHE_SIZE) {
+          const firstKey = idempotencyCache.keys().next().value;
+          if (firstKey) idempotencyCache.delete(firstKey);
+        }
+      }
+      return { ok: false, error: check.reason };
+    }
+
+    const usage = getCurrentUsage(input.scope);
+    switch (input.resource_type) {
+      case 'concurrent_workflows': usage.active_workflows += input.amount; break;
+      case 'daily_api_calls': usage.daily_api_calls_used += input.amount; break;
+      case 'retrieval_queries': usage.retrieval_queries_used += input.amount; break;
+      case 'execution_seconds': usage.execution_seconds_used += input.amount; break;
+      case 'storage_bytes': usage.storage_bytes_used += input.amount; break;
+      case 'llm_tokens': usage.llm_tokens_used += input.amount; break;
+    }
+    usage.last_updated = new Date().toISOString();
+
+    if (input.idempotency_key) {
+      idempotencyCache.set(input.idempotency_key, { result: 'success', expiresAt: Date.now() + IDEMPOTENCY_TTL_MS });
+    }
+
+    logger.info('quota.consumed', 'Quota consumed', {
+      scope: input.scope,
+      resource: input.resource_type,
+      amount: input.amount
+    });
+
+    return { ok: true };
+  } finally {
+    scopeLocks.delete(input.scope);
   }
-
-  logger.info('quota.consumed', 'Quota consumed', {
-    scope: input.scope,
-    resource: input.resource_type,
-    amount: input.amount
-  });
-
-  return { ok: true };
 }
 
 /**
@@ -484,16 +535,18 @@ async function runInspection(): Promise<InspectionReport> {
   const unhealthy = services.filter(s => s.status === 'unhealthy' || s.status === 'unreachable').length;
 
   const unhealthyServices = services.filter(s => s.status === 'unhealthy' || s.status === 'unreachable');
-  if (unhealthyServices.length > 0) {
-    logger.error('inspection.unhealthy', 'Unhealthy services detected', {
-      unhealthy: unhealthyServices.map(s => s.service_name)
-    });
-  }
 
   const report: InspectionReport = {
     id, started_at: startedAt, finished_at: new Date().toISOString(),
     total_services: services.length, healthy, degraded, unhealthy, services
   };
+
+  if (unhealthyServices.length > 0) {
+    logger.error('inspection.unhealthy', 'Unhealthy services detected', {
+      unhealthy: unhealthyServices.map(s => s.service_name)
+    });
+    void sendAlertWebhook(report);
+  }
 
   logger.info('inspection.completed', 'Health inspection completed', {
     inspection_id: id,
@@ -501,6 +554,26 @@ async function runInspection(): Promise<InspectionReport> {
   });
 
   return report;
+}
+
+async function sendAlertWebhook(report: InspectionReport): Promise<void> {
+  const webhookUrl = process.env.ALERT_WEBHOOK_URL;
+  if (!webhookUrl) return;
+  try {
+    const payload = {
+      text: `[Resource Scheduler] 服务巡检异常 - ${report.unhealthy}/${report.total_services} 个服务不健康`,
+      inspection_id: report.id,
+      unhealthy_services: report.services.filter(s => s.status === 'unhealthy' || s.status === 'unreachable').map(s => ({ name: s.service_name, status: s.status, error: s.error })),
+      finished_at: report.finished_at
+    };
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    logger.warn('alert.webhook_failed', 'Failed to send alert webhook', { error: String(error) });
+  }
 }
 
 /* ---- HTTP 服务器 ---- */
@@ -648,7 +721,10 @@ let aggregationInterval: ReturnType<typeof setInterval> | null = null;
 server.listen(port, async () => {
   logger.info('service.started', 'Resource-scheduler service started', { port });
   void getDbPool().then(async (pool) => {
-    if (pool) await ensureQuotaTables(pool);
+    if (pool) {
+      await ensureQuotaTables(pool);
+      await loadQuotasFromDb(pool);
+    }
   });
 
   aggregationInterval = setInterval(() => {

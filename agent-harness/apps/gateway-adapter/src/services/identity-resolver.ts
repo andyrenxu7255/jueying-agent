@@ -20,6 +20,14 @@ const logger = createLogger('identity-resolver');
 export class IdentityResolver {
   private dbPool: Pool | null = null;
 
+  async shutdown(): Promise<void> {
+    if (this.dbPool) {
+      await this.dbPool.end();
+      this.dbPool = null;
+      logger.info('identity.shutdown', 'Identity resolver DB pool closed');
+    }
+  }
+
   private generateUserId(): string {
     return randomUUID();
   }

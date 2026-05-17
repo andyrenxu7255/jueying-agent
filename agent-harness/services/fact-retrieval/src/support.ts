@@ -20,9 +20,15 @@ export function randomRef(prefix: string): string {
   return `${prefix}_${randomBytes(6).toString('hex')}`;
 }
 
+const VALID_USER_REF_PATTERN = /^u_[a-z0-9][a-z0-9_-]{0,62}$/;
+
 export function userRefToDbId(userRef: string): string {
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userRef)) {
     return userRef.toLowerCase();
+  }
+
+  if (!VALID_USER_REF_PATTERN.test(userRef)) {
+    throw new Error(`Invalid user reference format: expected u_ prefix pattern, got "${userRef.slice(0, 80)}"`);
   }
 
   const hex = sha256Hex(userRef).slice(0, 32);

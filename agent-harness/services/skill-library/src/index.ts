@@ -52,6 +52,54 @@ setupDefaultHealthChecks(
 
 const port = Number(process.env.PORT || 3007);
 
+const AUDIT_CONFIG = {
+  defaultScore: 70,
+  hasStructureBonus: 75,
+  hasToolsBonus: 10,
+  hasParamsBonus: 5,
+  maxScore: 100,
+  smallDefThreshold: 500,
+  mediumDefThreshold: 2000,
+  largeDefPerfThreshold: 3000,
+  smallDefSecurityScore: 60,
+  mediumDefSecurityScore: 75,
+  largeDefSecurityScore: 85,
+  smallDefPerfScore: 80,
+  largeDefPerfScore: 70,
+  orgScopeFitScore: 85,
+  privateScopeFitScore: 65,
+  auditPassThreshold: 70,
+  autoPromoteThreshold: 80,
+  bannedOrgId: '00000000-0000-0000-0000-000000000001',
+} as const;
+
+function computeAuditScores(def: unknown, defStrLength: number, scopeType: string) {
+  let functionalityScore: number = AUDIT_CONFIG.defaultScore;
+  let securityScore: number = AUDIT_CONFIG.defaultScore;
+  let performanceScore: number = AUDIT_CONFIG.defaultScore;
+  let orgFitScore: number = AUDIT_CONFIG.defaultScore;
+
+  if (typeof def === 'object' && def !== null) {
+    const d = def as Record<string, unknown>;
+    if (d.stage_chain || d.prompt_template) functionalityScore = AUDIT_CONFIG.hasStructureBonus;
+    if (d.tools || d.capabilities) functionalityScore = Math.min(AUDIT_CONFIG.maxScore, functionalityScore + AUDIT_CONFIG.hasToolsBonus);
+    if (d.params || d.parameters) functionalityScore = Math.min(AUDIT_CONFIG.maxScore, functionalityScore + AUDIT_CONFIG.hasParamsBonus);
+  }
+  if (defStrLength < AUDIT_CONFIG.smallDefThreshold) securityScore = AUDIT_CONFIG.smallDefSecurityScore;
+  else if (defStrLength < AUDIT_CONFIG.mediumDefThreshold) securityScore = AUDIT_CONFIG.mediumDefSecurityScore;
+  else securityScore = AUDIT_CONFIG.largeDefSecurityScore;
+  if (defStrLength < AUDIT_CONFIG.largeDefPerfThreshold) performanceScore = AUDIT_CONFIG.smallDefPerfScore;
+  else performanceScore = AUDIT_CONFIG.largeDefPerfScore;
+  if (scopeType === 'org' || scopeType === 'public') orgFitScore = AUDIT_CONFIG.orgScopeFitScore;
+  else orgFitScore = AUDIT_CONFIG.privateScopeFitScore;
+
+  return { functionalityScore, securityScore, performanceScore, orgFitScore };
+}
+
+function isValidOrgId(orgId: string | null | undefined): orgId is string {
+  return !!orgId && orgId !== AUDIT_CONFIG.bannedOrgId;
+}
+
 /* ---- 类型定义 ---- */
 
 /** 创建技能的请求体结构 */
@@ -91,18 +139,26 @@ interface ImportSkillInput {
 
 let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
 let dbPoolPromise: Promise<InstanceType<typeof import('pg').Pool> | null> | null = null;
+let lastDbConnectAttempt = 0;
+const DB_CONNECT_COOLDOWN_MS = 5000;
 
 /**
  * 获取数据库连接池（懒初始化，并发安全）
  * 数据库连接失败时降级为空存储运行，不阻塞服务启动
+ * 失败后进入冷却期，避免重试风暴
  *
  * @returns 数据库连接池实例，不可用时返回 null
  */
 async function getDbPool() {
   if (dbPool) return dbPool;
   if (dbPoolPromise) return dbPoolPromise;
+  const now = Date.now();
+  if (lastDbConnectAttempt > 0 && now - lastDbConnectAttempt < DB_CONNECT_COOLDOWN_MS) {
+    return null;
+  }
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return null;
+  lastDbConnectAttempt = now;
   dbPoolPromise = (async () => {
     try {
       const { Pool } = await import('pg');
@@ -110,6 +166,7 @@ async function getDbPool() {
       await pool.query('SELECT 1');
       logger.info('db.connected', 'Skill-library connected to database');
       dbPool = pool;
+      lastDbConnectAttempt = 0;
       return dbPool;
     } catch (error) {
       logger.warn('db.connect_failed', 'Failed to connect to database', { error: String(error) });
@@ -153,7 +210,12 @@ async function createSkill(input: CreateSkillInput & { source_uri?: string }): P
   const now = new Date().toISOString();
   const scopeType = input.scope_type || 'private';
   const skillType = input.skill_type || 'prompt';
-  const contentHash = createHash('sha256').update(JSON.stringify(input.definition_json)).digest('hex');
+  let contentHash: string;
+  try {
+    contentHash = createHash('sha256').update(JSON.stringify(input.definition_json)).digest('hex');
+  } catch {
+    contentHash = createHash('sha256').update(String(input.definition_json)).digest('hex');
+  }
 
   try {
     await pool.query('BEGIN');
@@ -234,7 +296,7 @@ async function createSkill(input: CreateSkillInput & { source_uri?: string }): P
  * @param skillType - 按技能类型过滤（可选）
  * @returns 匹配的技能列表，按 match_score 降序排列，最多 50 条
  */
-async function searchSkills(query?: string, scopeType?: string, skillType?: string): Promise<{ status: number; body: Record<string, unknown> }> {
+async function searchSkills(query?: string, scopeType?: string, skillType?: string, orgId?: string): Promise<{ status: number; body: Record<string, unknown> }> {
   const pool = await getDbPool();
   if (!pool) {
     return { status: 503, body: { ok: false, error: 'database_not_available' } };
@@ -267,6 +329,12 @@ async function searchSkills(query?: string, scopeType?: string, skillType?: stri
           return `CASE WHEN s.skill_name ILIKE $${nameParam} THEN 2 ELSE 0 END + CASE WHEN s.description ILIKE $${descParam} THEN 1 ELSE 0 END`;
         }).join(', ')})`;
       }
+    }
+
+    if (orgId) {
+      conditions.push(`s.org_id = $${paramIdx}`);
+      params.push(orgId);
+      paramIdx++;
     }
 
     if (scopeType) {
@@ -427,7 +495,12 @@ async function updateSkill(skillId: string, input: UpdateSkillInput): Promise<{ 
     }
 
     const row = current.rows[0];
-    const newContentHash = createHash('sha256').update(JSON.stringify(input.definition_json)).digest('hex');
+    let newContentHash: string;
+    try {
+      newContentHash = createHash('sha256').update(JSON.stringify(input.definition_json)).digest('hex');
+    } catch {
+      newContentHash = createHash('sha256').update(String(input.definition_json)).digest('hex');
+    }
 
     // 更新主记录的可变字段
     const updates: string[] = [];
@@ -917,7 +990,8 @@ const server = createServer(async (req, res) => {
       const query = parsedUrl.searchParams.get('query') || undefined;
       const scopeType = parsedUrl.searchParams.get('scope_type') || undefined;
       const skillType = parsedUrl.searchParams.get('skill_type') || undefined;
-      const result = await searchSkills(query, scopeType, skillType);
+      const orgId = parsedUrl.searchParams.get('org_id') || undefined;
+      const result = await searchSkills(query, scopeType, skillType, orgId);
       sendJson(res, result.status, result.body);
       return;
     }
@@ -1056,30 +1130,14 @@ const server = createServer(async (req, res) => {
         );
         const latestVersion = versionResult.rows[0];
 
-        let functionalityScore = 70;
-        let securityScore = 70;
-        let performanceScore = 70;
-        let orgFitScore = 70;
-
         const def = latestVersion?.definition_json || {};
         let defStr = '';
         try { defStr = JSON.stringify(def); } catch { defStr = String(def); }
 
-        if (typeof def === 'object' && def !== null) {
-          if (def.stage_chain || def.prompt_template) functionalityScore = 75;
-          if (def.tools || def.capabilities) functionalityScore = Math.min(85, functionalityScore + 10);
-          if (def.params || def.parameters) functionalityScore = Math.min(90, functionalityScore + 5);
-        }
-        if (defStr.length < 500) securityScore = 60;
-        else if (defStr.length < 2000) securityScore = 75;
-        else securityScore = 85;
-        if (defStr.length < 3000) performanceScore = 80;
-        else performanceScore = 70;
-        if (skill.scope_type === 'org' || skill.scope_type === 'public') orgFitScore = 85;
-        else orgFitScore = 65;
+        const { functionalityScore, securityScore, performanceScore, orgFitScore } = computeAuditScores(def, defStr.length, skill.scope_type);
 
         const overallScore = Math.round((functionalityScore + securityScore + performanceScore + orgFitScore) / 4);
-        const auditResult = overallScore >= 70 ? 'approved' : 'needs_revision';
+        const auditResult = overallScore >= AUDIT_CONFIG.auditPassThreshold ? 'approved' : 'needs_revision';
 
         await pool.query(
           `INSERT INTO skill_audit_record (skill_id, auditor_user_id, org_id, audit_type,
@@ -1088,15 +1146,18 @@ const server = createServer(async (req, res) => {
           [skillId, auditorUserId || null, skill.org_id, functionalityScore, securityScore, performanceScore, orgFitScore, overallScore, auditResult]
         );
 
-        if (overallScore >= 80 && (skill.scope_type === 'private' || skill.scope_type === 'draft')) {
-          await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skillId]);
+        if (overallScore >= AUDIT_CONFIG.autoPromoteThreshold && (skill.scope_type === 'private' || skill.scope_type === 'draft')) {
+          const targetOrgId = isValidOrgId(skill.org_id) ? skill.org_id : null;
+          if (targetOrgId) {
+            await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skillId]);
 
-          await pool.query(
-            `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
-             VALUES ($1,$2,$3,$2,'user_upgrade',$4,'other','active')
-             ON CONFLICT DO NOTHING`,
-            [skill.org_id || '00000000-0000-0000-0000-000000000001', skillId, auditorUserId || null, skill.owner_user_id]
-          );
+            await pool.query(
+              `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
+               VALUES ($1,$2,$3,$2,'user_upgrade',$4,'other','active')
+               ON CONFLICT DO NOTHING`,
+              [targetOrgId, skillId, auditorUserId || null, skill.owner_user_id]
+            );
+          }
         }
 
         sendJson(res, 200, {
@@ -1140,26 +1201,10 @@ const server = createServer(async (req, res) => {
           let defStr = '';
           try { defStr = JSON.stringify(def); } catch { defStr = String(def); }
 
-          let functionalityScore = 70;
-          let securityScore = 70;
-          let performanceScore = 70;
-          let orgFitScore = 70;
-
-          if (typeof def === 'object' && def !== null) {
-            if (def.stage_chain || def.prompt_template) functionalityScore = 75;
-            if (def.tools || def.capabilities) functionalityScore = Math.min(85, functionalityScore + 10);
-            if (def.params || def.parameters) functionalityScore = Math.min(90, functionalityScore + 5);
-          }
-          if (defStr.length < 500) securityScore = 60;
-          else if (defStr.length < 2000) securityScore = 75;
-          else securityScore = 85;
-          if (defStr.length < 3000) performanceScore = 80;
-          else performanceScore = 70;
-          if (skill.scope_type === 'org' || skill.scope_type === 'public') orgFitScore = 85;
-          else orgFitScore = 65;
+          const { functionalityScore, securityScore, performanceScore, orgFitScore } = computeAuditScores(def, defStr.length, skill.scope_type);
 
           const overallScore = Math.round((functionalityScore + securityScore + performanceScore + orgFitScore) / 4);
-          const auditResult = overallScore >= 70 ? 'approved' : 'needs_revision';
+          const auditResult = overallScore >= AUDIT_CONFIG.auditPassThreshold ? 'approved' : 'needs_revision';
 
           await pool.query(
             `INSERT INTO skill_audit_record (skill_id, auditor_user_id, org_id, audit_type,
@@ -1168,15 +1213,18 @@ const server = createServer(async (req, res) => {
             [skill.id, skill.org_id, functionalityScore, securityScore, performanceScore, orgFitScore, overallScore, auditResult]
           );
 
-          if (overallScore >= 80 && (skill.scope_type === 'private' || skill.scope_type === 'draft')) {
-            await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skill.id]);
-            await pool.query(
-              `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
-               VALUES ($1,$2,null,$2,'user_upgrade',$3,'other','active')
-               ON CONFLICT DO NOTHING`,
-              [skill.org_id || '00000000-0000-0000-0000-000000000001', skill.id, skill.owner_user_id]
-            );
-            promoted++;
+          if (overallScore >= AUDIT_CONFIG.autoPromoteThreshold && (skill.scope_type === 'private' || skill.scope_type === 'draft')) {
+            const targetOrgId = isValidOrgId(skill.org_id) ? skill.org_id : null;
+            if (targetOrgId) {
+              await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skill.id]);
+              await pool.query(
+                `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
+                 VALUES ($1,$2,null,$2,'user_upgrade',$3,'other','active')
+                 ON CONFLICT DO NOTHING`,
+                [targetOrgId, skill.id, skill.owner_user_id]
+              );
+              promoted++;
+            }
           }
           audited++;
         }
@@ -1204,12 +1252,17 @@ const server = createServer(async (req, res) => {
           return;
         }
         const skill = skillResult.rows[0];
+        const targetOrgId = isValidOrgId(skill.org_id) ? skill.org_id : null;
+        if (!targetOrgId) {
+          sendJson(res, 400, { ok: false, error: 'invalid_org_id' });
+          return;
+        }
         await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skillId]);
         await pool.query(
           `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
            VALUES ($1,$2,$3,$2,'user_upgrade',$4,'other','active')
            ON CONFLICT DO NOTHING`,
-          [skill.org_id || '00000000-0000-0000-0000-000000000001', skillId, promotedBy || null, skill.owner_user_id]
+          [targetOrgId, skillId, promotedBy || null, skill.owner_user_id]
         );
         sendJson(res, 200, { ok: true, skill_id: skillId, scope_type: 'org' });
       } catch (err) {

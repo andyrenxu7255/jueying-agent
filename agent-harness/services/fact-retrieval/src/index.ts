@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { closeDbPool } from './db';
 import { type FactWriteInput, factRetrievalService, type RetrievalQueryInput } from './service';
 import { configManager, createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport } from '@agent-harness/shared';
@@ -11,7 +12,7 @@ const port = Number(process.env.PORT || process.env.SERVER_PORT || configManager
 async function readJson(req: import('node:http').IncomingMessage): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   let totalSize = 0;
-  const MAX_BODY_SIZE = 10 * 1024 * 1024;
+  const MAX_BODY_SIZE = 3 * 1024 * 1024;
   for await (const chunk of req) {
     totalSize += chunk.length;
     if (totalSize > MAX_BODY_SIZE) {
@@ -46,6 +47,26 @@ function validateOwnerUserId(ownerUserId: string, res: import('node:http').Serve
   return true;
 }
 
+function verifyHmacAuth(authHeader: string | undefined, maxAgeSec: number = 300): boolean {
+  const resetSecret = process.env.TEST_RESET_SECRET;
+  if (!resetSecret) return !!process.env.TEST_RESET_TOKEN;
+  if (!authHeader || !authHeader.startsWith('HMAC ')) return false;
+  const token = authHeader.slice(5);
+  const parts = token.split(':');
+  if (parts.length !== 2) return false;
+  const [timestampStr, providedSig] = parts;
+  const timestamp = Number(timestampStr);
+  if (isNaN(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > maxAgeSec) return false;
+  const expectedSig = createHmac('sha256', resetSecret)
+    .update(`reset:${timestamp}`)
+    .digest('hex');
+  try {
+    return timingSafeEqual(Buffer.from(providedSig), Buffer.from(expectedSig));
+  } catch {
+    return false;
+  }
+}
+
 const server = createServer(async (req, res) => {
   httpRequestLogger(req);
   let rBody = '';
@@ -75,9 +96,16 @@ const server = createServer(async (req, res) => {
         sendJson(res, 404, { ok: false, error: 'not_found' });
         return;
       }
+      const resetSecret = process.env.TEST_RESET_SECRET;
       const resetToken = process.env.TEST_RESET_TOKEN;
       const authHeader = req.headers['authorization'];
-      if (resetToken && authHeader !== `Bearer ${resetToken}`) {
+      let authorized = false;
+      if (resetSecret) {
+        authorized = verifyHmacAuth(authHeader);
+      } else if (resetToken) {
+        authorized = authHeader === `Bearer ${resetToken}`;
+      }
+      if (!authorized) {
         sendJson(res, 401, { ok: false, error: 'unauthorized' });
         return;
       }
@@ -198,7 +226,13 @@ const server = createServer(async (req, res) => {
         owner_user_id: ownerUserId,
         artifact_id: String(body.artifact_id || ''),
         scope: Array.isArray(body.scope) ? body.scope.map((item: unknown) => String(item)) : ['private'],
+        org_id: typeof body.org_id === 'string' && body.org_id ? body.org_id : undefined,
       });
+      if ('error' in result) {
+        const statusCode = result.error === 'not_found' ? 404 : 403;
+        sendJson(res, statusCode, { ok: false, error: result.error });
+        return;
+      }
       sendJson(res, 200, { ok: true, ...result });
       return;
     }

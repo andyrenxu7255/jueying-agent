@@ -90,7 +90,7 @@ export class WorkflowStateMachine {
   }
 
   isFinal(): boolean {
-    return this.state === 'archived'
+    return this.state === 'archived' || this.state === 'succeeded' || this.state === 'failed' || this.state === 'cancelled'
   }
 }
 

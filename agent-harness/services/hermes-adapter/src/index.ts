@@ -122,6 +122,34 @@ function estimateTokenCount(text: string): number {
   return Math.ceil(chineseChars / 1.5 + otherChars / 4);
 }
 
+function repairTruncatedJson(text: string): string {
+  let result = text.trim();
+  if (!result) return '{}';
+
+  const openBraces = (result.match(/\{/g) || []).length;
+  const closeBraces = (result.match(/\}/g) || []).length;
+  const openBrackets = (result.match(/\[/g) || []).length;
+  const closeBrackets = (result.match(/\]/g) || []).length;
+
+  const lastChar = result[result.length - 1];
+  if (lastChar === ',' || lastChar === ':') {
+    result = result.slice(0, -1);
+  }
+
+  if (result[result.length - 1] === '"' && (result.match(/"/g) || []).length % 2 !== 0) {
+    result = result.slice(0, -1);
+  }
+
+  for (let i = 0; i < openBraces - closeBraces; i++) {
+    result += '}';
+  }
+  for (let i = 0; i < openBrackets - closeBrackets; i++) {
+    result += ']';
+  }
+
+  return result || '{}';
+}
+
 async function compressMemory(entries: MemoryEntry[]): Promise<string> {
   if (entries.length < MEMORY_SUMMARY_THRESHOLD) {
     return entries.map(e => `${e.role}: ${e.content}`).join('\n');
@@ -159,7 +187,7 @@ async function compressMemory(entries: MemoryEntry[]): Promise<string> {
   }
 }
 
-async function fetchSkillsFromDb(ownerUserId: string, query?: string): Promise<SkillRecord[]> {
+async function fetchSkillsFromDb(ownerUserId: string, orgId?: string, query?: string): Promise<SkillRecord[]> {
   const pool = await getDbPool();
   if (!pool) return [];
 
@@ -167,6 +195,17 @@ async function fetchSkillsFromDb(ownerUserId: string, query?: string): Promise<S
     const conditions: string[] = ["s.status != 'deleted'"];
     const params: unknown[] = [];
     let paramIdx = 1;
+
+    conditions.push(`s.owner_user_id = $${paramIdx}`);
+    params.push(ownerUserId);
+    paramIdx++;
+
+    if (orgId) {
+      conditions.push(`(s.org_id = $${paramIdx} OR s.scope_type = 'public')`);
+      params.push(orgId);
+      paramIdx++;
+    }
+
     if (query) {
       conditions.push(`(s.skill_name ILIKE $${paramIdx} OR s.description ILIKE $${paramIdx})`);
       params.push(`%${query}%`);
@@ -285,6 +324,36 @@ async function recallMemoryFromDb(ownerUserId: string, sessionId: string, limit:
   } catch (error) {
     logger.warn('memory.recall_db_error', 'Failed to recall memory from DB', { error: String(error) });
     return [];
+  }
+}
+
+async function hydrateMemoryStoreFromDb(): Promise<void> {
+  const pool = await getDbPool();
+  if (!pool) return;
+
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT ON (owner_user_id, session_id) owner_user_id, session_id
+       FROM hermes_memory
+       WHERE created_at >= NOW() - interval '24 hours'
+       ORDER BY owner_user_id, session_id, created_at DESC`
+    );
+
+    for (const row of result.rows) {
+      const ownerUserId = String(row.owner_user_id);
+      const sessionId = String(row.session_id);
+      const entries = await recallMemoryFromDb(ownerUserId, sessionId, MAX_MEMORY_PER_SESSION);
+      if (entries.length > 0) {
+        const key = getMemoryKey(ownerUserId, sessionId);
+        memoryStore.set(key, entries);
+      }
+    }
+
+    logger.info('memory.hydrated', 'Memory store hydrated from DB on startup', {
+      sessions_restored: result.rows.length
+    });
+  } catch (error) {
+    logger.warn('memory.hydrate_failed', 'Failed to hydrate memory store from DB', { error: String(error) });
   }
 }
 
@@ -442,6 +511,7 @@ const server = createServer(async (req, res) => {
   if (pathname === '/internal/skills/search' && req.method === 'POST') {
     const body = await readJson(req);
     const ownerUserId = String(body.owner_user_id || '');
+    const orgId = body.org_id ? String(body.org_id) : undefined;
     const query = String(body.query || '');
 
     if (!ownerUserId) {
@@ -449,7 +519,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    const skills = await fetchSkillsFromDb(ownerUserId, query);
+    const skills = await fetchSkillsFromDb(ownerUserId, orgId, query);
 
     sendJson(res, 200, {
       ok: true,
@@ -586,9 +656,9 @@ const server = createServer(async (req, res) => {
       const memResult = await pool.query(
         `SELECT id, content_text, summary, memory_type, char_length(content_text) as char_count, confidence, status
          FROM memory_item
-         WHERE owner_user_id = $1 AND created_at >= $2 AND created_at <= $3 AND status = 'active'
+         WHERE owner_user_id = $1 AND org_id = $4 AND created_at >= $2 AND created_at <= $3 AND status = 'active'
          ORDER BY created_at DESC LIMIT 500`,
-        [ownerUserId, dayStart, dayEnd]
+        [ownerUserId, dayStart, dayEnd, resolvedOrgId]
       );
 
       let itemsCompressed = 0;
@@ -669,16 +739,26 @@ const server = createServer(async (req, res) => {
             const er = await extractResponse.json() as { choices?: Array<{ message?: { content?: string } }> };
             const extracted = er.choices?.[0]?.message?.content || '{}';
             try {
-              const parsed = JSON.parse(extracted);
+              const parsed = JSON.parse(repairTruncatedJson(extracted));
               const facts = parsed.facts || [];
               for (const fact of facts) {
-                // TODO: Should go through fact-retrieval /internal/fact/submit for proper validation
-                await pool.query(
-                  `INSERT INTO fact (owner_user_id, org_id, scope_type, subject_ref, predicate, object_value, status, confidence, metadata)
-                   VALUES ($1,$2,'private',$3,$4,$5,'unconfirmed',0.6,jsonb_build_object('source','dream_extraction','date',$6))`,
-                  [ownerUserId, orgId, String(fact.subject || '').substring(0, 500), String(fact.predicate || '').substring(0, 500), String(fact.object || '').substring(0, 500), dateStr]
-                );
-                factsGenerated++;
+                try {
+                  const submitRes = await fetch(`${FACT_RETRIEVAL_URL}/internal/fact/submit`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                      owner_user_id: ownerUserId,
+                      org_id: orgId,
+                      source_text: String(fact.object || fact.content || fact.subject || ''),
+                      source: 'dream_extraction',
+                    }),
+                  });
+                  if (submitRes.ok) {
+                    factsGenerated++;
+                  }
+                } catch (submitErr) {
+                  logger.warn('dream.submit_fact_failed', 'Failed to submit extracted fact', { error: String(submitErr) });
+                }
               }
             } catch (parseErr) {
               logger.warn('dream.extract_parse_failed', 'Failed to parse extraction result', { error: String(parseErr) });
@@ -869,6 +949,7 @@ let aT_: ReturnType<typeof setInterval> | null = null;
 server.listen(port, () => {
   logger.info('service.started', 'Hermes adapter started', { port });
   void getDbPool();
+  void hydrateMemoryStoreFromDb();
   aT_ = setInterval(() => {
     const report = analyze();
     if (report.status !== 'normal') writeAggregationReport(report);

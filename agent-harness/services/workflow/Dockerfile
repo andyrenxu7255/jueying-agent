@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 COPY libs ./libs
 COPY services/workflow ./services/workflow
-RUN npm install
+RUN npm ci
 RUN npm run build --workspace @agent-harness/contracts \
   && npm run build --workspace @agent-harness/shared \
   && npm run build --workspace @agent-harness/policy \

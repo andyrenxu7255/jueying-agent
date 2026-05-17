@@ -14,6 +14,8 @@ const logger = createLogger('gateway-adapter', {
 
 const DB_POOL_MAX = Number(process.env.DB_POOL_MAX || 10)
 const MAX_INFLIGHT_REQUESTS = Number(process.env.MAX_INFLIGHT_REQUESTS || 50)
+const MAX_FEISHU_EVENT_CONCURRENCY = 10
+let feishuEventConcurrency = 0
 let inflightCounter = 0
 
 let sharedDbPool: Pool | null = null
@@ -417,7 +419,8 @@ async function loadUserPersona(ownerUserId: string): Promise<UserPersona | null>
       behaviorBoundary: typeof row.behavior_boundary === 'string' ? row.behavior_boundary : null,
       skillTags: typeof tags === 'string' ? tags : String(tags || '')
     };
-  } catch {
+  } catch (err) {
+    logger.warn('persona.load_failed', 'Failed to load user persona', { error: String(err) });
     return null;
   }
 }
@@ -442,7 +445,8 @@ async function getWorkspaceInfo(ownerUserId: string): Promise<WorkspaceInfo | nu
       factCount: Number(factR.rows[0]?.cnt || 0),
       memoryCount: Number(memR.rows[0]?.cnt || 0)
     };
-  } catch {
+  } catch (err) {
+    logger.warn('workspace.info_failed', 'Failed to get workspace info', { error: String(err) });
     return { docCount: 0, factCount: 0, memoryCount: 0 };
   }
 }
@@ -957,7 +961,8 @@ async function quickLookup(text: string, ownerUserId: string, orgId: string): Pr
     }
 
     return { replyText: '', modelCallOk: false };
-  } catch {
+  } catch (err) {
+    logger.warn('quicklookup.failed', 'Quick lookup failed', { error: String(err) });
     return { replyText: '', modelCallOk: false };
   }
 }
@@ -976,26 +981,35 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
   }
   inflightCounter++
   try {
-    const text = String(normalized.request_text || '');
+    const text = String(normalized.request_text || '').slice(0, 8000);
     const ownerUserId = String(normalized.user_id || normalized.session_ref || 'anonymous');
     const sessionId = String(normalized.session_ref || 'default');
     const orgId = String(normalized.org_id || '');
+    const trimmedText = text.trim();
+    let forceIntentType: 'task' | 'quick_lookup' | null = null;
+    if (/^\/task\s/i.test(trimmedText)) {
+      forceIntentType = 'task';
+    } else if (/^(\/find|\/search|\/lookup|\/查)\s/i.test(trimmedText)) {
+      forceIntentType = 'quick_lookup';
+    }
     const confirmMatch = text.trim().match(/^(?:\/)?确认工作流\s+(wf_[A-Za-z0-9_-]+)/i);
     if (confirmMatch) {
       if (normalized.identity_binding_state !== 'bound') {
         const replyText = '身份尚未绑定，请先完成身份验证后再确认工作流。';
-        fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-        fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
         return { requestType: 'workflow_confirm', replyText, modelCallOk: false };
       }
       const confirmation = await confirmWorkflowCandidate(confirmMatch[1], ownerUserId, orgId);
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', confirmation.replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', confirmation.replyText), 'rem_ctx');
       return { requestType: 'workflow_confirm', replyText: confirmation.replyText, modelCallOk: confirmation.ok, workflowRef: confirmMatch[1] };
     }
 
-    const intent = await classifyIntentWithLLM(text);
-    const requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch' = intent.intent_type;
+    const llmIntent = await classifyIntentWithLLM(text);
+    const rawRequestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch' = forceIntentType || llmIntent.intent_type;
+    const intent = { ...llmIntent, intent_type: forceIntentType || llmIntent.intent_type };
+    const requestType = rawRequestType;
 
     logger.info('ingress.request.classified', 'Classified incoming request', {
       request_type: requestType,
@@ -1009,21 +1023,21 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
   if (requestType === 'knowledge_submit') {
     if (normalized.identity_binding_state !== 'bound') {
       const replyText = '身份尚未绑定，请先完成身份验证后再提交知识。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false };
     }
 
     const { factId, error } = await submitKnowledge(text, ownerUserId, orgId);
     if (error || !factId) {
       const replyText = error || '知识提交失败，已记录。请稍后重试。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false };
     }
     const replyText = `📝 知识已收到并提交审核！\n知识编号: ${factId}\n管理员将在审核后将其正式收录到组织知识库中。`;
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
     return { requestType, replyText, modelCallOk: true };
   }
 
@@ -1031,8 +1045,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
   if (requestType === 'quick_lookup') {
     if (normalized.identity_binding_state !== 'bound') {
       const replyText = '身份尚未绑定，请先完成身份验证后再进行查询。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false };
     }
 
@@ -1041,20 +1055,20 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
       // quickLookup 降级为空 → 回退到 chat 路径
       const chatResult = await generateChatReply(text, ownerUserId);
       const finalReply = chatResult.text;
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', finalReply), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', finalReply), 'rem_ctx');
       return { requestType: 'chat' as const, replyText: finalReply, modelCallOk: chatResult.modelCallOk };
     }
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
     return { requestType, replyText, modelCallOk };
   }
 
   if (requestType === 'task') {
     if (normalized.identity_binding_state !== 'bound') {
       const replyText = '身份尚未绑定，请先完成身份验证后再创建任务。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false };
     }
 
@@ -1067,8 +1081,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
           reason: quotaCheck.reason
         });
         const replyText = quotaCheck.reason || '资源配额不足，请稍后重试或联系管理员。';
-        fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-        fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
         return { requestType, replyText, modelCallOk: false };
       }
     }
@@ -1079,8 +1093,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
         user_id: normalized.user_id
       });
       const replyText = '权限策略校验暂不可用，请稍后重试。若持续出现请联系管理员。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false };
     }
 
@@ -1102,8 +1116,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
     if (!plan.ok) {
       logger.warn('workflow.plan.failed', 'Workflow plan failed from gateway', { status: plan.status });
       const replyText = '任务受理失败：规划服务暂不可用。请稍后重试，若持续失败请联系管理员并提供时间与账号。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false };
     }
 
@@ -1118,15 +1132,15 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
         status: dispatch.status
       });
       const replyText = `任务已创建（${workflowRef}），但派发执行失败。请稍后重试，或联系管理员手动重派。`;
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false, workflowRef };
     }
 
     const runRef = (dispatch.body?.executor_run_ref as string | undefined) || `run_${Date.now()}`;
     const replyText = `✅ 已受理您的任务，正在规划执行中...\n任务编号: ${workflowRef}`;
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
     return { requestType, replyText, modelCallOk: true, workflowRef, runRef };
   }
 
@@ -1134,8 +1148,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
   if (requestType === 'task_dispatch') {
     if (normalized.identity_binding_state !== 'bound') {
       const replyText = '身份尚未绑定，请先完成身份验证后再下发任务。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false };
     }
     const pool = await getSharedDbPool();
@@ -1150,8 +1164,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
     );
     if (roleCheck.rows.length === 0 || roleCheck.rows[0].role !== 'admin') {
       const replyText = '只有管理员才有权限下发工作任务。如需此权限请联系系统管理员。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false };
     }
     try {
@@ -1167,14 +1181,14 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
       const assignedCount = (assignResult.body as Record<string, unknown>)?.assigned || 0;
       const notifiedCount = (notifyResult.body as Record<string, unknown>)?.notified || 0;
       const replyText = `✅ 工作要求已创建并下发！\n📋 任务: ${task.title}\n👥 已分配: ${assignedCount} 人\n📢 已通知: ${notifiedCount} 人\n任务编号: ${task.id}`;
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: true };
     } catch (err) {
       logger.error('task_dispatch.create_failed', 'Failed to create and dispatch task from LUI', { error: String(err) });
       const replyText = '任务下发失败，请稍后重试或通过Web管理门户手动创建。';
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), 'rem_ctx');
       return { requestType, replyText, modelCallOk: false };
     }
   }
@@ -1182,8 +1196,8 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
   const recalled = await recallContext(ownerUserId, sessionId);
     const chat = await generateChatReply(text, ownerUserId, recalled.context || undefined);
     const degradedPrefix = recalled.degraded ? '（提示：历史上下文暂不可用，本次按当前消息回复）\n' : '';
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
-    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', chat.text), '');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
+    fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', chat.text), 'rem_ctx');
     return { requestType, replyText: `${degradedPrefix}${chat.text}`, modelCallOk: chat.modelCallOk };
   } finally {
     inflightCounter--
@@ -1254,12 +1268,12 @@ async function handleFeishuEvent(body: Record<string, unknown>): Promise<void> {
 
           const chatId = String(message.chat_id || '');
           if (chatId) {
-            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', replyText), '');
+            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', replyText), 'feishu_reply');
           }
         } else {
           const chatId = String(message.chat_id || '');
           if (chatId) {
-            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', '身份尚未绑定，请先完成身份验证后再导入文件。'), '');
+            fireAndForget(sendFeishuTextReply(chatId, 'chat_id', '身份尚未绑定，请先完成身份验证后再导入文件。'), 'feishu_reply');
           }
         }
       }
@@ -1317,7 +1331,7 @@ async function handleFeishuEvent(body: Record<string, unknown>): Promise<void> {
   }
 
   if (processed.requestType === 'task' && processed.workflowRef) {
-    fireAndForget(pollAndReplyWorkflowResult(processed.workflowRef, receiveTargets), '');
+    fireAndForget(pollAndReplyWorkflowResult(processed.workflowRef, receiveTargets), 'wf_poll');
   }
 
   logger.info('feishu.event.completed', 'Feishu event processing completed', {
@@ -1567,7 +1581,8 @@ async function pollAndReplyWorkflowResult(workflowRef: string, targets: Array<{ 
         }
         return;
       }
-    } catch {
+    } catch (err) {
+      logger.warn('workflow.poll.inner_failed', 'Poll iteration failed', { error: String(err) });
       // continue polling
     }
   }
@@ -1604,7 +1619,7 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
       if (status === 'succeeded' || status === 'completed' || status === 'failed' || status === 'cancelled') {
         const resultLine = buildWorkflowResultMessage(workflowRef, status, wf);
 
-        fireAndForget(sendWecomTextMessage(wecomUserId, resultLine, agentId), '');
+        fireAndForget(sendWecomTextMessage(wecomUserId, resultLine, agentId), 'wecom_msg');
         // 异步发送移动推送通知
         const userId = (wf as Record<string, unknown>).owner_user_id || '';
         if (userId) {
@@ -1627,7 +1642,7 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
   }
 
   const timeoutMsg = `⏳ 任务仍在执行中，请稍后查看结果。\n任务编号: ${workflowRef}`;
-  fireAndForget(sendWecomTextMessage(wecomUserId, timeoutMsg, agentId), '');
+  fireAndForget(sendWecomTextMessage(wecomUserId, timeoutMsg, agentId), 'wecom_msg');
 }
 async function getWecomAccessToken(): Promise<string | null> {
   const now = Date.now();
@@ -1983,7 +1998,16 @@ const server = createServer(async (req, res) => {
     }
 
     sendJson(res, 200, { ok: true, received: true });
-    setImmediate(() => { handleFeishuEvent(body).catch(e => logger.error('feishu.webhook.async_error', 'Async webhook event processing failed', { error: String(e) })); });
+    setImmediate(() => {
+      if (feishuEventConcurrency >= MAX_FEISHU_EVENT_CONCURRENCY) {
+        logger.warn('feishu.event.concurrency_limit', 'Feishu event rejected due to concurrency limit', { current: feishuEventConcurrency });
+        return;
+      }
+      feishuEventConcurrency++;
+      handleFeishuEvent(body)
+        .catch(e => logger.error('feishu.webhook.async_error', 'Async webhook event processing failed', { error: String(e) }))
+        .finally(() => { feishuEventConcurrency--; });
+    });
     return;
   }
 
@@ -2007,7 +2031,16 @@ const server = createServer(async (req, res) => {
     }
 
     sendJson(res, 200, { ok: true, received: true });
-    setImmediate(() => { handleFeishuEvent(body).catch(e => logger.error('feishu.event.async_error', 'Async Feishu event processing failed', { error: String(e) })); });
+    setImmediate(() => {
+      if (feishuEventConcurrency >= MAX_FEISHU_EVENT_CONCURRENCY) {
+        logger.warn('feishu.event.concurrency_limit', 'Feishu event rejected due to concurrency limit', { current: feishuEventConcurrency });
+        return;
+      }
+      feishuEventConcurrency++;
+      handleFeishuEvent(body)
+        .catch(e => logger.error('feishu.event.async_error', 'Async Feishu event processing failed', { error: String(e) }))
+        .finally(() => { feishuEventConcurrency--; });
+    });
     return;
   }
 
@@ -2090,12 +2123,12 @@ const server = createServer(async (req, res) => {
 
               const wecomUserId = typeof body.from_user_id === 'string' ? body.from_user_id : '';
               if (wecomUserId) {
-                fireAndForget(sendWecomTextMessage(wecomUserId, replyText), '');
+                fireAndForget(sendWecomTextMessage(wecomUserId, replyText), 'wecom_msg');
               }
             } else {
               const wecomUserId = typeof body.from_user_id === 'string' ? body.from_user_id : '';
               if (wecomUserId) {
-                fireAndForget(sendWecomTextMessage(wecomUserId, '身份尚未绑定，请先完成身份验证后再导入文件。'), '');
+                fireAndForget(sendWecomTextMessage(wecomUserId, '身份尚未绑定，请先完成身份验证后再导入文件。'), 'wecom_msg');
               }
             }
           }
@@ -2133,7 +2166,7 @@ const server = createServer(async (req, res) => {
       }
 
       if (processed.requestType === 'task' && processed.workflowRef && wecomUserId) {
-        fireAndForget(pollAndReplyWorkflowResultWecom(processed.workflowRef, wecomUserId), '');
+        fireAndForget(pollAndReplyWorkflowResultWecom(processed.workflowRef, wecomUserId), 'wf_poll_wecom');
       }
 
       sendJson(res, 200, {
@@ -2340,17 +2373,17 @@ const server = createServer(async (req, res) => {
         let delivered = false;
         const channels = (task.target_channels || ['wecom']) as string[];
         if (channels.includes('wecom')) {
-          try { delivered = await sendWecomTextMessage(String(assignment.username), content); } catch { /* ignore */ }
+          try { delivered = await sendWecomTextMessage(String(assignment.username), content); } catch (err) { logger.warn('tasks.notify.wecom_failed', 'Failed to send wecom task notification', { error: String(err) }); }
         }
         if (channels.includes('feishu')) {
-          try { delivered = await sendFeishuTextReply(String(assignment.username), 'open_id', content) || delivered; } catch { /* ignore */ }
+          try { delivered = await sendFeishuTextReply(String(assignment.username), 'open_id', content) || delivered; } catch (err) { logger.warn('tasks.notify.feishu_failed', 'Failed to send feishu task notification', { error: String(err) }); }
         }
         try {
           await fetch(`${mobileAppUrl}/internal/notifications/send`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: assignment.user_id, title: task.title, body: task.prompt_message || task.description, category: 'task_dispatch', deep_link: `/my-tasks` })
           });
-        } catch { /* ignore mobile push failure */ }
+        } catch (err) { logger.warn('tasks.notify.mobile_push_failed', 'Failed to send mobile push notification', { error: String(err) }); }
         await pool.query(`UPDATE org_task_assignment SET status = 'notified', notified_at = now() WHERE id = $1`, [assignment.id]);
         notified++;
       }
@@ -2468,6 +2501,7 @@ const gracefulShutdown = async (signal: string) => {
   writeAggregationReport(finalReport);
   metricsRegistry.shutdown();
   if (sharedDbPool) await sharedDbPool.end();
+  await identityResolver.shutdown();
   await logger.shutdown();
   server.close(() => {
     logger.info('service.shutdown.complete', 'Gateway adapter shutdown complete', {});

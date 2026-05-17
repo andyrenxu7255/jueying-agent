@@ -16,7 +16,8 @@ const logger = createLogger('executor-gateway', {
 const port = Number(process.env.PORT || 3002);
 const workflowUrl = process.env.WORKFLOW_URL || '';
 if (!workflowUrl) {
-  logger.warn('config.missing', 'WORKFLOW_URL environment variable is not set');
+  logger.error('config.missing', 'WORKFLOW_URL environment variable is required');
+  process.exit(1);
 }
 
 async function postWorkflowWithRetry(path: string, payload: Record<string, unknown>, attempts = 5): Promise<{ ok: boolean; status: number }> {
@@ -61,6 +62,8 @@ const readJson = readJsonShared
 const sendJson = sendJsonShared
 const sendError = sendErrorShared
 
+const activeExecutions = new Map<string, Promise<void>>()
+
 const server = createServer(async (req, res) => {
   httpRequestLogger(req);
   let responseBody = '';
@@ -92,6 +95,7 @@ const server = createServer(async (req, res) => {
     }
     const policySnapshotHash = (body.policy_snapshot_hash as string) || '';
     const trigger = (body.trigger as string) || 'manual';
+    const orgId = typeof body.org_id === 'string' ? body.org_id : undefined;
 
     const runRef = `run_${Date.now()}_${randomUUID().substring(0, 6)}`;
 
@@ -120,11 +124,22 @@ const server = createServer(async (req, res) => {
       state: 'queued'
     });
 
-    void autoExecuteWorkflowStages(workflowRef, runRef).catch(err => {
+    if (activeExecutions.has(workflowRef)) {
+      logger.info('auto_execute.skipped', 'Auto-execution already in progress, skipping', {
+        workflow_ref: workflowRef
+      });
+      return;
+    }
+
+    const executionPromise = autoExecuteWorkflowStages(workflowRef, runRef, orgId);
+    activeExecutions.set(workflowRef, executionPromise);
+    void executionPromise.catch(err => {
       logger.error('auto_execute.failed', 'Background auto-execution failed', {
         workflow_ref: workflowRef,
         error: (err as Error).message
       });
+    }).finally(() => {
+      activeExecutions.delete(workflowRef);
     });
     return;
   }
@@ -214,32 +229,12 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (action === 'status') {
-      sendJson(res, 200, {
-        ok: true,
-        session_id: sessionId,
-        action,
-        status: 'active',
-        created_at: new Date().toISOString()
-      });
-      return;
-    }
-
-    await auditWriter.write({
-      user_id: 'system',
-      action: `code.session.${action}`,
-      resource_type: 'execution_session',
-      resource_ref: sessionId,
-      resource_scope: 'system',
-      result: 'success',
-      detail_json: { action }
-    });
-
-    sendJson(res, 200, {
-      ok: true,
+    sendJson(res, 501, {
+      ok: false,
       session_id: sessionId,
       action,
-      status: action === 'terminate' ? 'terminated' : action === 'paused' ? 'paused' : 'active'
+      error: 'not_implemented',
+      message: 'Session state tracking is not yet implemented'
     });
     return;
   }
@@ -281,9 +276,12 @@ async function gracefulShutdown(signal: string): Promise<void> {
   setTimeout(() => process.exit(1), 10000);
 }
 
-async function autoExecuteWorkflowStages(workflowRef: string, runRef: string): Promise<void> {
+async function autoExecuteWorkflowStages(workflowRef: string, runRef: string, orgId?: string): Promise<void> {
   try {
-    const workflowResponse = await fetch(`${workflowUrl}/internal/workflows/${workflowRef}`);
+    const fetchUrl = orgId
+      ? `${workflowUrl}/internal/workflows/${workflowRef}?org_id=${encodeURIComponent(orgId)}`
+      : `${workflowUrl}/internal/workflows/${workflowRef}`;
+    const workflowResponse = await fetch(fetchUrl);
     if (!workflowResponse.ok) {
       logger.warn('auto.execute.workflow_fetch_failed', 'Failed to fetch workflow for auto-execution', {
         workflow_instance_ref: workflowRef,
@@ -335,63 +333,69 @@ async function autoExecuteWorkflowStages(workflowRef: string, runRef: string): P
       });
 
       const retryPolicy = (stage.retry_policy || {}) as Record<string, unknown>;
-      const canRepair = result.status === 'failed' &&
-        (String(stage.on_failure || '') === 'repair_or_fail' || Number(retryPolicy.max_repairs || 0) > 0);
-      if (canRepair) {
-        logger.info('auto.execute.autonomous_repair_start', 'Attempting autonomous stage repair', {
-          workflow_instance_ref: workflowRef,
-          stage_id: stageId,
-          stage_type: stage.stage_type
-        });
+      const maxRepairs = Number(retryPolicy.max_repairs || (String(stage.on_failure || '') === 'repair_or_fail' ? 1 : 0));
+      if (result.status === 'failed' && maxRepairs > 0) {
+        const originalFailureOutput = result.output;
+        const originalFailureError = result.error;
+        let repairsAttempted = 0;
 
-        const repairResult = await repairExecutor.execute({
-          workflow_instance_id: workflowRef,
-          workflow_stage_id: stageId,
-          stage: {
-            ...stage,
-            stage_type: 'Repair',
-            purpose: `Repair failed stage: ${String(stage.purpose || stage.stage_type || stageId)}`,
-            assigned_executor: 'repair-executor'
-          } as unknown as import('@agent-harness/contracts').Stage,
-          user_goal: userGoal,
-          policy_snapshot_hash: policySnapshotHash,
-          context: {
-            owner_user_id: workflow.owner_user_id,
-            run_ref: runRef,
-            previous_output: result.output,
-            error: result.error,
-            original_context: { stage_id: stageId, stage_type: stage.stage_type, executor: executorName }
+        while (result.status === 'failed' && repairsAttempted < maxRepairs) {
+          repairsAttempted++;
+          logger.info('auto.execute.autonomous_repair_start', `Repair attempt ${repairsAttempted}/${maxRepairs}`, {
+            workflow_instance_ref: workflowRef,
+            stage_id: stageId,
+            stage_type: stage.stage_type
+          });
+
+          const repairResult = await repairExecutor.execute({
+            workflow_instance_id: workflowRef,
+            workflow_stage_id: stageId,
+            stage: {
+              ...stage,
+              stage_type: 'Repair',
+              purpose: `Repair failed stage: ${String(stage.purpose || stage.stage_type || stageId)}`,
+              assigned_executor: 'repair-executor'
+            } as unknown as import('@agent-harness/contracts').Stage,
+            user_goal: userGoal,
+            policy_snapshot_hash: policySnapshotHash,
+            context: {
+              owner_user_id: workflow.owner_user_id,
+              run_ref: runRef,
+              previous_output: result.output,
+              error: result.error,
+              original_context: { stage_id: stageId, stage_type: stage.stage_type, executor: executorName }
+            }
+          });
+
+          if (repairResult.status === 'completed' || repairResult.status === 'succeeded') {
+            result = {
+              ...repairResult,
+              status: 'completed',
+              output: [
+                `原阶段执行失败，系统已进行 ${repairsAttempted} 次自主修复并继续推进。`,
+                '',
+                '[original-failure]',
+                originalFailureOutput?.slice(0, 1200) || originalFailureError || 'unknown_failure',
+                '',
+                '[autonomous-repair]',
+                repairResult.output
+              ].join('\n')
+            };
+          } else {
+            result = {
+              ...repairResult,
+              status: 'failed',
+              output: [
+                `原阶段执行失败，系统尝试自主修复 ${repairsAttempted}/${maxRepairs} 次但仍未通过。`,
+                '',
+                '[original-failure]',
+                originalFailureOutput?.slice(0, 1200) || originalFailureError || 'unknown_failure',
+                '',
+                '[repair-failure]',
+                repairResult.output || repairResult.error || 'repair_failed'
+              ].join('\n')
+            };
           }
-        });
-
-        if (repairResult.status === 'completed' || repairResult.status === 'succeeded') {
-          result = {
-            ...repairResult,
-            status: 'completed',
-            output: [
-              '原阶段执行失败，系统已进行一次自主修复并继续推进。',
-              '',
-              '[original-failure]',
-              result.output?.slice(0, 1200) || result.error || 'unknown_failure',
-              '',
-              '[autonomous-repair]',
-              repairResult.output
-            ].join('\n')
-          };
-        } else {
-          result = {
-            ...repairResult,
-            status: 'failed',
-            output: [
-              '原阶段执行失败，系统尝试自主修复但仍未通过。',
-              '',
-              '[original-failure]',
-              result.output?.slice(0, 1200) || result.error || 'unknown_failure',
-              '',
-              '[repair-failure]',
-              repairResult.output || repairResult.error || 'repair_failed'
-            ].join('\n')
-          };
         }
       }
 

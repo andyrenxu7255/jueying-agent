@@ -35,6 +35,7 @@ async function api(path, options) {
     }
     return { ok: res.ok, status: res.status, data };
   } catch (e) {
+    showToast('网络连接失败，请检查服务状态', 'error');
     return { ok: false, status: 0, data: { error: 'network_error', message: e.message } };
   }
 }

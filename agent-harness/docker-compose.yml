@@ -123,12 +123,17 @@ services:
     environment:
       OTEL_RESOURCE_ATTRIBUTES: "service.name=agent-harness"
     ports:
-      - "4317:4317"     # OTLP gRPC
-      - "4318:4318"     # OTLP HTTP
+      - "4317:4317"
+      - "4318:4318"
     networks:
       - agent-harness-net
     depends_on:
       - clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
   # SigNoz - ClickHouse (存储)
   clickhouse:
@@ -146,6 +151,11 @@ services:
       - "8123:8123"
     networks:
       - agent-harness-net
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
     deploy:
       resources:
         limits:
@@ -165,6 +175,11 @@ services:
       - agent-harness-net
     depends_on:
       - signoz-query-service
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3301/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
   # SigNoz - Query Service
   signoz-query-service:
@@ -185,6 +200,11 @@ services:
     depends_on:
       - clickhouse
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
   # Gateway Adapter (开发模式 - 本地代码挂载)
   gateway-adapter:
@@ -198,6 +218,7 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
       SKIP_LLM_PLAN: ${SKIP_LLM_PLAN:-true}
       LITELLM_URL: http://litellm:4000
       LITELLM_MODEL: ${LITELLM_MODEL:-minimax-m2.7}
@@ -259,6 +280,7 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
       LITELLM_URL: http://litellm:4000
       LITELLM_MODEL: ${LITELLM_MODEL:-minimax-m2.7}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
@@ -306,6 +328,7 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_changeme}
@@ -360,6 +383,7 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_changeme}
@@ -411,6 +435,7 @@ services:
       NODE_ENV: development
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
       GATEWAY_URL: http://gateway-adapter:3000
       WORKFLOW_URL: http://workflow-service:3000
       EXECUTOR_URL: http://executor-gateway:3000
@@ -460,6 +485,7 @@ services:
       NODE_ENV: development
       FEISHU_APP_ID: ${FEISHU_APP_ID:-}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET:-}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
       FEISHU_DOMAIN: ${FEISHU_DOMAIN:-feishu}
       GATEWAY_URL: http://gateway-adapter:3000
     depends_on:
@@ -491,6 +517,7 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
       LITELLM_URL: http://litellm:4000
       LITELLM_MODEL: ${LITELLM_MODEL:-minimax-m2.7}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
@@ -533,6 +560,7 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
     ports:
       - "3007:3000"
     depends_on:
@@ -567,6 +595,7 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
       WORKFLOW_URL: http://workflow-service:3000
       EXECUTOR_URL: http://executor-gateway:3000
       FACT_RETRIEVAL_URL: http://fact-retrieval:3000
@@ -609,6 +638,7 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
       APNS_KEY_ID: ${APNS_KEY_ID:-}
       APNS_TEAM_ID: ${APNS_TEAM_ID:-}

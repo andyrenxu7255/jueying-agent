@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 COPY libs ./libs
 COPY services/resource-scheduler ./services/resource-scheduler
-RUN npm install
+RUN npm ci
 RUN npm run build --workspace @agent-harness/contracts \
   && npm run build --workspace @agent-harness/shared
 RUN npx tsc --project services/resource-scheduler/tsconfig.json

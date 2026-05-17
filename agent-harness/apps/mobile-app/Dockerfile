@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json tsconfig.json ./
 COPY libs ./libs
 COPY apps/mobile-app ./apps/mobile-app
-RUN npm install
+RUN npm ci
 RUN npm run build --workspace @agent-harness/contracts \
   && npm run build --workspace @agent-harness/shared
 RUN npx tsc --project apps/mobile-app/tsconfig.json
