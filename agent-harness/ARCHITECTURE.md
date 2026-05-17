@@ -1,6 +1,6 @@
 # agent-harness 系统架构文档
 
-> 版本: 2026-05-17 (第十六轮：第5轮全面代码审计 — Scheduler重构 + 认证补全 + 依赖统一 + Ollama移除)
+> 版本: 2026-05-17 (第十七轮：冒烟测试 + 四角色体验闭环 + 高危依赖收口)
 > 当前状态: **全链路验证通过，TypeScript零错误，系统指南文档与图谱已全面更新至代码最新状态**
 
 ---
@@ -803,7 +803,7 @@ docker logs -f ah-mobile-app
 | P2-5 | pg 版本不统一（3处 ^8.15.3） | 文档误导 | `audit/hermes/web-portal package.json` → `^8.20.0` |
 | P2-6 | yaml 版本不统一（shared ^2.4.0） | 文档误导 | `shared/package.json` → `^2.8.3` |
 | P2-7 | hermes-adapter 使用 drizzle-orm 但未声明依赖 | 隐式依赖 | `hermes-adapter/package.json` → 添加 `drizzle-orm` |
-| P2-8 | pdf-parse CVE-2023-26134 已知漏洞 | 用户上传PDF风险 | **保留跟踪，待下一轮替换为 pdfjs-dist** |
+| P2-8 | pdf-parse CVE-2023-26134 已知漏洞 | 用户上传PDF风险 | `gateway-adapter/index.ts` → 替换为 `pdfjs-dist` 并同步锁文件 |
 
 ### 验证结果
 
@@ -817,7 +817,31 @@ docker logs -f ah-mobile-app
 
 ---
 
-## 十七、文档导航
+## 十七、第6轮冒烟测试与四角色体验闭环（2026-05-17）
+
+本轮在前一轮安全与 UX 修复基础上，按“开发、运维、Admin、普通用户”四条故事线做端到端验收，重点把脚本可复现性、Compose 可启动性、渠道烟测、梦境模式、组织边界和依赖安全收口到同一套发布前检查中。
+
+### 修复与优化
+
+| # | 问题 | 影响 | 修复位置 |
+|---|------|------|---------|
+| S-1 | M0 校验脚本引用旧 Jest 配置名 | 新开发者按文档运行即失败 | `scripts/validate-m0.js` → 指向 `tests/setup/jest.config.cjs` |
+| S-2 | SQL 迁移脚本不读取 `.env` 且默认密码与 Compose 不一致 | 数据库迁移在本地开发栈失败 | `scripts/apply-sql-migrations.js` → 读取 `.env` 并从 `POSTGRES_*` 拼接连接串 |
+| S-3 | 渠道烟测与 Compose 开发默认签名密钥不一致 | 飞书/企微本地烟测误报 | `docker-compose.yml`、`scripts/channel-webhook-smoke.mjs` |
+| S-4 | SigNoz 查询健康检查命中历史路径 | `smoke:eval` 对可用服务报 404 | `scripts/smoke-eval.js` → 改用当前入口 `/` |
+| S-5 | Quick Lookup 未携带 `org_id` | 快速查询缺少组织隔离上下文 | `apps/gateway-adapter/src/index.ts` |
+| S-6 | 梦境个人分析测试用户缺少组织/用户记录 | Admin 手动梦境分析外键失败 | `services/hermes-adapter/src/index.ts` |
+| S-7 | 组织记忆/技能接口缺少强制 `org_id` | Admin 组织边界不够清晰 | `services/hermes-adapter/src/index.ts`、`services/skill-library/src/index.ts` |
+| S-8 | `pdf-parse` 已知漏洞残留 | PDF 上传解析存在依赖风险 | `pdfjs-dist` 替换并同步 `package-lock.json` |
+| S-9 | OpenTelemetry 直接依赖命中 high 审计项 | 可观测依赖存在 DoS 风险 | 升级 `@opentelemetry/auto-instrumentations-node`、`@opentelemetry/sdk-node` |
+
+### 验收故事线
+
+开发视角要求从干净工作区按文档完成依赖、迁移、lint、类型检查、单元测试、上下文审计和烟测；运维视角要求 Compose 栈能启动，健康检查命中真实端点，并能区分真实凭据缺失与核心服务故障；Admin 视角要求组织级梦境、知识和技能治理必须强制携带 `org_id`，并返回可解释的业务结果字段；普通用户视角要求飞书/企微消息可异步 ACK、去重、快查、知识提交、长任务和文件解析都能按组织边界降级运行。
+
+详细故事线见 [用户故事线.md](./用户故事线.md) 的“故事线二十一”和 [DEV-17-冒烟测试与四角色体验闭环.md](../development/DEV-17-冒烟测试与四角色体验闭环.md)。
+
+## 十八、文档导航
 
 | 文档 | 内容 |
 |------|------|
@@ -825,8 +849,9 @@ docker logs -f ah-mobile-app
 | [运维手册](./OPS.md) | 部署、监控、故障排查、备份恢复、安全加固 |
 | [开源协议](./LICENSES.md) | 第三方依赖许可证清单、合规义务 |
 | [交接文档](./HANDOFF-SESSION.md) | 开发历史、修复记录、当前状态 |
+| [冒烟与安全审计报告](./AUDIT-REPORT-2026-05-17-SMOKE.md) | 本轮冒烟、UX故事线、安全依赖和剩余风险 |
 
-## 十七、关键文件索引
+## 十九、关键文件索引
 
 | 文件 | 用途 |
 |------|------|

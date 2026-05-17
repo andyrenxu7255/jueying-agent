@@ -1,7 +1,16 @@
-import { WorkflowPlanner } from './planner';
+import type { Stage, WorkflowPlan } from '@agent-harness/contracts';
+import { WorkflowPlanner, type PlannerInput } from './planner';
+
+type TestablePlanner = WorkflowPlanner & {
+  buildPlanFromMarkdownSteps(input: PlannerInput): WorkflowPlan;
+  getDefaultStageChain(taskType: string, userGoal: string): Stage[];
+  inferStageTypeFromStepName(stepName: string): Stage['stage_type'];
+  inferExecutorFromStageType(stageType: Stage['stage_type']): Stage['assigned_executor'];
+};
 
 describe('WorkflowPlanner', () => {
   const planner = new WorkflowPlanner();
+  const testablePlanner = planner as unknown as TestablePlanner;
 
   const baseInput = {
     user_id: 'test_user',
@@ -21,7 +30,7 @@ describe('WorkflowPlanner', () => {
         ],
       };
 
-      const plan = (planner as any).buildPlanFromMarkdownSteps(input);
+      const plan = testablePlanner.buildPlanFromMarkdownSteps(input);
 
       expect(plan.stage_chain).toHaveLength(2);
       expect(plan.stage_chain[0].on_success).toBe('next_stage');
@@ -38,7 +47,7 @@ describe('WorkflowPlanner', () => {
         ],
       };
 
-      const plan = (planner as any).buildPlanFromMarkdownSteps(input);
+      const plan = testablePlanner.buildPlanFromMarkdownSteps(input);
 
       expect(plan.stage_chain).toHaveLength(3);
       expect(plan.stage_chain[0].on_success).toBe('next_stage');
@@ -52,7 +61,7 @@ describe('WorkflowPlanner', () => {
         markdown_steps: [],
       };
 
-      const plan = (planner as any).buildPlanFromMarkdownSteps(input);
+      const plan = testablePlanner.buildPlanFromMarkdownSteps(input);
 
       expect(plan.stage_chain).toHaveLength(2);
       expect(plan.stage_chain[0].on_success).toBe('next_stage');
@@ -62,7 +71,7 @@ describe('WorkflowPlanner', () => {
 
   describe('getDefaultStageChain', () => {
     it('knowledge default has 3 stages with correct on_success', () => {
-      const stages = (planner as any).getDefaultStageChain('knowledge', 'test goal');
+      const stages = testablePlanner.getDefaultStageChain('knowledge', 'test goal');
 
       expect(stages).toHaveLength(3);
       expect(stages[0].on_success).toBe('next_stage');
@@ -71,7 +80,7 @@ describe('WorkflowPlanner', () => {
     });
 
     it('development default has 6 stages with correct on_success', () => {
-      const stages = (planner as any).getDefaultStageChain('development', 'test goal');
+      const stages = testablePlanner.getDefaultStageChain('development', 'test goal');
 
       expect(stages).toHaveLength(6);
       for (let i = 0; i < 5; i++) {
@@ -81,7 +90,7 @@ describe('WorkflowPlanner', () => {
     });
 
     it('analysis default has 5 stages with correct on_success', () => {
-      const stages = (planner as any).getDefaultStageChain('analysis', 'test goal');
+      const stages = testablePlanner.getDefaultStageChain('analysis', 'test goal');
 
       expect(stages).toHaveLength(5);
       for (let i = 0; i < 4; i++) {
@@ -91,7 +100,7 @@ describe('WorkflowPlanner', () => {
     });
 
     it('sales default has 5 stages with correct on_success', () => {
-      const stages = (planner as any).getDefaultStageChain('sales', 'test goal');
+      const stages = testablePlanner.getDefaultStageChain('sales', 'test goal');
 
       expect(stages).toHaveLength(5);
       for (let i = 0; i < 4; i++) {
@@ -102,7 +111,7 @@ describe('WorkflowPlanner', () => {
   });
 
   describe('stageType inference', () => {
-    const infer = (name: string) => (planner as any).inferStageTypeFromStepName(name);
+    const infer = (name: string) => testablePlanner.inferStageTypeFromStepName(name);
 
     it('recognizes clarification stages', () => {
       expect(infer('明确需求')).toBe('IntentClarification');
@@ -134,7 +143,7 @@ describe('WorkflowPlanner', () => {
   });
 
   describe('executor assignment', () => {
-    const inferExec = (stageType: string) => (planner as any).inferExecutorFromStageType(stageType);
+    const inferExec = (stageType: Stage['stage_type']) => testablePlanner.inferExecutorFromStageType(stageType);
 
     it('assigns retrieval-aware-executor to retrieval stages', () => {
       expect(inferExec('EvidenceRetrieval')).toBe('retrieval-aware-executor');

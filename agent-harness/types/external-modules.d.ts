@@ -1,19 +1,17 @@
 declare module 'yaml' {
-  export function parse(text: string): any;
-  export function stringify(obj: any): string;
+  export function parse(text: string): unknown;
+  export function stringify(obj: unknown): string;
 }
 
-declare module 'pdf-parse' {
-  interface PDFData {
-    numpages: number;
-    numrender: number;
-    info: Record<string, unknown>;
-    metadata: unknown;
-    text: string;
-    version: string;
+declare module 'pdfjs-dist' {
+  interface PDFPageProxy {
+    getTextContent(): Promise<{ items: Array<{ str: string }> }>;
   }
-  function pdfParse(dataBuffer: Buffer): Promise<PDFData>;
-  export default pdfParse;
+  interface PDFDocumentProxy {
+    numPages: number;
+    getPage(pageNumber: number): Promise<PDFPageProxy>;
+  }
+  function getDocument(options: { data: Uint8Array }): { promise: Promise<PDFDocumentProxy> };
 }
 
 declare module 'mammoth' {

@@ -1,6 +1,6 @@
 {
-  "version": "v2.0",
-  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-17 R7: Round 5 comprehensive audit (25 fixes across frontend/backend/infra/deps). Scheduler refactored to direct service calls, /internal/tasks authenticated, setup IP check hardened, ollama removed, dep versions unified.",
+  "version": "v2.1",
+  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-17 R8: smoke testing and four-role UX closure. Added DEV-17 for developer/ops/admin/user story-driven validation, dependency high-audit closure, channel smoke, dream-mode smoke, and docs sync.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -31,6 +31,7 @@
       "development/DEV-14-Day3-监督与落盘说明.md",
       "development/DEV-15-控制台优化与标准测试故事线.md",
       "development/DEV-16-UX审计修复交接.md",
+      "development/DEV-17-冒烟测试与四角色体验闭环.md",
       "AH1-13-仓库复用与改造边界.md"
     ],
     "L2_governance": [

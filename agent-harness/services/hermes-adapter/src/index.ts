@@ -40,6 +40,7 @@ const LITELLM_URL = process.env.LITELLM_URL || process.env.LLM_API_URL || 'http:
 const LITELLM_MODEL = process.env.LITELLM_MODEL || 'gpt-4o-mini';
 const LITELLM_MASTER_KEY = process.env.LITELLM_MASTER_KEY || process.env.LLM_API_KEY || '';
 if (!LITELLM_MASTER_KEY) logger.warn('config.missing', 'LITELLM_MASTER_KEY or LLM_API_KEY environment variable is not set');
+const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
 
 let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
 let dbPoolPromise: Promise<InstanceType<typeof import('pg').Pool> | null> | null = null;
@@ -67,30 +68,29 @@ async function getDbPool() {
   return dbPoolPromise;
 }
 
-async function ensureMemoryTable(pool: InstanceType<typeof import('pg').Pool>): Promise<void> {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS hermes_memory (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      owner_user_id TEXT NOT NULL,
-      org_id UUID,
-      session_id TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
-      content TEXT NOT NULL,
-      token_count INTEGER NOT NULL DEFAULT 0,
-      metadata JSONB NOT NULL DEFAULT '{}',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    );
-    CREATE INDEX IF NOT EXISTS idx_hermes_memory_owner_session ON hermes_memory (owner_user_id, session_id);
-    CREATE INDEX IF NOT EXISTS idx_hermes_memory_created ON hermes_memory (created_at);
-  `);
-}
-
 function getMemoryKey(ownerUserId: string, sessionId: string): string {
   return `${ownerUserId}::${sessionId}`;
 }
 
 function generateId(): string {
   return randomUUID();
+}
+
+async function ensureUserForDreamRun(pool: InstanceType<typeof import('pg').Pool>, ownerUserId: string, orgId: string | null): Promise<string> {
+  const resolvedOrgId = orgId || DEFAULT_ORG_ID;
+  await pool.query(
+    `INSERT INTO organization (id, org_name, display_name, status, settings, metadata)
+     VALUES ($1,'default','Default Organization','active','{}'::jsonb,jsonb_build_object('source','dream_auto_create'))
+     ON CONFLICT (id) DO NOTHING`,
+    [resolvedOrgId]
+  );
+  await pool.query(
+    `INSERT INTO "user" (id, org_id, username, display_name, role, status, metadata)
+     VALUES ($1,$2,$3,$4,'user','active',jsonb_build_object('source','dream_auto_create'))
+     ON CONFLICT (id) DO NOTHING`,
+    [ownerUserId, resolvedOrgId, `dream_${ownerUserId.slice(0, 8)}`, 'Dream Analysis User']
+  );
+  return resolvedOrgId;
 }
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -579,6 +579,7 @@ const server = createServer(async (req, res) => {
     }
 
     try {
+      const resolvedOrgId = await ensureUserForDreamRun(pool, ownerUserId, orgId);
       const dayStart = `${dateStr}T00:00:00Z`;
       const dayEnd = `${dateStr}T23:59:59Z`;
 
@@ -692,7 +693,7 @@ const server = createServer(async (req, res) => {
         `INSERT INTO memory_analysis_run (org_id, run_type, scope_user_id, status, started_at, finished_at,
          items_scanned, items_compressed, facts_generated, result_summary)
          VALUES ($1,'dream_user',$2,'completed',now(),now(),$3,$4,$5,$6) RETURNING id`,
-        [orgId, ownerUserId, memResult.rows.length, itemsCompressed, factsGenerated,
+        [resolvedOrgId, ownerUserId, memResult.rows.length, itemsCompressed, factsGenerated,
          JSON.stringify({ compressions: compressionResults, date: dateStr })]
       );
 
@@ -702,6 +703,7 @@ const server = createServer(async (req, res) => {
         items_scanned: memResult.rows.length,
         items_compressed: itemsCompressed,
         facts_generated: factsGenerated,
+        org_id: resolvedOrgId,
         date: dateStr,
       });
     } catch (err) {
@@ -768,6 +770,7 @@ const server = createServer(async (req, res) => {
         run_id: runResult.rows[0].id,
         items_scanned: factsResult.rows.length,
         items_extracted: itemsExtracted,
+        merged_to_org: itemsExtracted,
       });
     } catch (err) {
       logger.error('memory.analyze_org_failed', 'Org memory analysis failed', { error: String(err), org_id: orgId });
@@ -783,13 +786,15 @@ const server = createServer(async (req, res) => {
     const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
     const offset = Number(url.searchParams.get('offset') || 0);
 
+    if (!orgId) { sendJson(res, 400, { ok: false, error: 'missing_org_id' }); return; }
     if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
 
     try {
       const conditions: string[] = [];
       const params: unknown[] = [];
       let idx = 1;
-      if (orgId) { conditions.push(`org_id = $${idx++}`); params.push(orgId); }
+      conditions.push(`org_id = $${idx++}`);
+      params.push(orgId);
       conditions.push(`status IN ('active', 'candidate')`);
 
       const result = await pool.query(

@@ -12,24 +12,20 @@ processors:
     send_batch_size: 1024
 
 exporters:
-  clickhouse:
-    endpoint: tcp://clickhouse:9000
-    database: signoz_traces
-    ttl: 168h
-  otlphttp:
-    endpoint: http://signoz-query-service:8080/api/v1/collect
+  logging:
+    verbosity: basic
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [clickhouse]
+      exporters: [logging]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [clickhouse]
+      exporters: [logging]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [clickhouse]
+      exporters: [logging]

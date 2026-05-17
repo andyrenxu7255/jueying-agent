@@ -1,5 +1,4 @@
-import { describe, it, expect, jest as vi, beforeEach, afterEach } from '@jest/globals';
-import { createServer } from 'node:http';
+import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
@@ -7,7 +6,6 @@ import { EventEmitter } from 'node:events';
 import {
   readJson,
   sendJson,
-  postJson,
   extractPathname,
   verifyInternalAuth,
   getInternalAuthHeaders,

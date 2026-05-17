@@ -1,12 +1,9 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const crypto = require('crypto');
 
 function pg(sql) {
-  // Escape for shell - use single quotes
-  const safe = sql.replace(/\\/g, '\\\\').replace(/'/g, "'\"'\"'");
-  const cmd = `docker exec ah-postgres psql -U agent_harness -d agent_harness -c "${safe}"`;
   try {
-    return execSync(cmd, { encoding: 'utf8' });
+    return execFileSync('docker', ['exec', 'ah-postgres', 'psql', '-U', 'agent_harness', '-d', 'agent_harness', '-c', sql], { encoding: 'utf8' });
   } catch(e) {
     console.error('SQL ERROR:', e.stderr || e.message);
     return null;

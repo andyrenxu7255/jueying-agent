@@ -47,9 +47,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_SESSIONS = 10000;
 const MAX_AUDIT_ROWS = 500;
-const MAX_WORKFLOW_ROWS = 500;
 const MAX_RETRIEVAL_ROWS = 300;
-const MAX_USER_ROWS = 1000;
 const ENV_FILE_PATH = process.env.PORTAL_ENV_FILE || resolve(process.cwd(), '.env');
 const SETUP_TOKEN = process.env.SETUP_TOKEN || '';
 
@@ -100,14 +98,24 @@ const sessionStore = new Map<string, Session>();
 const REDIS_URL = process.env.REDIS_URL || '';
 let redisClient: { get(key: string): Promise<string | null>; set(key: string, value: string, mode?: string, duration?: number): Promise<string | null>; del(key: string): Promise<number> } | null = null;
 
+interface RedisModule {
+  createClient(options: { url: string }): {
+    on(event: 'error', listener: (err: Error) => void): void;
+    connect(): Promise<void>;
+    get(key: string): Promise<string | null>;
+    set(key: string, value: string, mode?: string, duration?: number): Promise<string | null>;
+    del(key: string): Promise<number>;
+  };
+}
+
 async function initRedisSessionStore(): Promise<void> {
   if (!REDIS_URL) return;
   try {
-    const redis = await import('redis') as any;
+    const redis = await import('redis') as unknown as RedisModule;
     const client = redis.createClient({ url: REDIS_URL });
     client.on('error', (err: Error) => logger.warn('redis.session.error', 'Redis session store error', { error: String(err) }));
     await client.connect();
-    redisClient = client as never;
+    redisClient = client;
     logger.info('redis.session.connected', 'Redis session store connected', { url: REDIS_URL.replace(/\/\/.*@/, '//***@') });
   } catch (error) {
     logger.warn('redis.session.unavailable', 'Redis session store unavailable, falling back to memory', { error: String(error) });
@@ -1666,19 +1674,19 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const containerStats: Array<Record<string, unknown>> = [];
       try {
-        const { execSync } = await import('node:child_process');
+        const { execFileSync } = await import('node:child_process');
         let dockerAvailable = false;
-        try { execSync('docker info', { timeout: 5000, stdio: 'pipe' }); dockerAvailable = true; } catch { /* docker not available */ }
+        try { execFileSync('docker', ['info'], { timeout: 5000, stdio: 'pipe' }); dockerAvailable = true; } catch { /* docker not available */ }
 
         if (dockerAvailable) {
-          const psOutput = execSync('docker ps --format "{{.ID}}|{{.Names}}|{{.Status}}|{{.Image}}"', { timeout: 10000, encoding: 'utf8' });
+          const psOutput = execFileSync('docker', ['ps', '--format', '{{.ID}}|{{.Names}}|{{.Status}}|{{.Image}}'], { timeout: 10000, encoding: 'utf8' });
           const containers = psOutput.trim().split('\n').filter(Boolean);
           for (const line of containers) {
             const [id, name, status, image] = line.split('|');
             if (!id || !name) continue;
             let cpuPct = '0', memPct = '0', memUsage = '-', netIo = '-', blockIo = '-';
             try {
-              const statsOutput = execSync(`docker stats --no-stream --format "{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}" ${id}`, { timeout: 10000, encoding: 'utf8' });
+              const statsOutput = execFileSync('docker', ['stats', '--no-stream', '--format', '{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}', id], { timeout: 10000, encoding: 'utf8' });
               const parts = statsOutput.trim().split('|');
               if (parts.length >= 5) { cpuPct = parts[0].trim(); memPct = parts[1].trim(); memUsage = parts[2].trim(); netIo = parts[3].trim(); blockIo = parts[4].trim(); }
             } catch { /* stats unavailable for this container */ }

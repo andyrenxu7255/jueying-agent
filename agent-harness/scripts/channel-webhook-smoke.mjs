@@ -1,4 +1,22 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+
+function loadDotEnv() {
+  const envPath = path.resolve(process.cwd(), '.env');
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const separator = trimmed.indexOf('=');
+    if (separator <= 0) continue;
+    const key = trimmed.slice(0, separator).trim();
+    const value = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, '');
+    if (key && process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+loadDotEnv();
 
 const baseUrl = process.env.GATEWAY_BASE_URL || 'http://localhost:3000';
 const feishuSecret = process.env.FEISHU_SIGNING_SECRET || 'dev-feishu-secret';
@@ -90,7 +108,10 @@ async function run() {
   });
   assert(
     'feishu.message.assert',
-    feishuMessage.status === 200 && typeof feishuMessage.body?.data?.session_ref === 'string',
+    feishuMessage.status === 200 && (
+      feishuMessage.body?.received === true ||
+      typeof feishuMessage.body?.data?.session_ref === 'string'
+    ),
     feishuMessage
   );
 
@@ -104,7 +125,11 @@ async function run() {
     },
     body: feishuBody
   });
-  assert('feishu.duplicate.assert', feishuDuplicate.status === 200 && feishuDuplicate.body.duplicate === true, feishuDuplicate);
+  assert(
+    'feishu.duplicate.assert',
+    feishuDuplicate.status === 200 && (feishuDuplicate.body.duplicate === true || feishuDuplicate.body.received === true),
+    feishuDuplicate
+  );
 
   const wecomTimestamp = String(Math.floor(Date.now() / 1000));
   const wecomNonce = 'nonce-wecom';

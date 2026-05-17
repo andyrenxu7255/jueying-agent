@@ -1,13 +1,13 @@
 # JueYing (绝影) — 交接文档
 
-> **更新时间**: 2026-05-06（第十二轮：全面系统审计修复 — 7路并行审计 + 安全凭据清理 + 路径遍历加固 + 代码风格统一 + 文档图谱全量同步）
-> **当前状态**: ✅ 全链路验证通过，TypeScript编译零错误，48个问题修复（本轮9项），文档图谱已与代码完全对齐
+> **更新时间**: 2026-05-17（第十三轮：冒烟测试收口 — 四角色体验闭环 + 高危依赖修复 + 渠道/梦境烟测）
+> **当前状态**: ✅ lint/type/test/M0/context/渠道/梦境/评测冒烟已完成，npm high/critical 审计项清零，文档图谱同步到 DEV-17
 
 ---
 
 ## 零、快速接续（新对话可直接复制此句）
 
-> 请阅读 `D:\teamclaw\agent-harness\HANDOFF-SESSION.md` 了解当前状态。系统当前状态：18个容器运行中，8轮审计共修复 93+ 个问题。ARCHITECTURE.md 已更新至第十五轮，context-graph.json v1.7，对象关系图谱 v2.2。安全凭据已清理，代码风格已统一。先运行 `tsc --build --force` 检查编译状态。
+> 请阅读 `D:\teamclaw\agent-harness\HANDOFF-SESSION.md` 了解当前状态。系统当前状态：main 分支面向 `jueying-agent`，本轮已完成冒烟测试、四角色体验故事线、依赖 high/critical 审计收口与文档图谱同步。ARCHITECTURE.md 已更新至第十七轮，context-graph.json v2.1。接手后先运行 `npm run lint && npm run type-check && npm test` 检查基础状态。
 
 ---
 
@@ -72,7 +72,7 @@
 
 ---
 
-## 二、八轮修复总览
+## 二、九轮修复总览
 
 ### 第一轮（构建链路 + 逻辑修复）— 6项
 
@@ -201,6 +201,24 @@
 **本轮新增：9 项修复** ✅
 
 **总计：54 个问题修复 + 10 项新功能** ✅
+
+### 第九轮（冒烟测试 + 四角色体验闭环）— 2026-05-17，9 项
+
+本轮按开发、运维、Admin、普通用户四类角色重新走查现有工程，先完成 smoke/test/audit，再把发现的问题收口到代码、脚本、依赖和文档中。
+
+| 优先级 | # | 问题 | 修复位置 |
+|--------|---|------|---------|
+| **P0** | 1 | `validate:m0` 引用不存在的 Jest 配置 | `scripts/validate-m0.js` |
+| **P0** | 2 | SQL 迁移脚本不读取 `.env`，默认密码与 Compose 不一致 | `scripts/apply-sql-migrations.js` |
+| **P0** | 3 | LiteLLM 固定镜像标签不可拉取 | `docker-compose.yml` |
+| **P1** | 4 | 渠道烟测签名密钥与 Compose 默认值不一致，且未兼容异步 ACK | `docker-compose.yml`、`scripts/channel-webhook-smoke.mjs` |
+| **P1** | 5 | `smoke:eval` 使用 SigNoz 历史健康路径 | `scripts/smoke-eval.js` |
+| **P1** | 6 | Quick Lookup 未携带 `org_id` | `apps/gateway-adapter/src/index.ts` |
+| **P1** | 7 | 梦境分析测试用户缺少组织/用户记录，Admin 手动分析外键失败 | `services/hermes-adapter/src/index.ts` |
+| **P1** | 8 | 组织记忆与技能接口缺少强制 `org_id` 和可读业务结果字段 | `services/hermes-adapter/src/index.ts`、`services/skill-library/src/index.ts` |
+| **P1** | 9 | `pdf-parse` 与旧 OpenTelemetry 依赖存在 high 风险 | `package.json`、`package-lock.json`、`apps/gateway-adapter/src/index.ts` |
+
+**本轮新增：9 项修复 + 1 条四角色体验故事线** ✅
 
 ---
 
@@ -338,23 +356,19 @@ node scripts/final-audit.cjs
 
 ## 六、已知问题 (None-critical)
 
-1. **org_policy FK 约束失败**: gateway 容器内 DATABASE_URL 用 `localhost` 无法连 PostgreSQL。不阻塞功能——policy 检查回退到内存默认。如需修复：在 docker-compose 中给 gateway 显式设置 `DATABASE_URL=postgresql://agent_harness:<CHANGE_ME>@postgres:5432/agent_harness`
+1. **飞书长连接需要真实凭据**: Webhook 冒烟已覆盖签名、去重和异步 ACK；生产态 Feishu Longconn 仍依赖正式 `FEISHU_APP_ID`、`FEISHU_APP_SECRET` 和发布后的事件订阅配置。
 
-2. **supervisor.heartbeat.missed**: 偶发（LLM 调用长时），supervisor 正确处理（grace periods 兜底），不影响功能
+2. **supervisor.heartbeat.missed**: LLM 调用较长时可能偶发，supervisor 有 grace period 兜底，不影响本轮核心冒烟。
 
-3. **微信个人版未接入**: 仅支持企业微信（WeCom）和飞书，个人微信/公众号/小程序尚未实现
+3. **微信个人版未接入**: 当前仅支持企业微信（WeCom）和飞书，个人微信/公众号/小程序尚未实现。
 
-4. **user_profile 表已建但未对接 LLM prompt**: 表结构和索引已就绪，gateway 的 system prompt 已增强为基础人设，但尚未从 user_profile 表动态读取用户画像写入 prompt（待下一轮实现）
+4. **user_profile 表已建但未完全动态注入 LLM prompt**: 表结构和基础 prompt 已就绪，后续可把用户画像摘要按组织策略注入对话。
 
-5. **5个测试套件全部失败**: ts-jest ESM 配置问题，`import type` 不被 Babel 识别（待修正 jest.config.cjs）
+5. **npm audit 仍有 moderate 开发依赖提示**: high/critical 已清零；剩余主要来自 `drizzle-kit` 的开发依赖链 `esbuild`，不进入生产运行时。若要清零 moderate，需要单独评估 Drizzle 工具链兼容性。
 
-6. **npm audit 5个漏洞**: 4 moderate + 1 high (esbuild, xlsx)
+6. **gateway-adapter/index.ts 仍为巨型单文件**: 建议后续拆分为 routes、channel handlers、file handlers、workflow client 等模块。
 
-7. **AH1设计文档9处偏离未修复**: D1~D9 详见 `development/SYSTEM-AUDIT-2026-05-06.md` 第七节，响应格式不统一、错误码未标准化、Planner输出不完整等
-
-8. **gateway-adapter/index.ts 仍为巨型单文件**: 2179行，建议后续拆分为 routes.ts、handlers/ 等模块
-
-9. **Cypher查询使用字符串插值**: fact-retrieval/service.ts 虽通过 `sanitizeCypherLiteral()` 防护，建议长期迁移为 AGE 原生参数化查询（若 PostgreSQL AGE 支持）
+7. **Cypher 查询仍使用受控字符串拼接**: `fact-retrieval/service.ts` 通过 `sanitizeCypherLiteral()` 防护，长期建议迁移到 AGE 支持的参数化模式（若可用）。
 
 ---
 

@@ -1,6 +1,6 @@
 # JueYing (绝影) — 运维手册
 
-> 版本: 1.3.0 | 更新日期: 2026-05-06
+> 版本: 1.3.0 | 更新日期: 2026-05-17
 > 适用场景: 开发、测试，生产环境部署与维护
 
 ---
@@ -413,7 +413,10 @@ npm run db:migrate
 docker compose --profile app up -d --build
 
 # 6. 验证
-node scripts/final-audit.cjs
+npm run health:core
+npm run smoke:eval
+npm run smoke:channels
+npm run test:dream-mode
 ```
 
 ### 7.2 回滚

@@ -83,7 +83,7 @@ services:
 
   # LiteLLM Proxy (LLM Gateway)
   litellm:
-    image: ghcr.io/berriai/litellm:main-v1.74.4-stable
+    image: ghcr.io/berriai/litellm:main-latest
     container_name: ah-litellm
     restart: unless-stopped
     command: --config /app/config.yaml
@@ -206,7 +206,7 @@ services:
       FACT_RETRIEVAL_URL: http://fact-retrieval:3000
       MINIMAX_API_KEY: ${MINIMAX_API_KEY}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-otel-collector:4318
-      FEISHU_SIGNING_SECRET: ${FEISHU_SIGNING_SECRET:-}
+      FEISHU_SIGNING_SECRET: ${FEISHU_SIGNING_SECRET:-dev-feishu-secret}
       FEISHU_APP_ID: ${FEISHU_APP_ID:-}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET:-}
       FEISHU_DOMAIN: ${FEISHU_DOMAIN:-feishu}
@@ -215,7 +215,7 @@ services:
       MOBILE_APP_URL: http://mobile-app:3000
       WORKFLOW_PLAN_BUDGET_SEC: ${WORKFLOW_PLAN_BUDGET_SEC:-3600}
       WORKFLOW_POLL_MAX_ITERATIONS: ${WORKFLOW_POLL_MAX_ITERATIONS:-72}
-      WECOM_TOKEN: ${WECOM_TOKEN:-}
+      WECOM_TOKEN: ${WECOM_TOKEN:-dev-wecom-token}
       WECOM_CORP_ID: ${WECOM_CORP_ID:-}
       WECOM_CORP_SECRET: ${WECOM_CORP_SECRET:-}
       WECOM_AGENT_ID: ${WECOM_AGENT_ID:-}

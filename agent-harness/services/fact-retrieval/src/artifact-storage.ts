@@ -48,24 +48,6 @@ function validateSecurePath(baseDir: string, targetPath: string): string {
   return resolved
 }
 
-async function streamToUtf8(stream: unknown): Promise<string> {
-  if (typeof (stream as { transformToString?: unknown })?.transformToString === 'function') {
-    return (stream as { transformToString: (encoding: string) => Promise<string> }).transformToString('utf-8');
-  }
-
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream as AsyncIterable<Uint8Array | Buffer | string>) {
-    if (typeof chunk === 'string') {
-      chunks.push(Buffer.from(chunk));
-    } else if (Buffer.isBuffer(chunk)) {
-      chunks.push(chunk);
-    } else {
-      chunks.push(Buffer.from(chunk));
-    }
-  }
-  return Buffer.concat(chunks).toString('utf8');
-}
-
 async function streamToBuffer(stream: unknown): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream as AsyncIterable<Uint8Array | Buffer | string>) {

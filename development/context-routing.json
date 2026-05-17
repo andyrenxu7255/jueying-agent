@@ -1,6 +1,6 @@
 {
-  "version": "v1.5",
-  "description": "Task routing configuration - Updated 2026-05-17: Synced with context-graph.json v2.0 (Round 5 audit, 25 fixes). Added gateway-adapter source paths for file parsing audit.",
+  "version": "v1.6",
+  "description": "Task routing configuration - Updated 2026-05-17: Synced with context-graph.json v2.1. Added DEV-17 smoke testing and four-role UX closure path for release validation.",
   "default_bootstrap_docs": [
     "development/DEV-00-开发索引.md",
     "development/DEV-08-文件内容与依赖对象图谱.md",

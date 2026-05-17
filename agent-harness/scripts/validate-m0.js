@@ -18,7 +18,7 @@ const requiredPaths = [
   'config/litellm_config.yaml',
   'scripts/health-check.sh',
   'scripts/health-check.ps1',
-  'tests/setup/jest.config.ts',
+  'tests/setup/jest.config.cjs',
   '.eslintrc.cjs',
   'db/init/001_init_extensions.sql',
   'libs/contracts/index.ts',

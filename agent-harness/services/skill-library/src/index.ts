@@ -1,5 +1,5 @@
-import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createServer } from 'node:http';
+import { createHash, randomUUID } from 'node:crypto';
 import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport, readJson, sendJson } from '@agent-harness/shared';
 
 /**
@@ -53,47 +53,6 @@ setupDefaultHealthChecks(
 const port = Number(process.env.PORT || 3007);
 
 /* ---- 类型定义 ---- */
-
-/** 技能记录的核心字段（对应 DB skill 表 + 最新版本关联） */
-interface SkillRecord {
-  id: string;
-  owner_user_id: string;
-  org_id: string | null;
-  scope_type: 'private' | 'org' | 'public';
-  skill_name: string;
-  description: string;
-  skill_type: string;
-  status: 'draft' | 'active' | 'archived' | 'deleted';
-  metadata: Record<string, unknown>;
-  version: number;
-  definition_json: Record<string, unknown>;
-  content_hash: string;
-  created_at: string;
-  updated_at: string;
-}
-
-/** 技能版本的独立记录 */
-interface SkillVersionRecord {
-  id: string;
-  skill_id: string;
-  version: number;
-  definition_json: Record<string, unknown>;
-  content_hash: string;
-  status: string;
-  metadata: Record<string, unknown>;
-  created_at: string;
-}
-
-/** 技能来源记录 */
-interface SkillSourceRecord {
-  id: string;
-  skill_version_id: string;
-  source_type: 'markdown_import' | 'manual' | 'code_generated' | 'external_import';
-  source_uri: string | null;
-  content_text: string | null;
-  metadata: Record<string, unknown>;
-  created_at: string;
-}
 
 /** 创建技能的请求体结构 */
 interface CreateSkillInput {
@@ -1157,6 +1116,7 @@ const server = createServer(async (req, res) => {
       const orgId = String(body.org_id || '');
       const pool = await getDbPool();
 
+      if (!orgId) { sendJson(res, 400, { ok: false, error: 'missing_org_id' }); return; }
       if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
 
       try {
@@ -1221,7 +1181,7 @@ const server = createServer(async (req, res) => {
           audited++;
         }
 
-        sendJson(res, 200, { ok: true, audited, promoted });
+        sendJson(res, 200, { ok: true, audited, promoted, promoted_to_org: promoted });
       } catch (err) {
         logger.error('skill.audit_batch_failed', 'Batch skill audit failed', { error: String(err) });
         sendJson(res, 500, { ok: false, error: 'audit_batch_failed' });
@@ -1262,6 +1222,7 @@ const server = createServer(async (req, res) => {
     if (pathname === '/internal/skills/org-registry' && req.method === 'GET') {
       const pool = await getDbPool();
       const orgId = parsedUrl.searchParams.get('org_id') || '';
+      if (!orgId) { sendJson(res, 400, { ok: false, error: 'missing_org_id' }); return; }
       if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
 
       try {

@@ -57,7 +57,7 @@ async function run() {
   await request("workflow.health.live", "http://localhost:3001/health/live");
   await request("executor.health.live", "http://localhost:3002/health/live");
   await requestWithRetry("litellm.health", "http://localhost:4000/health/liveliness", {}, 1);
-  await request("signoz.query.health", "http://localhost:8080/api/v1/health");
+  await request("signoz.query.health", "http://localhost:8080/");
   await request("signoz.frontend.health", "http://localhost:3301");
 
   const normalizePayload = {

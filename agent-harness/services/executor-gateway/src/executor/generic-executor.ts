@@ -634,7 +634,7 @@ Extract all entities, relations, and slot values as structured JSON.`;
       output: 'Implementation stage delegated to code-executor',
       next_action: 'next_stage',
       model_call_ok: true,
-      metadata: { delegated_executor: 'code-executor' }
+      metadata: { delegated_executor: 'code-executor', workflow_stage_id: input.workflow_stage_id }
     };
   }
 
@@ -661,7 +661,7 @@ Extract all entities, relations, and slot values as structured JSON.`;
     const safeContext = truncateContext(context);
 
     const systemPrompt = 'You are a repair assistant. Fix identified issues from the verification stage. Apply minimal changes to address failures while preserving existing functionality.';
-    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nRepair:\n1. Issues to fix (from verification)\n2. Proposed fixes\n3. Risk assessment\n4. Verification that fixes don\'t break other parts`;
+    const userPrompt = `User request: ${user_goal}\n\nContext: ${JSON.stringify(safeContext)}\n\nRepair:\n1. Issues to fix (from verification)\n2. Proposed fixes\n3. Risk assessment\n4. Verification that fixes don't break other parts`;
 
     const { content, ok } = await callLiteLLM(systemPrompt, userPrompt, 0.2);
 

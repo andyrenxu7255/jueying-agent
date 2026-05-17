@@ -1,4 +1,4 @@
-import { createServer, IncomingMessage, ServerResponse } from 'node:http';
+import { createServer, IncomingMessage } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson } from '@agent-harness/shared';
 

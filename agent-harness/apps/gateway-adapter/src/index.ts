@@ -737,6 +737,7 @@ async function quickLookup(text: string, ownerUserId: string, orgId: string): Pr
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         user_id: ownerUserId,
+        org_id: orgId,
         task_type_hint: 'knowledge',
         risk_level: 'low',
         user_goal: text,
@@ -1634,9 +1635,16 @@ async function extractTextFromFile(buffer: Buffer, fileName: string): Promise<st
 
     if (ext === 'pdf') {
       try {
-        const pdfParse = await import('pdf-parse');
-        const data = await pdfParse.default(buffer);
-        return data.text || '';
+        const pdfjsLib = await import('pdfjs-dist');
+        const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= doc.numPages; i++) {
+          const page = await doc.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map((item: { str?: string }) => item.str || '').join(' ');
+          pages.push(pageText);
+        }
+        return pages.join('\n');
       } catch (error) {
         logger.warn('file.parse.pdf_fallback_failed', 'PDF fallback parsing failed', { file_name: fileName, error: String(error) });
       }

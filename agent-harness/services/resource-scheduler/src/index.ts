@@ -1,5 +1,5 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport, withRetry } from '@agent-harness/shared';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport } from '@agent-harness/shared';
 
 /**
  * resource-scheduler 服务 - 资源调度与配额管理服务
@@ -138,7 +138,6 @@ const quotaStore = new Map<string, ResourceQuota>();
 const usageStore = new Map<string, ResourceUsage>();
 const idempotencyCache = new Map<string, string>();
 const IDEMPOTENCY_CACHE_SIZE = 10000;
-const USAGE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 let dbPool: InstanceType<typeof import('pg').Pool> | null = null;
 let dbPoolPromise: Promise<InstanceType<typeof import('pg').Pool> | null> | null = null;
