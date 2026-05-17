@@ -1,6 +1,6 @@
 {
-  "version": "v1.4",
-  "description": "Task routing configuration - Updated 2026-05-08: Aligned task_routes naming with context-graph.json task_profiles (M1-M5 prefix convention)",
+  "version": "v1.5",
+  "description": "Task routing configuration - Updated 2026-05-17: Synced with context-graph.json v2.0 (Round 5 audit, 25 fixes). Added gateway-adapter source paths for file parsing audit.",
   "default_bootstrap_docs": [
     "development/DEV-00-开发索引.md",
     "development/DEV-08-文件内容与依赖对象图谱.md",

@@ -12,7 +12,7 @@
     "@agent-harness/contracts": "file:../contracts",
     "drizzle-orm": "^0.45.2",
     "zod": "^3.25.76",
-    "yaml": "^2.4.0"
+    "yaml": "^2.8.3"
   },
   "devDependencies": {
     "typescript": "^5.8.2",

@@ -41,7 +41,7 @@ async function api(path, options) {
 
 function showToast(msg, type) {
   type = type ?? 'success';
-  const container = document.getElementById('toast-container');
+  let container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
     container.id = 'toast-container';
@@ -91,8 +91,8 @@ function showModal(title, bodyHtml, onClose) {
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
   overlay.innerHTML = '<div class="modal"><h3>' + escapeHtml(title) + '</h3>' + bodyHtml + '</div>';
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) { overlay.remove(); if (onClose) onClose(); } });
-  const escHandler = function(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); if (onClose) onClose(); } };
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) { closeModal(); if (onClose) onClose(); } });
+  const escHandler = function(e) { if (e.key === 'Escape') { closeModal(); if (onClose) onClose(); } };
   document.addEventListener('keydown', escHandler);
   overlay._escHandler = escHandler;
   document.body.appendChild(overlay);
@@ -325,7 +325,7 @@ function stopAllIntervals() {
   if (containerStatsInterval) { clearInterval(containerStatsInterval); containerStatsInterval = null; }
 }
 
-const guideTab = 'arch';
+let guideTab = 'arch';
 
 function renderGuide(el) {
   el.innerHTML = '<div class="page-header"><h2>系统指南</h2></div>' +
@@ -906,8 +906,7 @@ async function renderApprovals(el) {
 
 async function handleApproval(ref, action) {
   const r = await api('/api/workflows/' + encodeURIComponent(ref) + '/approval', { method: 'POST', body: JSON.stringify({ action }) });
-  if (r.ok) showToast('操作成功'); else showToast((r.data && r.data.error) || '操作失败', 'error');
-  renderView();
+  if (r.ok) { showToast('操作成功'); renderView(); } else { showToast((r.data && r.data.error) || '操作失败', 'error'); }
 }
 
 async function renderConfig(el) {
@@ -1350,20 +1349,21 @@ async function triggerOrgTask(taskId) {
   if (!confirm('确定立即分发此任务到所有用户吗？')) return;
   const r1 = await api('/internal/tasks/assign', { method: 'POST', body: JSON.stringify({ task_id: taskId }) });
   const r2 = await api('/internal/tasks/notify', { method: 'POST', body: JSON.stringify({ task_id: taskId }) });
+  if (!r1.ok && !r2.ok) { showToast('分发失败', 'error'); return; }
   showToast('已分发 ' + ((r1.data && r1.data.assigned) || 0) + ' 人, 已通知 ' + ((r2.data && r2.data.notified) || 0) + ' 人');
   await loadOrgTasks();
 }
 
 async function pauseOrgTask(taskId) {
-  await api('/api/admin/tasks/' + taskId, { method: 'PUT', body: JSON.stringify({ status: 'paused' }) });
-  showToast('已暂停');
+  const r = await api('/api/admin/tasks/' + taskId, { method: 'PUT', body: JSON.stringify({ status: 'paused' }) });
+  if (r.ok) { showToast('已暂停'); } else { showToast((r.data && r.data.error) || '暂停失败', 'error'); }
   await loadOrgTasks();
 }
 
 async function archiveOrgTask(taskId) {
   if (!confirm('确定归档此任务吗？')) return;
-  await api('/api/admin/tasks/' + taskId, { method: 'DELETE' });
-  showToast('已归档');
+  const r = await api('/api/admin/tasks/' + taskId, { method: 'DELETE' });
+  if (r.ok) { showToast('已归档'); } else { showToast((r.data && r.data.error) || '归档失败', 'error'); }
   await loadOrgTasks();
 }
 
@@ -1599,9 +1599,13 @@ async function dbMaintain(action) {
   if (r.ok) showToast('操作完成'); else showToast((r.data && r.data.error) || '操作失败', 'error');
 }
 
-function doLogout() {
+async function doLogout() {
+  const sid = localStorage.getItem('ah_session_id');
+  if (sid) {
+    try { await api('/api/auth/logout', { method: 'POST' }); } catch (_) { /* best-effort */ }
+  }
   localStorage.removeItem('ah_session_id');
-  if (localStorage.getItem('ah_username')) localStorage.removeItem('ah_username');
+  localStorage.removeItem('ah_username');
   currentSession = null;
   stopAllIntervals();
   renderLogin();
@@ -2071,19 +2075,23 @@ async function triggerDreamManually() {
 }
 
 async function initApp() {
-  const isAuth = await checkAuth();
-  if (!isAuth) {
-    const setup = await checkSetup();
-    if (setup && !setup.initialized) {
-      renderSetupWizard(setup);
+  try {
+    const isAuth = await checkAuth();
+    if (!isAuth) {
+      const setup = await checkSetup();
+      if (setup && !setup.initialized) {
+        renderSetupWizard(setup);
+      } else {
+        renderLogin();
+      }
     } else {
-      renderLogin();
+      if (currentSession && currentSession.username) {
+        localStorage.setItem('ah_username', currentSession.username);
+      }
+      renderApp();
     }
-  } else {
-    if (currentSession && currentSession.username) {
-      localStorage.setItem('ah_username', currentSession.username);
-    }
-    renderApp();
+  } catch (e) {
+    document.getElementById('app').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>应用加载失败</h3><p>请刷新页面重试</p><button class="btn btn-primary" onclick="location.reload()">刷新页面</button></div>';
   }
 }
 

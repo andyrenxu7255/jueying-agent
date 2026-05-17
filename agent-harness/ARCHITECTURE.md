@@ -1,6 +1,6 @@
 # agent-harness 系统架构文档
 
-> 版本: 2026-05-06 (第十五轮：全面系统审计修复 - 安全凭据清理 + 时序漏洞修复 + 路径遍历加固 + 代码风格统一 + 图谱文档同步)
+> 版本: 2026-05-17 (第十六轮：第5轮全面代码审计 — Scheduler重构 + 认证补全 + 依赖统一 + Ollama移除)
 > 当前状态: **全链路验证通过，TypeScript零错误，系统指南文档与图谱已全面更新至代码最新状态**
 
 ---
@@ -765,7 +765,59 @@ docker logs -f ah-mobile-app
 
 ---
 
-## 十六、文档导航
+## 十六、第5轮全面代码审计（2026-05-17）
+
+本轮从依赖项、前端UX/安全、后端安全、服务间通信4个维度进行深度审计，发现31个问题，修复25项。
+
+### P0 修复（功能阻断/安全漏洞）
+
+| # | 问题 | 影响 | 修复位置 |
+|---|------|------|---------|
+| P0-1 | `const guideTab` 赋值失败（const不可重新赋值） | 指南页标签切换完全失效 | `app.js:L328` → `let guideTab` |
+| P0-2 | `const container` 在 showToast 中重新赋值导致崩溃 | Toast通知完全不可用 | `app.js:L44` → `let container` |
+| P0-3 | showModal 点击overlay关闭时ESC监听器泄漏 | 内存泄漏+多次绑定 | `app.js:L94` → 统一调用 `closeModal()` |
+| P0-4 | Dream Scheduler 调用 `/api/admin/dream/*` 不传session → 401 | 梦境模式定时任务全部失败 | `index.ts` → 直接调用 `fetchFromService(hermesUrl/skillLibraryUrl)` |
+| P0-5 | Task Scheduler 同样HTTP自调用但无session | 组织任务分发定时失效 | `index.ts` → `fetchFromService(gatewayUrl)` |
+| P0-6 | `/internal/tasks/assign` 和 `/internal/tasks/notify` 无认证 | 任意用户可操纵任务分发 | `index.ts` → 添加 `requireAdmin()` |
+
+### P1 修复（安全加固）
+
+| # | 问题 | 影响 | 修复位置 |
+|---|------|------|---------|
+| P1-1 | setup IP检查使用 `includes` 子串匹配 | `127.0.0.100` 可绕过 | `index.ts` → `Set.has()` 精确匹配 + `x-forwarded-for` |
+| P1-2 | setup 初始化后未自禁用 | 可反复覆盖系统配置 | `index.ts` → 检查org+admin已存在则拒绝 |
+| P1-3 | `fetchFromService` 无超时机制 | 下游故障时无限挂起 | `index.ts` → 30s AbortController + AbortError处理 |
+| P1-4 | litellm 镜像 `main-latest` 浮动标签 | 不可复现部署 | `docker-compose.yml` → `main-v1.74.4-stable` |
+| P1-5 | ADMIN_PASSWORD 环境变量默认值为空 | 潜在空密码后门 | `docker-compose.yml` → `${ADMIN_PASSWORD:-default_admin_changeme}` |
+| P1-6 | Redis healthcheck 使用 `redis-cli -a` 暴露密码于进程列表 | 密码泄露风险 | `docker-compose.yml` → `REDISCLI_AUTH` 环境变量 |
+| P1-7 | ollama + ollama-pull 服务存在（用户明确不需要本地模型） | 多余基础设施 | `docker-compose.yml` → 移除3个ollama相关定义 |
+
+### P2 修复（代码质量/UX）
+
+| # | 问题 | 影响 | 修复位置 |
+|---|------|------|---------|
+| P2-1 | triggerOrgTask/pauseOrgTask/archiveOrgTask 未检查 `r.ok` | 失败后显示虚假成功 | `app.js` → 添加错误检查和错误toast |
+| P2-2 | handleApproval 失败后仍刷新视图 | 丢失错误上下文 | `app.js` → 只在成功时 `renderView()` |
+| P2-3 | initApp 无错误边界 | 启动失败→白屏 | `app.js` → try-catch + 错误UI |
+| P2-4 | doLogout 不调用后端使session失效 | session残留到过期 | `app.js` → `POST /api/auth/logout` |
+| P2-5 | pg 版本不统一（3处 ^8.15.3） | 文档误导 | `audit/hermes/web-portal package.json` → `^8.20.0` |
+| P2-6 | yaml 版本不统一（shared ^2.4.0） | 文档误导 | `shared/package.json` → `^2.8.3` |
+| P2-7 | hermes-adapter 使用 drizzle-orm 但未声明依赖 | 隐式依赖 | `hermes-adapter/package.json` → 添加 `drizzle-orm` |
+| P2-8 | pdf-parse CVE-2023-26134 已知漏洞 | 用户上传PDF风险 | **保留跟踪，待下一轮替换为 pdfjs-dist** |
+
+### 验证结果
+
+| 检查项 | 结果 |
+|--------|------|
+| `tsc --noEmit` | ✅ pass (exit 0) |
+| `docker compose config --quiet` | ✅ pass (exit 0) |
+| context-graph.json | ✅ valid JSON, v2.0 |
+| context-routing.json | ✅ valid JSON, v1.5 |
+| diagnostics | ✅ 0 errors |
+
+---
+
+## 十七、文档导航
 
 | 文档 | 内容 |
 |------|------|

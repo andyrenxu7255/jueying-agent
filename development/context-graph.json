@@ -1,6 +1,6 @@
 {
-  "version": "v1.9",
-  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-08 R6: Synchronized DEV-08 version (v1.1→v1.8), aligned context-routing.json task_routes naming (M1-M5 prefix), corrected authority_map['resource'] to AH1-26 (Provider/Budget management, L0 layer).",
+  "version": "v2.0",
+  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-17 R7: Round 5 comprehensive audit (25 fixes across frontend/backend/infra/deps). Scheduler refactored to direct service calls, /internal/tasks authenticated, setup IP check hardened, ollama removed, dep versions unified.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -206,8 +206,9 @@
     "2026-05-06-R4": "Doc/Graph Sync: context-graph.json v1.7→1.8, DEV-08 updated, fix-changelog created, source_to_authority mapping added",
     "2026-05-06-R5": "Comprehensive audit fixes: authority_map corrections, layer classification for AH1-13/AH1-27, security-check authority expanded",
     "2026-05-08-R6": "Graph Sync Round 2: DEV-08 version sync (v1.1→v1.8), context-routing.json task_routes naming aligned (M1-M5 prefix convention), authority_map['resource'] corrected from AH1-31→AH1-26 (Provider/Budget L0 authority)",
-    "total_fixes": 24,
-    "files_modified": 20,
+    "2026-05-17-R7": "Round 5 Comprehensive Audit (25 fixes): [Frontend] const→let for guideTab+toastContainer, showModal ESC listener leak fixed, API error handling added to triggerOrgTask/pauseOrgTask/archiveOrgTask/handleApproval, initApp error boundary, doLogout session invalidation; [Backend] Dream+Task Schedulers refactored to direct fetchFromService calls (was 401-failing HTTP self-calls), /internal/tasks/assign+notify now requireAdmin, setup IP check uses x-forwarded-for+exact matching, setup initialized guard prevents re-init, fetchFromService 30s timeout with AbortError handling; [Infra] litellm main-latest→main-v1.74.4-stable, ADMIN_PASSWORD default added, Redis healthcheck REDISCLI_AUTH, ollama+ollama-pull+ollama_data removed; [Deps] pg unified ^8.20.0 across audit/hermes/web-portal, yaml ^2.4.0→^2.8.3 in shared, drizzle-orm added to hermes-adapter",
+    "total_fixes": 49,
+    "files_modified": 27,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
   }
