@@ -40,6 +40,42 @@ interface WorkflowRecord {
 
 type PersistedWorkflowRecord = Omit<WorkflowRecord, 'machine'>;
 
+function buildWorkflowObservabilitySummary(workflow: WorkflowRecord): Record<string, unknown> {
+  const planStages = Array.isArray(workflow.plan.stage_chain)
+    ? workflow.plan.stage_chain as Array<Record<string, unknown>>
+    : [];
+
+  const stages = workflow.stages.map((stage, index) => {
+    const planned = planStages.find((item) => item.stage_id === stage.id) || planStages[index] || {};
+    return {
+      seq: index + 1,
+      stage_id: stage.id,
+      stage_type: String(planned.stage_type || 'Stage'),
+      purpose: String(planned.purpose || ''),
+      assigned_executor: String(planned.assigned_executor || ''),
+      status: stage.status,
+      output_preview: stage.last_output_preview || ''
+    };
+  });
+
+  const currentStage = stages.find((stage) =>
+    ['running', 'repairing', 'waiting_user', 'blocked', 'pending'].includes(String(stage.status))
+  ) || stages[stages.length - 1] || null;
+
+  return {
+    workflow_ref: workflow.id,
+    status: workflow.status,
+    goal: (workflow.plan.goal as Record<string, unknown> | undefined)?.user_goal || '',
+    stage_count: stages.length,
+    completed_count: stages.filter((stage) => stage.status === 'completed').length,
+    current_stage: currentStage,
+    stages,
+    process_summary: stages.map((stage) =>
+      `${stage.seq}. ${stage.stage_type} - ${stage.status}${stage.purpose ? ` - ${stage.purpose}` : ''}`
+    )
+  };
+}
+
 function parseVerificationMeta(output: string): Record<string, unknown> | null {
   const marker = '[verification-meta]';
   const idx = output.lastIndexOf(marker);
@@ -222,6 +258,7 @@ async function bootstrapWorkflowStoreFromDatabase(): Promise<void> {
       id: record.id,
       status: record.status,
       owner_user_id: record.owner_user_id,
+      org_id: record.org_id,
       plan: record.plan,
       stages: record.stages,
       created_at: record.created_at,
@@ -372,6 +409,7 @@ const server = createServer(async (req, res) => {
       risk_level: body.risk_level as PlannerInput['risk_level'] | undefined,
       budget: body.budget as PlannerInput['budget'] | undefined,
       policy_snapshot_hash: policySnapshotHash,
+      org_id: body.org_id as string | undefined,
       context: body.context as Record<string, unknown> | undefined,
       source: body.source as string | undefined,
       markdown_steps: body.markdown_steps as PlannerInput['markdown_steps'] | undefined
@@ -1027,7 +1065,8 @@ const server = createServer(async (req, res) => {
       progress: {
         workflow_id: workflow.id,
         status: workflow.status,
-        stages: workflow.stages
+        stages: workflow.stages,
+        observability_summary: buildWorkflowObservabilitySummary(workflow)
       }
     });
     return;
@@ -1112,6 +1151,7 @@ const server = createServer(async (req, res) => {
         org_id: workflow.org_id,
         plan: workflow.plan,
         stages: workflow.stages,
+        observability_summary: buildWorkflowObservabilitySummary(workflow),
         created_at: workflow.created_at
       }
     });

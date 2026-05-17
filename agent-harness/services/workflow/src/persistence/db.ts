@@ -10,6 +10,7 @@ export interface PersistedWorkflowRecord {
   id: string;
   status: string;
   owner_user_id: string;
+  org_id?: string;
   plan: Record<string, unknown>;
   stages: Array<{ id: string; status: string; seq: number }>;
   created_at: string;
@@ -195,6 +196,7 @@ export async function persistWorkflowRecord(record: PersistedWorkflowRecord): Pr
           JSON.stringify({
             external_workflow_ref: record.id,
             owner_user_ref: record.owner_user_id,
+            org_id: record.org_id,
             plan,
             created_at: record.created_at
           }),
@@ -306,6 +308,7 @@ export async function loadPersistedWorkflows(limit = 500): Promise<PersistedWork
         id: externalRef,
         status: row.status,
         owner_user_id: ownerUserRef,
+        org_id: typeof summary.org_id === 'string' ? summary.org_id : undefined,
         plan: (summary.plan as Record<string, unknown>) || {},
         stages: stagesResult.rows.map((stage) => ({
           id: typeof stage.metadata?.external_stage_ref === 'string' ? String(stage.metadata.external_stage_ref) : `stage_${stage.seq}`,

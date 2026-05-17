@@ -356,7 +356,7 @@ function renderGuideContent() {
 
 function renderGuideArch() {
   return '<div class="card"><h3>绝影 (JueYing) — AI Agent 编排与执行平台</h3>' +
-    '<p class="section-desc">绝影是一个企业级 AI Agent 编排与执行平台。用户通过飞书/企微等 IM 渠道与系统交互，系统使用 LLM 将用户意图规划为多阶段工作流，自动调度执行器完成各阶段任务，最终汇报结果。系统支持多租户、用户隔离、策略控制与记忆管理。</p></div>' +
+    '<p class="section-desc">绝影是一个企业级 AI Agent 编排与执行平台。用户通过飞书/企微等 IM 渠道与系统交互，系统先匹配已确认 workflow，未命中时再规划多阶段工作流，自动调度执行器完成任务，并汇报过程与结果。系统支持多租户、用户隔离、策略控制与记忆管理。</p></div>' +
 
     '<div class="card"><h3>系统架构图</h3>' +
     '<p class="section-desc">以下架构图展示了系统的分层设计：从用户入口到基础设施，共分为6层。</p>' +
@@ -419,8 +419,8 @@ function renderGuideArch() {
     '<div class="story-flow"><span class="flow-step">消息进入</span><span class="flow-arrow">→</span><span class="flow-step">身份解析</span><span class="flow-arrow">→</span><span class="flow-step">意图分类(chat)</span><span class="flow-arrow">→</span><span class="flow-step">召回记忆</span><span class="flow-arrow">→</span><span class="flow-step">LLM 生成回复</span><span class="flow-arrow">→</span><span class="flow-step">存储记忆</span><span class="flow-arrow">→</span><span class="flow-step">推送回复</span></div></div>' +
 
     '<div class="story-card"><h4>⚡ Task 路径 — 长任务工作流</h4>' +
-    '<div class="story-body">用户提交复杂任务，系统<strong>自动规划多阶段工作流</strong>，调度执行器逐步完成，完成后推送结果。适合数据分析、报告生成、代码开发等场景。</div>' +
-    '<div class="story-flow"><span class="flow-step">消息进入</span><span class="flow-arrow">→</span><span class="flow-step">意图分类(task)</span><span class="flow-arrow">→</span><span class="flow-step">配额检查</span><span class="flow-arrow">→</span><span class="flow-step">工作流规划</span><span class="flow-arrow">→</span><span class="flow-step">派发执行</span><span class="flow-arrow">→</span><span class="flow-step">轮询进度</span><span class="flow-arrow">→</span><span class="flow-step">推送结果</span></div></div>' +
+    '<div class="story-body">用户提交复杂任务，系统先查找个人/组织/公共 workflow，未命中时再<strong>自动规划多阶段工作流</strong>，执行后推送过程、异常和结果。适合销售复盘、数据分析、报告生成、代码开发等场景。</div>' +
+    '<div class="story-flow"><span class="flow-step">消息进入</span><span class="flow-arrow">→</span><span class="flow-step">匹配workflow</span><span class="flow-arrow">→</span><span class="flow-step">未命中则规划</span><span class="flow-arrow">→</span><span class="flow-step">派发执行</span><span class="flow-arrow">→</span><span class="flow-step">过程可观测</span><span class="flow-arrow">→</span><span class="flow-step">确认后复用</span></div></div>' +
 
     '<div class="story-card"><h4>📝 Knowledge Submit 路径 — 知识提交</h4>' +
     '<div class="story-body">用户提交知识内容，系统写入<strong>待审核知识池</strong>，管理员在审批台审核后正式入库。适合员工分享客户信息、业务知识等场景。</div>' +
@@ -448,7 +448,7 @@ function renderGuideCapabilities() {
     '<div class="capability-card"><div class="cap-icon">⚡</div><h4>长任务工作流</h4><p>复杂任务自动拆解为多阶段工作流：意图澄清 → 证据检索 → 决策推理 → 结果报告。支持16种阶段类型和6种执行器。</p></div>' +
     '<div class="capability-card"><div class="cap-icon">📚</div><h4>知识管理</h4><p>支持知识提交、审核、提取、向量检索和图查询。个人知识与组织知识库隔离，支持知识从对话中自动抽取。</p></div>' +
     '<div class="capability-card"><div class="cap-icon">🧠</div><h4>记忆系统</h4><p>会话记忆存储与召回，支持上下文压缩摘要。每日"梦境"机制自动总结和归档记忆，保持对话连贯性。</p></div>' +
-    '<div class="capability-card"><div class="cap-icon">🔧</div><h4>技能系统</h4><p>14项预制技能（Document Pro、Deep Search、Ontology等），支持从镜像站搜索安装。成功工作流可自动归档为技能复用。</p></div>' +
+    '<div class="capability-card"><div class="cap-icon">🔧</div><h4>技能系统</h4><p>14项预制技能（Document Pro、Deep Search、Ontology等），支持从镜像站搜索安装。成功工作流先生成待确认候选，用户确认后成为可复用 workflow。</p></div>' +
     '<div class="capability-card"><div class="cap-icon">🏢</div><h4>多租户管理</h4><p>组织隔离、角色权限(RBAC)、邀请管理、策略控制、审计日志。确保企业级数据安全和合规。</p></div>' +
     '<div class="capability-card"><div class="cap-icon">🌐</div><h4>多渠道统一</h4><p>飞书长连接、企业微信 Webhook、Web Portal 三端统一接入，身份自动绑定，消息无缝流转。</p></div>' +
     '</div>' +
@@ -640,10 +640,10 @@ function renderGuideStories() {
     '</div>' +
     '<div class="story-flow"><span class="flow-step">消息入站</span><span class="flow-arrow">→</span><span class="flow-step">5 路分类</span><span class="flow-arrow">→</span><span class="flow-step">路由分发</span><span class="flow-arrow">→</span><span class="flow-step">对应处理链</span></div></div>' +
 
-    '<div class="story-card"><h4>📖 故事十六：工作流归档为 Skill</h4>' +
+    '<div class="story-card"><h4>📖 故事十六：工作流确认后复用</h4>' +
     '<div class="story-role">角色：系统自动 + 管理员 · Day 6</div>' +
     '<div class="story-body">' +
-    '成功执行的工作流<strong>自动提取为技能候选</strong>（Skill Candidate）：' +
+    '成功执行的工作流<strong>自动提取为待确认候选</strong>（Skill Candidate）：' +
     '<br><br>• gateway-adapter 调用 <strong>extractWorkflowAsSkillCandidate()</strong>' +
     '<br>• 提取工作流的 stage_chain 和 user_goal' +
     '<br>• 提交到 <strong>skill-library</strong> 的 /internal/skills/create' +
@@ -651,7 +651,7 @@ function renderGuideStories() {
     '<br>• 技能注册到 <strong>org_skill_registry</strong>，全组织可复用' +
     '<br><br>同时支持从 <strong>Mirror 镜像站</strong>搜索和安装公开技能。' +
     '</div>' +
-    '<div class="story-flow"><span class="flow-step">成功工作流</span><span class="flow-arrow">→</span><span class="flow-step">提取 Skill</span><span class="flow-arrow">→</span><span class="flow-step">审核发布</span><span class="flow-arrow">→</span><span class="flow-step">组织技能库</span><span class="flow-arrow">→</span><span class="flow-step">全员复用</span></div></div>' +
+    '<div class="story-flow"><span class="flow-step">成功工作流</span><span class="flow-arrow">→</span><span class="flow-step">提取候选</span><span class="flow-arrow">→</span><span class="flow-step">用户确认</span><span class="flow-arrow">→</span><span class="flow-step">私有复用</span><span class="flow-arrow">→</span><span class="flow-step">Admin审核为组织workflow</span></div></div>' +
 
     '<div class="story-card"><h4>📖 故事十七：技能公网安装与多路检索</h4>' +
     '<div class="story-role">角色：管理员 (Admin)</div>' +

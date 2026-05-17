@@ -55,7 +55,8 @@ function signWecom(timestamp, nonce) {
 
 async function run() {
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const nonce = 'nonce-001';
+  const runId = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  const nonce = `nonce-${runId}`;
 
   const challengeBody = JSON.stringify({ type: 'url_verification', challenge: 'hello-feishu' });
   const challengeSig = signFeishu(timestamp, nonce, challengeBody);
@@ -84,7 +85,7 @@ async function run() {
   assert('feishu.bad_signature.assert', badSig.status === 401, badSig);
 
   const feishuPayload = {
-    header: { event_id: 'evt-1001', tenant_key: 'tenant-a' },
+    header: { event_id: `evt-${runId}`, tenant_key: 'tenant-a' },
     event: {
       sender: { sender_id: { open_id: 'ou_1001' } },
       message: {
@@ -132,7 +133,7 @@ async function run() {
   );
 
   const wecomTimestamp = String(Math.floor(Date.now() / 1000));
-  const wecomNonce = 'nonce-wecom';
+  const wecomNonce = `nonce-wecom-${runId}`;
   const wecomSignature = signWecom(wecomTimestamp, wecomNonce);
 
   const wecomChallenge = await request(
@@ -154,7 +155,7 @@ async function run() {
   assert('wecom.bad_signature.assert', wecomBadSig.status === 401, wecomBadSig);
 
   const wecomBody = JSON.stringify({
-    msgid: 'm_1001',
+    msgid: `m_${runId}`,
     from_user_id: 'wx_user_1001',
     to_user_id: 'corp_a',
     conversation_id: 'chat_a',

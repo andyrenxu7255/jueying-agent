@@ -576,42 +576,207 @@ async function sendMobilePushNotification(
   }
 }
 
+type WorkflowReplyStage = {
+  id?: string;
+  stage_id?: string;
+  status?: string;
+  seq?: number;
+  last_output_preview?: string;
+};
+
+type WorkflowReplyPlan = {
+  workflow_type?: string;
+  goal?: Record<string, unknown>;
+  stage_chain?: Array<Record<string, unknown>>;
+};
+
+type WorkflowReplyRecord = {
+  id?: string;
+  status?: string;
+  owner_user_id?: string;
+  org_id?: string;
+  user_goal?: string;
+  plan?: WorkflowReplyPlan;
+  stages?: WorkflowReplyStage[];
+  observability_summary?: Record<string, unknown>;
+};
+
+function workflowStageStatusLabel(status?: string): string {
+  const labels: Record<string, string> = {
+    pending: '待执行',
+    running: '执行中',
+    completed: '已完成',
+    failed: '失败',
+    waiting_user: '等待用户',
+    blocked: '阻塞',
+    repairing: '自主修复中',
+    paused: '暂停'
+  };
+  return labels[status || ''] || status || '未知';
+}
+
+function buildWorkflowResultMessage(workflowRef: string, status: string, wf: WorkflowReplyRecord): string {
+  const isSuccess = status === 'succeeded' || status === 'completed';
+  const stages = wf.stages || [];
+  const planStages = Array.isArray(wf.plan?.stage_chain) ? wf.plan?.stage_chain || [] : [];
+  const stageLines = stages.slice(0, 6).map((stage, index) => {
+    const stageId = String(stage.id || stage.stage_id || '');
+    const planned = planStages.find(item => item.stage_id === stageId) || planStages[index] || {};
+    const stageName = String(planned.stage_type || planned.stage_key || `阶段${index + 1}`);
+    const purpose = String(planned.purpose || '').trim();
+    const preview = String(stage.last_output_preview || '').replace(/\s+/g, ' ').trim();
+    const previewText = preview ? `；产出：${preview.slice(0, 90)}` : '';
+    return `${index + 1}. ${stageName}：${workflowStageStatusLabel(stage.status)}${purpose ? `，${purpose}` : ''}${previewText}`;
+  });
+  const moreLine = stages.length > 6 ? `...还有 ${stages.length - 6} 个阶段已记录在工作流详情中` : '';
+  const lastStage = stages[stages.length - 1];
+  const preview = String(lastStage?.last_output_preview || '').trim();
+  const resultPreview = preview
+    ? `\n\n结果摘要：\n${preview.substring(0, 800)}${preview.length > 800 ? '\n...(结果已截断)' : ''}`
+    : '';
+  const confirmationLine = isSuccess
+    ? `\n\n如果这条执行路径符合你的工作习惯，回复：确认工作流 ${workflowRef}\n确认后它会成为你的私有 workflow，下次同类任务会优先沿用；管理员后续可再审核提升为组织通用 workflow。`
+    : '';
+
+  return isSuccess
+    ? `✅ 任务执行完成\n任务编号: ${workflowRef}\n\n执行过程：\n${[...stageLines, moreLine].filter(Boolean).join('\n')}${resultPreview}${confirmationLine}`
+    : `❌ 任务执行失败 (${status})\n任务编号: ${workflowRef}\n\n已记录过程：\n${[...stageLines, moreLine].filter(Boolean).join('\n') || '暂无阶段记录'}${resultPreview}`;
+}
+
+async function confirmWorkflowCandidate(workflowRef: string, userId: string, orgId: string): Promise<{ ok: boolean; replyText: string }> {
+  const pool = await getSharedDbPool();
+  if (!pool) {
+    return { ok: false, replyText: '工作流确认暂不可用：数据库连接不可用，请稍后重试。' };
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id, skill_name FROM skill
+       WHERE owner_user_id = $1
+         AND status = 'draft'
+         AND metadata->>'source_workflow' = $2
+         AND ($3::text = '' OR org_id = $3)
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId, workflowRef, orgId || '']
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        ok: false,
+        replyText: `暂时没有找到任务 ${workflowRef} 对应的待确认 workflow。请先等待任务完成，或确认任务编号是否正确。`
+      };
+    }
+
+    const skillId = String(result.rows[0].id);
+    const approvedAt = new Date().toISOString();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE skill
+         SET status = 'active',
+             metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb,
+             updated_at = now()
+         WHERE id = $1`,
+        [skillId, JSON.stringify({
+          confirmation_status: 'approved',
+          confirmed_by: userId,
+          confirmed_at: approvedAt
+        })]
+      );
+      await client.query(
+        `UPDATE skill_version
+         SET status = 'active'
+         WHERE skill_id = $1`,
+        [skillId]
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    return {
+      ok: true,
+      replyText: `✅ 已确认并激活这个 workflow。\n任务编号: ${workflowRef}\nworkflow 名称: ${String(result.rows[0].skill_name)}\n下次你提出相似任务时，系统会先尝试匹配这条已确认路径。`
+    };
+  } catch (error) {
+    logger.warn('workflow.confirm_failed', 'Failed to confirm workflow candidate', {
+      workflow_ref: workflowRef,
+      user_id: userId,
+      error: String(error)
+    });
+    return { ok: false, replyText: '工作流确认失败，已记录异常，请稍后重试。' };
+  }
+}
+
 // extractWorkflowAsSkillCandidate: 工作流成功后，分析stage链并生成Skill候选
-// 异步调用 skill-library 创建 draft 状态的技能条目
+// 异步调用 skill-library 创建 draft 状态的技能条目，等待用户确认后再激活复用
 async function extractWorkflowAsSkillCandidate(workflowRef: string, userId: string, orgId: string): Promise<void> {
   const skillLibraryUrl = process.env.SKILL_LIBRARY_URL || '';
   const workflowUrl = process.env.WORKFLOW_URL || '';
-  if (!skillLibraryUrl || !workflowUrl) return;
+  if (!skillLibraryUrl || !workflowUrl || !userId) return;
 
   try {
+    const pool = await getSharedDbPool();
+    if (pool) {
+      const existing = await pool.query(
+        `SELECT id FROM skill
+         WHERE owner_user_id = $1 AND metadata->>'source_workflow' = $2
+         ORDER BY created_at DESC LIMIT 1`,
+        [userId, workflowRef]
+      );
+      if (existing.rows.length > 0) return;
+    }
+
     // 获取工作流完整信息（含stage_chain）
-    const wfRes = await fetch(`${workflowUrl}/internal/workflows/${workflowRef}?detail_mode=full`, {
+    const wfRes = await fetch(`${workflowUrl}/internal/workflows/${workflowRef}?detail_mode=full&acting_role=admin`, {
       signal: AbortSignal.timeout(5000)
     });
     if (!wfRes.ok) return;
-    const wf = await wfRes.json() as { status?: string; stages?: Array<Record<string, unknown>>; user_goal?: string };
+    const wfBody = await wfRes.json() as { workflow?: WorkflowReplyRecord };
+    const wf = wfBody.workflow || (wfBody as unknown as WorkflowReplyRecord);
 
     if (!wf.stages || wf.stages.length === 0) return;
 
     // 提取阶段名称作为技能描述
-    const stageNames = wf.stages.map(s => String(s.stage_type || '')).filter(Boolean);
-    const goal = String(wf.user_goal || '未命名任务');
+    const planStages = Array.isArray(wf.plan?.stage_chain) ? wf.plan?.stage_chain || [] : [];
+    const stageNames = wf.stages.map((s, index) => {
+      const planned = planStages.find(item => item.stage_id === (s.id || s.stage_id)) || planStages[index] || {};
+      return String(planned.stage_type || s.id || '').trim();
+    }).filter(Boolean);
+    const goal = String(wf.plan?.goal?.user_goal || wf.user_goal || '未命名任务');
 
     // 向 skill-library 提交候选技能
     await fetch(`${skillLibraryUrl}/internal/skills/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        name: `[候选] ${goal.substring(0, 40)}`,
-        skill_type: 'workflow',
-        description: `从工作流 ${workflowRef} 自动提取。阶段链: ${stageNames.join(' → ')}`,
-        definition: {
-          stage_chain: wf.stages,
-          source_workflow: workflowRef,
-          extracted_stages: stageNames
-        },
         owner_user_id: userId,
-        org_id: orgId
+        org_id: orgId || undefined,
+        scope_type: 'private',
+        skill_name: `[待确认] ${goal.substring(0, 40)}`,
+        skill_type: 'workflow',
+        description: `从工作流 ${workflowRef} 自动提取，等待用户确认后激活。阶段链: ${stageNames.join(' → ')}`,
+        definition_json: {
+          task_type_hint: wf.plan?.workflow_type || 'analysis',
+          stage_chain: planStages.length > 0 ? planStages : wf.stages,
+          source_workflow: workflowRef,
+          extracted_stages: stageNames,
+          confirmation_required: true,
+          observability_summary: wf.observability_summary || {}
+        },
+        metadata: {
+          source_workflow: workflowRef,
+          source: 'workflow_completion',
+          confirmation_status: 'pending_user',
+          requires_user_confirmation: true,
+          org_id: orgId || null,
+          tags: ['workflow', 'user-confirmed', 'b2b-sales-ready']
+        }
       }),
       signal: AbortSignal.timeout(5000)
     });
@@ -785,7 +950,7 @@ async function quickLookup(text: string, ownerUserId: string, orgId: string): Pr
   }
 }
 
-async function processIncomingText(normalized: Record<string, unknown>): Promise<{ requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch'; replyText: string; modelCallOk: boolean; workflowRef?: string; runRef?: string }> {
+async function processIncomingText(normalized: Record<string, unknown>): Promise<{ requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch' | 'workflow_confirm'; replyText: string; modelCallOk: boolean; workflowRef?: string; runRef?: string }> {
   if (inflightCounter >= MAX_INFLIGHT_REQUESTS) {
     logger.warn('inflight.limit_exceeded', 'Request rejected due to inflight limit', {
       current: inflightCounter,
@@ -803,6 +968,19 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
     const ownerUserId = String(normalized.user_id || normalized.session_ref || 'anonymous');
     const sessionId = String(normalized.session_ref || 'default');
     const orgId = String(normalized.org_id || '');
+    const confirmMatch = text.trim().match(/^(?:\/)?确认工作流\s+(wf_[A-Za-z0-9_-]+)/i);
+    if (confirmMatch) {
+      if (normalized.identity_binding_state !== 'bound') {
+        const replyText = '身份尚未绑定，请先完成身份验证后再确认工作流。';
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+        fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', replyText), '');
+        return { requestType: 'workflow_confirm', replyText, modelCallOk: false };
+      }
+      const confirmation = await confirmWorkflowCandidate(confirmMatch[1], ownerUserId, orgId);
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), '');
+      fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', confirmation.replyText), '');
+      return { requestType: 'workflow_confirm', replyText: confirmation.replyText, modelCallOk: confirmation.ok, workflowRef: confirmMatch[1] };
+    }
 
     const intent = await classifyIntentWithLLM(text);
     const requestType: 'chat' | 'task' | 'knowledge_submit' | 'quick_lookup' | 'task_dispatch' = intent.intent_type;
@@ -896,11 +1074,17 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
 
     const plan = await postJson(`${workflowUrl}/internal/workflows/plan`, {
       user_id: normalized.user_id || 'u_placeholder',
+      org_id: orgId || undefined,
       task_type_hint: intent.task_type_hint,
       risk_level: intent.risk_level,
       user_goal: text,
       budget: { time_sec: Number(process.env.WORKFLOW_PLAN_BUDGET_SEC || 3600), retrieval: 15, execution: 30 },
-      policy_snapshot_hash: policySnapshotHash
+      policy_snapshot_hash: policySnapshotHash,
+      context: {
+        channel_type: normalized.channel_type,
+        workflow_observability: true,
+        reuse_policy: 'match_private_org_public_then_plan'
+      }
     }, 30000, {}, 2);
 
     if (!plan.ok) {
@@ -1334,9 +1518,9 @@ async function pollAndReplyWorkflowResult(workflowRef: string, targets: Array<{ 
         signal: AbortSignal.timeout(10000)
       });
       if (!res.ok) continue;
-      const body = await res.json() as { ok?: boolean; workflow?: { status: string; stages?: Array<{ last_output_preview?: string; status: string; stage_key?: string }> } };
-      const wf = body.workflow || (body as unknown as { status: string; stages?: Array<{ last_output_preview?: string; status: string }> });
-      const status = wf.status;
+      const body = await res.json() as { ok?: boolean; workflow?: WorkflowReplyRecord };
+      const wf = body.workflow || (body as unknown as WorkflowReplyRecord);
+      const status = String(wf.status || '');
 
       if (status !== lastProgressStatus && (status === 'running' || status === 'verifying' || status === 'reporting' || status === 'paused' || status === 'waiting_user' || status === 'blocked') && progressSentCount < 3) {
         const progressLine = `⏳ 任务进行中：${status}\n任务编号: ${workflowRef}`;
@@ -1349,12 +1533,7 @@ async function pollAndReplyWorkflowResult(workflowRef: string, targets: Array<{ 
       lastProgressStatus = status;
 
       if (status === 'succeeded' || status === 'completed' || status === 'failed' || status === 'cancelled') {
-        const stages = wf.stages || [];
-        const lastStage = stages[stages.length - 1];
-        const preview = lastStage?.last_output_preview || '';
-        const resultLine = status === 'succeeded' || status === 'completed'
-          ? `✅ 任务执行完成！\n任务编号: ${workflowRef}\n\n${preview.substring(0, 800)}`
-          : `❌ 任务执行失败 (${status})\n任务编号: ${workflowRef}`;
+        const resultLine = buildWorkflowResultMessage(workflowRef, status, wf);
 
         for (const target of targets) {
           const delivered = await sendFeishuTextReply(target.receiveId, target.receiveIdType, resultLine);
@@ -1399,9 +1578,9 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
         signal: AbortSignal.timeout(10000)
       });
       if (!res.ok) continue;
-      const body = await res.json() as { ok?: boolean; workflow?: { status: string; stages?: Array<{ last_output_preview?: string; status: string; stage_key?: string }> } };
-      const wf = body.workflow || (body as unknown as { status: string; stages?: Array<{ last_output_preview?: string; status: string }> });
-      const status = wf.status;
+      const body = await res.json() as { ok?: boolean; workflow?: WorkflowReplyRecord };
+      const wf = body.workflow || (body as unknown as WorkflowReplyRecord);
+      const status = String(wf.status || '');
 
       if (status !== lastProgressStatus && (status === 'running' || status === 'verifying' || status === 'reporting' || status === 'paused' || status === 'waiting_user' || status === 'blocked') && progressSentCount < 3) {
         const progressLine = `⏳ 任务进行中：${status}\n任务编号: ${workflowRef}`;
@@ -1411,12 +1590,7 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
       lastProgressStatus = status;
 
       if (status === 'succeeded' || status === 'completed' || status === 'failed' || status === 'cancelled') {
-        const stages = wf.stages || [];
-        const lastStage = stages[stages.length - 1];
-        const preview = lastStage?.last_output_preview || '';
-        const resultLine = status === 'succeeded' || status === 'completed'
-          ? `✅ 任务执行完成！\n任务编号: ${workflowRef}\n\n${preview.substring(0, 800)}`
-          : `❌ 任务执行失败 (${status})\n任务编号: ${workflowRef}`;
+        const resultLine = buildWorkflowResultMessage(workflowRef, status, wf);
 
         fireAndForget(sendWecomTextMessage(wecomUserId, resultLine, agentId), '');
         // 异步发送移动推送通知
@@ -1428,6 +1602,10 @@ async function pollAndReplyWorkflowResultWecom(workflowRef: string, wecomUserId:
             resultLine.replace(/[#*`]/g, '').substring(0, 200),
             { workflow_ref: workflowRef, status }
           ), 'mobile_push');
+        }
+        if (status === 'succeeded' || status === 'completed') {
+          const wfOrgId = (wf as Record<string, unknown>).org_id || '';
+          fireAndForget(extractWorkflowAsSkillCandidate(workflowRef, String(userId || ''), String(wfOrgId)), 'skill_extract');
         }
         return;
       }

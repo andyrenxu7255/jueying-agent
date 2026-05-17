@@ -454,3 +454,15 @@ node scripts/final-audit.cjs
 - `development/app-graph/object-relationship-graph.md` — **v2.1→v2.2 补全L1/L2层**
 - `ARCHITECTURE.md` — **第十四轮→第十五轮 + 新增第八轮修复内容章节**
 - `HANDOFF-SESSION.md` — **第十一轮→第十二轮 + 第八轮修复清单 + 已知问题更新**
+
+### 第九轮（2026-05-17：B2B 销售故事线 + workflow 可观测闭环）
+- `用户故事线.md` — **重写故事线二十一：围绕 B2B 销售管理日常，覆盖老板决策、销售经理晨夕会、一线销售每日八访、Admin 治理、运维/开发验收**
+- `apps/gateway-adapter/src/index.ts` — **完成回执展示阶段过程和结果；成功 workflow 提取为待确认私有 draft；用户回复“确认工作流 wf_xxx”后激活复用；飞书/企微完成路径同步**
+- `services/workflow/src/planner/planner.ts` — **Skill 匹配从仅 public 扩展为 private(owner) → org(org_id) → public，并增强销售关键词识别**
+- `services/workflow/src/index.ts` — **新增 workflow observability summary，`/progress` 和 workflow 详情可返回阶段过程摘要**
+- `services/executor-gateway/src/index.ts` — **阶段失败时按 repair_or_fail 进行一次自主修复，并把原失败与修复结果写入阶段输出**
+- `scripts/workflow-observability-smoke.mjs` / `package.json` — **新增 `smoke:workflow-observability`，固定 workflow 匹配、过程可观测、用户确认沉淀和自主修复基线**
+- `scripts/channel-webhook-smoke.mjs` — **事件编号改为每轮唯一，渠道烟测可重复运行且仍验证去重路径**
+- `package.json` / `package-lock.json` — **通过 npm override 固定安全版 esbuild，`npm audit --audit-level=moderate` 为 0 vulnerabilities**
+- `ARCHITECTURE.md`、`PRODUCT.md`、`README.md` — **同步“既有 workflow 优先、首跑自主规划、过程可观测、用户确认后复用”的产品路径**
+- `development/DEV-18-B2B销售故事线与工作流可观测闭环.md`、`context-graph.json`、`context-routing.json` — **补充开发图谱与路由**

@@ -325,7 +325,7 @@ async function autoExecuteWorkflowStages(workflowRef: string, runRef: string): P
         stage_type: stage.stage_type
       });
 
-      const result = await executor.execute({
+      let result = await executor.execute({
         workflow_instance_id: workflowRef,
         workflow_stage_id: stageId,
         stage: stage as unknown as import('@agent-harness/contracts').Stage,
@@ -333,6 +333,67 @@ async function autoExecuteWorkflowStages(workflowRef: string, runRef: string): P
         policy_snapshot_hash: policySnapshotHash,
         context: { owner_user_id: workflow.owner_user_id, run_ref: runRef }
       });
+
+      const retryPolicy = (stage.retry_policy || {}) as Record<string, unknown>;
+      const canRepair = result.status === 'failed' &&
+        (String(stage.on_failure || '') === 'repair_or_fail' || Number(retryPolicy.max_repairs || 0) > 0);
+      if (canRepair) {
+        logger.info('auto.execute.autonomous_repair_start', 'Attempting autonomous stage repair', {
+          workflow_instance_ref: workflowRef,
+          stage_id: stageId,
+          stage_type: stage.stage_type
+        });
+
+        const repairResult = await repairExecutor.execute({
+          workflow_instance_id: workflowRef,
+          workflow_stage_id: stageId,
+          stage: {
+            ...stage,
+            stage_type: 'Repair',
+            purpose: `Repair failed stage: ${String(stage.purpose || stage.stage_type || stageId)}`,
+            assigned_executor: 'repair-executor'
+          } as unknown as import('@agent-harness/contracts').Stage,
+          user_goal: userGoal,
+          policy_snapshot_hash: policySnapshotHash,
+          context: {
+            owner_user_id: workflow.owner_user_id,
+            run_ref: runRef,
+            previous_output: result.output,
+            error: result.error,
+            original_context: { stage_id: stageId, stage_type: stage.stage_type, executor: executorName }
+          }
+        });
+
+        if (repairResult.status === 'completed' || repairResult.status === 'succeeded') {
+          result = {
+            ...repairResult,
+            status: 'completed',
+            output: [
+              '原阶段执行失败，系统已进行一次自主修复并继续推进。',
+              '',
+              '[original-failure]',
+              result.output?.slice(0, 1200) || result.error || 'unknown_failure',
+              '',
+              '[autonomous-repair]',
+              repairResult.output
+            ].join('\n')
+          };
+        } else {
+          result = {
+            ...repairResult,
+            status: 'failed',
+            output: [
+              '原阶段执行失败，系统尝试自主修复但仍未通过。',
+              '',
+              '[original-failure]',
+              result.output?.slice(0, 1200) || result.error || 'unknown_failure',
+              '',
+              '[repair-failure]',
+              repairResult.output || repairResult.error || 'repair_failed'
+            ].join('\n')
+          };
+        }
+      }
 
       try {
         const report = await postWorkflowWithRetry(

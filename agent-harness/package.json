@@ -27,6 +27,7 @@
     "context:audit": "python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M1_ingress_workflow && python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M2_retrieval_fact && python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M3_executor",
     "smoke:channels": "node scripts/channel-webhook-smoke.mjs",
     "smoke:eval": "node scripts/smoke-eval.js",
+    "smoke:workflow-observability": "node scripts/workflow-observability-smoke.mjs",
     "test:task-dispatch": "npx tsx tests/integration/task-dispatch-lui-test.ts",
     "test:dream-mode": "node --experimental-strip-types tests/integration/dream-mode-test.ts",
     "preflight:audit": "npm run validate:m0 && npm run lint && npm run type-check && npm test && npm run context:audit",
@@ -72,6 +73,7 @@
   },
   "overrides": {
     "axios": "1.15.2",
+    "esbuild": "0.25.12",
     "uuid": "^14.0.0"
   },
   "engines": {

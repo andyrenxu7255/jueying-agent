@@ -1,6 +1,6 @@
 {
-  "version": "v1.6",
-  "description": "Task routing configuration - Updated 2026-05-17: Synced with context-graph.json v2.1. Added DEV-17 smoke testing and four-role UX closure path for release validation.",
+  "version": "v1.7",
+  "description": "Task routing configuration - Updated 2026-05-17: Synced with context-graph.json v2.2. Added DEV-18 B2B sales storyline and workflow observability path.",
   "default_bootstrap_docs": [
     "development/DEV-00-开发索引.md",
     "development/DEV-08-文件内容与依赖对象图谱.md",
@@ -151,6 +151,24 @@
       "optional": [
         "AH1-23-审计日志指标与告警.md",
         "AH1-31-错误处理与降级策略.md"
+      ]
+    },
+    "sales_workflow_observability": {
+      "must_read": [
+        "development/DEV-18-B2B销售故事线与工作流可观测闭环.md",
+        "AH1-17-Workflow-DSL与Planner契约.md",
+        "AH1-18-Code-Executor与执行会话.md",
+        "AH1-21-渠道接入与Session映射.md",
+        "agent-harness/apps/gateway-adapter/src/index.ts",
+        "agent-harness/services/workflow/src/**",
+        "agent-harness/services/executor-gateway/src/**",
+        "agent-harness/services/skill-library/src/**"
+      ],
+      "optional": [
+        "agent-harness/scripts/**",
+        "agent-harness/用户故事线.md",
+        "agent-harness/PRODUCT.md",
+        "agent-harness/ARCHITECTURE.md"
       ]
     }
   }

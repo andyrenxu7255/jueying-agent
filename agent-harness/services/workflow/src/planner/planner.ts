@@ -24,12 +24,27 @@ interface MatchedSkill {
   skill_id: string;
   skill_name: string;
   skill_type: string;
+  scope_type: string;
   description: string;
   definition_json: Record<string, unknown>;
   match_score: number;
 }
 
-async function findMatchingSkills(userGoal: string, taskTypeHint?: string): Promise<MatchedSkill[]> {
+function extractSkillKeywords(userGoal: string): string[] {
+  const baseKeywords = userGoal
+    .replace(/[^\w\u4e00-\u9fff]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 1);
+
+  const domainKeywords = [
+    '销售', '客户', '线索', '商机', '漏斗', '回款', '合同', '拜访', '晨会', '复盘',
+    '成交', '报价', '折扣', 'pipeline', 'sales', 'crm', 'workflow'
+  ].filter(keyword => userGoal.toLowerCase().includes(keyword.toLowerCase()));
+
+  return Array.from(new Set([...baseKeywords, ...domainKeywords])).slice(0, 12);
+}
+
+async function findMatchingSkills(userGoal: string, taskTypeHint?: string, ownerUserId?: string, orgId?: string): Promise<MatchedSkill[]> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) return [];
 
@@ -37,47 +52,59 @@ async function findMatchingSkills(userGoal: string, taskTypeHint?: string): Prom
     const { Pool } = await import('pg');
     const pool = new Pool({ connectionString: databaseUrl, max: 2 });
     try {
-      const keywords = userGoal
-        .replace(/[^\w\u4e00-\u9fff]/g, ' ')
-        .split(/\s+/)
-        .filter(w => w.length > 1)
-        .slice(0, 8);
+      const keywords = extractSkillKeywords(userGoal);
 
       if (keywords.length === 0) return [];
 
-      const likeConditions = keywords.map((_, i) => `(s.skill_name ILIKE $${i + 1} OR s.description ILIKE $${i + 1})`).join(' OR ');
-      const likeValues = keywords.map(w => `%${w}%`);
+      const params: string[] = keywords.map(w => `%${w}%`);
+      const likeConditions = keywords.map((_, i) =>
+        `(s.skill_name ILIKE $${i + 1} OR s.description ILIKE $${i + 1} OR s.metadata::text ILIKE $${i + 1})`
+      ).join(' OR ');
 
-      let typeFilter = '';
-      const typeValues: string[] = [];
+      const scopeClauses = [`s.scope_type = 'public'`];
+      if (ownerUserId) {
+        params.push(ownerUserId);
+        scopeClauses.push(`(s.scope_type = 'private' AND s.owner_user_id = $${params.length})`);
+      }
+      if (orgId) {
+        params.push(orgId);
+        scopeClauses.push(`(s.scope_type = 'org' AND s.org_id = $${params.length})`);
+      }
+
+      let taskTypeBonus = '0';
       if (taskTypeHint) {
-        typeFilter = ` AND s.metadata->>'task_type_hint' = $${keywords.length + 1}`;
-        typeValues.push(taskTypeHint);
+        params.push(taskTypeHint);
+        taskTypeBonus = `CASE WHEN s.metadata->>'task_type_hint' = $${params.length} THEN 3 ELSE 0 END`;
       }
 
       const query = `
-        SELECT s.id, s.skill_name, s.skill_type, s.description,
+        SELECT s.id, s.skill_name, s.skill_type, s.scope_type, s.description,
                sv.definition_json,
-               GREATEST(
-                 ${keywords.map((_, i) => `CASE WHEN s.skill_name ILIKE $${i + 1} THEN 2 ELSE 0 END`).join(' + ')},
-                 ${keywords.map((_, i) => `CASE WHEN s.description ILIKE $${i + 1} THEN 1 ELSE 0 END`).join(' + ')}
+               (
+                 ${keywords.map((_, i) => `CASE WHEN s.skill_name ILIKE $${i + 1} THEN 3 ELSE 0 END`).join(' + ')}
+                 + ${keywords.map((_, i) => `CASE WHEN s.description ILIKE $${i + 1} THEN 1 ELSE 0 END`).join(' + ')}
+                 + ${keywords.map((_, i) => `CASE WHEN s.metadata::text ILIKE $${i + 1} THEN 1 ELSE 0 END`).join(' + ')}
+                 + ${taskTypeBonus}
+                 + CASE WHEN s.scope_type = 'private' THEN 4 WHEN s.scope_type = 'org' THEN 3 ELSE 1 END
                ) as match_score
         FROM skill s
         JOIN LATERAL (
           SELECT definition_json FROM skill_version sv
           WHERE sv.skill_id = s.id ORDER BY version DESC LIMIT 1
         ) sv ON true
-        WHERE s.status = 'active' AND s.scope_type = 'public'
-          AND (${likeConditions})${typeFilter}
+        WHERE s.status = 'active'
+          AND (${scopeClauses.join(' OR ')})
+          AND (${likeConditions})
         ORDER BY match_score DESC
-        LIMIT 3
+        LIMIT 5
       `;
 
-      const result = await pool.query(query, [...likeValues, ...typeValues]);
+      const result = await pool.query(query, params);
       return result.rows.map(row => ({
         skill_id: row.id,
         skill_name: row.skill_name,
         skill_type: row.skill_type,
+        scope_type: row.scope_type,
         description: row.description,
         definition_json: typeof row.definition_json === 'string' ? JSON.parse(row.definition_json) : row.definition_json,
         match_score: Number(row.match_score)
@@ -104,6 +131,7 @@ export interface PlannerInput {
     execution?: number;
   };
   policy_snapshot_hash: string;
+  org_id?: string;
   context?: Record<string, unknown>;
   source?: string;
   markdown_steps?: Array<{ seq: number; name: string; description: string }>;
@@ -231,13 +259,14 @@ export class WorkflowPlanner {
     }
 
     const skipLLM = process.env.SKIP_LLM_PLAN === 'true';
-    const matchedSkills = await findMatchingSkills(input.user_goal, input.task_type_hint);
+    const matchedSkills = await findMatchingSkills(input.user_goal, input.task_type_hint, input.user_id, input.org_id);
 
     if (matchedSkills.length > 0) {
       const bestSkill = matchedSkills[0];
       logger.info('planner.skill.matched', 'Matched pre-built skill, using as workflow template', {
         skill_name: bestSkill.skill_name,
         skill_type: bestSkill.skill_type,
+        scope_type: bestSkill.scope_type,
         match_score: bestSkill.match_score
       });
 
@@ -257,6 +286,7 @@ export class WorkflowPlanner {
             source: 'skill_match',
             skill_name: bestSkill.skill_name,
             skill_id: bestSkill.skill_id,
+            skill_scope_type: bestSkill.scope_type,
             match_score: bestSkill.match_score
           }
         });
@@ -393,7 +423,7 @@ IMPORTANT: Respond with ONLY valid JSON. Do NOT wrap the JSON in markdown code b
     if (matchedSkills.length > 0) {
       skillContext = '\n\nAvailable skills that match this request (consider incorporating their stage definitions):\n';
       for (const skill of matchedSkills) {
-        skillContext += `\n--- Skill: ${skill.skill_name} (id: ${skill.skill_id}, type: ${skill.skill_type}, match_score: ${skill.match_score}) ---\n`;
+        skillContext += `\n--- Skill: ${skill.skill_name} (id: ${skill.skill_id}, type: ${skill.skill_type}, scope: ${skill.scope_type}, match_score: ${skill.match_score}) ---\n`;
         skillContext += `Description: ${skill.description}\n`;
         if (skill.definition_json && Object.keys(skill.definition_json).length > 0) {
           skillContext += `Definition: ${JSON.stringify(skill.definition_json, null, 2)}\n`;
