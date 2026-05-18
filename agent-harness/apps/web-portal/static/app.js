@@ -466,8 +466,17 @@ function renderGuideCapabilities() {
 }
 
 function renderGuideStories() {
-  return '<div class="card"><h3>场景故事线（共 20 条）</h3>' +
-    '<p class="section-desc">以下故事线展示了不同角色在绝影平台上的典型使用场景，帮助您理解系统的实际应用方式。</p></div>' +
+  return '<div class="card"><h3>场景故事线（共 21 条）</h3>' +
+    '<p class="section-desc">以下故事线展示了不同角色在绝影平台上的典型使用场景，重点以 B2B 销售管理的日常工作来校准任务、工作流、审批和复用体验。</p></div>' +
+
+    '<div class="story-card"><h4>📖 故事二十一：B2B 销售管理日常闭环</h4>' +
+    '<div class="story-role">角色：老板 + 销售经理 + 一线销售 + Admin · 每日经营节奏</div>' +
+    '<div class="story-body">' +
+    '周一上午，老板在飞书里说："本周把华东区回款风险降下来，两个重点客户推进到 closing，并告诉我需要拍板的事项。"绝影先查找个人私有 workflow、组织 workflow 和公共技能；如果命中已确认路径，就直接复用；如果没有命中，就进入首跑模式，自主拆解为客户阶段梳理、拜访证据核对、回款风险识别、经理行动清单和老板决策摘要。' +
+    '<br><br>销售经理 9:00 打开晨会清单，看到每个客户的红黄绿状态、阶段停留天数、下一承诺动作和证据缺口；20:30 查看夕会异常，只处理卡单、折扣越线、回款承诺缺证据的项目。一线销售在客户沟通后用自然语言补充进展，系统更新客户阶段、下一步动作和风险提醒，并在卡单时给出诊断路径和话术建议。' +
+    '<br><br>执行过程中若某个阶段失败，系统先进行一次自主修复并记录原因；完成后回执必须说明执行过程、异常处理、关键结果和下一步。用户认可后回复<strong>确认工作流 wf_xxx</strong>，该路径沉淀为个人 workflow；Admin 审核后可提升为组织 workflow，下一次团队内同类销售管理任务优先复用。' +
+    '</div>' +
+    '<div class="story-flow"><span class="flow-step">经营目标</span><span class="flow-arrow">→</span><span class="flow-step">匹配既有workflow</span><span class="flow-arrow">→</span><span class="flow-step">首跑规划</span><span class="flow-arrow">→</span><span class="flow-step">异常自修复</span><span class="flow-arrow">→</span><span class="flow-step">过程汇报</span><span class="flow-arrow">→</span><span class="flow-step">确认后复用</span></div></div>' +
 
     '<div class="story-card"><h4>📖 故事一：平台初始化配置</h4>' +
     '<div class="story-role">角色：管理员 (Admin) · Day 1</div>' +
@@ -724,7 +733,8 @@ function renderGuideQuickstart() {
     '<table><tr><th>场景</th><th>操作方式</th><th>示例</th></tr>' +
     '<tr><td>日常对话</td><td>在飞书/企微中直接发消息</td><td>"你好，今天天气怎么样？"</td></tr>' +
     '<tr><td>快速查询</td><td>用"查一下"等关键词触发</td><td>"查一下张经理的电话"</td></tr>' +
-    '<tr><td>提交长任务</td><td>描述复杂目标，系统自动规划</td><td>"帮我分析Q3销售数据并生成报告"</td></tr>' +
+    '<tr><td>提交长任务</td><td>描述复杂目标，系统先匹配已确认 workflow，未命中时自动规划</td><td>"分析本周华东区回款风险，并列出需要老板拍板的事项"</td></tr>' +
+    '<tr><td>确认复用</td><td>任务完成后认可执行路径，在 IM 中确认</td><td>"确认工作流 wf_xxx"</td></tr>' +
     '<tr><td>提交知识</td><td>用"记录"/"提交知识"等关键词</td><td>"记录：XX客户下季度采购500套"</td></tr>' +
     '<tr><td>Web任务</td><td>在 Portal 任务接入页面创建</td><td>填写任务目标、类型、执行者</td></tr>' +
     '</table></div>' +

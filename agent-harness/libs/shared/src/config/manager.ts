@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { dirname, resolve } from 'path';
 import YAML from 'yaml';
 
 /**
@@ -88,6 +88,22 @@ const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
+function findConfigRoot(startDir: string): string {
+  let current = resolve(startDir);
+  let parent = dirname(current);
+  while (parent !== current) {
+    if (existsSync(resolve(current, 'config/default.yaml'))) {
+      return current;
+    }
+    current = parent;
+    parent = dirname(current);
+  }
+  if (existsSync(resolve(current, 'config/default.yaml'))) {
+    return current;
+  }
+  return resolve(startDir);
+}
+
 // Config Manager
 export class ConfigManager {
   private config: Config;
@@ -100,16 +116,19 @@ export class ConfigManager {
   private loadConfig(): Config {
     // Priority: env vars > production.yaml > default.yaml > code defaults
     const configs: Partial<Config>[] = [];
+    const configRoot = process.env.AGENT_HARNESS_CONFIG_ROOT
+      ? resolve(process.env.AGENT_HARNESS_CONFIG_ROOT)
+      : findConfigRoot(process.cwd());
 
     // 1. Default config
-    const defaultConfigPath = resolve(process.cwd(), 'config/default.yaml');
+    const defaultConfigPath = resolve(configRoot, 'config/default.yaml');
     if (existsSync(defaultConfigPath)) {
       configs.push(YAML.parse(readFileSync(defaultConfigPath, 'utf-8')) as Partial<Config>);
     }
 
     // 2. Environment specific config
     const env = process.env.NODE_ENV || 'development';
-    const envConfigPath = resolve(process.cwd(), `config/${env}.yaml`);
+    const envConfigPath = resolve(configRoot, `config/${env}.yaml`);
     if (existsSync(envConfigPath)) {
       configs.push(YAML.parse(readFileSync(envConfigPath, 'utf-8')) as Partial<Config>);
     }

@@ -11,18 +11,22 @@ describe('userRefToDbId', () => {
     expect(userRefToDbId(uuid)).toBe(uuid.toLowerCase())
   })
 
-  it('generates deterministic uuid from non-uuid string', () => {
-    const input = 'feishu:user_abc123'
+  it('generates deterministic uuid from canonical user ref', () => {
+    const input = 'u_feishu_user_abc123'
     const result = userRefToDbId(input)
     expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
   })
 
-  it('generates same uuid for same non-uuid input', () => {
-    expect(userRefToDbId('feishu:user_abc')).toBe(userRefToDbId('feishu:user_abc'))
+  it('generates same uuid for same canonical user ref', () => {
+    expect(userRefToDbId('u_feishu_user_abc')).toBe(userRefToDbId('u_feishu_user_abc'))
   })
 
-  it('generates different uuid for different non-uuid input', () => {
-    expect(userRefToDbId('feishu:user_a')).not.toBe(userRefToDbId('feishu:user_b'))
+  it('generates different uuid for different canonical user refs', () => {
+    expect(userRefToDbId('u_feishu_user_a')).not.toBe(userRefToDbId('u_feishu_user_b'))
+  })
+
+  it('rejects raw channel identity refs before database mapping', () => {
+    expect(() => userRefToDbId('feishu:user_abc123')).toThrow('Invalid user reference format')
   })
 })
 
