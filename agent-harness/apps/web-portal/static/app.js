@@ -1806,7 +1806,7 @@ async function loadInspectionReport() {
   }
   const data = r.data.report;
   const results = data.results || data.services || [];
-  const inspectedAt = data.inspected_at || data.timestamp || '';
+  const inspectedAt = data.inspected_at || data.timestamp || data.finished_at || data.started_at || '';
   if (results.length === 0) {
     report.innerHTML = '<p style="color:var(--text2)">暂无巡检数据</p>';
     return;
@@ -1816,7 +1816,7 @@ async function loadInspectionReport() {
     results.map(function(s) {
       const statusClass = s.healthy || s.status === 'healthy' ? 'badge-success' : 'badge-danger';
       const statusText = s.healthy || s.status === 'healthy' ? 'healthy' : (s.status || 'unhealthy');
-      return '<tr><td>' + escapeHtml(s.service || s.name || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(statusText) + '</span></td><td>' + escapeHtml(String(s.latency_ms || s.latency || '-')) + '</td><td style="font-size:13px">' + escapeHtml(String(s.error || s.detail || '-')) + '</td></tr>';
+      return '<tr><td>' + escapeHtml(s.service || s.service_name || s.name || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(statusText) + '</span></td><td>' + escapeHtml(String(s.latency_ms || s.latency || '-')) + '</td><td style="font-size:13px">' + escapeHtml(String(s.error || s.detail || '-')) + '</td></tr>';
     }).join('') + '</table>';
 }
 

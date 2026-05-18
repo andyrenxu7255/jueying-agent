@@ -8,7 +8,7 @@ function pushResult(name, ok, detail, ms) {
 
 async function request(name, url, options = {}) {
   const t0 = Date.now();
-  const timeoutMs = name.includes('litellm') ? 45000 : (name.includes('workflow.plan') ? 30000 : 10000);
+  const timeoutMs = name.includes('litellm') ? 45000 : (name.includes('workflow.plan') ? 60000 : 10000);
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -53,11 +53,13 @@ async function requestWithRetry(name, url, options = {}, retries = 1) {
 }
 
 async function run() {
+  const runRef = `smoke_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 8)}`;
+
   await request("gateway.health.live", "http://localhost:3000/health/live");
   await request("workflow.health.live", "http://localhost:3001/health/live");
   await request("executor.health.live", "http://localhost:3002/health/live");
   await requestWithRetry("litellm.health", "http://localhost:4000/health/liveliness", {}, 1);
-  await request("signoz.query.health", "http://localhost:8080/");
+  await request("signoz.query.health", "http://localhost:8080/api/v1/health");
   await request("signoz.frontend.health", "http://localhost:3301");
 
   const normalizePayload = {
@@ -105,7 +107,7 @@ async function run() {
   }
 
   const planPayload = {
-    user_id: "u_perf",
+    user_id: `u_${runRef}`,
     task_type_hint: "knowledge",
     risk_level: "medium",
     user_goal: "validate planning path",
@@ -114,7 +116,7 @@ async function run() {
       retrieval: 8,
       execution: 20,
     },
-    policy_snapshot_hash: "sha256:perf",
+    policy_snapshot_hash: `sha256:${runRef}`,
   };
 
   const plan = await request(

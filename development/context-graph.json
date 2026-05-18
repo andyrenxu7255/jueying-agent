@@ -1,6 +1,6 @@
 {
-  "version": "v2.3",
-  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-18 R10: B2B sales storyline system acceptance and UI smoke. Added DEV-19 for dependency checks, portal UX validation, config-root startup fix, and workflow reuse story alignment.",
+  "version": "v2.4",
+  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-18 R11: full-stack online smoke and portal UX remediation. DEV-19 now records Docker build/health fixes, Web Portal workflow/org/resource proxies, CSP interaction recovery, app.js cache policy, and passing online service tests.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -82,8 +82,23 @@
     "agent-harness/libs/shared/src/monitoring/security-check.ts": ["AH1-16-权限Scope-Policy-Snapshot.md", "AH1-34-安全架构增强.md"],
     "agent-harness/libs/shared/src/ai/embedding.ts": ["AH1-26-Provider选择与配置.md", "AH1-31-错误处理与降级策略.md"],
     "agent-harness/libs/shared/src/config/manager.ts": ["AH1-28-配置管理.md"],
-    "agent-harness/apps/web-portal/static/app.js": ["AH1-21-渠道接入与Session映射.md", "AH1-17-Workflow-DSL与Planner契约.md"],
-    "agent-harness/services/fact-retrieval/src/support.test.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-16-权限Scope-Policy-Snapshot.md"]
+    "agent-harness/apps/web-portal/static/app.js": ["AH1-21-渠道接入与Session映射.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md"],
+    "agent-harness/apps/web-portal/src/index.ts": ["AH1-15-核心接口与事件契约.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md", "AH1-27-部署与运维.md"],
+    "agent-harness/services/fact-retrieval/src/support.test.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-16-权限Scope-Policy-Snapshot.md"],
+    "agent-harness/scripts/smoke-eval.js": ["AH1-23-审计日志指标与告警.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-27-部署与运维.md"],
+    "agent-harness/docker-compose.yml": ["AH1-27-部署与运维.md", "AH1-23-审计日志指标与告警.md"],
+    "agent-harness/docker/otel-collector-config.yaml": ["AH1-23-审计日志指标与告警.md", "AH1-27-部署与运维.md"],
+    "agent-harness/services/feishu-longconn/src/index.ts": ["AH1-21-渠道接入与Session映射.md", "AH1-27-部署与运维.md"],
+    "agent-harness/apps/web-portal/Dockerfile": ["AH1-27-部署与运维.md"],
+    "agent-harness/apps/mobile-app/Dockerfile": ["AH1-27-部署与运维.md"],
+    "agent-harness/apps/gateway-adapter/Dockerfile": ["AH1-27-部署与运维.md"],
+    "agent-harness/services/workflow/Dockerfile": ["AH1-27-部署与运维.md"],
+    "agent-harness/services/executor-gateway/Dockerfile": ["AH1-27-部署与运维.md"],
+    "agent-harness/services/fact-retrieval/Dockerfile": ["AH1-27-部署与运维.md"],
+    "agent-harness/services/feishu-longconn/Dockerfile": ["AH1-27-部署与运维.md"],
+    "agent-harness/services/hermes-adapter/Dockerfile": ["AH1-27-部署与运维.md"],
+    "agent-harness/services/resource-scheduler/Dockerfile": ["AH1-27-部署与运维.md"],
+    "agent-harness/services/skill-library/Dockerfile": ["AH1-27-部署与运维.md"]
   },
   "task_profiles": {
     "M1_ingress_workflow": {
@@ -230,8 +245,9 @@
     "2026-05-17-R7": "Round 5 Comprehensive Audit (25 fixes): [Frontend] const→let for guideTab+toastContainer, showModal ESC listener leak fixed, API error handling added to triggerOrgTask/pauseOrgTask/archiveOrgTask/handleApproval, initApp error boundary, doLogout session invalidation; [Backend] Dream+Task Schedulers refactored to direct fetchFromService calls (was 401-failing HTTP self-calls), /internal/tasks/assign+notify now requireAdmin, setup IP check uses x-forwarded-for+exact matching, setup initialized guard prevents re-init, fetchFromService 30s timeout with AbortError handling; [Infra] litellm main-latest→main-v1.74.4-stable, ADMIN_PASSWORD default added, Redis healthcheck REDISCLI_AUTH, ollama+ollama-pull+ollama_data removed; [Deps] pg unified ^8.20.0 across audit/hermes/web-portal, yaml ^2.4.0→^2.8.3 in shared, drizzle-orm added to hermes-adapter",
     "2026-05-17-R9": "B2B sales storyline and workflow observability loop: rewrote story 21 around boss/manager/sales/admin/ops/dev scenarios; planner now matches private/org/public active workflow skills; gateway supports process-rich completion replies and user confirmation; executor attempts autonomous repair; added smoke:workflow-observability.",
     "2026-05-18-R10": "B2B storyline acceptance and UI smoke: config manager now resolves config/default.yaml from service subdirectories; web portal guide shows 21 stories including B2B sales management daily loop; fact-retrieval tests assert canonical user refs and reject raw channel identity refs; DEV-19 records dependency, test, and UI validation.",
-    "total_fixes": 52,
-    "files_modified": 31,
+    "2026-05-18-R11": "Full-stack online remediation: Dockerfiles now copy root lockfile plus full workspaces; SigNoz/ClickHouse/Feishu health checks fixed; OTel health extension added; smoke-eval uses SigNoz /api/v1/health, unique users, and longer plan timeout; Web Portal restores CSP-compatible existing interactions, no-caches app.js, and adds workflow/org/quota/inspection proxies verified by Playwright.",
+    "total_fixes": 61,
+    "files_modified": 49,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
   }

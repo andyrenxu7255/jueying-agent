@@ -53,6 +53,14 @@ const SETUP_TOKEN = process.env.SETUP_TOKEN || '';
 
 const SCRYPT_KEY_LENGTH = 32;
 const SCRYPT_COST = 16384;
+const DEFAULT_QUOTAS = {
+  concurrent_workflows: 10,
+  daily_api_calls: 1000,
+  retrieval_queries: 500,
+  execution_seconds: 3600,
+  storage_bytes: 1073741824,
+  llm_tokens: 100000,
+};
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');
@@ -221,7 +229,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 function sendJson(res: ServerResponse, statusCode: number, data: unknown): void {
   const body = JSON.stringify(data);
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'");
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(body, 'utf8'),
@@ -235,9 +243,9 @@ function sendFile(res: ServerResponse, filePath: string, contentType: string): v
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'");
-    const isHtml = contentType.includes('text/html');
-    const cacheControl = isHtml ? 'no-cache' : 'public, max-age=3600';
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'");
+    const noCache = contentType.includes('text/html') || contentType.includes('javascript');
+    const cacheControl = noCache ? 'no-cache' : 'public, max-age=3600';
     res.writeHead(200, {
       'Content-Type': contentType,
       'Content-Length': content.length,
@@ -413,6 +421,77 @@ async function fetchFromService(url: string, options?: { method?: string; header
     logger.warn('service.fetch_failed', 'Failed to fetch from service', { url, error: String(error) });
     return { status: 502, data: { ok: false, error: 'service_unavailable' } };
   }
+}
+
+function toWorkflowUserId(session: Session): string {
+  if (/^u_[a-z0-9][a-z0-9_-]{1,62}$/.test(session.user_id)) return session.user_id;
+  const source = session.username || session.user_id || 'portal_user';
+  const normalized = source.toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 56) || 'portal_user';
+  return `u_${normalized}`;
+}
+
+function getWorkflowGoal(workflow: Record<string, unknown>): string {
+  const plan = workflow.plan as Record<string, unknown> | undefined;
+  const goal = plan?.goal as Record<string, unknown> | undefined;
+  return String(goal?.user_goal || workflow.goal || workflow.id || '-');
+}
+
+function normalizeWorkflowList(data: unknown, status?: string): { ok: boolean; workflows: Array<Record<string, unknown>> } {
+  const body = data as { workflows?: Array<Record<string, unknown>> };
+  const rawWorkflows = Array.isArray(body?.workflows) ? body.workflows : [];
+  const filtered = status ? rawWorkflows.filter(w => String(w.status || '') === status) : rawWorkflows;
+  return {
+    ok: true,
+    workflows: filtered.map(w => ({
+      ...w,
+      ref: w.id || w.ref,
+      goal: getWorkflowGoal(w),
+    })),
+  };
+}
+
+function normalizeWorkflowDetail(data: unknown): { ok: boolean; workflow?: Record<string, unknown>; error?: string } {
+  const body = data as { workflow?: Record<string, unknown>; error?: string };
+  if (!body?.workflow) return { ok: false, error: body?.error || 'workflow_not_found' };
+  const workflow = body.workflow;
+  const plan = workflow.plan as Record<string, unknown> | undefined;
+  const stageChain = Array.isArray(plan?.stage_chain) ? plan.stage_chain as Array<Record<string, unknown>> : [];
+  const stages = Array.isArray(workflow.stages) ? workflow.stages as Array<Record<string, unknown>> : [];
+  return {
+    ok: true,
+    workflow: {
+      ...workflow,
+      ref: workflow.id,
+      goal: getWorkflowGoal(workflow),
+      stages: stages.map((stage, index) => {
+        const planned = stageChain[index] || {};
+        return {
+          ...stage,
+          name: planned.purpose || stage.id || `Stage ${index + 1}`,
+          stage_type: planned.stage_type || planned.stage_key || '-',
+        };
+      }),
+    },
+  };
+}
+
+function getQuotaScope(session: Session): string {
+  return session.org_id ? `org:${session.org_id}` : `user:${toWorkflowUserId(session)}`;
+}
+
+function normalizeQuotaResponse(data: unknown): { ok: boolean; scope: string; quotas: Record<string, { limit: number; used: number }> } {
+  const body = data as { quota?: Record<string, unknown>; usage?: Record<string, unknown> };
+  const quota = body.quota || {};
+  const usage = body.usage || {};
+  const quotas: Record<string, { limit: number; used: number }> = {};
+  for (const [key, defaultLimit] of Object.entries(DEFAULT_QUOTAS)) {
+    const usedKey = key === 'concurrent_workflows' ? 'active_workflows' : `${key}_used`;
+    quotas[key] = {
+      limit: Number(quota[key] || defaultLimit),
+      used: Number(usage[usedKey] || 0),
+    };
+  }
+  return { ok: true, scope: String(quota.scope || ''), quotas };
 }
 
 function loadEnvFile(): Record<string, string> {
@@ -876,9 +955,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireSession(req, res);
       if (!session) return;
       const status = url.searchParams.get('status') || '';
-      const targetUrl = workflowUrl + '/workflows' + (status ? `?status=${encodeURIComponent(status)}` : '');
+      const params = new URLSearchParams({ limit: '100' });
+      if (session.role === 'admin') {
+        params.set('acting_role', 'admin');
+        if (session.org_id) params.set('org_id', session.org_id);
+        else params.set('owner_user_id', toWorkflowUserId(session));
+      } else {
+        params.set('owner_user_id', toWorkflowUserId(session));
+      }
+      const targetUrl = `${workflowUrl}/internal/workflows?${params.toString()}`;
       const r = await fetchFromService(targetUrl);
-      sendJson(res, r.status, r.data);
+      sendJson(res, r.status, r.status >= 200 && r.status < 300 ? normalizeWorkflowList(r.data, status || undefined) : r.data);
       return;
     }
 
@@ -886,8 +973,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireSession(req, res);
       if (!session) return;
       const ref = pathname.slice('/api/workflows/'.length);
-      const r = await fetchFromService(workflowUrl + '/workflows/' + encodeURIComponent(ref));
-      sendJson(res, r.status, r.data);
+      const params = new URLSearchParams();
+      if (session.role === 'admin') params.set('acting_role', 'admin');
+      else params.set('owner_user_id', toWorkflowUserId(session));
+      if (session.org_id) params.set('org_id', session.org_id);
+      const r = await fetchFromService(`${workflowUrl}/internal/workflows/${encodeURIComponent(ref)}?${params.toString()}`);
+      sendJson(res, r.status, r.status >= 200 && r.status < 300 ? normalizeWorkflowDetail(r.data) : r.data);
       return;
     }
 
@@ -895,8 +986,38 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireSession(req, res);
       if (!session) return;
       const body = await readJson(req);
-      const r = await fetchFromService(workflowUrl + '/workflows/create-from-markdown', { method: 'POST', body: JSON.stringify(body) });
-      sendJson(res, r.status, r.data);
+      const ownerUserId = toWorkflowUserId(session);
+      const planBody = {
+        user_id: ownerUserId,
+        user_role: session.role,
+        user_goal: String(body.goal || body.user_goal || ''),
+        task_type_hint: body.task_type || body.task_type_hint,
+        risk_level: body.risk_level || 'medium',
+        org_id: session.org_id || undefined,
+        source: 'web_portal',
+        policy_snapshot_hash: `sha256:portal_${createHash('sha256').update(`${session.user_id}:${session.org_id || ''}`).digest('hex')}`,
+      };
+      const plan = await fetchFromService(`${workflowUrl}/internal/workflows/plan`, { method: 'POST', body: JSON.stringify(planBody) });
+      if (plan.status < 200 || plan.status >= 300) {
+        sendJson(res, plan.status, plan.data);
+        return;
+      }
+      const planData = plan.data as { workflow_instance_ref?: string };
+      const workflowRef = planData.workflow_instance_ref || '';
+      if (!workflowRef) {
+        sendJson(res, 502, { ok: false, error: 'workflow_plan_missing_ref' });
+        return;
+      }
+      const dispatch = await fetchFromService(`${workflowUrl}/internal/workflows/${encodeURIComponent(workflowRef)}/dispatch`, {
+        method: 'POST',
+        body: JSON.stringify({ user_role: session.role, executor_kind: body.target_executor || 'generic-executor' }),
+      });
+      sendJson(res, dispatch.status, {
+        ok: dispatch.status >= 200 && dispatch.status < 300,
+        workflow_ref: workflowRef,
+        plan: plan.data,
+        dispatch: dispatch.data,
+      });
       return;
     }
 
@@ -905,7 +1026,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const ref = pathname.slice('/api/workflows/'.length, -'/approval'.length);
       const body = await readJson(req);
-      const r = await fetchFromService(workflowUrl + '/workflows/' + encodeURIComponent(ref) + '/approval', { method: 'POST', body: JSON.stringify(body) });
+      const action = String(body.action || '').toLowerCase();
+      const endpoint = action === 'reject' ? 'cancel' : 'resume';
+      const r = await fetchFromService(`${workflowUrl}/internal/workflows/${encodeURIComponent(ref)}/${endpoint}`, {
+        method: 'POST',
+        body: JSON.stringify({ user_role: session.role, reason: action || 'approval' }),
+      });
       sendJson(res, r.status, r.data);
       return;
     }
@@ -963,8 +1089,21 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/admin/organizations' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
-      const r = await fetchFromService(gatewayUrl + '/admin/organizations');
-      sendJson(res, r.status, r.data);
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const result = await pool.query(
+          `SELECT id, org_name, display_name, status, settings, metadata, created_at, updated_at
+           FROM organization
+           WHERE status <> 'deleted'
+           ORDER BY created_at DESC
+           LIMIT 1000`
+        );
+        sendJson(res, 200, { ok: true, organizations: result.rows });
+      } catch (error) {
+        logger.error('organizations.list_failed', 'Organization list failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
       return;
     }
 
@@ -972,8 +1111,23 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const body = await readJson(req);
-      const r = await fetchFromService(gatewayUrl + '/admin/organizations', { method: 'POST', body: JSON.stringify(body) });
-      sendJson(res, r.status, r.data);
+      const orgName = String(body.org_name || '').trim();
+      const displayName = String(body.display_name || orgName).trim();
+      if (!orgName) { sendJson(res, 400, { ok: false, error: 'missing_org_name' }); return; }
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const result = await pool.query(
+          `INSERT INTO organization (org_name, display_name, status, settings, metadata)
+           VALUES ($1, $2, 'active', COALESCE($3::jsonb, '{}'::jsonb), COALESCE($4::jsonb, '{}'::jsonb))
+           RETURNING id, org_name, display_name, status, settings, metadata, created_at, updated_at`,
+          [orgName, displayName, JSON.stringify(body.settings || {}), JSON.stringify(body.metadata || {})]
+        );
+        sendJson(res, 201, { ok: true, organization: result.rows[0] });
+      } catch (error) {
+        logger.error('organizations.create_failed', 'Organization create failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
       return;
     }
 
@@ -981,8 +1135,20 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const orgId = pathname.slice('/api/admin/organizations/'.length);
-      const r = await fetchFromService(gatewayUrl + '/admin/organizations/' + encodeURIComponent(orgId));
-      sendJson(res, r.status, r.data);
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const result = await pool.query(
+          `SELECT id, org_name, display_name, status, settings, metadata, created_at, updated_at
+           FROM organization WHERE id = $1 LIMIT 1`,
+          [orgId]
+        );
+        if (result.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'organization_not_found' }); return; }
+        sendJson(res, 200, { ok: true, organization: result.rows[0] });
+      } catch (error) {
+        logger.error('organizations.get_failed', 'Organization get failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
       return;
     }
 
@@ -991,8 +1157,32 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const orgId = pathname.slice('/api/admin/organizations/'.length);
       const body = await readJson(req);
-      const r = await fetchFromService(gatewayUrl + '/admin/organizations/' + encodeURIComponent(orgId), { method: 'PUT', body: JSON.stringify(body) });
-      sendJson(res, r.status, r.data);
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const result = await pool.query(
+          `UPDATE organization
+           SET display_name = COALESCE($2, display_name),
+               status = COALESCE($3, status),
+               settings = COALESCE($4::jsonb, settings),
+               metadata = COALESCE($5::jsonb, metadata),
+               updated_at = now()
+           WHERE id = $1
+           RETURNING id, org_name, display_name, status, settings, metadata, created_at, updated_at`,
+          [
+            orgId,
+            body.display_name !== undefined ? String(body.display_name) : null,
+            body.status !== undefined ? String(body.status) : null,
+            body.settings !== undefined ? JSON.stringify(body.settings) : null,
+            body.metadata !== undefined ? JSON.stringify(body.metadata) : null,
+          ]
+        );
+        if (result.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'organization_not_found' }); return; }
+        sendJson(res, 200, { ok: true, organization: result.rows[0] });
+      } catch (error) {
+        logger.error('organizations.update_failed', 'Organization update failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
       return;
     }
 
@@ -1000,8 +1190,19 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const orgId = pathname.slice('/api/admin/organizations/'.length);
-      const r = await fetchFromService(gatewayUrl + '/admin/organizations/' + encodeURIComponent(orgId), { method: 'DELETE' });
-      sendJson(res, r.status, r.data);
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      try {
+        const result = await pool.query(
+          `UPDATE organization SET status = 'deleted', updated_at = now() WHERE id = $1 RETURNING id`,
+          [orgId]
+        );
+        if (result.rows.length === 0) { sendJson(res, 404, { ok: false, error: 'organization_not_found' }); return; }
+        sendJson(res, 200, { ok: true });
+      } catch (error) {
+        logger.error('organizations.delete_failed', 'Organization delete failed', { error: String(error) });
+        sendJson(res, 500, { ok: false, error: 'db_error' });
+      }
       return;
     }
 
@@ -1483,8 +1684,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/admin/quotas' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
-      const r = await fetchFromService(resourceSchedulerUrl + '/admin/quotas');
-      sendJson(res, r.status, r.data);
+      const scope = getQuotaScope(session);
+      const r = await fetchFromService(resourceSchedulerUrl + '/internal/quotas/' + scope);
+      if (r.status === 404) {
+        sendJson(res, 200, normalizeQuotaResponse({ quota: { scope, ...DEFAULT_QUOTAS }, usage: {} }));
+        return;
+      }
+      sendJson(res, r.status, r.status >= 200 && r.status < 300 ? normalizeQuotaResponse(r.data) : r.data);
       return;
     }
 
@@ -1492,7 +1698,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const body = await readJson(req);
-      const r = await fetchFromService(resourceSchedulerUrl + '/admin/quotas', { method: 'POST', body: JSON.stringify(body) });
+      const quotas = (body.quotas || {}) as Record<string, unknown>;
+      const payload = {
+        scope: getQuotaScope(session),
+        created_by: session.user_id,
+        ...DEFAULT_QUOTAS,
+        ...Object.fromEntries(Object.keys(DEFAULT_QUOTAS).map(key => [key, Number(quotas[key] || DEFAULT_QUOTAS[key as keyof typeof DEFAULT_QUOTAS])])),
+      };
+      const r = await fetchFromService(resourceSchedulerUrl + '/internal/quotas/create', { method: 'POST', body: JSON.stringify(payload) });
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1500,7 +1713,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/admin/quotas/report' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
-      const r = await fetchFromService(resourceSchedulerUrl + '/admin/quotas/report');
+      const r = await fetchFromService(resourceSchedulerUrl + '/internal/inspections/report');
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1508,7 +1721,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/admin/quotas/inspect' && method === 'POST') {
       const session = await requireAdmin(req, res);
       if (!session) return;
-      const r = await fetchFromService(resourceSchedulerUrl + '/admin/quotas/inspect', { method: 'POST' });
+      const r = await fetchFromService(resourceSchedulerUrl + '/internal/inspections/start', { method: 'POST' });
       sendJson(res, r.status, r.data);
       return;
     }

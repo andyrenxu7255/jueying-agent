@@ -8,6 +8,8 @@ const appId = process.env.FEISHU_APP_ID;
 const appSecret = process.env.FEISHU_APP_SECRET;
 const feishuDomain = process.env.FEISHU_DOMAIN || 'feishu';
 const gatewayUrl = process.env.GATEWAY_URL || '';
+const healthPort = Number(process.env.PORT || process.env.SERVER_PORT || 3006);
+let healthStatus: Record<string, unknown> = { status: 'starting' };
 
 const FEISHU_DOMAIN_MAP: Record<string, string> = {
   feishu: 'https://open.feishu.cn',
@@ -17,6 +19,26 @@ const FEISHU_DOMAIN_MAP: Record<string, string> = {
 function resolveWsDomain(domain: string): string {
   return FEISHU_DOMAIN_MAP[domain] || domain;
 }
+
+const healthServer = http.createServer((req, res) => {
+  const url = new URL(req.url || '/', 'http://localhost');
+  if (url.pathname === '/health/live' || url.pathname === '/health/ready') {
+    sendJson(res, 200, { ok: true, service: 'feishu-longconn', ...healthStatus });
+  } else {
+    sendJson(res, 404, { ok: false, error: 'not_found' });
+  }
+});
+
+healthServer.listen(healthPort, () => {
+  logger.info('health.server.started', 'Feishu long connection health server started', { port: healthPort });
+});
+
+function shutdown(): void {
+  healthServer.close(() => process.exit(0));
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 
 async function forwardToGateway(eventBody: Record<string, unknown>): Promise<boolean> {
   const targetUrl = `${gatewayUrl}/channels/feishu/longconn/event`;
@@ -55,24 +77,8 @@ async function forwardToGateway(eventBody: Record<string, unknown>): Promise<boo
 }
 
 if (!appId || !appSecret) {
+  healthStatus = { status: 'idle', reason: 'missing_credentials' };
   logger.error('config.missing', 'Missing FEISHU_APP_ID or FEISHU_APP_SECRET, service will idle until configured');
-
-  const healthServer = http.createServer((req, res) => {
-    const url = new URL(req.url || '/', 'http://localhost');
-    if (url.pathname === '/health/live' || url.pathname === '/health/ready') {
-      sendJson(res, 200, { ok: true, service: 'feishu-longconn', status: 'idle', reason: 'missing_credentials' });
-    } else {
-      sendJson(res, 404, { ok: false, error: 'not_found' });
-    }
-  });
-
-  const healthPort = Number(process.env.PORT || process.env.SERVER_PORT || 3006);
-  healthServer.listen(healthPort, () => {
-    logger.info('service.idle', 'Feishu long connection service idling (missing credentials)', { port: healthPort });
-  });
-
-  process.on('SIGTERM', () => { healthServer.close(() => process.exit(0)); });
-  process.on('SIGINT', () => { healthServer.close(() => process.exit(0)); });
 
   setInterval(() => {}, 24 * 60 * 60 * 1000);
 } else {
@@ -140,5 +146,6 @@ if (!appId || !appSecret) {
     })
   });
 
+  healthStatus = { status: 'running', domain: feishuDomain };
   logger.info('service.started', 'Feishu long connection service started');
 }

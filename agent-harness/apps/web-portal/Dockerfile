@@ -1,8 +1,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json tsconfig.json ./
+COPY package.json package-lock.json tsconfig.json ./
 COPY libs ./libs
-COPY apps/web-portal ./apps/web-portal
+COPY services ./services
+COPY apps ./apps
 RUN npm ci
 RUN npm run build --workspace @agent-harness/shared \
   && npm run build --workspace @agent-harness/audit

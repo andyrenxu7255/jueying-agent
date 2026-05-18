@@ -19,6 +19,23 @@
    - 测试用例改为使用规范化 `u_...` 用户引用。
    - 增加原始渠道身份引用 `feishu:user_abc123` 被拒绝的断言，匹配当前身份安全边界。
 
+4. Docker 镜像与运行健康检查
+   - 修复 Node 工作区镜像构建时缺少 `package-lock.json` 和跨 workspace 源码的问题，覆盖 Web Portal、Gateway、Mobile App 以及 7 个服务镜像。
+   - 修复 SigNoz、ClickHouse、Feishu LongConn 健康检查在容器内使用 `localhost` 导致的不可用问题，统一改为明确的本机监听地址。
+   - 为 OTel Collector 增加健康检查扩展，为 Feishu LongConn 增加常驻健康端口。
+
+5. `apps/web-portal/src/index.ts` 与 `apps/web-portal/static/app.js`
+   - 恢复门户页签、按钮等既有页面交互，解决 CSP 拦截内联事件导致“场景故事”等内容无法点击的问题。
+   - 补齐 Web Portal 到 Workflow Service 的列表、详情、创建和审批代理，用户可从任务接入创建 B2B 销售任务，并在 Workflow 控制台查看阶段计划。
+   - 补齐组织管理本地数据库接口，修复 Admin 任务分发页面加载组织列表失败的问题。
+   - 补齐资源配额与巡检代理，修复资源监控页面配额卡片、巡检表无法加载或服务名显示为空的问题。
+   - 将 `app.js` 改为 no-cache，避免部署后浏览器继续使用旧门户脚本。
+
+6. `scripts/smoke-eval.js`
+   - SigNoz 查询健康检查改为 `/api/v1/health`。
+   - 冒烟用户和策略 hash 每次运行唯一化，避免被已有活跃工作流并发限制误伤。
+   - 工作流规划等待时间从 30 秒放宽到 60 秒，匹配真实模型调用波动。
+
 ## 验收结果
 
 ### 代码与依赖
@@ -31,7 +48,12 @@
 - `npm run build`：通过。
 - `npm run context:audit`：通过。
 - `npm run smoke:workflow-observability`：通过。
+- `npm run smoke:channels`：通过，16/16。
+- `npm run test:dream-mode`：通过，14/14。
+- `npm run test:task-dispatch`：通过，37/37。
+- `npm run smoke:eval`：通过，33/33。
 - `docker compose config --quiet`：通过。
+- `docker compose ps`：全服务 healthy。
 
 ### 界面体验
 
@@ -41,14 +63,18 @@
   - 桌面宽度：21 条故事线可见，新增 B2B 故事线可见，无横向溢出，无控制台错误。
   - 移动宽度：21 条故事线可见，新增 B2B 故事线可见，无横向溢出。
   - 快速上手页包含“分析本周华东区回款风险”和“确认工作流 wf_xxx”示例。
+- 通过 Playwright 检查真实运行门户：
+  - Admin 登录后可见共享、调度、梦境模式等专属导航。
+  - 系统指南页签可点击，21 条故事线正常切换显示。
+  - 任务接入页可提交“B2B 销售经理晨会”任务，Workflow 控制台显示运行中的工作流，详情页显示阶段计划。
+  - 任务分发页可打开创建表单，组织下拉列表正常加载。
+  - 资源监控页可加载配额卡片和服务巡检报告，控制台无错误，页面无横向溢出。
 
 ### 环境限制
 
-- `npm run smoke:channels` 需要 gateway 等服务在线。本机 Docker Desktop/Linux engine 未运行，`localhost:3000` 与 `localhost:3003` 未监听，因此通道冒烟被环境阻断。
-- `npm run test:dream-mode` 需要 Hermes 与 Skill Library 在线，当前环境全部请求失败于 `fetch failed`，未进入业务断言。
-- `npm run test:task-dispatch` 需要 Gateway 与 Web Portal 在线，当前环境健康检查失败；其中 12 条静态意图分类用例通过，25 条在线服务用例被服务不可达阻断。
-- `docker compose config --quiet` 已通过，说明 Compose 配置本身可解析。
+- Docker 在线后，本轮已完成依赖全栈的渠道、梦境、任务分发和在线评测冒烟。
+- 当前仅保留一个运维显示限制：Web Portal 容器未挂载宿主 Docker socket，因此“Docker 容器监控”区块会提示 Docker 不可用；系统健康、配额和服务巡检数据不依赖该区块，均已可用。
 
 ## 结论
 
-代码层面已覆盖 DEV-18 的工作流可观测与确认复用路径，门户内容也已把 B2B 销售管理故事线展示给 Admin/运维/业务用户。当前剩余限制不是代码失败，而是本地 Docker 服务未启动导致无法执行依赖全栈在线服务的通道冒烟。
+代码层面已覆盖 DEV-18 的工作流可观测与确认复用路径，门户内容也已把 B2B 销售管理故事线展示给 Admin、运维、开发和业务用户。Docker 全栈在线后，关键服务健康、自动化测试、在线冒烟和真实门户体验均已通过；本轮发现的镜像构建、健康检查、CSP 交互、工作流代理、组织接口、资源配额与巡检显示问题均已修复。
