@@ -452,6 +452,10 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-default_admin_changeme}
     ports:
       - "3003:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "0"
     depends_on:
       postgres:
         condition: service_healthy

@@ -23,6 +23,7 @@
    - 修复 Node 工作区镜像构建时缺少 `package-lock.json` 和跨 workspace 源码的问题，覆盖 Web Portal、Gateway、Mobile App 以及 7 个服务镜像。
    - 修复 SigNoz、ClickHouse、Feishu LongConn 健康检查在容器内使用 `localhost` 导致的不可用问题，统一改为明确的本机监听地址。
    - 为 OTel Collector 增加健康检查扩展，为 Feishu LongConn 增加常驻健康端口。
+   - Web Portal 镜像安装 Docker CLI，并在 Compose 中挂载 `/var/run/docker.sock`、为非 root `appuser` 增加 socket 所属组访问权限，使“Docker 容器监控”区块可读取宿主容器状态。
 
 5. `apps/web-portal/src/index.ts` 与 `apps/web-portal/static/app.js`
    - 恢复门户页签、按钮等既有页面交互，解决 CSP 拦截内联事件导致“场景故事”等内容无法点击的问题。
@@ -69,11 +70,12 @@
   - 任务接入页可提交“B2B 销售经理晨会”任务，Workflow 控制台显示运行中的工作流，详情页显示阶段计划。
   - 任务分发页可打开创建表单，组织下拉列表正常加载。
   - 资源监控页可加载配额卡片和服务巡检报告，控制台无错误，页面无横向溢出。
+  - Web Portal API `/api/admin/container-stats` 返回 `docker_available=true`，可读取 26 个运行容器。
 
 ### 环境限制
 
 - Docker 在线后，本轮已完成依赖全栈的渠道、梦境、任务分发和在线评测冒烟。
-- 当前仅保留一个运维显示限制：Web Portal 容器未挂载宿主 Docker socket，因此“Docker 容器监控”区块会提示 Docker 不可用；系统健康、配额和服务巡检数据不依赖该区块，均已可用。
+- Docker 容器监控需要 Web Portal 挂载宿主 `/var/run/docker.sock`。当前 Compose 已配置该挂载，并通过 `group_add: ["0"]` 让非 root `appuser` 访问 Docker Desktop 的 `root:root 660` socket。
 
 ## 结论
 

@@ -1,6 +1,6 @@
 {
-  "version": "v2.4",
-  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-18 R11: full-stack online smoke and portal UX remediation. DEV-19 now records Docker build/health fixes, Web Portal workflow/org/resource proxies, CSP interaction recovery, app.js cache policy, and passing online service tests.",
+  "version": "v2.5",
+  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-18 R12: Web Portal Docker container monitoring enabled. Compose now mounts the Docker socket and the portal image includes docker-cli while preserving non-root appuser execution with socket group access.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -246,7 +246,8 @@
     "2026-05-17-R9": "B2B sales storyline and workflow observability loop: rewrote story 21 around boss/manager/sales/admin/ops/dev scenarios; planner now matches private/org/public active workflow skills; gateway supports process-rich completion replies and user confirmation; executor attempts autonomous repair; added smoke:workflow-observability.",
     "2026-05-18-R10": "B2B storyline acceptance and UI smoke: config manager now resolves config/default.yaml from service subdirectories; web portal guide shows 21 stories including B2B sales management daily loop; fact-retrieval tests assert canonical user refs and reject raw channel identity refs; DEV-19 records dependency, test, and UI validation.",
     "2026-05-18-R11": "Full-stack online remediation: Dockerfiles now copy root lockfile plus full workspaces; SigNoz/ClickHouse/Feishu health checks fixed; OTel health extension added; smoke-eval uses SigNoz /api/v1/health, unique users, and longer plan timeout; Web Portal restores CSP-compatible existing interactions, no-caches app.js, and adds workflow/org/quota/inspection proxies verified by Playwright.",
-    "total_fixes": 61,
+    "2026-05-18-R12": "Web Portal Docker monitoring enabled: web-portal image installs docker-cli; docker-compose mounts /var/run/docker.sock and adds socket group access so non-root appuser can read container stats; DEV-19 records verified container stats availability.",
+    "total_fixes": 62,
     "files_modified": 49,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
