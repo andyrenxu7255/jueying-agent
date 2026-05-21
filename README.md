@@ -92,7 +92,7 @@ npm run test:dream-mode
 npm audit --audit-level=high
 ```
 
-结果：迁移、lint、类型检查、构建、8 个 Jest 测试套件 / 81 个用例、14 个 dream-mode 集成用例均通过。依赖审计无 high/critical；剩余 2 个 moderate 传递依赖提示已记录。
+结果：迁移、lint、类型检查、构建、8 个 Jest 测试套件 / 82 个用例、14 个 dream-mode 集成用例均通过。依赖审计无 high/critical；剩余 2 个 moderate 传递依赖提示已记录。
 
 ## 文档总索引
 
@@ -102,6 +102,7 @@ npm audit --audit-level=high
 | [agent-harness/PRODUCT.md](./agent-harness/PRODUCT.md) | 产品说明、角色、功能矩阵和用户价值。 |
 | [agent-harness/OPS.md](./agent-harness/OPS.md) | 部署、健康检查、监控、备份和运维手册。 |
 | [RELEASE_NOTES.md](./RELEASE_NOTES.md) | v1.6.0 发布说明，可直接用于 GitHub Release。 |
+| [development/HANDOFF-2026-05-21-v1.6.0-upload.md](./development/HANDOFF-2026-05-21-v1.6.0-upload.md) | 明天上传 GitHub 的交接清单、验证结果和发布步骤。 |
 | [development/DEV-21-梦境Hook与业务归因闭环.md](./development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回和 Outcome 归因实现说明。 |
 | [development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md](./development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md) | 梦境 Hook 归因专项审计。 |
 | [development/DEV-00-开发索引.md](./development/DEV-00-开发索引.md) | 开发计划索引和里程碑地图。 |

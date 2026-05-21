@@ -43,7 +43,7 @@
 1. `npm run db:migrate`：通过，已应用 `026_recall_outcome_attribution.sql`。
 2. `npm run lint`：通过。
 3. `npm run type-check`：通过。
-4. `npm test`：通过，8 个测试套件、81 个用例通过；Jest 报告存在测试进程优雅退出提示，未导致失败。
+4. `npm test`：通过，8 个测试套件、82 个用例通过；Jest 报告存在测试进程优雅退出提示，未导致失败。
 5. `npm run test:dream-mode`：通过，14 个梦境集成用例全部通过。
 6. `npm audit --audit-level=high`：发现 `brace-expansion` 与 `ws` 两个 moderate 级别传递依赖提示，无 high/critical。
 

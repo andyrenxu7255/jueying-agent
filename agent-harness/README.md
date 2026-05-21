@@ -37,14 +37,14 @@ JueYing（绝影，内部代号 agent-harness）是一个**企业级 AI Agent �
 | 能力 | 说明 |
 |------|------|
 | 🌐 **多渠道接入** | 飞书长连接 WebSocket、企业微信 Webhook、Web Portal、移动端推送 |
-| 🧠 **LLM 任务规划** | 先匹配既有 active skill 模板，未命中时走自动任务首跑，再沉淀为可复用 workflow 型 skill |
+| 🧠 **LLM 任务规划** | 先匹配已批准 `workflow_definition`，再回退到 workflow 型 active skill；未命中时走自动任务首跑，再沉淀为可复用 workflow 型 skill |
 | ⚙️ **工作流引擎** | 基于 XState 状态机的完整生命周期：plan → execute → verify → repair → report |
 | 📈 **销售管理样板** | 支持 B2B 销售晨会、卡单救援、回款风险、折扣审批和周复盘故事线 |
 | 🔍 **知识检索** | 宽口候选先用向量和 like 找对象/字段，图门控收口，图内二次召回补证据 |
 | 🗃️ **事实与实体管理** | 结构化事实存储、冲突检测、证据溯源、实体关系图谱 |
 | 🧠 **记忆与技能** | 会话记忆存储/召回/压缩、技能模板注册与复用 |
 | 🌙 **梦境与业务归因** | 低峰记忆整理、hook 事件账本、知识/skill 召回追踪、workflow outcome 贡献归因 |
-| 🔁 **确认后复用** | 成功首跑会展示过程和结果，用户回复“确认工作流 wf_xxx”后激活私有 workflow 型 skill 模板；管理员可审核提升为组织模板 |
+| 🔁 **确认后复用** | 成功首跑会展示过程和结果，用户回复“确认工作流 wf_xxx”后激活私有 workflow 型 skill 模板；管理员可审核提升为组织模板，高效果路径再候审固化为 `workflow_definition` |
 | 📊 **可观测性** | OpenTelemetry + SigNoz 全链路追踪、审计日志、健康检查 |
 | 📁 **文件工作区** | 用户隔离存储、双后端(localFS/MinIO)、staging机制、三级scope共享 |
 | 🔐 **安全合规** | 用户/组织隔离、RBAC/ABAC 策略、密码 scrypt 哈希、SQL 参数化防护 |

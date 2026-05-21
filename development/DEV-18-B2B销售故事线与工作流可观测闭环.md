@@ -6,7 +6,7 @@
 
 ## 目标故事线
 
-用户提出一个任务后，系统必须先查是否存在既有 active skill 模板。匹配顺序为个人私有、组织、公共；若命中 `skill_type=workflow` 且包含 `stage_chain`，Planner 直接把它转换为 workflow 计划。若没有命中，系统进入首跑模式，自主生成执行路径；执行过程中如果阶段失败且允许修复，先进行一次自主修复；完成后向用户说明过程、异常和结果。用户认可后回复“确认工作流 wf_xxx”，系统把这条路径激活为个人私有 workflow 型 skill，下次类似任务优先使用。管理员可在审核后提升为组织级 skill 模板。
+用户提出一个任务后，系统必须先查已批准 active `workflow_definition`。未命中时，再按个人私有、组织、公共顺序查 active workflow 型 skill；若命中 `skill_type=workflow` 且包含 `stage_chain`，Planner 把它转换为 workflow 计划。两层都没有命中时，系统进入首跑模式，自主生成执行路径；执行过程中如果阶段失败且允许修复，先进行一次自主修复；完成后向用户说明过程、异常和结果。用户认可后回复“确认工作流 wf_xxx”，系统把这条路径激活为个人私有 workflow 型 skill；当该 skill 多次召回、注入且 outcome 良好时，再进入 `workflow_definition_review`，由管理员批准后固化为 `workflow_definition`。
 
 ## B2B 销售场景基准
 
@@ -23,7 +23,7 @@ Admin 将折扣红线、回款证据、知识审核和 skill 模板提升规则�
 | 文件 | 变更 |
 |------|------|
 | `agent-harness/apps/gateway-adapter/src/index.ts` | 完成回执展示执行过程；支持“确认工作流 wf_xxx”；提取待确认 workflow 候选 |
-| `agent-harness/services/workflow/src/planner/planner.ts` | private/org/public active skill 匹配，销售关键词增强 |
+| `agent-harness/services/workflow/src/planner/planner.ts` | active `workflow_definition` 优先匹配，未命中时再匹配 private/org/public workflow 型 skill，销售关键词增强 |
 | `agent-harness/services/workflow/src/index.ts` | workflow observability summary |
 | `agent-harness/services/executor-gateway/src/index.ts` | 失败阶段自主修复一次 |
 | `agent-harness/scripts/workflow-observability-smoke.mjs` | workflow 可观测与沉淀路径烟测 |
@@ -44,4 +44,4 @@ npm audit --audit-level=moderate
 
 ## 文档同步
 
-`用户故事线.md` 的故事线二十一已重写为 B2B 销售管理日常；`ARCHITECTURE.md`、`PRODUCT.md`、`README.md`、`HANDOFF-SESSION.md` 已同步“active skill 模板优先、首跑自主规划、异常自主处理、过程可观测、确认后复用”的路径。
+`用户故事线.md` 的故事线二十一已重写为 B2B 销售管理日常；`ARCHITECTURE.md`、`PRODUCT.md`、`README.md`、`HANDOFF-SESSION.md` 已同步“workflow_definition 优先、workflow 型 skill 回退、首跑自主规划、异常自主处理、过程可观测、确认后复用、候审后固化”的路径。

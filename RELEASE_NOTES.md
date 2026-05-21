@@ -68,7 +68,7 @@ v1.6 当前落地路径：
 - 更新用户故事线：`agent-harness/用户故事线.md`
 - 新增专题实现说明：`development/DEV-21-梦境Hook与业务归因闭环.md`
 - 新增专项审计：`development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md`
-- 更新上下文图谱：`development/context-graph.json` 到 v2.8
+- 更新上下文图谱：`development/context-graph.json` 到 v2.9
 
 ## 验证结果
 
@@ -91,7 +91,7 @@ npm audit --audit-level=high
 - Lint 通过。
 - Type check 通过。
 - Build 通过。
-- Jest 通过：8 个测试套件 / 81 个用例。
+- Jest 通过：8 个测试套件 / 82 个用例。
 - Dream-mode 集成测试通过：14 个用例。
 - Context graph audit 通过：M1 / M2 / M3 三个 task profile。
 - 依赖审计：无 high 或 critical；剩余 2 个 moderate 传递依赖提示已记录。

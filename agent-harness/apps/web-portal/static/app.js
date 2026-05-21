@@ -357,7 +357,7 @@ function renderGuideContent() {
 
 function renderGuideArch() {
   return '<div class="card"><h3>绝影 (JueYing) — AI Agent 编排与执行平台</h3>' +
-    '<p class="section-desc">绝影是一个企业级 AI Agent 编排与执行平台。用户通过飞书/企微等 IM 渠道与系统交互，系统先匹配 active skill 模板，命中 workflow 型模板时复用阶段链；未命中时再规划多阶段工作流，自动调度执行器完成任务，并汇报过程与结果。系统支持多租户、用户隔离、策略控制与记忆管理。</p></div>' +
+    '<p class="section-desc">绝影是一个企业级 AI Agent 编排与执行平台。用户通过飞书/企微等 IM 渠道与系统交互，系统先匹配已批准 workflow_definition；未命中时再匹配 workflow 型 active skill 模板；两层都未命中时规划多阶段工作流，自动调度执行器完成任务，并汇报过程与结果。系统支持多租户、用户隔离、策略控制与记忆管理。</p></div>' +
 
     '<div class="card"><h3>系统架构图</h3>' +
     '<p class="section-desc">以下架构图展示了系统的分层设计：从用户入口到基础设施，共分为6层。</p>' +
@@ -420,8 +420,8 @@ function renderGuideArch() {
     '<div class="story-flow"><span class="flow-step">消息进入</span><span class="flow-arrow">→</span><span class="flow-step">身份解析</span><span class="flow-arrow">→</span><span class="flow-step">意图分类(chat)</span><span class="flow-arrow">→</span><span class="flow-step">召回记忆</span><span class="flow-arrow">→</span><span class="flow-step">LLM 生成回复</span><span class="flow-arrow">→</span><span class="flow-step">存储记忆</span><span class="flow-arrow">→</span><span class="flow-step">推送回复</span></div></div>' +
 
     '<div class="story-card"><h4>⚡ Task 路径 — 长任务工作流</h4>' +
-    '<div class="story-body">用户提交复杂任务，系统先查找个人/组织/公共 active skill 模板，命中 workflow 型模板时直接复用阶段链；未命中时再<strong>自动规划多阶段工作流</strong>，执行后推送过程、异常和结果。适合销售复盘、数据分析、报告生成、代码开发等场景。</div>' +
-    '<div class="story-flow"><span class="flow-step">消息进入</span><span class="flow-arrow">→</span><span class="flow-step">匹配workflow</span><span class="flow-arrow">→</span><span class="flow-step">未命中则规划</span><span class="flow-arrow">→</span><span class="flow-step">派发执行</span><span class="flow-arrow">→</span><span class="flow-step">过程可观测</span><span class="flow-arrow">→</span><span class="flow-step">确认后复用</span></div></div>' +
+    '<div class="story-body">用户提交复杂任务，系统先查找已批准 workflow_definition；未命中时再查找个人/组织/公共 workflow 型 active skill 模板；两层都未命中时再<strong>自动规划多阶段工作流</strong>，执行后推送过程、异常和结果。适合销售复盘、数据分析、报告生成、代码开发等场景。</div>' +
+    '<div class="story-flow"><span class="flow-step">消息进入</span><span class="flow-arrow">→</span><span class="flow-step">匹配契约</span><span class="flow-arrow">→</span><span class="flow-step">匹配skill</span><span class="flow-arrow">→</span><span class="flow-step">未命中则规划</span><span class="flow-arrow">→</span><span class="flow-step">派发执行</span><span class="flow-arrow">→</span><span class="flow-step">过程可观测</span><span class="flow-arrow">→</span><span class="flow-step">确认后复用</span></div></div>' +
 
     '<div class="story-card"><h4>📝 Knowledge Submit 路径 — 知识提交</h4>' +
     '<div class="story-body">用户提交知识内容，系统写入<strong>待审核知识池</strong>，管理员在审批台审核后正式入库。适合员工分享客户信息、业务知识等场景。</div>' +
@@ -472,9 +472,9 @@ function renderGuideStories() {
     '<div class="story-card"><h4>📖 故事二十一：B2B 销售管理日常闭环</h4>' +
     '<div class="story-role">角色：老板 + 销售经理 + 一线销售 + Admin · 每日经营节奏</div>' +
     '<div class="story-body">' +
-    '周一上午，老板在飞书里说："本周把华东区回款风险降下来，两个重点客户推进到 closing，并告诉我需要拍板的事项。"绝影先查找个人私有、组织和公共 active skill 模板；如果命中已确认的 workflow 型模板，就直接复用阶段链；如果没有命中，就进入首跑模式，自主拆解为客户阶段梳理、拜访证据核对、回款风险识别、经理行动清单和老板决策摘要。' +
+    '周一上午，老板在飞书里说："本周把华东区回款风险降下来，两个重点客户推进到 closing，并告诉我需要拍板的事项。"绝影先查找已批准 workflow_definition；未命中时再查个人私有、组织和公共 workflow 型 active skill 模板；如果两层都没有命中，就进入首跑模式，自主拆解为客户阶段梳理、拜访证据核对、回款风险识别、经理行动清单和老板决策摘要。' +
     '<br><br>销售经理 9:00 打开晨会清单，看到每个客户的红黄绿状态、阶段停留天数、下一承诺动作和证据缺口；20:30 查看夕会异常，只处理卡单、折扣越线、回款承诺缺证据的项目。一线销售在客户沟通后用自然语言补充进展，系统更新客户阶段、下一步动作和风险提醒，并在卡单时给出诊断路径和话术建议。' +
-    '<br><br>执行过程中若某个阶段失败，系统先进行一次自主修复并记录原因；完成后回执必须说明执行过程、异常处理、关键结果和下一步。用户认可后回复<strong>确认工作流 wf_xxx</strong>，该路径沉淀为个人 workflow 型 skill 模板；Admin 审核后可提升为组织模板，下一次团队内同类销售管理任务优先复用。' +
+    '<br><br>执行过程中若某个阶段失败，系统先进行一次自主修复并记录原因；完成后回执必须说明执行过程、异常处理、关键结果和下一步。用户认可后回复<strong>确认工作流 wf_xxx</strong>，该路径沉淀为个人 workflow 型 skill 模板；Admin 审核后可提升为组织模板；召回率、注入效果和业务 outcome 均良好时，再候审固化为 workflow_definition。' +
     '</div>' +
     '<div class="story-flow"><span class="flow-step">经营目标</span><span class="flow-arrow">→</span><span class="flow-step">匹配既有workflow</span><span class="flow-arrow">→</span><span class="flow-step">首跑规划</span><span class="flow-arrow">→</span><span class="flow-step">异常自修复</span><span class="flow-arrow">→</span><span class="flow-step">过程汇报</span><span class="flow-arrow">→</span><span class="flow-step">确认后复用</span></div></div>' +
 
@@ -733,7 +733,7 @@ function renderGuideQuickstart() {
     '<table><tr><th>场景</th><th>操作方式</th><th>示例</th></tr>' +
     '<tr><td>日常对话</td><td>在飞书/企微中直接发消息</td><td>"你好，今天天气怎么样？"</td></tr>' +
     '<tr><td>快速查询</td><td>用"查一下"等关键词触发</td><td>"查一下张经理的电话"</td></tr>' +
-    '<tr><td>提交长任务</td><td>描述复杂目标，系统先匹配 active skill 模板，未命中时自动规划</td><td>"分析本周华东区回款风险，并列出需要老板拍板的事项"</td></tr>' +
+    '<tr><td>提交长任务</td><td>描述复杂目标，系统先匹配 workflow_definition，再匹配 workflow 型 skill，未命中时自动规划</td><td>"分析本周华东区回款风险，并列出需要老板拍板的事项"</td></tr>' +
     '<tr><td>确认复用</td><td>任务完成后认可执行路径，在 IM 中确认</td><td>"确认工作流 wf_xxx"</td></tr>' +
     '<tr><td>提交知识</td><td>用"记录"/"提交知识"等关键词</td><td>"记录：XX客户下季度采购500套"</td></tr>' +
     '<tr><td>Web任务</td><td>在 Portal 任务接入页面创建</td><td>填写任务目标、类型、执行者</td></tr>' +
