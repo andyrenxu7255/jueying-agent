@@ -9,7 +9,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
 
-JueYing 把企业聊天入口、知识库、工作流、记忆系统和可复用 skill 统一成一套可治理的 Agent 平台。用户可以从飞书、企业微信或 Web Portal 发起请求；系统会检索受权限约束的上下文，优先复用已确认 workflow，必要时自动首跑规划，执行阶段任务，记录审计证据，并把好的业务结果归因回真正起作用的知识和 skill。
+JueYing 把企业聊天入口、知识库、工作流、记忆系统和可复用 skill 统一成一套可治理的 Agent 平台。用户可以从飞书、企业微信或 Web Portal 发起请求；系统会检索受权限约束的上下文，优先复用已激活的 workflow 型 skill 模板，必要时自动首跑规划，执行阶段任务，记录审计证据，并把好的业务结果归因回真正起作用的知识和 skill。
 
 “绝影”取快速、可靠、可驾驭之意。在这个项目里，它代表一套让团队从自然语言请求走到可验证结果的 Agent Harness。
 
@@ -29,10 +29,10 @@ v1.5.0 的主题是 **Dream Hooks and Outcome Attribution**。它把系统从“
 ## 核心亮点
 
 - 多渠道入口：飞书长连接、企业微信 Webhook、Web Portal、移动端推送。
-- Workflow 优先：个人私有、组织、公共 workflow 优先复用，再进入自动首跑。
+- 复用优先：个人私有、组织、公共 active skill 模板优先复用，其中 `skill_type=workflow` 会作为 workflow 阶段链模板。
 - 受治理的检索：PostgreSQL 是唯一事实源，向量只提候选，图门控收口，Evidence Pack 可追溯。
 - 梦境与记忆系统：用户级记忆隔离、管理员级汇总分析、组织级知识整合。
-- Skill 生命周期：搜索、召回、注入、审核、归因；高频高贡献 skill 进入 admin workflow 审批。
+- Skill 生命周期：搜索、召回、注入、审核、归因；高频高贡献 skill 先进入技能审核与组织模板提升，`workflow_definition` 审批固化属于下一步契约层能力。
 - B2B 销售样板：晨会、卡单救援、折扣审批、回款风险、周复盘等日常管理路径。
 - 企业控制面：组织隔离、RBAC/ABAC、审计、Checkpoint/Resume/Replay、生产密码加固。
 - 可观测运营：OpenTelemetry、SigNoz、结构化日志、健康检查、归因看板。
@@ -104,7 +104,8 @@ npm audit --audit-level=high
 | [development/DEV-21-梦境Hook与业务归因闭环.md](./development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回和 Outcome 归因实现说明。 |
 | [development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md](./development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md) | 梦境 Hook 归因专项审计。 |
 | [development/DEV-00-开发索引.md](./development/DEV-00-开发索引.md) | 开发计划索引和里程碑地图。 |
-| [development/context-graph.json](./development/context-graph.json) | 机器可读上下文图谱，当前 v2.7。 |
+| [development/context-graph.json](./development/context-graph.json) | 机器可读上下文图谱，当前 v2.8。 |
+| [development/context-routing.json](./development/context-routing.json) | 任务路由配置，和上下文图谱同步。 |
 
 ### AH1 权威文档
 
@@ -128,7 +129,7 @@ AH1 系列仍是架构和实现约束的权威文档。常用入口：
 - `recall_outcome_attribution`：召回事件到 outcome 的贡献归因。
 - `skill_business_outcome_daily` 与 `knowledge_business_outcome_daily`：日级报表视图。
 
-Skill 是可召回、可注入的能力资产；workflow 是经过确认或 admin 审批的执行契约。成熟 skill 可以成为 workflow 候选，但不会自动越过审批直接固化。
+Skill 是可召回、可注入的能力资产；workflow 是多阶段执行契约。v1.5 当前实现里，成功路径会先提取为 `skill_type=workflow` 的 draft skill，用户确认后变为 private active 模板，管理员可再审核提升为 org skill 模板；它尚不会自动写入 `workflow_definition`。
 
 详见 [RELEASE_NOTES.md](./RELEASE_NOTES.md)。
 

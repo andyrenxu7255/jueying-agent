@@ -464,5 +464,5 @@ node scripts/final-audit.cjs
 - `scripts/workflow-observability-smoke.mjs` / `package.json` — **新增 `smoke:workflow-observability`，固定 workflow 匹配、过程可观测、用户确认沉淀和自主修复基线**
 - `scripts/channel-webhook-smoke.mjs` — **事件编号改为每轮唯一，渠道烟测可重复运行且仍验证去重路径**
 - `package.json` / `package-lock.json` — **通过 npm override 固定安全版 esbuild，`npm audit --audit-level=moderate` 为 0 vulnerabilities**
-- `ARCHITECTURE.md`、`PRODUCT.md`、`README.md` — **同步“既有 workflow 优先、首跑自主规划、过程可观测、用户确认后复用”的产品路径**
+- `ARCHITECTURE.md`、`PRODUCT.md`、`README.md` — **同步“active skill 模板优先、首跑自主规划、过程可观测、用户确认后复用”的产品路径**
 - `development/DEV-18-B2B销售故事线与工作流可观测闭环.md`、`context-graph.json`、`context-routing.json` — **补充开发图谱与路由**

@@ -1,6 +1,6 @@
 # agent-harness 系统架构文档
 
-> 版本: 2026-05-21 (第十九轮：事实图门控 + 自动任务公共池口径统一)
+> 版本: 2026-05-21 (第二十轮：skill/workflow 生命周期口径统一)
 > 当前状态: **全链路验证通过，当前文档已同步真实运行口径**
 
 ---
@@ -135,8 +135,9 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
        a. 检查 identity_binding_state === 'bound'
        b. 检查 org 限额
        c. POST → workflow-service /internal/workflows/plan
-          → Planner 先匹配既有 workflow_definition:
+          → Planner 先匹配 active skill 模板:
              private(owner_user_id) → org(org_id) → public
+          → skill_type=workflow 时直接作为 workflow 阶段链模板
           → 未命中时进入自动任务首跑模式，由 LLM 生成 stage_chain
        d. POST → workflow-service /internal/workflows/{ref}/dispatch
           → workflow 转发到 executor-gateway /internal/executor/dispatch
@@ -148,9 +149,9 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
        → 用户收到执行过程、结果摘要和“确认工作流 wf_xxx”提示
   → 6. 用户确认:
        回复“确认工作流 wf_xxx”
-       → gateway 激活该 workflow 提取出的私有 draft workflow/skill
+       → gateway 激活该 workflow 提取出的私有 draft skill (skill_type=workflow)
        → 下次相似任务优先复用
-       → 若团队认可，可提交到公共池候选区，等待 admin 审批
+       → 若团队认可，可由 admin 通过 skill-library 提升为组织级 skill 模板
 ```
 
 ### 4.3 执行器阶段执行流程
@@ -176,7 +177,7 @@ executor-gateway /internal/executor/dispatch
 
 ### 4.3.1 B2B 销售管理样板路径
 
-JueYing 的默认体验基准以 B2B 销售管理为样板：老板在 IM 中给出经营意图，例如“本周把华东区回款风险降下来，两个重点客户推进到 closing”。系统先查已有销售管理 workflow；若命中用户本人或组织确认过的路径，就直接沿用；若未命中，则首跑生成路径，检索 pipeline、客户阶段、拜访证据、报价和回款风险，输出老板只需处理的异常和决策点。任务完成后，回执必须包含阶段过程、异常处理、结果摘要和确认入口。用户确认后，该路径成为私有 workflow；管理员审核后可提升为组织 workflow。
+JueYing 的默认体验基准以 B2B 销售管理为样板：老板在 IM 中给出经营意图，例如“本周把华东区回款风险降下来，两个重点客户推进到 closing”。系统先查已有销售管理模板；若命中用户本人或组织确认过的 active skill，就直接沿用其阶段链；若未命中，则首跑生成路径，检索 pipeline、客户阶段、拜访证据、报价和回款风险，输出老板只需处理的异常和决策点。任务完成后，回执必须包含阶段过程、异常处理、结果摘要和确认入口。用户确认后，该路径成为私有 workflow 型 skill 模板；管理员审核后可提升为组织级 skill 模板。真正写入 `workflow_definition` 的审批固化是后续契约层能力，不是当前主链路。
 
 ### 4.4 Knowledge Submit 流程（知识主动提交）
 

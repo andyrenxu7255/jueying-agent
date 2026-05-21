@@ -25,15 +25,15 @@ JueYing 中 skill 和 workflow 可以并行存在，但它们属于不同治理�
 | Skill | 可召回、可注入的能力资产 | 方法片段、工具封装、提示模板、经验模式、某类任务的局部做法 | 召回质量、版本、示例、审核评分和 outcome 归因 |
 | Workflow | 经确认或审批的执行契约 | 多阶段任务、跨服务执行、需要验收/恢复/审计的业务流程 | DSL、阶段链、状态机、权限快照、验收条件、checkpoint、审计 |
 
-推荐演进路径：
+v1.5 当前落地路径：
 
-1. 用户任务先尝试复用已确认 workflow；未命中时进入自动首跑。
+1. 用户任务先尝试匹配 active skill 模板；其中 `skill_type=workflow` 会被 Planner 当作 workflow 阶段链模板使用。
 2. 首跑或日常执行中可以召回多个 skill，作为阶段内的能力和上下文补充。
-3. 梦境与归因账本持续统计 skill 的召回次数、注入次数、成功率、业务均分和贡献分。
-4. 当某个 skill 多次命中、贡献稳定、风险可控时，它不应直接变成公共 workflow，而应生成 workflow 候选提交给 admin。
-5. Admin 审核阶段链、适用边界、权限、验收标准和风险说明后，才固化为个人、组织或公共 workflow。
+3. 工作流成功后，gateway 会把阶段链提取为 `skill_type=workflow` 的 private draft skill。
+4. 用户回复“确认工作流 wf_xxx”后，该 draft skill 变为 private active 模板，下次相似任务会优先匹配。
+5. Skill-library 的审核/提升会把高评分模板提升为 org skill，并写入 `org_skill_registry`；当前版本不会自动创建或审批 `workflow_definition`。
 
-因此，workflow 通常比 skill 在“指令遵从”和“流程稳定性”上更强：workflow 有显式阶段、状态转移、退出条件、失败处理、checkpoint 和审计；skill 更适合承载可复用经验与局部能力。成熟 skill 可以成为 workflow 的来源，也可以继续作为 workflow 某个阶段的执行资源。
+下一步契约层演进是：当某个 skill 多次命中、贡献稳定、风险可控时，再提交给 admin 审核阶段链、适用边界、权限、验收标准和风险说明，审核通过后固化为 `workflow_definition`。这种 workflow 契约通常会比普通 skill 在“指令遵从”和“流程稳定性”上更强，因为它拥有显式阶段、状态转移、退出条件、失败处理、checkpoint 和审计；普通 skill 更适合承载可复用经验与局部能力。
 
 ## 数据库变更
 
@@ -63,7 +63,7 @@ JueYing 中 skill 和 workflow 可以并行存在，但它们属于不同治理�
 - 更新用户故事线：`agent-harness/用户故事线.md`
 - 新增专题实现说明：`development/DEV-21-梦境Hook与业务归因闭环.md`
 - 新增专项审计：`development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md`
-- 更新上下文图谱：`development/context-graph.json` 到 v2.7
+- 更新上下文图谱：`development/context-graph.json` 到 v2.8
 
 ## 验证结果
 

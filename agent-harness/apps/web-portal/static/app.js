@@ -357,7 +357,7 @@ function renderGuideContent() {
 
 function renderGuideArch() {
   return '<div class="card"><h3>绝影 (JueYing) — AI Agent 编排与执行平台</h3>' +
-    '<p class="section-desc">绝影是一个企业级 AI Agent 编排与执行平台。用户通过飞书/企微等 IM 渠道与系统交互，系统先匹配已确认 workflow，未命中时再规划多阶段工作流，自动调度执行器完成任务，并汇报过程与结果。系统支持多租户、用户隔离、策略控制与记忆管理。</p></div>' +
+    '<p class="section-desc">绝影是一个企业级 AI Agent 编排与执行平台。用户通过飞书/企微等 IM 渠道与系统交互，系统先匹配 active skill 模板，命中 workflow 型模板时复用阶段链；未命中时再规划多阶段工作流，自动调度执行器完成任务，并汇报过程与结果。系统支持多租户、用户隔离、策略控制与记忆管理。</p></div>' +
 
     '<div class="card"><h3>系统架构图</h3>' +
     '<p class="section-desc">以下架构图展示了系统的分层设计：从用户入口到基础设施，共分为6层。</p>' +
@@ -420,7 +420,7 @@ function renderGuideArch() {
     '<div class="story-flow"><span class="flow-step">消息进入</span><span class="flow-arrow">→</span><span class="flow-step">身份解析</span><span class="flow-arrow">→</span><span class="flow-step">意图分类(chat)</span><span class="flow-arrow">→</span><span class="flow-step">召回记忆</span><span class="flow-arrow">→</span><span class="flow-step">LLM 生成回复</span><span class="flow-arrow">→</span><span class="flow-step">存储记忆</span><span class="flow-arrow">→</span><span class="flow-step">推送回复</span></div></div>' +
 
     '<div class="story-card"><h4>⚡ Task 路径 — 长任务工作流</h4>' +
-    '<div class="story-body">用户提交复杂任务，系统先查找个人/组织/公共 workflow，未命中时再<strong>自动规划多阶段工作流</strong>，执行后推送过程、异常和结果。适合销售复盘、数据分析、报告生成、代码开发等场景。</div>' +
+    '<div class="story-body">用户提交复杂任务，系统先查找个人/组织/公共 active skill 模板，命中 workflow 型模板时直接复用阶段链；未命中时再<strong>自动规划多阶段工作流</strong>，执行后推送过程、异常和结果。适合销售复盘、数据分析、报告生成、代码开发等场景。</div>' +
     '<div class="story-flow"><span class="flow-step">消息进入</span><span class="flow-arrow">→</span><span class="flow-step">匹配workflow</span><span class="flow-arrow">→</span><span class="flow-step">未命中则规划</span><span class="flow-arrow">→</span><span class="flow-step">派发执行</span><span class="flow-arrow">→</span><span class="flow-step">过程可观测</span><span class="flow-arrow">→</span><span class="flow-step">确认后复用</span></div></div>' +
 
     '<div class="story-card"><h4>📝 Knowledge Submit 路径 — 知识提交</h4>' +
@@ -449,7 +449,7 @@ function renderGuideCapabilities() {
     '<div class="capability-card"><div class="cap-icon">⚡</div><h4>长任务工作流</h4><p>复杂任务自动拆解为多阶段工作流：意图澄清 → 证据检索 → 决策推理 → 结果报告。支持16种阶段类型和6种执行器。</p></div>' +
     '<div class="capability-card"><div class="cap-icon">📚</div><h4>知识管理</h4><p>支持知识提交、审核、提取、向量检索和图查询。个人知识与组织知识库隔离，支持知识从对话中自动抽取。</p></div>' +
     '<div class="capability-card"><div class="cap-icon">🧠</div><h4>记忆系统</h4><p>会话记忆存储与召回，支持上下文压缩摘要。每日"梦境"机制自动总结和归档记忆，保持对话连贯性。</p></div>' +
-    '<div class="capability-card"><div class="cap-icon">🔧</div><h4>技能系统</h4><p>14项预制技能（Document Pro、Deep Search、Ontology等），支持从镜像站搜索安装。成功工作流先生成待确认候选，用户确认后成为可复用 workflow。</p></div>' +
+    '<div class="capability-card"><div class="cap-icon">🔧</div><h4>技能系统</h4><p>14项预制技能（Document Pro、Deep Search、Ontology等），支持从镜像站搜索安装。成功工作流先生成 workflow 型 skill 候选，用户确认后成为可复用模板。</p></div>' +
     '<div class="capability-card"><div class="cap-icon">🏢</div><h4>多租户管理</h4><p>组织隔离、角色权限(RBAC)、邀请管理、策略控制、审计日志。确保企业级数据安全和合规。</p></div>' +
     '<div class="capability-card"><div class="cap-icon">🌐</div><h4>多渠道统一</h4><p>飞书长连接、企业微信 Webhook、Web Portal 三端统一接入，身份自动绑定，消息无缝流转。</p></div>' +
     '</div>' +
@@ -472,9 +472,9 @@ function renderGuideStories() {
     '<div class="story-card"><h4>📖 故事二十一：B2B 销售管理日常闭环</h4>' +
     '<div class="story-role">角色：老板 + 销售经理 + 一线销售 + Admin · 每日经营节奏</div>' +
     '<div class="story-body">' +
-    '周一上午，老板在飞书里说："本周把华东区回款风险降下来，两个重点客户推进到 closing，并告诉我需要拍板的事项。"绝影先查找个人私有 workflow、组织 workflow 和公共技能；如果命中已确认路径，就直接复用；如果没有命中，就进入首跑模式，自主拆解为客户阶段梳理、拜访证据核对、回款风险识别、经理行动清单和老板决策摘要。' +
+    '周一上午，老板在飞书里说："本周把华东区回款风险降下来，两个重点客户推进到 closing，并告诉我需要拍板的事项。"绝影先查找个人私有、组织和公共 active skill 模板；如果命中已确认的 workflow 型模板，就直接复用阶段链；如果没有命中，就进入首跑模式，自主拆解为客户阶段梳理、拜访证据核对、回款风险识别、经理行动清单和老板决策摘要。' +
     '<br><br>销售经理 9:00 打开晨会清单，看到每个客户的红黄绿状态、阶段停留天数、下一承诺动作和证据缺口；20:30 查看夕会异常，只处理卡单、折扣越线、回款承诺缺证据的项目。一线销售在客户沟通后用自然语言补充进展，系统更新客户阶段、下一步动作和风险提醒，并在卡单时给出诊断路径和话术建议。' +
-    '<br><br>执行过程中若某个阶段失败，系统先进行一次自主修复并记录原因；完成后回执必须说明执行过程、异常处理、关键结果和下一步。用户认可后回复<strong>确认工作流 wf_xxx</strong>，该路径沉淀为个人 workflow；Admin 审核后可提升为组织 workflow，下一次团队内同类销售管理任务优先复用。' +
+    '<br><br>执行过程中若某个阶段失败，系统先进行一次自主修复并记录原因；完成后回执必须说明执行过程、异常处理、关键结果和下一步。用户认可后回复<strong>确认工作流 wf_xxx</strong>，该路径沉淀为个人 workflow 型 skill 模板；Admin 审核后可提升为组织模板，下一次团队内同类销售管理任务优先复用。' +
     '</div>' +
     '<div class="story-flow"><span class="flow-step">经营目标</span><span class="flow-arrow">→</span><span class="flow-step">匹配既有workflow</span><span class="flow-arrow">→</span><span class="flow-step">首跑规划</span><span class="flow-arrow">→</span><span class="flow-step">异常自修复</span><span class="flow-arrow">→</span><span class="flow-step">过程汇报</span><span class="flow-arrow">→</span><span class="flow-step">确认后复用</span></div></div>' +
 
@@ -661,7 +661,7 @@ function renderGuideStories() {
     '<br>• 技能注册到 <strong>org_skill_registry</strong>，全组织可复用' +
     '<br><br>同时支持从 <strong>Mirror 镜像站</strong>搜索和安装公开技能。' +
     '</div>' +
-    '<div class="story-flow"><span class="flow-step">成功工作流</span><span class="flow-arrow">→</span><span class="flow-step">提取候选</span><span class="flow-arrow">→</span><span class="flow-step">用户确认</span><span class="flow-arrow">→</span><span class="flow-step">私有复用</span><span class="flow-arrow">→</span><span class="flow-step">Admin审核为组织workflow</span></div></div>' +
+    '<div class="story-flow"><span class="flow-step">成功工作流</span><span class="flow-arrow">→</span><span class="flow-step">提取候选</span><span class="flow-arrow">→</span><span class="flow-step">用户确认</span><span class="flow-arrow">→</span><span class="flow-step">私有复用</span><span class="flow-arrow">→</span><span class="flow-step">Admin审核为组织模板</span></div></div>' +
 
     '<div class="story-card"><h4>📖 故事十七：技能公网安装与多路检索</h4>' +
     '<div class="story-role">角色：管理员 (Admin)</div>' +
@@ -670,7 +670,7 @@ function renderGuideStories() {
     '<br><br>• Portal 调用 /api/admin/skills/mirror-search 搜索预制技能（Document Pro / Deep Search 等）' +
     '<br>• 点击安装 → 调用 /api/admin/skills/mirror-install' +
     '<br>• 系统从 Mirror 拉取 skill_definition 并创建到 local skill-library' +
-    '<br>• 自动注册到 <strong>org_skill_registry</strong>' +
+    '<br>• 安装后进入本地 skill-library，后续可由管理员审核提升到 <strong>org_skill_registry</strong>' +
     '<br><br>多路检索 LLM 决策：同时走向量检索 + AGE 图查询 + 全文搜索 + Skill 检索，LLM 综合排序返回。' +
     '</div>' +
     '<div class="story-flow"><span class="flow-step">Mirror Search</span><span class="flow-arrow">→</span><span class="flow-step">Install</span><span class="flow-arrow">→</span><span class="flow-step">Local Import</span><span class="flow-arrow">→</span><span class="flow-step">Registry</span></div></div>' +
@@ -709,7 +709,7 @@ function renderGuideStories() {
     '<br><strong>• 缓存层</strong> — memory_item + embedding（温存储，语义检索）' +
     '<br><strong>• 休眠层</strong> — org_memory_summary（冷存储，压缩归档）' +
     '<br><br><strong>技能发现闭环</strong>：' +
-    '<br>梦境分析发现新的 Workflow Pattern → 提取 Skill Candidate → scene_value_assessment 评估 → skill_audit_record 审核 → org_skill_registry 注册 → skill_usage_stats 追踪使用效果。' +
+    '<br>梦境分析发现新的 Workflow Pattern → 提取 Skill Candidate → scene_value_assessment 评估 → skill_audit_record 审核 → org_skill_registry 注册 → skill_usage_stats 追踪使用效果；固化为 workflow_definition 属于后续契约层能力。' +
     '<br><br>形成 <strong>"使用 → 发现 → 提炼 → 注册 → 复用的持续优化"的完整生态系统</strong>。' +
     '</div>' +
     '<div class="story-flow"><span class="flow-step">发现</span><span class="flow-arrow">→</span><span class="flow-step">提炼</span><span class="flow-arrow">→</span><span class="flow-step">评估</span><span class="flow-arrow">→</span><span class="flow-step">注册</span><span class="flow-arrow">→</span><span class="flow-step">复用</span></div></div>';
@@ -733,7 +733,7 @@ function renderGuideQuickstart() {
     '<table><tr><th>场景</th><th>操作方式</th><th>示例</th></tr>' +
     '<tr><td>日常对话</td><td>在飞书/企微中直接发消息</td><td>"你好，今天天气怎么样？"</td></tr>' +
     '<tr><td>快速查询</td><td>用"查一下"等关键词触发</td><td>"查一下张经理的电话"</td></tr>' +
-    '<tr><td>提交长任务</td><td>描述复杂目标，系统先匹配已确认 workflow，未命中时自动规划</td><td>"分析本周华东区回款风险，并列出需要老板拍板的事项"</td></tr>' +
+    '<tr><td>提交长任务</td><td>描述复杂目标，系统先匹配 active skill 模板，未命中时自动规划</td><td>"分析本周华东区回款风险，并列出需要老板拍板的事项"</td></tr>' +
     '<tr><td>确认复用</td><td>任务完成后认可执行路径，在 IM 中确认</td><td>"确认工作流 wf_xxx"</td></tr>' +
     '<tr><td>提交知识</td><td>用"记录"/"提交知识"等关键词</td><td>"记录：XX客户下季度采购500套"</td></tr>' +
     '<tr><td>Web任务</td><td>在 Portal 任务接入页面创建</td><td>填写任务目标、类型、执行者</td></tr>' +
@@ -742,7 +742,7 @@ function renderGuideQuickstart() {
     '<div class="card"><h3>📋 管理员：日常运维</h3>' +
     '<table><tr><th>任务</th><th>页面入口</th><th>频率</th></tr>' +
     '<tr><td>审核知识提交</td><td>审批台 / 知识审核</td><td>每日</td></tr>' +
-    '<tr><td>审核工作流</td><td>审批台</td><td>按需</td></tr>' +
+    '<tr><td>审核技能模板</td><td>技能管理 / 梦境技能审核</td><td>按需</td></tr>' +
     '<tr><td>查看服务状态</td><td>仪表盘</td><td>随时</td></tr>' +
     '<tr><td>监控资源使用</td><td>资源监控</td><td>每周</td></tr>' +
     '<tr><td>查看审计日志</td><td>审计日志</td><td>按需</td></tr>' +

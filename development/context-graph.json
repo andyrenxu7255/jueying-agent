@@ -1,6 +1,6 @@
 {
-  "version": "v2.7",
-  "description": "Agent Harness context dependency graph - Updated 2026-05-21: dream mode now includes hook-style recall/outcome attribution; fact retrieval uses graph gating and workflow lifecycle includes autonomous first-run/public-pool approval.",
+  "version": "v2.8",
+  "description": "Agent Harness context dependency graph - Updated 2026-05-21: dream mode includes hook-style recall/outcome attribution; fact retrieval uses graph gating; reusable workflow paths currently land as workflow-type skills before any future workflow_definition approval.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -73,7 +73,7 @@
     "file_storage": "AH1-22-Artifact-Object-Storage.md"
   },
   "source_to_authority": {
-    "agent-harness/apps/gateway-adapter/src/index.ts": ["AH1-21-渠道接入与Session映射.md", "AH1-15-核心接口与事件契约.md", "AH1-16-权限Scope-Policy-Snapshot.md"],
+    "agent-harness/apps/gateway-adapter/src/index.ts": ["AH1-21-渠道接入与Session映射.md", "AH1-15-核心接口与事件契约.md", "AH1-16-权限Scope-Policy-Snapshot.md", "AH1-17-Workflow-DSL与Planner契约.md"],
     "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts": ["AH1-21-渠道接入与Session映射.md"],
     "agent-harness/apps/gateway-adapter/src/services/session-mapper.ts": ["AH1-21-渠道接入与Session映射.md"],
     "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": ["AH1-22-Artifact-Object-Storage.md"],
@@ -258,8 +258,9 @@
     "2026-05-18-R11": "Full-stack online remediation: Dockerfiles now copy root lockfile plus full workspaces; SigNoz/ClickHouse/Feishu health checks fixed; OTel health extension added; smoke-eval uses SigNoz /api/v1/health, unique users, and longer plan timeout; Web Portal restores CSP-compatible existing interactions, no-caches app.js, and adds workflow/org/quota/inspection proxies verified by Playwright.",
     "2026-05-18-R12": "Web Portal Docker monitoring enabled: web-portal image installs docker-cli; docker-compose mounts /var/run/docker.sock and adds socket group access so non-root appuser can read container stats; DEV-19 records verified container stats availability.",
     "2026-05-21-R13": "Retrieval and workflow policy sync: DEV-20 adds fact graph gating + workflow public pool lifecycle; retrieval service now uses wide-candidate collection, graph gating, and graph-internal recall before rerank; docs and task routing updated accordingly.",
-    "total_fixes": 62,
-    "files_modified": 49,
+    "2026-05-21-R14": "Skill/workflow lifecycle consistency: docs and UI now state the implemented path precisely: workflow completions extract workflow-type draft skills, user confirmation activates private templates, skill-library promotes to org registry; workflow_definition approval is marked as future contract-layer work.",
+    "total_fixes": 63,
+    "files_modified": 50,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
   }

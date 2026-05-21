@@ -663,7 +663,7 @@ function buildWorkflowResultMessage(workflowRef: string, status: string, wf: Wor
     ? `\n\n结果摘要：\n${preview.substring(0, 800)}${preview.length > 800 ? '\n...(结果已截断)' : ''}`
     : '';
   const confirmationLine = isSuccess
-    ? `\n\n如果这条执行路径符合你的工作习惯，回复：确认工作流 ${workflowRef}\n确认后它会成为你的私有 workflow，下次同类任务会优先沿用；管理员后续可再审核提升为组织通用 workflow。`
+    ? `\n\n如果这条执行路径符合你的工作习惯，回复：确认工作流 ${workflowRef}\n确认后它会成为你的私有 workflow 模板，下次同类任务会优先沿用；管理员后续可再审核提升为组织通用模板。`
     : '';
 
   return isSuccess
@@ -743,7 +743,7 @@ async function confirmWorkflowCandidate(workflowRef: string, userId: string, org
 
     return {
       ok: true,
-      replyText: `✅ 已确认并激活这个 workflow。\n任务编号: ${workflowRef}\nworkflow 名称: ${String(result.rows[0].skill_name)}\n下次你提出相似任务时，系统会先尝试匹配这条已确认路径。`
+      replyText: `✅ 已确认并激活这个 workflow 模板。\n任务编号: ${workflowRef}\n模板名称: ${String(result.rows[0].skill_name)}\n下次你提出相似任务时，系统会先尝试匹配这条已确认路径。`
     };
   } catch (error) {
     logger.warn('workflow.confirm_failed', 'Failed to confirm workflow candidate', {

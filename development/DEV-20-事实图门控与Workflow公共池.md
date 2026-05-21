@@ -6,7 +6,7 @@
 
 1. 图能力不是“向量增强”，而是事实层门控。
 2. 自动任务不是 workflow 的替代品，而是首次任务的执行模式。
-3. 成功路径可以先沉淀为个人 workflow，再走公共池审批。
+3. 成功路径当前先沉淀为个人 workflow 型 skill，再走技能审核与组织模板提升；公共 workflow_definition 审批是下一步契约层目标。
 4. Markdown 文件和 PostgreSQL 的分工必须明确。
 
 ## 目标口径
@@ -25,27 +25,31 @@ PostgreSQL 仍然是唯一事实源。`entity`、`relation`、`fact`、`document
 
 ### 2. 自动任务与 workflow
 
-任务进入系统后，先找既有 workflow_definition：
+任务进入系统后，当前先找既有 active skill 模板：
 
-1. 个人私有 workflow。
-2. 组织 workflow。
-3. 公共 workflow。
+1. 个人私有 skill。
+2. 组织 skill。
+3. 公共 skill。
 
 若都未命中，则进入自动任务首跑模式。自动任务跑通后：
 
 1. 过程和结果展示给用户。
-2. 用户确认后，沉淀为个人私有 workflow_definition。
-3. 管理员审核后，可提升为组织或公共可复用资产。
+2. 用户确认后，沉淀为个人私有 active skill，`skill_type=workflow` 时可被 Planner 当作 workflow 阶段链模板。
+3. 管理员审核后，可提升为组织级 skill 模板并写入 `org_skill_registry`。
+
+`workflow_definition` 表已经存在，用于更强的契约层模板；但当前主链路不会自动从首跑路径创建或审批 `workflow_definition`。
 
 ### 3. 公共池
 
-任何用户都可以把自己确认过的 workflow 提交到公共池候选区。公共池候选区不是立即生效的公共资产，必须经过 admin 审批。
+当前可运行的公共池口径落在 skill 模板治理：用户确认过的 workflow 型 skill 可以被管理员审核，符合组织复用条件时提升为 org skill。公共池候选区不是立即生效的公共资产，必须经过 admin 审批。
 
-审批通过后：
+当前审批通过后：
 
-1. workflow_definition 进入 `public` scope。
-2. 其他用户可在匹配阶段优先复用。
+1. skill 进入 `org` scope，并在 `org_skill_registry` 登记。
+2. 同组织用户可在匹配阶段优先复用。
 3. 审批记录必须可追溯。
+
+公共 `workflow_definition` 发布的目标规则仍是：来源验收、admin 审批、无私有信息泄露检查、发布审计全部通过后，才进入 public scope。
 
 ### 4. md 与 PG 的分工
 
@@ -53,14 +57,14 @@ Markdown 的角色只是“结果留痕与证据载体”，不承担权威状�
 
 - 需要唯一真相的，查 PG。
 - 需要过程说明和原文证据的，查 md / artifact。
-- 需要规则生效的，查 workflow_definition / policy_snapshot / fact / entity / relation。
+- 需要规则生效的，查 policy_snapshot / fact / entity / relation；当前复用模板查 skill / skill_version / org_skill_registry，后续契约层模板再查 workflow_definition。
 - 需要复盘的，读 md，再回到 PG 做状态判断。
 
 ## 建议落点
 
 1. 后续所有故事线以 B2B 销售管理为日常样板。
 2. 后续所有检索与评测，以“向量找候选，图做门控，PG 做真相”作为验收准则。
-3. 后续所有 workflow 沉淀，以“自动任务首跑 -> 用户确认 -> 私有复用 -> 公共审批”作为生命周期基线。
+3. 后续所有可复用路径沉淀，以“自动任务首跑 -> 提取 workflow 型 skill -> 用户确认 -> 私有复用 -> admin 审核为组织模板”为当前生命周期基线；`workflow_definition` 公共审批作为后续增强单独验收。
 
 ## DEV-21 补充：Dream / Hook / Outcome 闭环
 

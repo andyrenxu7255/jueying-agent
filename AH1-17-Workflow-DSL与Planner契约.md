@@ -218,10 +218,11 @@ Planner 至少应读取以下输入对象：
 
 规则：
 
-- 任务首先尝试匹配既有 `workflow_definition`。
+- 当前实现中，任务首先尝试匹配 active `skill`，作用域顺序为 private → org → public；当 `skill_type=workflow` 且定义中包含 `stage_chain` 时，Planner 将其作为 workflow 阶段链模板。
 - 未命中时，进入自动任务首跑模式。
-- 自动任务若执行通路成功，或用户明确认可过程与结果，则可以提炼为稳定 `workflow_definition`。
-- 该提炼结果默认先进入个人私有区，再由用户/管理员按权限推进到组织或公共可复用资产。
+- 自动任务若执行通路成功，gateway 会提炼为 private draft skill，`skill_type='workflow'`，并保留 `source_workflow` 与阶段链。
+- 用户回复“确认工作流 wf_xxx”后，该 draft skill 激活为 private active 模板；管理员审核/提升当前落在 `skill` 与 `org_skill_registry`。
+- 后续契约层目标是把高贡献、风险可控的 workflow 型 skill 提交 admin 审核，通过后再固化为 `workflow_definition`。
 
 ### 17.7.5 Dream / Outcome 后处理
 
@@ -294,10 +295,11 @@ Workflow 引擎在接收 Planner 输出后必须做静态校验。
 ## 17.12 工作流生命周期补充
 
 1. `workflow_instance` 负责一次具体任务的运行态。
-2. `workflow_definition` 负责稳定可复用的模板。
-3. 自动任务只是在 `workflow_instance` 层进行首跑，成功后可反向生成 `workflow_definition`。
-4. 用户确认是个人复用的授权动作，不是公共发布动作。
-5. 公共复用必须经过 admin 审批。
+2. `skill` / `skill_version` 当前负责可复用模板，`skill_type=workflow` 表示该 skill 可被 Planner 转换为 workflow 计划。
+3. `workflow_definition` 是更强的契约层模板表，当前 schema 已存在，但自动任务首跑不会直接写入它。
+4. 自动任务只是在 `workflow_instance` 层进行首跑，成功后当前先反向生成 workflow 型 skill。
+5. 用户确认是个人复用的授权动作，不是公共发布动作。
+6. 组织级复用当前通过 skill 审核与 `org_skill_registry`；公共 `workflow_definition` 发布必须在后续 admin 审批链路中单独落地。
 
 ## 17.13 运行期可变字段
 
