@@ -85,7 +85,7 @@ JueYing 的日常管理样板以 B2B 销售团队为基准：老板只输入经�
 
 ### 2.4.1 梦境模式（Dream Mode）
 
-每日自动运行的记忆分层管理与技能发现系统。
+每日自动运行的记忆分层管理、技能发现与业务归因系统。梦境不只解决“失忆”和上下文膨胀，也会沉淀哪些知识、记忆和 skill 在真实 workflow 中被召回、被注入，并最终带来了好结果。
 
 **记忆分层管理：**
 - 用户记忆隔离：每个用户专属记忆空间（owner_user_id 隔离）
@@ -98,6 +98,13 @@ JueYing 的日常管理样板以 B2B 销售团队为基准：老板只输入经�
 - 技能多维审核：功能/安全/性能/适配 四维评分，≥80分自动提升
 - 组织级技能库：通过审核的用户技能 → 标准化改造 → 组织通用技能
 - 技能使用统计：每日调用次数/成功率/活跃用户数实时追踪
+
+**Hook 与业务归因：**
+- Hook 事件账本：记录 `memory.recalled`、`fact.recalled`、`skill.recalled`、`skill.injected`、`outcome.evaluated`、`dream.completed`
+- 知识召回账本：记录 memory / fact / document_chunk / org_memory / hermes_memory 是否进入 Evidence Pack 或模型上下文
+- Skill 召回账本：记录 skill 版本、召回原因、是否注入上下文、后续 workflow 结果
+- Outcome 评分：成功、失败、取消的 workflow 都写入终态评分，减少只看成功样本的偏差
+- 归因看板：管理员查看近 30 天知识和 skill 的召回次数、成功率、业务均分和贡献分
 
 ### 2.5 技能系统
 

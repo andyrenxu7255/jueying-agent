@@ -1,6 +1,6 @@
-# JueYing (绝影) — Agent Harness 🐎
+# JueYing (绝影) — Agent Harness
 
-> 版本: 1.4.0 | 更新日期: 2026-05-21
+> 版本: 1.5.0 | 更新日期: 2026-05-21
 
 > **企业级 AI Agent 编排与执行平台** — 多渠道接入、既有 workflow 优先复用、LLM 任务规划、多阶段工作流自动执行
 
@@ -43,6 +43,7 @@ JueYing（绝影，内部代号 agent-harness）是一个**企业级 AI Agent �
 | 🔍 **知识检索** | 宽口候选先用向量和 like 找对象/字段，图门控收口，图内二次召回补证据 |
 | 🗃️ **事实与实体管理** | 结构化事实存储、冲突检测、证据溯源、实体关系图谱 |
 | 🧠 **记忆与技能** | 会话记忆存储/召回/压缩、技能模板注册与复用 |
+| 🌙 **梦境与业务归因** | 低峰记忆整理、hook 事件账本、知识/skill 召回追踪、workflow outcome 贡献归因 |
 | 🔁 **确认后复用** | 成功首跑会展示过程和结果，用户回复“确认工作流 wf_xxx”后沉淀为私有 workflow，之后可进入公共池审批 |
 | 📊 **可观测性** | OpenTelemetry + SigNoz 全链路追踪、审计日志、健康检查 |
 | 📁 **文件工作区** | 用户隔离存储、双后端(localFS/MinIO)、staging机制、三级scope共享 |
@@ -258,7 +259,9 @@ agent-harness/
 | [产品说明](./PRODUCT.md) | 功能特性矩阵、使用场景、角色定义、核心价值 |
 | [系统架构](./ARCHITECTURE.md) | 完整架构图、数据流、API 端点矩阵、状态机设计 |
 | [运维手册](./OPS.md) | 部署流程、健康检查、资源管理、日志与备份 |
-| [用户故事线](./用户故事线.md) | 20 条验收故事线 (AH-1 ~ AH-20)，含梦境模式 |
+| [用户故事线](./用户故事线.md) | 21 条验收故事线 (AH-1 ~ AH-21)，含梦境模式和 B2B 销售可观测闭环 |
+| [发布说明](../RELEASE_NOTES.md) | v1.5.0 梦境 Hook 与业务归因发布说明 |
+| [DEV-21 梦境Hook与业务归因闭环](../development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回、Outcome 归因实现说明 |
 | [修复报告](./FIX-REPORT.md) | 代码审计与修复记录 |
 | [前端修改记录](./FRONTEND-AUDIT-CHANGELOG.md) | 前端页面审计修改记录（含15项初始化+梦境模式） |
 | [交接文档](./HANDOFF-SESSION.md) | 开发历史、11 轮修复详情、当前系统状态 |
@@ -271,7 +274,7 @@ agent-harness/
 
 完整用户故事线请参阅 [用户故事线.md](./用户故事线.md)。
 
-**20 条故事线速览**：
+**21 条故事线速览**：
 
 | 编号 | 故事线 | 涉及服务 |
 |:---:|------|------|
@@ -294,7 +297,8 @@ agent-harness/
 | AH-17 | 审计日志与全链路追踪 | audit |
 | AH-18 | 巡检调度与资源回收 | resource-scheduler |
 | AH-19 | 移动端消息推送 | mobile-app |
-| AH-20 | 梦境模式：记忆分层管理+技能发现生态 | hermes-adapter, skill-library, web-portal |
+| AH-20 | 梦境模式：记忆分层管理+技能发现生态，并追踪知识/skill 业务归因 | hermes-adapter, skill-library, workflow-service, fact-retrieval, web-portal |
+| AH-21 | B2B 销售管理日常与工作流可观测闭环 | gateway-adapter, workflow-service, executor-gateway, fact-retrieval, web-portal |
 
 ---
 
@@ -311,6 +315,7 @@ npm run build        # 编译所有包
 npm test             # 运行测试
 npm run lint         # 代码规范检查
 npm run smoke:workflow-observability  # workflow 复用、可观测和确认沉淀烟测
+npm run test:dream-mode  # 梦境模式与归因闭环集成测试
 ```
 
 ### 开发模式

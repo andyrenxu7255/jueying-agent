@@ -1,105 +1,135 @@
-# Agent Harness V1 设计文档总索引
+# JueYing (绝影) Agent
 
-> **版本**: v1.0 | **状态**: 已冻结，可进入开发 | **评分**: 96/100
+> 企业级 AI Agent 编排、记忆、工作流与业务结果归因平台。
+>
+> 当前发布线：v1.5.0 | 更新日期：2026-05-21
 
----
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./agent-harness/LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
 
-## 文档命名规范
+JueYing 把企业聊天入口、知识库、工作流、记忆系统和可复用 skill 统一成一套可治理的 Agent 平台。用户可以从飞书、企业微信或 Web Portal 发起请求；系统会检索受权限约束的上下文，优先复用已确认 workflow，必要时自动首跑规划，执行阶段任务，记录审计证据，并把好的业务结果归因回真正起作用的知识和 skill。
 
-`AH1-{编号}-{简称}.md` — 00-02核心规划 | 13-32设计文档 | 33-36补充 | 37-38审计报告
+“绝影”取快速、可靠、可驾驭之意。在这个项目里，它代表一套让团队从自然语言请求走到可验证结果的 Agent Harness。
 
----
+## 本版为什么重要
 
-## 核心规划
+v1.5.0 的主题是 **Dream Hooks and Outcome Attribution**。它把系统从“Agent 能记住东西”推进到“Agent 能知道什么真的有效”。
 
-| # | 文档 | 关键内容 |
-|---|------|----------|
-| 00 | [AH1-00-实施规格包](AH1-00-实施规格包.md) | 7层架构、16条冻结基线、7条原始需求映射 |
-| 01 | [AH1-01-开发执行总纲](AH1-01-开发执行总纲.md) | 开发流程、质量门禁、团队协作规范 |
-| 02 | [AH1-02-开发执行计划](AH1-02-开发执行计划.md) | 阶段划分、交付物、时间线 |
+| 能力 | 这次补齐了什么 |
+|---|---|
+| 梦境机制 | 低峰期记忆整理不再只是压缩，而是进入运营闭环。 |
+| Hook 账本 | 记录 memory/fact/skill 召回、skill 注入、workflow outcome、dream 完成等生命周期事件。 |
+| 召回归因 | 知识和 skill 的召回会关联到后续 workflow 结果，能回答“哪些内容带来了好结果”。 |
+| Outcome 评估 | 成功、失败、取消的 workflow 都写终态结果，避免只统计成功样本。 |
+| 管理端看板 | Web Portal 增加 30 天知识与 skill 业务效果视图。 |
+| 图谱同步 | development context graph 已把 dream、hook、outcome 作为明确架构域。 |
 
-## 基础架构层
+## 核心亮点
 
-| # | 文档 | 关键内容 |
-|---|------|----------|
-| 13 | [AH1-13-仓库复用与改造边界](AH1-13-仓库复用与改造边界.md) | OpenClaw/opencode/Hermes/PostgreSQL边界 |
-| 14 | [AH1-14-数据库表设计与索引](AH1-14-数据库表设计与索引.md) | 25+核心表、pgvector/AGE扩展、10步Migration |
-| 15 | [AH1-15-核心接口与事件契约](AH1-15-核心接口与事件契约.md) | 统一信封、11类错误码前缀、幂等性规则 |
-| 16 | [AH1-16-权限Scope-Policy-Snapshot](AH1-16-权限Scope-Policy-Snapshot.md) | 主体/资源/Scope定义、Policy Snapshot机制 |
+- 多渠道入口：飞书长连接、企业微信 Webhook、Web Portal、移动端推送。
+- Workflow 优先：个人私有、组织、公共 workflow 优先复用，再进入自动首跑。
+- 受治理的检索：PostgreSQL 是唯一事实源，向量只提候选，图门控收口，Evidence Pack 可追溯。
+- 梦境与记忆系统：用户级记忆隔离、管理员级汇总分析、组织级知识整合。
+- Skill 生命周期：搜索、召回、注入、审核、提升、复用和业务贡献归因。
+- B2B 销售样板：晨会、卡单救援、折扣审批、回款风险、周复盘等日常管理路径。
+- 企业控制面：组织隔离、RBAC/ABAC、审计、Checkpoint/Resume/Replay、生产密码加固。
+- 可观测运营：OpenTelemetry、SigNoz、结构化日志、健康检查、归因看板。
 
-## Workflow治理层
+## 仓库结构
 
-| # | 文档 | 关键内容 |
-|---|------|----------|
-| 17 | [AH1-17-Workflow-DSL与Planner契约](AH1-17-Workflow-DSL与Planner契约.md) | 16种stage_type、Subagent机制、完整生命周期 |
-| 18 | [AH1-18-Code-Executor与执行会话](AH1-18-Code-Executor与执行会话.md) | worktree隔离、patch协议、智能调度策略 |
-| 19 | [AH1-19-Checkpoint-Resume-Replay](AH1-19-Checkpoint-Resume-Replay.md) | checkpoint粒度、resume策略、replay边界 |
+```text
+.
+├── agent-harness/              # 可运行 TypeScript monorepo
+│   ├── apps/                   # gateway-adapter, web-portal, mobile-app
+│   ├── services/               # workflow, retrieval, executor, hermes, skills
+│   ├── libs/                   # contracts, shared DB/config/logging, policy, audit
+│   ├── db/migrations/          # SQL migrations
+│   ├── scripts/                # bootstrap, health, migration, smoke helpers
+│   └── tests/                  # unit and integration tests
+├── development/                # 执行计划、图谱、审计、专题实现说明
+├── AH1-*.md                    # 架构与实施权威文档
+├── RELEASE_NOTES.md            # 当前版本发布说明
+└── README.md                   # GitHub 默认入口
+```
 
-## 数据与检索层
+## 快速开始
 
-| # | 文档 | 关键内容 |
-|---|------|----------|
-| 20 | [AH1-20-检索编排与Fact-Write](AH1-20-检索编排与Fact-Write.md) | Query Plan、Evidence Pack、混合检索 |
-| 21 | [AH1-21-渠道接入与Session映射](AH1-21-渠道接入与Session映射.md) | 企业微信/飞书/Web Portal、身份绑定 |
-| 22 | [AH1-22-Artifact-Object-Storage](AH1-22-Artifact-Object-Storage.md) | artifact类型、MinIO策略 |
+```bash
+git clone https://github.com/andyrenxu7255/jueying-agent.git
+cd jueying-agent/agent-harness
+npm install
+cp .env.example .env
+npm run docker:core:up
+npm run db:migrate
+npm run docker:up -- --profile app
+```
 
-## 可观测性层
+启动后访问：
 
-| # | 文档 | 关键内容 |
-|---|------|----------|
-| 23 | [AH1-23-审计日志指标与告警](AH1-23-审计日志指标与告警.md) | 审计事件、日志规范、指标定义、告警规则 |
+| 界面 | 地址 |
+|---|---|
+| Web Portal | http://localhost:3003 |
+| LiteLLM Dashboard | http://localhost:4000/ui |
+| SigNoz | http://localhost:3301 |
+| MinIO Console | http://localhost:9001 |
 
-## 验证与计划层
+生产环境请使用 `docker-compose.prod.yml`，并通过环境变量提供所有密钥。不要在生产环境使用本地开发密码。
 
-| # | 文档 | 关键内容 |
-|---|------|----------|
-| 24 | [AH1-24-PoC压测执行方案](AH1-24-PoC压测执行方案.md) | 6个P0 PoC、压测场景、通过阈值 |
-| 25 | [AH1-25-研发里程碑与任务拆解](AH1-25-研发里程碑与任务拆解.md) | M0-M5里程碑、任务拆解、验收门槛 |
+## 验证记录
 
-## 扩展能力层
+v1.5.0 发布线已执行：
 
-| # | 文档 | 关键内容 |
-|---|------|----------|
-| 26 | [AH1-26-Provider选择与配置](AH1-26-Provider选择与配置.md) | LLM/Embedding/Rerank选择、预算管理 |
-| 27 | [AH1-27-部署与运维](AH1-27-部署与运维.md) | 4C16G资源规划、Docker/K8s方案 |
-| 28 | [AH1-28-配置管理](AH1-28-配置管理.md) | 5层配置优先级、环境变量规范、热更新 |
-| 29 | [AH1-29-交付物清单](AH1-29-交付物清单.md) | 交付物层次、性能指标、质量门禁 |
-| 30 | [AH1-30-验收标准与测试用例](AH1-30-验收标准与测试用例.md) | 功能/性能/安全测试、验收门禁 |
-| 31 | [AH1-31-错误处理与降级策略](AH1-31-错误处理与降级策略.md) | 3类错误、重试策略、熔断限流 |
-| 32 | [AH1-32-API版本管理策略](AH1-32-API版本管理策略.md) | URL版本策略、兼容性规则 |
+```bash
+npm run db:migrate
+npm run lint
+npm run type-check
+npm run build
+npm test
+npm run test:dream-mode
+npm audit --audit-level=high
+```
 
-## 补充文档
+结果：迁移、lint、类型检查、构建、8 个 Jest 测试套件 / 81 个用例、14 个 dream-mode 集成用例均通过。依赖审计无 high/critical；剩余 2 个 moderate 传递依赖提示已记录。
 
-| # | 文档 | 关键内容 |
-|---|------|----------|
-| 33 | [AH1-33-文档关系与一致性清单](AH1-33-文档关系与一致性清单.md) | 依赖关系图、一致性检查表 |
-| 34 | [AH1-34-安全架构增强](AH1-34-安全架构增强.md) | TLS、DLP、审计日志、密钥管理 |
-| 35 | [AH1-35-版本管理规范](AH1-35-版本管理规范.md) | 语义化版本、分支策略 |
-| 36 | [AH1-36-生产级代码示例参考](AH1-36-生产级代码示例参考.md) | Workflow Repository、OpenAI Adapter |
+## 文档总索引
 
-## 审计报告
+| 入口 | 内容 |
+|---|---|
+| [agent-harness/README.md](./agent-harness/README.md) | 应用级快速开始、架构、端口、工作流和开发命令。 |
+| [agent-harness/PRODUCT.md](./agent-harness/PRODUCT.md) | 产品说明、角色、功能矩阵和用户价值。 |
+| [agent-harness/OPS.md](./agent-harness/OPS.md) | 部署、健康检查、监控、备份和运维手册。 |
+| [RELEASE_NOTES.md](./RELEASE_NOTES.md) | v1.5.0 发布说明，可直接用于 GitHub Release。 |
+| [development/DEV-21-梦境Hook与业务归因闭环.md](./development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回和 Outcome 归因实现说明。 |
+| [development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md](./development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md) | 梦境 Hook 归因专项审计。 |
+| [development/DEV-00-开发索引.md](./development/DEV-00-开发索引.md) | 开发计划索引和里程碑地图。 |
+| [development/context-graph.json](./development/context-graph.json) | 机器可读上下文图谱，当前 v2.7。 |
 
-| # | 文档 | 内容 |
-|---|------|------|
-| 37 | [AH1-37-架构审计报告](AH1-37-架构审计报告.md) | 架构审计、安全漏洞、代码复用、技术选型 |
-| 38 | [AH1-38-文档审计报告](AH1-38-文档审计报告.md) | OpenCode文档审计 + AH1文档审计 |
+### AH1 权威文档
 
----
+AH1 系列仍是架构和实现约束的权威文档。常用入口：
 
-## 推荐阅读顺序
+| 文档 | 主题 |
+|---|---|
+| [AH1-17-Workflow-DSL与Planner契约.md](./AH1-17-Workflow-DSL与Planner契约.md) | Workflow DSL、Planner 契约、生命周期与 skill 提取。 |
+| [AH1-20-检索编排与Fact-Write.md](./AH1-20-检索编排与Fact-Write.md) | 检索编排、图门控、Evidence Pack 与事实写入。 |
+| [AH1-23-审计日志指标与告警.md](./AH1-23-审计日志指标与告警.md) | 审计、指标、Dashboard 与梦境 Hook 归因视图。 |
+| [AH1-14-数据库表设计与索引.md](./AH1-14-数据库表设计与索引.md) | PostgreSQL schema 权威说明与迁移地图。 |
+| [AH1-27-部署与运维.md](./AH1-27-部署与运维.md) | 部署和运维架构。 |
 
-1. [AH1-00-实施规格包](AH1-00-实施规格包.md) — 整体架构和冻结决策
-2. [AH1-33-文档关系与一致性清单](AH1-33-文档关系与一致性清单.md) — 文档体系和术语基线
-3. [AH1-17-Workflow-DSL与Planner契约](AH1-17-Workflow-DSL与Planner契约.md) — Workflow核心机制（重点）
+## 当前发布：v1.5.0
 
-按角色阅读：开发→14,15,18,19,20 | 接入→21,22 | 运维→23,27,28,31,32 | 验证→24,25,26,29,30
+本次发布补齐 memory/skill recall 到真实业务结果之间的反馈链：
 
----
+- `hook_event_log`：生命周期事件。
+- `knowledge_recall_event` 与 `skill_recall_event`：召回与注入追踪。
+- `workflow_outcome_eval`：workflow 终态业务评分。
+- `recall_outcome_attribution`：召回事件到 outcome 的贡献归因。
+- `skill_business_outcome_daily` 与 `knowledge_business_outcome_daily`：日级报表视图。
 
-## 冻结决策基线（16条，不可回退）
+详见 [RELEASE_NOTES.md](./RELEASE_NOTES.md)。
 
-1. 单组织多用户，不做多租户SaaS | 2. PostgreSQL唯一事实源 | 3. pgvector只做语义召回 | 4. AGE只做图增强 | 5. 不用Neo4j | 6. 个人区+公共区 | 7. 普通用户严格隔离 | 8. Workflow不依赖md/heartbeat | 9. Code Executor与OpenClaw隔离 | 10. 每阶段必须可恢复 | 11. 检索必须权限过滤 | 12. Skill Day1默认私有 | 13. Memory不可作为事实依据 | 14. Hermes不能写主事实 | 15. Replay默认只读 | 16. 预算必须可观测可控
+## License
 
----
-
-**历史文件**: `archive/` 目录 | **Agent Harness V1 - 面向开发智能体的实施规格包**
+JueYing 使用 MIT License。详见 [agent-harness/LICENSE](./agent-harness/LICENSE) 和 [agent-harness/LICENSES.md](./agent-harness/LICENSES.md)。
