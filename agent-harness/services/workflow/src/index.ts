@@ -32,6 +32,7 @@ interface WorkflowRecord {
   status: string;
   owner_user_id: string;
   org_id?: string;
+  workflow_definition_ref?: string | null;
   plan: Record<string, unknown>;
   stages: Array<{ id: string; status: string; seq: number; last_output_preview?: string; verification_meta?: Record<string, unknown> }>;
   created_at: string;
@@ -180,6 +181,7 @@ function loadWorkflowStore(): Map<string, WorkflowRecord> {
       store.set(item.id, {
         ...item,
         org_id: item.org_id as string | undefined,
+        workflow_definition_ref: item.workflow_definition_ref || null,
         machine: restoreMachine(item.id, item.status, item.stages)
       });
     }
@@ -210,6 +212,7 @@ async function persistWorkflowStore(): Promise<void> {
           status: workflow.status,
           owner_user_id: workflow.owner_user_id,
           org_id: workflow.org_id,
+          workflow_definition_ref: workflow.workflow_definition_ref || null,
           plan: workflow.plan,
           stages: workflow.stages,
           created_at: workflow.created_at
@@ -233,6 +236,7 @@ async function persistWorkflowStore(): Promise<void> {
     status: workflow.status,
     owner_user_id: workflow.owner_user_id,
     org_id: workflow.org_id,
+    workflow_definition_ref: workflow.workflow_definition_ref || null,
     plan: workflow.plan,
     stages: workflow.stages,
     created_at: workflow.created_at
@@ -278,6 +282,7 @@ async function bootstrapWorkflowStoreFromDatabase(): Promise<void> {
       status: record.status,
       owner_user_id: record.owner_user_id,
       org_id: record.org_id,
+      workflow_definition_ref: record.workflow_definition_ref || null,
       plan: record.plan,
       stages: record.stages,
       created_at: record.created_at,
@@ -461,6 +466,7 @@ const server = createServer(async (req, res) => {
       status: 'planned',
       owner_user_id: userId,
       org_id: typeof body.org_id === 'string' ? body.org_id : undefined,
+      workflow_definition_ref: result.workflow_definition_ref,
       plan: result.workflow_plan as unknown as Record<string, unknown>,
       stages: result.workflow_plan.stage_chain.map((stage, index) => ({
         id: stage.stage_id,
@@ -476,7 +482,8 @@ const server = createServer(async (req, res) => {
 
     sendJson(res, 200, {
       ok: result.validation.ok,
-      workflow_definition_ref: 'wd_default',
+      workflow_definition_ref: result.workflow_definition_ref,
+      workflow_definition_status: result.workflow_definition_ref ? 'approved' : 'none',
       workflow_instance_ref: result.workflow_instance_ref,
       workflow_plan_hash: result.workflow_plan.plan_hash,
       workflow_plan: result.workflow_plan,
@@ -1134,6 +1141,7 @@ const server = createServer(async (req, res) => {
         status: w.status,
         owner_user_id: w.owner_user_id,
         org_id: w.org_id,
+        workflow_definition_ref: w.workflow_definition_ref || null,
         plan: w.plan,
         created_at: w.created_at
       }))
@@ -1180,6 +1188,7 @@ const server = createServer(async (req, res) => {
         status: workflow.status,
         owner_user_id: workflow.owner_user_id,
         org_id: workflow.org_id,
+        workflow_definition_ref: workflow.workflow_definition_ref || null,
         plan: workflow.plan,
         stages: workflow.stages,
         observability_summary: buildWorkflowObservabilitySummary(workflow),

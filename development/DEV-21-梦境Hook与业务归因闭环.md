@@ -27,7 +27,7 @@ JueYing 已有梦境模式、技能审核和记忆压缩，但缺少“召回了
 3. 增加知识与 skill 召回账本。
 4. 增加 workflow outcome 评分与归因表。
 5. 在 Web Portal 展示 30 天内 skill / 知识的业务效果。
-6. 更新上下文图谱，让 dream/hook/outcome 成为明确领域。
+6. 更新上下文图谱，让 dream/hook/outcome/workflow_definition_review 成为明确领域。
 
 ## 数据库新增
 
@@ -74,6 +74,7 @@ JueYing 已有梦境模式、技能审核和记忆压缩，但缺少“召回了
 | `services/skill-library/src/index.ts` | 技能审核/提升 hook 事件 |
 | `apps/web-portal/src/index.ts` | 管理端归因 API 与梦境调度修复 |
 | `apps/web-portal/static/app.js` | 梦境页展示归因结果 |
+| `db/migrations/027_workflow_definition_review.sql` | workflow_definition_review 候审桥 |
 
 ## 已修复问题
 

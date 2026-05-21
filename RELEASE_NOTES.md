@@ -1,4 +1,4 @@
-# JueYing v1.5.0 - Dream Hooks and Outcome Attribution
+# JueYing v1.6.0 - Dream Hooks, Outcome Attribution, and Workflow Reviews
 
 发布日期：2026-05-21
 
@@ -13,8 +13,9 @@
 - 增加 workflow outcome 评估，成功、失败、取消三类终态都会写入结果。
 - 增加召回到 outcome 的归因表，以及知识/skill 的日级业务效果视图。
 - 修复梦境调度里的个人梦境字段、组织梦境窗口、重复触发和配置读取问题。
-- Web Portal 增加近 30 天 skill 与知识业务效果 API 和展示入口。
-- 文档、开发图谱和专项审计同步更新，dream、hook、outcome attribution 成为一等架构域。
+- Web Portal 增加近 30 天 skill 与知识业务效果 API、workflow_definition 候审/审批入口。
+- 增加 `workflow_definition_review` 审批桥：高召回、高业务分、高审核分的 workflow 型 skill 会进入管理员候审，批准后固化为 `workflow_definition`。
+- 文档、开发图谱和专项审计同步更新，dream、hook、outcome attribution、workflow_definition review 成为一等架构域。
 
 ## Skill 与 Workflow 的边界
 
@@ -25,21 +26,24 @@ JueYing 中 skill 和 workflow 可以并行存在，但它们属于不同治理�
 | Skill | 可召回、可注入的能力资产 | 方法片段、工具封装、提示模板、经验模式、某类任务的局部做法 | 召回质量、版本、示例、审核评分和 outcome 归因 |
 | Workflow | 经确认或审批的执行契约 | 多阶段任务、跨服务执行、需要验收/恢复/审计的业务流程 | DSL、阶段链、状态机、权限快照、验收条件、checkpoint、审计 |
 
-v1.5 当前落地路径：
+v1.6 当前落地路径：
 
-1. 用户任务先尝试匹配 active skill 模板；其中 `skill_type=workflow` 会被 Planner 当作 workflow 阶段链模板使用。
-2. 首跑或日常执行中可以召回多个 skill，作为阶段内的能力和上下文补充。
-3. 工作流成功后，gateway 会把阶段链提取为 `skill_type=workflow` 的 private draft skill。
-4. 用户回复“确认工作流 wf_xxx”后，该 draft skill 变为 private active 模板，下次相似任务会优先匹配。
-5. Skill-library 的审核/提升会把高评分模板提升为 org skill，并写入 `org_skill_registry`；当前版本不会自动创建或审批 `workflow_definition`。
+1. 用户任务先尝试匹配已批准 `workflow_definition`；命中后 Planner 直接按该阶段链生成 workflow 计划。
+2. 未命中 `workflow_definition` 时，再匹配 active skill 模板；其中 `skill_type=workflow` 会被 Planner 当作 workflow 阶段链模板使用。
+3. 首跑或日常执行中可以召回多个 skill，作为阶段内的能力和上下文补充。
+4. 工作流成功后，gateway 会把阶段链提取为 `skill_type=workflow` 的 private draft skill。
+5. 用户回复“确认工作流 wf_xxx”后，该 draft skill 变为 private active 模板，下次相似任务会优先匹配。
+6. Skill-library 根据近 30 天 `skill_business_outcome_daily`、`skill_recall_event`、`workflow_outcome_eval` 和 `skill_audit_record` 生成 `workflow_definition_review` 候审。
+7. 管理员批准候审后，系统写入 active `workflow_definition`；之后 Planner 优先使用它，优先级高于 workflow 型 skill。
 
-下一步契约层演进是：当某个 skill 多次命中、贡献稳定、风险可控时，再提交给 admin 审核阶段链、适用边界、权限、验收标准和风险说明，审核通过后固化为 `workflow_definition`。这种 workflow 契约通常会比普通 skill 在“指令遵从”和“流程稳定性”上更强，因为它拥有显式阶段、状态转移、退出条件、失败处理、checkpoint 和审计；普通 skill 更适合承载可复用经验与局部能力。
+这种 workflow 契约通常会比普通 skill 在“指令遵从”和“流程稳定性”上更强，因为它拥有显式阶段、状态转移、退出条件、失败处理、checkpoint、权限快照和审计；普通 skill 更适合承载可复用经验与局部能力。
 
 ## 数据库变更
 
 新增迁移：
 
 - `agent-harness/db/migrations/026_recall_outcome_attribution.sql`
+- `agent-harness/db/migrations/027_workflow_definition_review.sql`
 
 新增表：
 
@@ -48,6 +52,7 @@ v1.5 当前落地路径：
 - `skill_recall_event`
 - `workflow_outcome_eval`
 - `recall_outcome_attribution`
+- `workflow_definition_review`
 
 新增视图：
 

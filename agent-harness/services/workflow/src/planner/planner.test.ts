@@ -2,6 +2,16 @@ import type { Stage, WorkflowPlan } from '@agent-harness/contracts';
 import { WorkflowPlanner, type PlannerInput } from './planner';
 
 type TestablePlanner = WorkflowPlanner & {
+  buildPlanFromWorkflowDefinition(input: PlannerInput, workflowDefinition: {
+    workflow_definition_id: string;
+    workflow_definition_name: string;
+    workflow_type: string;
+    scope_type: string;
+    risk_level: string;
+    description: string;
+    definition_json: Record<string, unknown>;
+    match_score: number;
+  }): WorkflowPlan;
   buildPlanFromMarkdownSteps(input: PlannerInput): WorkflowPlan;
   getDefaultStageChain(taskType: string, userGoal: string): Stage[];
   inferStageTypeFromStepName(stepName: string): Stage['stage_type'];
@@ -65,6 +75,45 @@ describe('WorkflowPlanner', () => {
 
       expect(plan.stage_chain).toHaveLength(2);
       expect(plan.stage_chain[0].on_success).toBe('next_stage');
+      expect(plan.stage_chain[1].on_success).toBe('succeeded');
+    });
+  });
+
+  describe('buildPlanFromWorkflowDefinition', () => {
+    it('uses an approved workflow_definition stage chain as the executable plan', () => {
+      const plan = testablePlanner.buildPlanFromWorkflowDefinition(baseInput, {
+        workflow_definition_id: '11111111-1111-4111-8111-111111111111',
+        workflow_definition_name: '销售回款风险复盘',
+        workflow_type: 'sales',
+        scope_type: 'public',
+        risk_level: 'medium',
+        description: '',
+        match_score: 20,
+        definition_json: {
+          workflow_type: 'sales',
+          risk_level: 'medium',
+          stage_chain: [
+            {
+              stage_type: 'EvidenceRetrieval',
+              stage_key: 'retrieve_pipeline',
+              assigned_executor: 'retrieval-aware-executor',
+              purpose: 'Retrieve pipeline evidence',
+              retrieval_plan: { enabled: true, allow_graph: true, max_graph_hops: 2 }
+            },
+            {
+              stage_type: 'ResultReporting',
+              stage_key: 'report',
+              assigned_executor: 'generic-executor',
+              purpose: 'Report risk items'
+            }
+          ]
+        }
+      });
+
+      expect(plan.workflow_type).toBe('sales');
+      expect(plan.stage_chain).toHaveLength(2);
+      expect(plan.stage_chain[0].stage_type).toBe('EvidenceRetrieval');
+      expect(plan.stage_chain[0].assigned_executor).toBe('retrieval-aware-executor');
       expect(plan.stage_chain[1].on_success).toBe('succeeded');
     });
   });

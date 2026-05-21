@@ -18,6 +18,7 @@ export interface PersistedWorkflowRecord {
   status: string;
   owner_user_id: string;
   org_id?: string;
+  workflow_definition_ref?: string | null;
   plan: Record<string, unknown>;
   stages: Array<{ id: string; status: string; seq: number }>;
   created_at: string;
@@ -172,6 +173,9 @@ export async function persistWorkflowRecord(record: PersistedWorkflowRecord): Pr
   const policySnapshotHash = typeof plan.policy_snapshot_hash === 'string'
     ? plan.policy_snapshot_hash
     : `sha256:${createHash('sha256').update(`policy:${record.owner_user_id}`).digest('hex')}`;
+  const workflowDefinitionId = typeof record.workflow_definition_ref === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(record.workflow_definition_ref)
+    ? record.workflow_definition_ref
+    : null;
 
   try {
     const userId = await ensureUser(record.owner_user_id);
@@ -184,9 +188,10 @@ export async function persistWorkflowRecord(record: PersistedWorkflowRecord): Pr
 
       await client.query(
         `insert into workflow_instance (id, workflow_definition_id, owner_user_id, scope_type, status, workflow_plan_hash, policy_snapshot_id, budget_json, input_summary, started_at, finished_at)
-         values ($1, null, $2, 'private', $3, $4, $5, $6::jsonb, $7::jsonb, $8::timestamptz, $9::timestamptz)
+         values ($1, $2, $3, 'private', $4, $5, $6, $7::jsonb, $8::jsonb, $9::timestamptz, $10::timestamptz)
          on conflict (id) do update set
            status = excluded.status,
+           workflow_definition_id = excluded.workflow_definition_id,
            workflow_plan_hash = excluded.workflow_plan_hash,
            budget_json = excluded.budget_json,
            input_summary = excluded.input_summary,
@@ -195,6 +200,7 @@ export async function persistWorkflowRecord(record: PersistedWorkflowRecord): Pr
            updated_at = now()`,
         [
           workflowUuid,
+          workflowDefinitionId,
           userId,
           record.status,
           planHash,
@@ -204,6 +210,7 @@ export async function persistWorkflowRecord(record: PersistedWorkflowRecord): Pr
             external_workflow_ref: record.id,
             owner_user_ref: record.owner_user_id,
             org_id: record.org_id,
+            workflow_definition_ref: workflowDefinitionId,
             plan,
             created_at: record.created_at
           }),
@@ -360,9 +367,10 @@ export async function loadPersistedWorkflows(limit = 500): Promise<PersistedWork
       id: string;
       status: string;
       input_summary: Record<string, unknown>;
+      workflow_definition_id: string | null;
       created_at: Date;
     }>(
-      `select id, status, input_summary, created_at
+      `select id, status, input_summary, workflow_definition_id, created_at
        from workflow_instance
        where input_summary ? 'external_workflow_ref'
        order by created_at desc
@@ -396,6 +404,7 @@ export async function loadPersistedWorkflows(limit = 500): Promise<PersistedWork
         status: row.status,
         owner_user_id: ownerUserRef,
         org_id: typeof summary.org_id === 'string' ? summary.org_id : undefined,
+        workflow_definition_ref: row.workflow_definition_id || undefined,
         plan: (summary.plan as Record<string, unknown>) || {},
         stages: stagesResult.rows.map((stage) => ({
           id: typeof stage.metadata?.external_stage_ref === 'string' ? String(stage.metadata.external_stage_ref) : `stage_${stage.seq}`,

@@ -1,6 +1,6 @@
 # agent-harness 系统架构文档
 
-> 版本: 2026-05-21 (第二十轮：skill/workflow 生命周期口径统一)
+> 版本: 2026-05-21 (第二十一轮：workflow_definition 审批桥落地)
 > 当前状态: **全链路验证通过，当前文档已同步真实运行口径**
 
 ---
@@ -135,10 +135,11 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
        a. 检查 identity_binding_state === 'bound'
        b. 检查 org 限额
        c. POST → workflow-service /internal/workflows/plan
-          → Planner 先匹配 active skill 模板:
+          → Planner 先匹配 active workflow_definition
+          → 未命中时匹配 active workflow 型 skill 模板:
              private(owner_user_id) → org(org_id) → public
           → skill_type=workflow 时直接作为 workflow 阶段链模板
-          → 未命中时进入自动任务首跑模式，由 LLM 生成 stage_chain
+          → 再未命中时进入自动任务首跑模式，由 LLM 生成 stage_chain
        d. POST → workflow-service /internal/workflows/{ref}/dispatch
           → workflow 转发到 executor-gateway /internal/executor/dispatch
        e. 返回 "任务已受理，workflow=xxx"
@@ -150,8 +151,10 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
   → 6. 用户确认:
        回复“确认工作流 wf_xxx”
        → gateway 激活该 workflow 提取出的私有 draft skill (skill_type=workflow)
-       → 下次相似任务优先复用
-       → 若团队认可，可由 admin 通过 skill-library 提升为组织级 skill 模板
+       → 下次相似任务可复用
+       → skill-library 根据召回、注入、outcome 和审核分提交 workflow_definition_review
+       → admin 批准后写入 active workflow_definition
+       → Planner 后续优先使用该 workflow_definition
 ```
 
 ### 4.3 执行器阶段执行流程
@@ -177,7 +180,7 @@ executor-gateway /internal/executor/dispatch
 
 ### 4.3.1 B2B 销售管理样板路径
 
-JueYing 的默认体验基准以 B2B 销售管理为样板：老板在 IM 中给出经营意图，例如“本周把华东区回款风险降下来，两个重点客户推进到 closing”。系统先查已有销售管理模板；若命中用户本人或组织确认过的 active skill，就直接沿用其阶段链；若未命中，则首跑生成路径，检索 pipeline、客户阶段、拜访证据、报价和回款风险，输出老板只需处理的异常和决策点。任务完成后，回执必须包含阶段过程、异常处理、结果摘要和确认入口。用户确认后，该路径成为私有 workflow 型 skill 模板；管理员审核后可提升为组织级 skill 模板。真正写入 `workflow_definition` 的审批固化是后续契约层能力，不是当前主链路。
+JueYing 的默认体验基准以 B2B 销售管理为样板：老板在 IM 中给出经营意图，例如“本周把华东区回款风险降下来，两个重点客户推进到 closing”。系统先查已批准 `workflow_definition`，若命中则直接沿用稳定阶段链；未命中时再查用户本人、组织或公共 active workflow 型 skill；仍未命中才首跑生成路径，检索 pipeline、客户阶段、拜访证据、报价和回款风险，输出老板只需处理的异常和决策点。任务完成后，回执必须包含阶段过程、异常处理、结果摘要和确认入口。用户确认后，该路径成为私有 workflow 型 skill 模板；当召回率、注入率、业务评分和审核分均良好时，skill-library 会提交 `workflow_definition_review`，管理员批准后固化为 active `workflow_definition`。
 
 ### 4.4 Knowledge Submit 流程（知识主动提交）
 
@@ -318,7 +321,7 @@ draft → planned → running → verifying → reporting → succeeded → arch
 
 | 表名 | 用途 |
 |------|------|
-| `workflow_definition` | 工作流定义/模板 (scope_type, name, workflow_type, version, definition_json) |
+| `workflow_definition` | 工作流定义/模板 (scope_type, org_id, name, workflow_type, version, definition_json)；scope_type 仅 private/public，org_id 作为组织可见边界 |
 | `workflow_instance` | 工作流实例 (status, plan, owner_user_id, org_id, policy_snapshot_id) |
 | `workflow_stage` | 工作流阶段 (stage_type, status, assigned_executor, seq) |
 | `checkpoint` | 工作流断点/检查点 (checkpoint_type, resume_token, state_hash, policy_snapshot_hash) |
@@ -825,8 +828,8 @@ docker logs -f ah-mobile-app
 |--------|------|
 | `tsc --noEmit` | ✅ pass (exit 0) |
 | `docker compose config --quiet` | ✅ pass (exit 0) |
-| context-graph.json | ✅ valid JSON, v2.0 |
-| context-routing.json | ✅ valid JSON, v1.5 |
+| context-graph.json | ✅ valid JSON, v2.9 |
+| context-routing.json | ✅ valid JSON, v1.9 |
 | diagnostics | ✅ 0 errors |
 
 ---

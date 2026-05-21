@@ -1,6 +1,6 @@
 {
-  "version": "v1.8",
-  "description": "Task routing configuration - Updated 2026-05-21: synced with context-graph.json v2.8, added DEV-20 fact graph gating, and aligned reusable workflow paths to workflow-type skills before future workflow_definition approval.",
+  "version": "v1.9",
+  "description": "Task routing configuration - Updated 2026-05-21: synced with context-graph.json v2.9, added DEV-20 fact graph gating, and aligned reusable workflow paths to workflow_type skills plus workflow_definition_review approval.",
   "default_bootstrap_docs": [
     "development/DEV-00-开发索引.md",
     "development/DEV-08-文件内容与依赖对象图谱.md",

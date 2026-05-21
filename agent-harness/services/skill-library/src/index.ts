@@ -70,6 +70,11 @@ const AUDIT_CONFIG = {
   privateScopeFitScore: 65,
   auditPassThreshold: 70,
   autoPromoteThreshold: 80,
+  workflowReviewMinRecall: 3,
+  workflowReviewMinInjected: 1,
+  workflowReviewMinSucceeded: 1,
+  workflowReviewMinBusinessScore: 75,
+  workflowReviewMinAuditScore: 75,
   bannedOrgId: '00000000-0000-0000-0000-000000000001',
 } as const;
 
@@ -98,6 +103,22 @@ function computeAuditScores(def: unknown, defStrLength: number, scopeType: strin
 
 function isValidOrgId(orgId: string | null | undefined): orgId is string {
   return !!orgId && orgId !== AUDIT_CONFIG.bannedOrgId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId);
+}
+
+function isValidUuid(value: string | null | undefined): value is string {
+  return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+function normalizeWorkflowType(value: unknown): string {
+  const normalized = String(value || '').trim();
+  if (['development', 'analysis', 'knowledge', 'sales', 'implementation'].includes(normalized)) return normalized;
+  return 'analysis';
+}
+
+function normalizeRiskLevel(value: unknown): string {
+  const normalized = String(value || '').trim();
+  if (['low', 'medium', 'high'].includes(normalized)) return normalized;
+  return 'medium';
 }
 
 /* ---- 类型定义 ---- */
@@ -452,6 +473,341 @@ async function getSkill(skillId: string): Promise<{ status: number; body: Record
   } catch (error) {
     logger.error('skill.get_failed', 'Failed to get skill', { error: String(error) });
     return { status: 500, body: { ok: false, error: 'get_failed' } };
+  }
+}
+
+async function nominateWorkflowDefinitionReviews(orgId?: string, limit = 100): Promise<{ status: number; body: Record<string, unknown> }> {
+  const pool = await getDbPool();
+  if (!pool) {
+    return { status: 503, body: { ok: false, error: 'database_not_available' } };
+  }
+
+  try {
+    const params: unknown[] = [
+      AUDIT_CONFIG.workflowReviewMinRecall,
+      AUDIT_CONFIG.workflowReviewMinInjected,
+      AUDIT_CONFIG.workflowReviewMinSucceeded,
+      AUDIT_CONFIG.workflowReviewMinBusinessScore,
+      AUDIT_CONFIG.workflowReviewMinAuditScore,
+      Math.max(1, Math.min(limit, 500))
+    ];
+    let orgClause = '';
+    if (orgId && isValidOrgId(orgId)) {
+      params.push(orgId);
+      orgClause = `AND s.org_id = $${params.length}::uuid`;
+    }
+
+    const candidates = await pool.query(
+      `WITH latest_version AS (
+         SELECT DISTINCT ON (sv.skill_id) sv.*
+         FROM skill_version sv
+         ORDER BY sv.skill_id, sv.version DESC
+       ),
+       usage AS (
+         SELECT skill_id,
+                COALESCE(SUM(recall_count),0)::int AS recall_count,
+                COALESCE(SUM(injected_count),0)::int AS injected_count,
+                COALESCE(SUM(succeeded_count),0)::int AS succeeded_count,
+                COALESCE(AVG(avg_business_score),0)::real AS avg_business_score
+         FROM skill_business_outcome_daily
+         WHERE usage_date >= current_date - interval '30 days'
+         GROUP BY skill_id
+       ),
+       audit AS (
+         SELECT DISTINCT ON (skill_id) id, skill_id, overall_score, audit_result
+         FROM skill_audit_record
+         ORDER BY skill_id, created_at DESC
+       )
+       SELECT s.id AS skill_id, s.owner_user_id, s.org_id, s.scope_type, s.skill_name, s.description, s.risk_level,
+              latest_version.id AS version_id, latest_version.definition_json, latest_version.version,
+              usage.recall_count, usage.injected_count, usage.succeeded_count, usage.avg_business_score,
+              audit.id AS audit_id, COALESCE(audit.overall_score, 0)::real AS audit_overall_score,
+              audit.audit_result
+       FROM skill s
+       JOIN latest_version ON latest_version.skill_id = s.id
+       JOIN usage ON usage.skill_id = s.id
+       LEFT JOIN audit ON audit.skill_id = s.id
+         WHERE s.status = 'active'
+         AND s.skill_type = 'workflow'
+         AND usage.recall_count >= $1
+         AND usage.injected_count >= $2
+         AND usage.succeeded_count >= $3
+         AND usage.avg_business_score >= $4
+         AND COALESCE(audit.overall_score, 0) >= $5
+         AND NOT EXISTS (
+           SELECT 1 FROM workflow_definition_review wdr
+           WHERE wdr.source_skill_version_id = latest_version.id
+             AND wdr.review_status IN ('pending','approved')
+         )
+         ${orgClause}
+       ORDER BY usage.succeeded_count DESC, usage.injected_count DESC, usage.recall_count DESC, usage.avg_business_score DESC
+       LIMIT $6`,
+      params
+    );
+
+    let nominated = 0;
+    const reviews: Record<string, unknown>[] = [];
+    for (const row of candidates.rows) {
+      const definitionJson = typeof row.definition_json === 'string' ? JSON.parse(row.definition_json) : row.definition_json || {};
+      const workflowType = normalizeWorkflowType(definitionJson.task_type_hint || definitionJson.workflow_type);
+      const riskLevel = normalizeRiskLevel(row.risk_level || definitionJson.risk_level);
+      const reviewScope = row.scope_type === 'private' ? 'private' : 'public';
+      const metadata = {
+        source: 'dream_skill_outcome_nomination',
+        source_skill_scope: row.scope_type,
+        threshold: {
+          min_recall: AUDIT_CONFIG.workflowReviewMinRecall,
+          min_injected: AUDIT_CONFIG.workflowReviewMinInjected,
+          min_succeeded: AUDIT_CONFIG.workflowReviewMinSucceeded,
+          min_business_score: AUDIT_CONFIG.workflowReviewMinBusinessScore,
+          min_audit_score: AUDIT_CONFIG.workflowReviewMinAuditScore
+        },
+        source_skill_version: row.version,
+        audit_result: row.audit_result || null
+      };
+
+      const inserted = await pool.query(
+        `INSERT INTO workflow_definition_review (
+           owner_user_id, org_id, source_skill_id, source_skill_version_id, source_audit_id,
+           scope_type, name, workflow_type, risk_level, review_status,
+           skill_recall_count, skill_injected_count, skill_succeeded_count,
+           avg_business_score, audit_overall_score, definition_json, metadata
+         )
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending',$10,$11,$12,$13,$14,$15::jsonb,$16::jsonb)
+         ON CONFLICT (source_skill_version_id) DO UPDATE SET
+           workflow_definition_id = NULL,
+           review_status = 'pending',
+           review_notes = NULL,
+           reviewed_by = NULL,
+           reviewed_at = NULL,
+           scope_type = EXCLUDED.scope_type,
+           name = EXCLUDED.name,
+           workflow_type = EXCLUDED.workflow_type,
+           risk_level = EXCLUDED.risk_level,
+           skill_recall_count = EXCLUDED.skill_recall_count,
+           skill_injected_count = EXCLUDED.skill_injected_count,
+           skill_succeeded_count = EXCLUDED.skill_succeeded_count,
+           avg_business_score = EXCLUDED.avg_business_score,
+           audit_overall_score = EXCLUDED.audit_overall_score,
+           source_audit_id = EXCLUDED.source_audit_id,
+           definition_json = EXCLUDED.definition_json,
+           metadata = workflow_definition_review.metadata || EXCLUDED.metadata,
+           updated_at = now()
+         RETURNING *`,
+        [
+          row.owner_user_id,
+          row.org_id || null,
+          row.skill_id,
+          row.version_id,
+          row.audit_id || null,
+          reviewScope,
+          String(row.skill_name || 'Workflow template').replace(/^\[待确认\]\s*/, ''),
+          workflowType,
+          riskLevel,
+          Number(row.recall_count || 0),
+          Number(row.injected_count || 0),
+          Number(row.succeeded_count || 0),
+          Number(row.avg_business_score || 0),
+          Number(row.audit_overall_score || 0),
+          JSON.stringify({
+            ...definitionJson,
+            workflow_type: workflowType,
+            risk_level: riskLevel,
+            source_skill_id: row.skill_id,
+            source_skill_version_id: row.version_id
+          }),
+          JSON.stringify(metadata)
+        ]
+      );
+      nominated++;
+      reviews.push(inserted.rows[0]);
+      void recordHookEvent(pool, {
+        orgId: row.org_id,
+        ownerUserId: row.owner_user_id,
+        eventName: 'workflow_definition.review.submitted',
+        eventSource: 'skill-library',
+        eventPhase: 'post',
+        resourceType: 'workflow_definition_review',
+        resourceRef: String(inserted.rows[0]?.id || ''),
+        result: 'success',
+        metadata: {
+          source_skill_id: row.skill_id,
+          source_skill_version_id: row.version_id,
+          recall_count: row.recall_count,
+          injected_count: row.injected_count,
+          succeeded_count: row.succeeded_count,
+          avg_business_score: row.avg_business_score,
+          audit_overall_score: row.audit_overall_score
+        }
+      });
+    }
+
+    return { status: 200, body: { ok: true, nominated, reviews } };
+  } catch (error) {
+    logger.error('workflow_definition_review.nominate_failed', 'Failed to nominate workflow definition reviews', { error: String(error) });
+    return { status: 500, body: { ok: false, error: 'nominate_failed' } };
+  }
+}
+
+async function listWorkflowDefinitionReviews(status: string, orgId?: string, limit = 100): Promise<{ status: number; body: Record<string, unknown> }> {
+  const pool = await getDbPool();
+  if (!pool) {
+    return { status: 503, body: { ok: false, error: 'database_not_available' } };
+  }
+
+  try {
+    const params: unknown[] = [];
+    const conditions: string[] = ['1=1'];
+    if (status) {
+      params.push(status);
+      conditions.push(`wdr.review_status = $${params.length}`);
+    }
+    if (orgId && isValidOrgId(orgId)) {
+      params.push(orgId);
+      conditions.push(`wdr.org_id = $${params.length}::uuid`);
+    }
+    params.push(Math.max(1, Math.min(limit, 500)));
+
+    const result = await pool.query(
+      `SELECT wdr.*, s.skill_name, s.description AS skill_description, s.scope_type AS source_skill_scope
+       FROM workflow_definition_review wdr
+       JOIN skill s ON s.id = wdr.source_skill_id
+       WHERE ${conditions.join(' AND ')}
+      ORDER BY
+        CASE wdr.review_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+        wdr.skill_succeeded_count DESC,
+        wdr.skill_injected_count DESC,
+        wdr.avg_business_score DESC,
+        wdr.created_at DESC
+       LIMIT $${params.length}`,
+      params
+    );
+
+    return { status: 200, body: { ok: true, reviews: result.rows } };
+  } catch (error) {
+    logger.error('workflow_definition_review.list_failed', 'Failed to list workflow definition reviews', { error: String(error) });
+    return { status: 500, body: { ok: false, error: 'query_failed' } };
+  }
+}
+
+async function decideWorkflowDefinitionReview(
+  reviewId: string,
+  action: string,
+  reviewedBy: string,
+  notes?: string
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const pool = await getDbPool();
+  if (!pool) {
+    return { status: 503, body: { ok: false, error: 'database_not_available' } };
+  }
+  if (!isValidUuid(reviewId)) {
+    return { status: 400, body: { ok: false, error: 'invalid_review_id' } };
+  }
+
+  const normalizedAction = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : '';
+  if (!normalizedAction) {
+    return { status: 400, body: { ok: false, error: 'invalid_action' } };
+  }
+
+  const reviewerUuid = isValidUuid(reviewedBy) ? reviewedBy : null;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const reviewResult = await client.query(`SELECT * FROM workflow_definition_review WHERE id = $1 FOR UPDATE`, [reviewId]);
+    const review = reviewResult.rows[0];
+    if (!review) {
+      await client.query('ROLLBACK');
+      return { status: 404, body: { ok: false, error: 'review_not_found' } };
+    }
+    if (review.review_status !== 'pending') {
+      await client.query('ROLLBACK');
+      return { status: 409, body: { ok: false, error: 'review_already_decided', review_status: review.review_status } };
+    }
+
+    let workflowDefinitionId: string | null = null;
+    if (normalizedAction === 'approved') {
+      const currentVersion = await client.query(
+        `SELECT COALESCE(MAX(version), 0)::int AS max_version
+         FROM workflow_definition
+         WHERE owner_user_id = $1 AND name = $2`,
+        [review.owner_user_id, review.name]
+      );
+      const nextVersion = Number(currentVersion.rows[0]?.max_version || 0) + 1;
+      const metadata = {
+        ...(typeof review.metadata === 'object' && review.metadata ? review.metadata : {}),
+        source_review_id: review.id,
+        approved_by: reviewerUuid,
+        approved_at: new Date().toISOString()
+      };
+      const inserted = await client.query(
+        `INSERT INTO workflow_definition (
+           scope_type, owner_user_id, org_id, name, workflow_type, risk_level,
+           status, version, definition_json, metadata
+         )
+         VALUES ($1,$2,$3,$4,$5,$6,'active',$7,$8::jsonb,$9::jsonb)
+         RETURNING id`,
+        [
+          review.scope_type,
+          review.owner_user_id,
+          review.org_id || null,
+          review.name,
+          normalizeWorkflowType(review.workflow_type),
+          normalizeRiskLevel(review.risk_level),
+          nextVersion,
+          JSON.stringify(review.definition_json || {}),
+          JSON.stringify(metadata)
+        ]
+      );
+      workflowDefinitionId = inserted.rows[0]?.id || null;
+    }
+
+    const updated = await client.query(
+      `UPDATE workflow_definition_review
+       SET review_status = $2,
+           workflow_definition_id = COALESCE($3::uuid, workflow_definition_id),
+           review_notes = $4,
+           reviewed_by = $5,
+           reviewed_at = now(),
+           updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [reviewId, normalizedAction, workflowDefinitionId, notes || null, reviewerUuid]
+    );
+
+    await recordHookEvent(client, {
+      orgId: review.org_id,
+      ownerUserId: review.owner_user_id,
+      eventName: 'workflow_definition.review.decided',
+      eventSource: 'skill-library',
+      eventPhase: 'post',
+      resourceType: 'workflow_definition_review',
+      resourceRef: reviewId,
+      result: normalizedAction === 'approved' ? 'success' : 'degraded',
+      metadata: {
+        action: normalizedAction,
+        workflow_definition_id: workflowDefinitionId,
+        source_skill_id: review.source_skill_id,
+        reviewed_by: reviewerUuid
+      }
+    });
+
+    await client.query('COMMIT');
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        review: updated.rows[0],
+        workflow_definition_id: workflowDefinitionId,
+        review_status: normalizedAction
+      }
+    };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    logger.error('workflow_definition_review.decide_failed', 'Failed to decide workflow definition review', { error: String(error), review_id: reviewId });
+    return { status: 500, body: { ok: false, error: 'review_decision_failed' } };
+  } finally {
+    client.release();
   }
 }
 
@@ -1439,6 +1795,38 @@ const server = createServer(async (req, res) => {
         logger.error('skill.scene_assessments_failed', 'Failed to query scene assessments', { error: String(err) });
         sendJson(res, 500, { ok: false, error: 'query_failed' });
       }
+      return;
+    }
+
+    if (pathname === '/internal/workflow-definition-reviews/nominate' && req.method === 'POST') {
+      const body = await readJson(req);
+      const result = await nominateWorkflowDefinitionReviews(
+        String(body.org_id || '') || undefined,
+        Number(body.limit || 100)
+      );
+      sendJson(res, result.status, result.body);
+      return;
+    }
+
+    if (pathname === '/internal/workflow-definition-reviews' && req.method === 'GET') {
+      const status = parsedUrl.searchParams.get('status') || 'pending';
+      const orgId = parsedUrl.searchParams.get('org_id') || undefined;
+      const limit = Number(parsedUrl.searchParams.get('limit') || 100);
+      const result = await listWorkflowDefinitionReviews(status, orgId, limit);
+      sendJson(res, result.status, result.body);
+      return;
+    }
+
+    if (pathname.match(/^\/internal\/workflow-definition-reviews\/[0-9a-f-]{36}\/decision$/) && req.method === 'POST') {
+      const reviewId = pathname.split('/')[3];
+      const body = await readJson(req);
+      const result = await decideWorkflowDefinitionReview(
+        reviewId,
+        String(body.action || ''),
+        String(body.reviewed_by || body.reviewed_by_user_id || ''),
+        typeof body.notes === 'string' ? body.notes : undefined
+      );
+      sendJson(res, result.status, result.body);
       return;
     }
 

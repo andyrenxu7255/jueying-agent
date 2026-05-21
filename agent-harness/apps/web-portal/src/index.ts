@@ -1624,6 +1624,51 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
 
+    if (pathname === '/api/admin/dream/workflow-definition-reviews/nominate' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const body = await readJson(req);
+      const r = await fetchFromService(skillLibraryUrl + '/internal/workflow-definition-reviews/nominate', {
+        method: 'POST',
+        body: JSON.stringify({ ...body, org_id: body.org_id || session.org_id || undefined })
+      });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/dream/workflow-definition-reviews' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const reqUrl = new URL(req.url || '/', 'http://localhost');
+      const status = reqUrl.searchParams.get('status') || 'pending';
+      const orgId = reqUrl.searchParams.get('org_id') || session.org_id || '';
+      const limit = reqUrl.searchParams.get('limit') || '100';
+      const r = await fetchFromService(
+        skillLibraryUrl + '/internal/workflow-definition-reviews?status=' + encodeURIComponent(status) +
+        '&org_id=' + encodeURIComponent(orgId) +
+        '&limit=' + encodeURIComponent(limit)
+      );
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname.startsWith('/api/admin/dream/workflow-definition-reviews/') && pathname.endsWith('/decision') && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const reviewId = pathname.split('/')[5];
+      const body = await readJson(req);
+      const r = await fetchFromService(skillLibraryUrl + '/internal/workflow-definition-reviews/' + encodeURIComponent(reviewId) + '/decision', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: body.action,
+          notes: body.notes || '',
+          reviewed_by: session.user_id
+        })
+      });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
     // 提升技能为组织级
     if (pathname.startsWith('/api/admin/skills/') && pathname.endsWith('/promote-to-org') && method === 'POST') {
       const session = await requireAdmin(req, res);

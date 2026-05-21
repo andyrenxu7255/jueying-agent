@@ -6,7 +6,7 @@
 
 1. 图能力不是“向量增强”，而是事实层门控。
 2. 自动任务不是 workflow 的替代品，而是首次任务的执行模式。
-3. 成功路径当前先沉淀为个人 workflow 型 skill，再走技能审核与组织模板提升；公共 workflow_definition 审批是下一步契约层目标。
+3. 成功路径当前先沉淀为个人 workflow 型 skill，再走技能审核与组织模板提升；高召回、高注入、高业务分的 workflow_definition_review 已经落地，审批后可固化为 active workflow_definition。
 4. Markdown 文件和 PostgreSQL 的分工必须明确。
 
 ## 目标口径
@@ -37,7 +37,7 @@ PostgreSQL 仍然是唯一事实源。`entity`、`relation`、`fact`、`document
 2. 用户确认后，沉淀为个人私有 active skill，`skill_type=workflow` 时可被 Planner 当作 workflow 阶段链模板。
 3. 管理员审核后，可提升为组织级 skill 模板并写入 `org_skill_registry`。
 
-`workflow_definition` 表已经存在，用于更强的契约层模板；但当前主链路不会自动从首跑路径创建或审批 `workflow_definition`。
+`workflow_definition` 表已经存在，用于更强的契约层模板；当前主链路已经会把高质量 workflow 型 skill 提交 `workflow_definition_review`，由 admin 审批后写入 active `workflow_definition`。
 
 ### 3. 公共池
 
@@ -49,7 +49,7 @@ PostgreSQL 仍然是唯一事实源。`entity`、`relation`、`fact`、`document
 2. 同组织用户可在匹配阶段优先复用。
 3. 审批记录必须可追溯。
 
-公共 `workflow_definition` 发布的目标规则仍是：来源验收、admin 审批、无私有信息泄露检查、发布审计全部通过后，才进入 public scope。
+公共 `workflow_definition` 发布的目标规则是：来源验收、admin 审批、无私有信息泄露检查、发布审计全部通过后，才进入 public scope；组织内路径则通过 `org_id` 约束可见边界。
 
 ### 4. md 与 PG 的分工
 
@@ -57,14 +57,14 @@ Markdown 的角色只是“结果留痕与证据载体”，不承担权威状�
 
 - 需要唯一真相的，查 PG。
 - 需要过程说明和原文证据的，查 md / artifact。
-- 需要规则生效的，查 policy_snapshot / fact / entity / relation；当前复用模板查 skill / skill_version / org_skill_registry，后续契约层模板再查 workflow_definition。
+- 需要规则生效的，查 policy_snapshot / fact / entity / relation；当前复用模板查 skill / skill_version / org_skill_registry，契约层模板查 workflow_definition。
 - 需要复盘的，读 md，再回到 PG 做状态判断。
 
 ## 建议落点
 
 1. 后续所有故事线以 B2B 销售管理为日常样板。
 2. 后续所有检索与评测，以“向量找候选，图做门控，PG 做真相”作为验收准则。
-3. 后续所有可复用路径沉淀，以“自动任务首跑 -> 提取 workflow 型 skill -> 用户确认 -> 私有复用 -> admin 审核为组织模板”为当前生命周期基线；`workflow_definition` 公共审批作为后续增强单独验收。
+3. 后续所有可复用路径沉淀，以“自动任务首跑 -> 提取 workflow 型 skill -> 用户确认 -> 私有复用 -> admin 审核为组织模板 -> 高质量候审 -> workflow_definition 固化”为生命周期基线。
 
 ## DEV-21 补充：Dream / Hook / Outcome 闭环
 

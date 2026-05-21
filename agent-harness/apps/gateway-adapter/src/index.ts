@@ -698,6 +698,7 @@ async function confirmWorkflowCandidate(workflowRef: string, userId: string, org
 
     const skillId = String(result.rows[0].id);
     const approvedAt = new Date().toISOString();
+    const skillLibraryUrl = process.env.SKILL_LIBRARY_URL || '';
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -722,7 +723,7 @@ async function confirmWorkflowCandidate(workflowRef: string, userId: string, org
       await recordHookEvent(client, {
         orgId,
         ownerUserId: userId,
-        eventName: 'skill.injected',
+        eventName: 'workflow.confirmed',
         eventSource: 'gateway-adapter',
         eventPhase: 'post',
         resourceType: 'skill',
@@ -739,6 +740,15 @@ async function confirmWorkflowCandidate(workflowRef: string, userId: string, org
       throw error;
     } finally {
       client.release();
+    }
+
+    if (skillLibraryUrl && orgId) {
+      fireAndForget(fetch(`${skillLibraryUrl}/internal/workflow-definition-reviews/nominate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ org_id: orgId, limit: 50 }),
+        signal: AbortSignal.timeout(5000)
+      }), 'workflow_review_nominate');
     }
 
     return {

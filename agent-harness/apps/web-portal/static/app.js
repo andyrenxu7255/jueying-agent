@@ -709,7 +709,7 @@ function renderGuideStories() {
     '<br><strong>• 缓存层</strong> — memory_item + embedding（温存储，语义检索）' +
     '<br><strong>• 休眠层</strong> — org_memory_summary（冷存储，压缩归档）' +
     '<br><br><strong>技能发现闭环</strong>：' +
-    '<br>梦境分析发现新的 Workflow Pattern → 提取 Skill Candidate → scene_value_assessment 评估 → skill_audit_record 审核 → org_skill_registry 注册 → skill_usage_stats 追踪使用效果；固化为 workflow_definition 属于后续契约层能力。' +
+    '<br>梦境分析发现新的 Workflow Pattern → 提取 Skill Candidate → scene_value_assessment 评估 → skill_audit_record 审核 → org_skill_registry 注册 → skill_usage_stats 追踪使用效果；高召回、高注入、高业务分的 workflow 型 skill 现在会进入 workflow_definition_review，批准后写入 workflow_definition。' +
     '<br><br>形成 <strong>"使用 → 发现 → 提炼 → 注册 → 复用的持续优化"的完整生态系统</strong>。' +
     '</div>' +
     '<div class="story-flow"><span class="flow-step">发现</span><span class="flow-arrow">→</span><span class="flow-step">提炼</span><span class="flow-arrow">→</span><span class="flow-step">评估</span><span class="flow-arrow">→</span><span class="flow-step">注册</span><span class="flow-arrow">→</span><span class="flow-step">复用</span></div></div>';
@@ -1990,12 +1990,70 @@ async function loadDreamAccessLog() {
 
 async function renderDreamSkills(el) {
   el.innerHTML = '<div class="page-header"><h2>🔬 技能发现与管理</h2></div>' +
+    '<div class="card"><h3>Workflow 定义候审</h3><div style="margin-bottom:12px"><button class="btn btn-primary btn-sm" onclick="nominateWorkflowDefinitions()">生成候审</button> <button class="btn btn-outline btn-sm" onclick="loadWorkflowDefinitionReviews()">刷新</button></div><div id="workflow-definition-review-list">加载中...</div></div>' +
     '<div class="card"><h3>组织技能库</h3><div id="org-skills-list">加载中...</div></div>' +
     '<div class="card"><h3>技能审核记录</h3><div id="skill-audit-list">加载中...</div></div>' +
     '<div class="card"><h3>高价值场景识别</h3><div id="scene-assessment-list">加载中...</div></div>';
+  await loadWorkflowDefinitionReviews();
   await loadOrgSkills();
   await loadSkillAuditRecords();
   await loadSceneAssessments();
+}
+
+async function nominateWorkflowDefinitions() {
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const r = await api('/api/admin/dream/workflow-definition-reviews/nominate', {
+    method: 'POST',
+    body: JSON.stringify({ org_id: orgId, limit: 100 })
+  });
+  if (r.ok) {
+    showToast('已生成 ' + (r.data.nominated || 0) + ' 条候审');
+    loadWorkflowDefinitionReviews();
+  } else {
+    showToast((r.data && r.data.error) || '生成候审失败', 'error');
+  }
+}
+
+async function loadWorkflowDefinitionReviews() {
+  let el = document.getElementById('workflow-definition-review-list');
+  if (!el) return;
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const r = await api('/api/admin/dream/workflow-definition-reviews?status=pending&org_id=' + encodeURIComponent(orgId));
+  if (r.ok && r.data.reviews) {
+    const reviews = r.data.reviews;
+    if (reviews.length === 0) {
+      el.innerHTML = emptyState('⚙', '暂无待固化 Workflow', '高召回且效果良好的 workflow 型 skill 会进入这里');
+    } else {
+      el.innerHTML = '<table><tr><th>名称</th><th>来源 Skill</th><th>召回</th><th>成功</th><th>业务均分</th><th>审核分</th><th>状态</th><th>操作</th></tr>' +
+        reviews.map(function(rw) {
+          return '<tr><td><strong>' + escapeHtml(rw.name || '') + '</strong><br><span class="hint-text">' + escapeHtml(rw.workflow_type || '') + ' / ' + escapeHtml(rw.risk_level || '') + '</span></td>' +
+            '<td>' + escapeHtml(rw.skill_name || rw.source_skill_id || '') + '</td>' +
+            '<td>' + escapeHtml(String(rw.skill_recall_count || 0)) + '</td>' +
+            '<td>' + escapeHtml(String(rw.skill_succeeded_count || 0)) + '</td>' +
+            '<td>' + escapeHtml(Number(rw.avg_business_score || 0).toFixed(1)) + '</td>' +
+            '<td>' + escapeHtml(Number(rw.audit_overall_score || 0).toFixed(1)) + '</td>' +
+            '<td>' + statusBadge(rw.review_status || 'pending') + '</td>' +
+            '<td><button class="btn btn-sm btn-success" onclick="decideWorkflowDefinitionReview(\'' + escJsAttr(rw.id) + '\',\'approve\')">批准</button> <button class="btn btn-sm btn-danger" onclick="decideWorkflowDefinitionReview(\'' + escJsAttr(rw.id) + '\',\'reject\')">驳回</button></td></tr>';
+        }).join('') + '</table>';
+    }
+  } else {
+    el.innerHTML = emptyState('⚠️', '无法加载候审列表', '请检查 skill-library 服务状态');
+  }
+}
+
+async function decideWorkflowDefinitionReview(reviewId, action) {
+  const notes = action === 'reject' ? (prompt('驳回原因') || '') : '';
+  const r = await api('/api/admin/dream/workflow-definition-reviews/' + encodeURIComponent(reviewId) + '/decision', {
+    method: 'POST',
+    body: JSON.stringify({ action: action, notes: notes })
+  });
+  if (r.ok) {
+    const suffix = r.data.workflow_definition_id ? '，已固化为 workflow_definition' : '';
+    showToast('处理完成' + suffix);
+    loadWorkflowDefinitionReviews();
+  } else {
+    showToast((r.data && r.data.error) || '处理失败', 'error');
+  }
 }
 
 async function loadOrgSkills() {

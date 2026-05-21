@@ -2,20 +2,20 @@
 
 > 企业级 AI Agent 编排、记忆、工作流与业务结果归因平台。
 >
-> 当前发布线：v1.5.0 | 更新日期：2026-05-21
+> 当前发布线：v1.6.0 | 更新日期：2026-05-21
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./agent-harness/LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
 
-JueYing 把企业聊天入口、知识库、工作流、记忆系统和可复用 skill 统一成一套可治理的 Agent 平台。用户可以从飞书、企业微信或 Web Portal 发起请求；系统会检索受权限约束的上下文，优先复用已激活的 workflow 型 skill 模板，必要时自动首跑规划，执行阶段任务，记录审计证据，并把好的业务结果归因回真正起作用的知识和 skill。
+JueYing 把企业聊天入口、知识库、工作流、记忆系统和可复用 skill 统一成一套可治理的 Agent 平台。用户可以从飞书、企业微信或 Web Portal 发起请求；系统会检索受权限约束的上下文，优先复用已批准的 `workflow_definition`，再回退到已激活的 workflow 型 skill 模板，必要时自动首跑规划，执行阶段任务，记录审计证据，并把好的业务结果归因回真正起作用的知识和 skill。
 
 “绝影”取快速、可靠、可驾驭之意。在这个项目里，它代表一套让团队从自然语言请求走到可验证结果的 Agent Harness。
 
 ## 本版为什么重要
 
-v1.5.0 的主题是 **Dream Hooks and Outcome Attribution**。它把系统从“Agent 能记住东西”推进到“Agent 能知道什么真的有效”。
+v1.6.0 的主题是 **Dream Hooks, Outcome Attribution, and Workflow Reviews**。它把系统从“Agent 能记住东西”推进到“Agent 能知道什么真的有效，并把高价值路径固化为受审批的执行契约”。
 
 | 能力 | 这次补齐了什么 |
 |---|---|
@@ -24,15 +24,16 @@ v1.5.0 的主题是 **Dream Hooks and Outcome Attribution**。它把系统从“
 | 召回归因 | 知识和 skill 的召回会关联到后续 workflow 结果，能回答“哪些内容带来了好结果”。 |
 | Outcome 评估 | 成功、失败、取消的 workflow 都写终态结果，避免只统计成功样本。 |
 | 管理端看板 | Web Portal 增加 30 天知识与 skill 业务效果视图。 |
-| 图谱同步 | development context graph 已把 dream、hook、outcome 作为明确架构域。 |
+| 契约固化 | 高频、高评分、被真实注入且业务结果良好的 workflow 型 skill 会进入 workflow_definition 候审，管理员批准后成为 Planner 优先使用的执行契约。 |
+| 图谱同步 | development context graph 已把 dream、hook、outcome 和 workflow_definition review 作为明确架构域。 |
 
 ## 核心亮点
 
 - 多渠道入口：飞书长连接、企业微信 Webhook、Web Portal、移动端推送。
-- 复用优先：个人私有、组织、公共 active skill 模板优先复用，其中 `skill_type=workflow` 会作为 workflow 阶段链模板。
+- 复用优先：已批准 `workflow_definition` 优先，其次复用个人私有、组织、公共 active workflow 型 skill 模板，未命中时再首跑规划。
 - 受治理的检索：PostgreSQL 是唯一事实源，向量只提候选，图门控收口，Evidence Pack 可追溯。
 - 梦境与记忆系统：用户级记忆隔离、管理员级汇总分析、组织级知识整合。
-- Skill 生命周期：搜索、召回、注入、审核、归因；高频高贡献 skill 先进入技能审核与组织模板提升，`workflow_definition` 审批固化属于下一步契约层能力。
+- Skill 生命周期：搜索、召回、注入、审核、归因；高频高贡献 workflow 型 skill 会进入 `workflow_definition_review`，管理员批准后固化为 `workflow_definition`。
 - B2B 销售样板：晨会、卡单救援、折扣审批、回款风险、周复盘等日常管理路径。
 - 企业控制面：组织隔离、RBAC/ABAC、审计、Checkpoint/Resume/Replay、生产密码加固。
 - 可观测运营：OpenTelemetry、SigNoz、结构化日志、健康检查、归因看板。
@@ -79,7 +80,7 @@ npm run docker:up -- --profile app
 
 ## 验证记录
 
-v1.5.0 发布线已执行：
+v1.6.0 发布线已执行：
 
 ```bash
 npm run db:migrate
@@ -100,11 +101,11 @@ npm audit --audit-level=high
 | [agent-harness/README.md](./agent-harness/README.md) | 应用级快速开始、架构、端口、工作流和开发命令。 |
 | [agent-harness/PRODUCT.md](./agent-harness/PRODUCT.md) | 产品说明、角色、功能矩阵和用户价值。 |
 | [agent-harness/OPS.md](./agent-harness/OPS.md) | 部署、健康检查、监控、备份和运维手册。 |
-| [RELEASE_NOTES.md](./RELEASE_NOTES.md) | v1.5.0 发布说明，可直接用于 GitHub Release。 |
+| [RELEASE_NOTES.md](./RELEASE_NOTES.md) | v1.6.0 发布说明，可直接用于 GitHub Release。 |
 | [development/DEV-21-梦境Hook与业务归因闭环.md](./development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回和 Outcome 归因实现说明。 |
 | [development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md](./development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md) | 梦境 Hook 归因专项审计。 |
 | [development/DEV-00-开发索引.md](./development/DEV-00-开发索引.md) | 开发计划索引和里程碑地图。 |
-| [development/context-graph.json](./development/context-graph.json) | 机器可读上下文图谱，当前 v2.8。 |
+| [development/context-graph.json](./development/context-graph.json) | 机器可读上下文图谱，当前 v2.9。 |
 | [development/context-routing.json](./development/context-routing.json) | 任务路由配置，和上下文图谱同步。 |
 
 ### AH1 权威文档
@@ -119,7 +120,7 @@ AH1 系列仍是架构和实现约束的权威文档。常用入口：
 | [AH1-14-数据库表设计与索引.md](./AH1-14-数据库表设计与索引.md) | PostgreSQL schema 权威说明与迁移地图。 |
 | [AH1-27-部署与运维.md](./AH1-27-部署与运维.md) | 部署和运维架构。 |
 
-## 当前发布：v1.5.0
+## 当前发布：v1.6.0
 
 本次发布补齐 memory/skill recall 到真实业务结果之间的反馈链：
 
@@ -129,7 +130,7 @@ AH1 系列仍是架构和实现约束的权威文档。常用入口：
 - `recall_outcome_attribution`：召回事件到 outcome 的贡献归因。
 - `skill_business_outcome_daily` 与 `knowledge_business_outcome_daily`：日级报表视图。
 
-Skill 是可召回、可注入的能力资产；workflow 是多阶段执行契约。v1.5 当前实现里，成功路径会先提取为 `skill_type=workflow` 的 draft skill，用户确认后变为 private active 模板，管理员可再审核提升为 org skill 模板；它尚不会自动写入 `workflow_definition`。
+Skill 是可召回、可注入的能力资产；workflow 是多阶段执行契约。当前实现里，成功路径会先提取为 `skill_type=workflow` 的 draft skill，用户确认后变为 private active 模板；当它多次被召回、注入并取得良好 outcome，skill-library 会提交 `workflow_definition_review`，管理员批准后固化为 `workflow_definition`，之后 Planner 会优先使用这个更稳定的执行契约。
 
 详见 [RELEASE_NOTES.md](./RELEASE_NOTES.md)。
 

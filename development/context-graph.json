@@ -1,6 +1,6 @@
 {
-  "version": "v2.8",
-  "description": "Agent Harness context dependency graph - Updated 2026-05-21: dream mode includes hook-style recall/outcome attribution; fact retrieval uses graph gating; reusable workflow paths currently land as workflow-type skills before any future workflow_definition approval.",
+  "version": "v2.9",
+  "description": "Agent Harness context dependency graph - Updated 2026-05-21: dream mode includes hook-style recall/outcome attribution; fact retrieval uses graph gating; reusable workflow paths now progress through workflow_type skills and workflow_definition_review before admin approval.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -83,6 +83,7 @@
     "agent-harness/services/fact-retrieval/src/service.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-14-数据库表设计与索引.md"],
     "agent-harness/services/hermes-adapter/src/index.ts": ["AH1-23-审计日志指标与告警.md", "AH1-20-检索编排与Fact-Write.md"],
     "agent-harness/services/skill-library/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md"],
+    "agent-harness/db/migrations/027_workflow_definition_review.sql": ["AH1-14-数据库表设计与索引.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md"],
     "agent-harness/libs/shared/src/db/attribution.ts": ["AH1-23-审计日志指标与告警.md", "AH1-14-数据库表设计与索引.md"],
     "agent-harness/db/migrations/026_recall_outcome_attribution.sql": ["AH1-14-数据库表设计与索引.md", "AH1-23-审计日志指标与告警.md"],
     "agent-harness/services/executor-gateway/src/executor/generic-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-17-Workflow-DSL与Planner契约.md"],
@@ -258,9 +259,10 @@
     "2026-05-18-R11": "Full-stack online remediation: Dockerfiles now copy root lockfile plus full workspaces; SigNoz/ClickHouse/Feishu health checks fixed; OTel health extension added; smoke-eval uses SigNoz /api/v1/health, unique users, and longer plan timeout; Web Portal restores CSP-compatible existing interactions, no-caches app.js, and adds workflow/org/quota/inspection proxies verified by Playwright.",
     "2026-05-18-R12": "Web Portal Docker monitoring enabled: web-portal image installs docker-cli; docker-compose mounts /var/run/docker.sock and adds socket group access so non-root appuser can read container stats; DEV-19 records verified container stats availability.",
     "2026-05-21-R13": "Retrieval and workflow policy sync: DEV-20 adds fact graph gating + workflow public pool lifecycle; retrieval service now uses wide-candidate collection, graph gating, and graph-internal recall before rerank; docs and task routing updated accordingly.",
-    "2026-05-21-R14": "Skill/workflow lifecycle consistency: docs and UI now state the implemented path precisely: workflow completions extract workflow-type draft skills, user confirmation activates private templates, skill-library promotes to org registry; workflow_definition approval is marked as future contract-layer work.",
-    "total_fixes": 63,
-    "files_modified": 50,
+    "2026-05-21-R14": "Skill/workflow lifecycle consistency: docs and UI then stated the implemented path precisely: workflow completions extract workflow-type draft skills, user confirmation activates private templates, skill-library promotes to org registry; workflow_definition approval was still pending until the later review bridge landed in R15.",
+    "2026-05-21-R15": "Workflow definition review bridge: high-recall, high-injected, high-success workflow skills now nominate workflow_definition_review; admin approval writes active workflow_definition with org_id tenant boundary and planner priority above workflow skills.",
+    "total_fixes": 64,
+    "files_modified": 51,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
   }

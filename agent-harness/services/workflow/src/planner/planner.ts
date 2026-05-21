@@ -2,13 +2,13 @@
  * Workflow Planner — LLM 任务规划器
  *
  * 根据用户目标(user_goal)自动生成多阶段工作流计划(stage_chain)。
- * 规划策略优先级: Markdown 预定义步骤 > 匹配的预制 Skill > LLM 动态生成 > 默认阶段链。
+ * 规划策略优先级: Markdown 预定义步骤 > 已批准 workflow_definition > 匹配的 workflow 型 Skill > LLM 动态生成 > 默认阶段链。
  *
  * @module workflow-planner
  */
 
 import { createHash, randomBytes } from 'crypto';
-import { createLogger, withRetry, RetryError } from '@agent-harness/shared';
+import { createLogger, withRetry, RetryError, recordHookEvent, recordSkillRecall } from '@agent-harness/shared';
 import { auditWriter } from '@agent-harness/audit';
 import { planValidator } from './plan-validator';
 import type { WorkflowPlan, Stage } from '@agent-harness/contracts';
@@ -30,6 +30,17 @@ interface MatchedSkill {
   match_score: number;
 }
 
+interface MatchedWorkflowDefinition {
+  workflow_definition_id: string;
+  workflow_definition_name: string;
+  workflow_type: string;
+  scope_type: string;
+  risk_level: string;
+  description: string;
+  definition_json: Record<string, unknown>;
+  match_score: number;
+}
+
 function extractSkillKeywords(userGoal: string): string[] {
   const baseKeywords = userGoal
     .replace(/[^\w\u4e00-\u9fff]/g, ' ')
@@ -42,6 +53,14 @@ function extractSkillKeywords(userGoal: string): string[] {
   ].filter(keyword => userGoal.toLowerCase().includes(keyword.toLowerCase()));
 
   return Array.from(new Set([...baseKeywords, ...domainKeywords])).slice(0, 12);
+}
+
+function deterministicUuid(seed: string): string {
+  const hash = createHash('sha1').update(seed).digest('hex').slice(0, 32).split('');
+  hash[12] = '5';
+  const variantNibble = parseInt(hash[16], 16);
+  hash[16] = ((variantNibble & 0x3) | 0x8).toString(16);
+  return `${hash.slice(0, 8).join('')}-${hash.slice(8, 12).join('')}-${hash.slice(12, 16).join('')}-${hash.slice(16, 20).join('')}-${hash.slice(20, 32).join('')}`;
 }
 
 async function findMatchingSkills(userGoal: string, taskTypeHint?: string, ownerUserId?: string, orgId?: string): Promise<MatchedSkill[]> {
@@ -85,6 +104,7 @@ async function findMatchingSkills(userGoal: string, taskTypeHint?: string, owner
                  + ${keywords.map((_, i) => `CASE WHEN s.description ILIKE $${i + 1} THEN 1 ELSE 0 END`).join(' + ')}
                  + ${keywords.map((_, i) => `CASE WHEN s.metadata::text ILIKE $${i + 1} THEN 1 ELSE 0 END`).join(' + ')}
                  + ${taskTypeBonus}
+                 + CASE WHEN s.skill_type = 'workflow' THEN 2 ELSE 0 END
                  + CASE WHEN s.scope_type = 'private' THEN 4 WHEN s.scope_type = 'org' THEN 3 ELSE 1 END
                ) as match_score
         FROM skill s
@@ -120,6 +140,136 @@ async function findMatchingSkills(userGoal: string, taskTypeHint?: string, owner
   }
 }
 
+async function findMatchingWorkflowDefinitions(userGoal: string, taskTypeHint?: string, ownerUserId?: string, orgId?: string): Promise<MatchedWorkflowDefinition[]> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) return [];
+
+  try {
+    const { Pool } = await import('pg');
+    const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+    try {
+      const keywords = extractSkillKeywords(userGoal);
+      if (keywords.length === 0) return [];
+
+      const params: string[] = keywords.map(w => `%${w}%`);
+      const likeConditions = keywords.map((_, i) =>
+        `(wd.name ILIKE $${i + 1} OR wd.definition_json::text ILIKE $${i + 1} OR wd.metadata::text ILIKE $${i + 1})`
+      ).join(' OR ');
+
+      const scopeClauses = [
+        orgId
+          ? `(wd.scope_type = 'public' AND (wd.org_id IS NULL OR wd.org_id = $${params.length + 1}::uuid))`
+          : `(wd.scope_type = 'public' AND wd.org_id IS NULL)`
+      ];
+      if (orgId) {
+        params.push(orgId);
+      }
+      if (ownerUserId) {
+        params.push(ownerUserId);
+        scopeClauses.push(`(wd.scope_type = 'private' AND wd.owner_user_id = $${params.length})`);
+      }
+
+      let taskTypeBonus = '0';
+      if (taskTypeHint) {
+        params.push(taskTypeHint);
+        taskTypeBonus = `CASE WHEN wd.workflow_type = $${params.length} OR wd.definition_json->>'task_type_hint' = $${params.length} THEN 4 ELSE 0 END`;
+      }
+
+      const query = `
+        SELECT wd.id, wd.name, wd.workflow_type, wd.scope_type, wd.risk_level,
+               COALESCE(wd.definition_json, '{}'::jsonb) AS definition_json,
+               COALESCE(wd.metadata, '{}'::jsonb) AS metadata,
+               (
+                 ${keywords.map((_, i) => `CASE WHEN wd.name ILIKE $${i + 1} THEN 4 ELSE 0 END`).join(' + ')}
+                 + ${keywords.map((_, i) => `CASE WHEN wd.definition_json::text ILIKE $${i + 1} THEN 1 ELSE 0 END`).join(' + ')}
+                 + ${keywords.map((_, i) => `CASE WHEN wd.metadata::text ILIKE $${i + 1} THEN 1 ELSE 0 END`).join(' + ')}
+                 + ${taskTypeBonus}
+                 + CASE WHEN wd.scope_type = 'private' THEN 4 ELSE 2 END
+               ) AS match_score
+        FROM workflow_definition wd
+        WHERE wd.status = 'active'
+          AND (${scopeClauses.join(' OR ')})
+          AND (${likeConditions})
+        ORDER BY match_score DESC, wd.version DESC, wd.created_at DESC
+        LIMIT 5
+      `;
+
+      const result = await pool.query(query, params);
+      return result.rows.map(row => ({
+        workflow_definition_id: row.id,
+        workflow_definition_name: row.name,
+        workflow_type: row.workflow_type,
+        scope_type: row.scope_type,
+        risk_level: row.risk_level,
+        description: '',
+        definition_json: typeof row.definition_json === 'string' ? JSON.parse(row.definition_json) : row.definition_json,
+        match_score: Number(row.match_score)
+      })).filter(item => item.match_score > 0);
+    } finally {
+      await pool.end();
+    }
+  } catch (error) {
+    logger.warn('workflow_definition.match.query_failed', 'Failed to query matching workflow definitions', {
+      error: String(error)
+    });
+    return [];
+  }
+}
+
+async function recordPlannerSkillRecall(input: PlannerInput, workflowInstanceRef: string, skill: MatchedSkill, injected: boolean): Promise<void> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) return;
+
+  try {
+    const { Pool } = await import('pg');
+    const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+    try {
+      const workflowUuid = deterministicUuid(`workflow:${workflowInstanceRef}`);
+      const ownerUserUuid = deterministicUuid(`user:${input.user_id}`);
+      await recordSkillRecall(pool, {
+        orgId: input.org_id || null,
+        ownerUserId: ownerUserUuid,
+        workflowInstanceId: workflowUuid,
+        skillId: skill.skill_id,
+        queryText: input.user_goal,
+        recallReason: 'planner.workflow_skill_match',
+        score: Math.max(0, Math.min(1, skill.match_score / 20)),
+        injected,
+        injectionRef: injected ? workflowInstanceRef : null,
+        metadata: {
+          workflow_instance_ref: workflowInstanceRef,
+          skill_name: skill.skill_name,
+          skill_type: skill.skill_type,
+          scope_type: skill.scope_type,
+          task_type_hint: input.task_type_hint || null
+        }
+      });
+      await recordHookEvent(pool, {
+        orgId: input.org_id || null,
+        workflowInstanceId: workflowUuid,
+        eventName: injected ? 'skill.injected' : 'skill.recalled',
+        eventSource: 'workflow-planner',
+        eventPhase: 'post',
+        resourceType: 'skill',
+        resourceRef: skill.skill_id,
+        result: 'success',
+        metadata: {
+          workflow_instance_ref: workflowInstanceRef,
+          match_score: skill.match_score,
+          skill_name: skill.skill_name
+        }
+      });
+    } finally {
+      await pool.end();
+    }
+  } catch (error) {
+    logger.warn('planner.skill_recall.write_failed', 'Failed to record planner skill recall', {
+      skill_id: skill.skill_id,
+      error: String(error)
+    });
+  }
+}
+
 export interface PlannerInput {
   user_id: string;
   user_goal: string;
@@ -139,6 +289,7 @@ export interface PlannerInput {
 
 export interface PlannerOutput {
   workflow_instance_ref: string;
+  workflow_definition_ref: string | null;
   workflow_plan: WorkflowPlan;
   validation: { ok: boolean; issues: Array<{ field: string; message: string }> };
 }
@@ -226,6 +377,7 @@ async function callLiteLLMForPlan(systemPrompt: string, userPrompt: string): Pro
 export class WorkflowPlanner {
   async plan(input: PlannerInput): Promise<PlannerOutput> {
     const workflowInstanceRef = `wf_${Date.now()}_${randomBytes(4).toString('hex')}`;
+    let workflowDefinitionRef: string | null = null;
 
     logger.info('planner.started', 'Workflow planning started', {
       user_id: input.user_id,
@@ -255,10 +407,49 @@ export class WorkflowPlanner {
           markdown_steps_count: input.markdown_steps.length
         }
       });
-      return { workflow_instance_ref: workflowInstanceRef, workflow_plan: markdownPlan, validation };
+      return { workflow_instance_ref: workflowInstanceRef, workflow_definition_ref: null, workflow_plan: markdownPlan, validation };
     }
 
     const skipLLM = process.env.SKIP_LLM_PLAN === 'true';
+    const matchedWorkflowDefinitions = await findMatchingWorkflowDefinitions(input.user_goal, input.task_type_hint, input.user_id, input.org_id);
+    if (matchedWorkflowDefinitions.length > 0) {
+      const bestDefinition = matchedWorkflowDefinitions[0];
+      workflowDefinitionRef = bestDefinition.workflow_definition_id;
+      logger.info('planner.workflow_definition.matched', 'Matched approved workflow definition', {
+        workflow_definition_id: bestDefinition.workflow_definition_id,
+        workflow_definition_name: bestDefinition.workflow_definition_name,
+        workflow_type: bestDefinition.workflow_type,
+        scope_type: bestDefinition.scope_type,
+        match_score: bestDefinition.match_score
+      });
+
+      const workflowPlan = this.buildPlanFromWorkflowDefinition(input, bestDefinition);
+      const validation = planValidator.validate(workflowPlan);
+      await auditWriter.write({
+        user_id: input.user_id,
+        action: 'workflow.create',
+        resource_type: 'workflow_instance',
+        resource_ref: workflowInstanceRef,
+        resource_scope: `private:${input.user_id}`,
+        result: validation.ok ? 'success' : 'failure',
+        detail_json: {
+          workflow_type: workflowPlan.workflow_type,
+          stage_count: workflowPlan.stage_chain.length,
+          source: 'workflow_definition_match',
+          workflow_definition_ref: workflowDefinitionRef,
+          workflow_definition_name: bestDefinition.workflow_definition_name,
+          workflow_definition_scope: bestDefinition.scope_type,
+          match_score: bestDefinition.match_score
+        }
+      });
+      return {
+        workflow_instance_ref: workflowInstanceRef,
+        workflow_definition_ref: workflowDefinitionRef,
+        workflow_plan: workflowPlan,
+        validation
+      };
+    }
+
     const matchedSkills = await findMatchingSkills(input.user_goal, input.task_type_hint, input.user_id, input.org_id);
 
     if (matchedSkills.length > 0) {
@@ -290,7 +481,8 @@ export class WorkflowPlanner {
             match_score: bestSkill.match_score
           }
         });
-        return { workflow_instance_ref: workflowInstanceRef, workflow_plan: skillPlan, validation };
+        void recordPlannerSkillRecall(input, workflowInstanceRef, bestSkill, true);
+        return { workflow_instance_ref: workflowInstanceRef, workflow_definition_ref: null, workflow_plan: skillPlan, validation };
       }
     }
 
@@ -332,6 +524,7 @@ export class WorkflowPlanner {
 
     return {
       workflow_instance_ref: workflowInstanceRef,
+      workflow_definition_ref: null,
       workflow_plan: workflowPlan,
       validation
     };
@@ -490,6 +683,115 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
       archive_policy: { archive_evidence: true, archive_artifacts: true, retention_days: 90 },
       plan_hash: planHash
     };
+  }
+
+  private buildPlanFromWorkflowDefinition(input: PlannerInput, workflowDefinition: MatchedWorkflowDefinition): WorkflowPlan {
+    const def = workflowDefinition.definition_json;
+    const budgets = (def.budgets || {}) as Record<string, unknown>;
+    const reportPolicy = (def.report_policy || {}) as Record<string, unknown>;
+    const archivePolicy = (def.archive_policy || {}) as Record<string, unknown>;
+    const stageChainDef = Array.isArray(def.stage_chain) ? def.stage_chain as Array<Record<string, unknown>> : [];
+    const stageChain = stageChainDef.length > 0
+      ? this.convertWorkflowDefinitionStages(stageChainDef, input)
+      : this.getDefaultStageChain(workflowDefinition.workflow_type || input.task_type_hint || 'knowledge', input.user_goal);
+    const planHash = this.calculatePlanHash(input, stageChain);
+    const retrievalProfile = this.validateRetrievalProfile(def.retrieval_profile as string | undefined) || 'balanced';
+    const riskLevel = this.validateRiskLevel(workflowDefinition.risk_level) || input.risk_level || 'medium';
+
+    return {
+      workflow_type: this.validateWorkflowType(workflowDefinition.workflow_type) || input.task_type_hint || 'knowledge',
+      plan_version: 'v1',
+      owner_user_id: input.user_id,
+      scope_type: 'private',
+      risk_level: riskLevel,
+      policy_snapshot_hash: input.policy_snapshot_hash,
+      goal: {
+        user_goal: input.user_goal,
+        success_definition: Array.isArray(def.success_definition) && def.success_definition.length > 0
+          ? def.success_definition.map((item: unknown) => String(item))
+          : ['Task completed successfully', 'Output delivered to user']
+      },
+      budgets: {
+        time_budget_sec: Number(budgets.time_budget_sec || input.budget?.time_sec || 3600),
+        retrieval_budget: Number(budgets.retrieval_budget || input.budget?.retrieval || 50),
+        execution_budget: Number(budgets.execution_budget || input.budget?.execution || 300),
+        repair_budget: Number(budgets.repair_budget || 5)
+      },
+      retrieval_profile: retrievalProfile,
+      stage_chain: stageChain,
+      report_policy: {
+        on_stage_complete: Boolean(reportPolicy.on_stage_complete ?? false),
+        on_waiting_user: Boolean(reportPolicy.on_waiting_user ?? true),
+        on_blocked: Boolean(reportPolicy.on_blocked ?? true),
+        on_final: Boolean(reportPolicy.on_final ?? true)
+      },
+      archive_policy: {
+        archive_evidence: Boolean(archivePolicy.archive_evidence ?? true),
+        archive_artifacts: Boolean(archivePolicy.archive_artifacts ?? true),
+        archive_checkpoints: Boolean(archivePolicy.archive_checkpoints ?? false),
+        retention_days: Number(archivePolicy.retention_days || 90)
+      },
+      plan_hash: planHash
+    };
+  }
+
+  private convertWorkflowDefinitionStages(defStages: Array<Record<string, unknown>>, input: PlannerInput): Stage[] {
+    if (!defStages.length) {
+      return [];
+    }
+    return defStages.map((stage, index) => {
+      const stageType = this.validateStageType(String(stage.stage_type || 'DecisionMaking'));
+      const executor = this.validateExecutorForStage(stageType, String(stage.assigned_executor || 'generic-executor'));
+      const inputs = (stage.inputs || {}) as Record<string, unknown>;
+      const retrievalPlan = (stage.retrieval_plan || {}) as Record<string, unknown>;
+      const acceptance = (stage.acceptance || {}) as Record<string, unknown>;
+      const retryPolicy = (stage.retry_policy || {}) as Record<string, unknown>;
+      const checkpointPolicy = (stage.checkpoint_policy || {}) as Record<string, unknown>;
+      const timeouts = stage.timeouts as Record<string, unknown> | undefined;
+      return {
+        stage_id: `st_${Date.now()}_${index}`,
+        seq: index,
+        stage_key: String(stage.stage_key || stageType.toLowerCase().replace(/[^a-z0-9]/g, '_')),
+        stage_type: stageType,
+        assigned_executor: executor,
+        purpose: String(stage.purpose || input.user_goal.slice(0, 100)),
+        inputs: {
+          required_refs: Array.isArray(inputs.required_refs) ? inputs.required_refs.map((item: unknown) => String(item)) : [],
+          optional_refs: Array.isArray(inputs.optional_refs) ? inputs.optional_refs.map((item: unknown) => String(item)) : []
+        },
+        retrieval_plan: {
+          enabled: Boolean(retrievalPlan.enabled ?? false),
+          intent_type: retrievalPlan.intent_type as Stage['retrieval_plan']['intent_type'] || undefined,
+          profiles: Array.isArray(retrievalPlan.profiles) ? retrievalPlan.profiles as Array<'wide_candidate' | 'graph_gate' | 'graph_inner_recall' | 'rerank'> : ['wide_candidate', 'graph_gate', 'graph_inner_recall', 'rerank'],
+          max_candidates: Number(retrievalPlan.max_candidates || 50),
+          allow_graph: Boolean(retrievalPlan.allow_graph ?? false),
+          max_graph_hops: Number(retrievalPlan.max_graph_hops || 0)
+        },
+        acceptance: {
+          must_have: Array.isArray(acceptance.must_have) ? acceptance.must_have.map((item: unknown) => String(item)) : ['non-empty output'],
+          pass_rules: Array.isArray(acceptance.pass_rules) ? acceptance.pass_rules.map((item: unknown) => String(item)) : [],
+          fail_rules: Array.isArray(acceptance.fail_rules) ? acceptance.fail_rules.map((item: unknown) => String(item)) : []
+        },
+        timeouts: {
+          soft_timeout_sec: Number(timeouts?.soft_timeout_sec || 180),
+          hard_timeout_sec: Number(timeouts?.hard_timeout_sec || 900)
+        },
+        retry_policy: {
+          max_retries: Number(retryPolicy.max_retries || 1),
+          max_repairs: Number(retryPolicy.max_repairs || 0),
+          retryable_errors: Array.isArray(retryPolicy.retryable_errors) ? retryPolicy.retryable_errors.map((item: unknown) => String(item)) : []
+        },
+        checkpoint_policy: {
+          on_enter: Boolean(checkpointPolicy.on_enter ?? true),
+          on_progress: Boolean(checkpointPolicy.on_progress ?? false),
+          on_exit: Boolean(checkpointPolicy.on_exit ?? true)
+        },
+        on_success: (stage.on_success as Stage['on_success']) || (index < defStages.length - 1 ? 'next_stage' : 'succeeded'),
+        on_failure: (stage.on_failure as Stage['on_failure']) || 'repair_or_fail',
+        on_blocked: (stage.on_blocked as Stage['on_blocked']) || undefined,
+        on_waiting_user: (stage.on_waiting_user as Stage['on_waiting_user']) || undefined
+      };
+    });
   }
 
   private buildPlanFromMarkdownSteps(input: PlannerInput): WorkflowPlan {
@@ -806,6 +1108,57 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
       return profile as WorkflowPlan['retrieval_profile'];
     }
     return undefined;
+  }
+
+  private validateStageType(type: string | undefined): Stage['stage_type'] {
+    const validTypes: Stage['stage_type'][] = [
+      'IntentClarification',
+      'PlanGeneration',
+      'EvidenceRetrieval',
+      'MemoryRetrieval',
+      'ObjectExtraction',
+      'ArchitectureDesign',
+      'SpecGeneration',
+      'DecisionMaking',
+      'Implementation',
+      'Verification',
+      'Repair',
+      'Approval',
+      'ResultReporting',
+      'SkillExtraction',
+      'DreamSummarization',
+      'Archive'
+    ];
+    if (type && validTypes.includes(type as Stage['stage_type'])) {
+      return type as Stage['stage_type'];
+    }
+    return 'DecisionMaking';
+  }
+
+  private validateExecutorForStage(stageType: Stage['stage_type'], executor: string | undefined): Stage['assigned_executor'] {
+    const allowedExecutors: Record<Stage['stage_type'], Stage['assigned_executor'][]> = {
+      IntentClarification: ['generic-executor'],
+      PlanGeneration: ['generic-executor'],
+      EvidenceRetrieval: ['retrieval-aware-executor'],
+      MemoryRetrieval: ['retrieval-aware-executor'],
+      ObjectExtraction: ['generic-executor'],
+      ArchitectureDesign: ['generic-executor'],
+      SpecGeneration: ['generic-executor'],
+      DecisionMaking: ['generic-executor'],
+      Implementation: ['code-executor'],
+      Verification: ['verification-executor'],
+      Repair: ['repair-executor', 'code-executor'],
+      Approval: ['approval-executor', 'generic-executor', 'human-gateway'],
+      ResultReporting: ['generic-executor'],
+      SkillExtraction: ['generic-executor'],
+      DreamSummarization: ['generic-executor'],
+      Archive: ['generic-executor']
+    };
+    const allowed = allowedExecutors[stageType] || ['generic-executor'];
+    if (executor && allowed.includes(executor as Stage['assigned_executor'])) {
+      return executor as Stage['assigned_executor'];
+    }
+    return allowed[0] || 'generic-executor';
   }
 }
 

@@ -855,6 +855,38 @@ export const orgSkillRegistries = pgTable('org_skill_registry', {
   ratingIdx: index('idx_org_skill_registry_rating').on(table.ratingAvg),
 }));
 
+export const workflowDefinitionReviews = pgTable('workflow_definition_review', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workflowDefinitionId: uuid('workflow_definition_id'),
+  orgId: uuid('org_id'),
+  ownerUserId: uuid('owner_user_id').notNull(),
+  sourceSkillId: uuid('source_skill_id').notNull(),
+  sourceSkillVersionId: uuid('source_skill_version_id').notNull(),
+  sourceAuditId: uuid('source_audit_id'),
+  scopeType: text('scope_type').notNull(),
+  name: text('name').notNull(),
+  workflowType: text('workflow_type').notNull(),
+  riskLevel: text('risk_level').notNull(),
+  reviewStatus: text('review_status').notNull(),
+  skillRecallCount: integer('skill_recall_count').notNull().default(0),
+  skillInjectedCount: integer('skill_injected_count').notNull().default(0),
+  skillSucceededCount: integer('skill_succeeded_count').notNull().default(0),
+  avgBusinessScore: real('avg_business_score').notNull().default(0),
+  auditOverallScore: real('audit_overall_score').notNull().default(0),
+  definitionJson: jsonb('definition_json').notNull().default({}),
+  metadata: jsonb('metadata').notNull().default({}),
+  reviewNotes: text('review_notes'),
+  reviewedBy: uuid('reviewed_by'),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  scopeStatusIdx: index('idx_workflow_definition_review_scope_status').on(table.scopeType, table.reviewStatus),
+  orgIdx: index('idx_workflow_definition_review_org').on(table.orgId, table.createdAt),
+  skillIdx: index('idx_workflow_definition_review_skill').on(table.sourceSkillId, table.reviewStatus),
+  skillVersionUnique: uniqueIndex('idx_workflow_definition_review_skill_version').on(table.sourceSkillVersionId),
+}));
+
 export const hookEventLogs = pgTable('hook_event_log', {
   id: uuid('id').primaryKey().defaultRandom(),
   orgId: uuid('org_id'),
@@ -1006,3 +1038,4 @@ export type DbDocument = typeof documents.$inferSelect;
 export type DbDocumentChunk = typeof documentChunks.$inferSelect;
 export type DbFact = typeof facts.$inferSelect;
 export type DbArtifactObject = typeof artifactObjects.$inferSelect;
+export type DbWorkflowDefinitionReview = typeof workflowDefinitionReviews.$inferSelect;

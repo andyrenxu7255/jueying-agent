@@ -1,8 +1,8 @@
 # JueYing (绝影) — Agent Harness
 
-> 版本: 1.5.0 | 更新日期: 2026-05-21
+> 版本: 1.6.0 | 更新日期: 2026-05-21
 
-> **企业级 AI Agent 编排与执行平台** — 多渠道接入、active skill 模板优先复用、LLM 任务规划、多阶段工作流自动执行
+> **企业级 AI Agent 编排与执行平台** — 多渠道接入、`workflow_definition` 优先复用、LLM 任务规划、多阶段工作流自动执行
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
@@ -260,7 +260,7 @@ agent-harness/
 | [系统架构](./ARCHITECTURE.md) | 完整架构图、数据流、API 端点矩阵、状态机设计 |
 | [运维手册](./OPS.md) | 部署流程、健康检查、资源管理、日志与备份 |
 | [用户故事线](./用户故事线.md) | 21 条验收故事线 (AH-1 ~ AH-21)，含梦境模式和 B2B 销售可观测闭环 |
-| [发布说明](../RELEASE_NOTES.md) | v1.5.0 梦境 Hook 与业务归因发布说明 |
+| [发布说明](../RELEASE_NOTES.md) | v1.6.0 梦境 Hook、业务归因与 Workflow Reviews 发布说明 |
 | [DEV-21 梦境Hook与业务归因闭环](../development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回、Outcome 归因实现说明 |
 | [修复报告](./FIX-REPORT.md) | 代码审计与修复记录 |
 | [前端修改记录](./FRONTEND-AUDIT-CHANGELOG.md) | 前端页面审计修改记录（含15项初始化+梦境模式） |
