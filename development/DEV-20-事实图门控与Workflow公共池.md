@@ -61,3 +61,16 @@ Markdown 的角色只是“结果留痕与证据载体”，不承担权威状�
 1. 后续所有故事线以 B2B 销售管理为日常样板。
 2. 后续所有检索与评测，以“向量找候选，图做门控，PG 做真相”作为验收准则。
 3. 后续所有 workflow 沉淀，以“自动任务首跑 -> 用户确认 -> 私有复用 -> 公共审批”作为生命周期基线。
+
+## DEV-21 补充：Dream / Hook / Outcome 闭环
+
+公共池与技能沉淀的质量判断不能只看“是否生成了 skill”，还要看该 skill 或知识是否在真实 workflow 中被召回、注入，并带来好的 outcome。
+
+新增统一口径：
+
+1. 检索服务写 `knowledge_recall_event`，记录 fact / chunk / memory 的召回与注入。
+2. Hermes / skill-library 写 `skill_recall_event` 与 `hook_event_log`，记录 skill 召回、审核和提升。
+3. Workflow 终态写 `workflow_outcome_eval`，再生成 `recall_outcome_attribution`。
+4. 梦境调度低峰期读取归因账本，用于提升高贡献 skill、修订低贡献 skill、整理高价值组织记忆。
+
+因此，公共池审批除安全、完整性、通用性外，应优先参考近 30 天 `avg_business_score`、`succeeded_count` 与 `injected_count`。

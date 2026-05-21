@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import { createHash, createHmac, createDecipheriv, timingSafeEqual } from 'node:crypto'
-import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity, extractPathname, postJson, sendJson } from '@agent-harness/shared'
+import { createLogger, configManager, metricsRegistry, httpRequestLogger, httpResponseLogger, recordCriticalLog, setupDefaultHealthChecks, analyze, writeAggregationReport, checkProductionSecurity, extractPathname, postJson, sendJson, recordHookEvent } from '@agent-harness/shared'
 import { identityResolver } from './services/identity-resolver'
 import { sessionMapper } from './services/session-mapper'
 import { validateFileForImport, sanitizeFileName, validateTextContent } from './services/file-validator'
@@ -455,12 +455,24 @@ function fireAndForget(promise: Promise<unknown>, tag: string): void {
   promise.catch(err => logger.warn(`${tag}.failed`, `Fire-and-forget operation failed`, { error: String(err) }));
 }
 
-async function recallContext(ownerUserId: string, sessionId: string): Promise<{ context: string; degraded: boolean; reason?: string }> {
+async function recallContext(
+  ownerUserId: string,
+  sessionId: string,
+  options: { orgId?: string; workflowRef?: string; stageId?: string; queryText?: string } = {}
+): Promise<{ context: string; degraded: boolean; reason?: string }> {
   try {
     const res = await fetch(`${hermesUrl}/internal/memory/recall`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ owner_user_id: ownerUserId, session_id: sessionId, limit: 20 }),
+      body: JSON.stringify({
+        owner_user_id: ownerUserId,
+        session_id: sessionId,
+        org_id: options.orgId,
+        workflow_instance_id: options.workflowRef,
+        workflow_stage_id: options.stageId,
+        query_text: options.queryText,
+        limit: 20
+      }),
       signal: AbortSignal.timeout(5000)
     });
     if (!res.ok) return { context: '', degraded: true, reason: `memory_recall_http_${res.status}` };
@@ -707,6 +719,20 @@ async function confirmWorkflowCandidate(workflowRef: string, userId: string, org
          WHERE skill_id = $1`,
         [skillId]
       );
+      await recordHookEvent(client, {
+        orgId,
+        ownerUserId: userId,
+        eventName: 'skill.injected',
+        eventSource: 'gateway-adapter',
+        eventPhase: 'post',
+        resourceType: 'skill',
+        resourceRef: skillId,
+        result: 'success',
+        metadata: {
+          workflow_ref: workflowRef,
+          confirmation_status: 'approved'
+        }
+      });
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -1003,6 +1029,22 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
       const confirmation = await confirmWorkflowCandidate(confirmMatch[1], ownerUserId, orgId);
       fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');
       fireAndForget(rememberContext(ownerUserId, sessionId, 'assistant', confirmation.replyText), 'rem_ctx');
+      const pool = await getSharedDbPool();
+      if (pool) {
+        fireAndForget(recordHookEvent(pool, {
+          orgId,
+          ownerUserId,
+          sessionId,
+          workflowInstanceId: confirmMatch[1],
+          eventName: 'workflow.confirmed',
+          eventSource: 'gateway-adapter',
+          eventPhase: 'post',
+          resourceType: 'workflow_instance',
+          resourceRef: confirmMatch[1],
+          result: confirmation.ok ? 'success' : 'failure',
+          metadata: { request_type: 'workflow_confirm' }
+        }), 'hook_event');
+      }
       return { requestType: 'workflow_confirm', replyText: confirmation.replyText, modelCallOk: confirmation.ok, workflowRef: confirmMatch[1] };
     }
 
@@ -1193,7 +1235,7 @@ async function processIncomingText(normalized: Record<string, unknown>): Promise
     }
   }
 
-  const recalled = await recallContext(ownerUserId, sessionId);
+  const recalled = await recallContext(ownerUserId, sessionId, { orgId, queryText: text });
     const chat = await generateChatReply(text, ownerUserId, recalled.context || undefined);
     const degradedPrefix = recalled.degraded ? '（提示：历史上下文暂不可用，本次按当前消息回复）\n' : '';
     fireAndForget(rememberContext(ownerUserId, sessionId, 'user', text), 'rem_ctx');

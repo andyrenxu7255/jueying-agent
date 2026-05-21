@@ -225,6 +225,22 @@ Evidence Pack 至少包含：
 }
 ```
 
+## 20.8.1 召回归因账本
+
+检索 trace 解决“检索过程是否正确”，归因账本解决“检索结果是否产生业务价值”。
+
+每次 Evidence Pack 返回前，服务应旁路写入 `knowledge_recall_event`：
+
+- `recall_source`：`fact` / `document_chunk` / `memory` / `org_memory` / `hermes_memory`
+- `item_ref`：事实、chunk、记忆或组织摘要引用
+- `retrieval_trace_id`
+- `evidence_pack_hash`
+- `score`
+- `injected`：是否进入了最终上下文或阶段输出
+- `workflow_instance_id` / `workflow_stage_id`：若本次检索属于 workflow 阶段则必须带上
+
+写入失败不得影响 Retrieval API 的主响应，只能降级记录日志。梦境批处理会基于该账本与 `workflow_outcome_eval` 计算知识条目的业务贡献。
+
 ## 20.9 Fact Write 模型
 
 ### 20.9.1 写入模式

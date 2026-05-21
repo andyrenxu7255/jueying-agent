@@ -223,6 +223,17 @@ Planner 至少应读取以下输入对象：
 - 自动任务若执行通路成功，或用户明确认可过程与结果，则可以提炼为稳定 `workflow_definition`。
 - 该提炼结果默认先进入个人私有区，再由用户/管理员按权限推进到组织或公共可复用资产。
 
+### 17.7.5 Dream / Outcome 后处理
+
+工作流终态后必须允许旁路后处理，不改变主状态机语义：
+
+1. `workflow.completed` 后写入 `workflow_outcome_eval`，记录终态、业务评分、成功条件和评分器版本。
+2. `workflow_outcome_eval` 写入后，把本次工作流关联的 `knowledge_recall_event`、`skill_recall_event` 生成 `recall_outcome_attribution`。
+3. 若工作流成功且满足可复用条件，继续走 `SkillExtraction` 或用户确认流程。
+4. Dream job 在低峰期读取 outcome attribution，对高贡献 skill 提升/推荐，对低贡献或失败频繁的 skill 降级/待修订。
+
+上述后处理全部是治理链路，不得阻断用户回执；失败时只进入审计和 WARN 日志。
+
 ## 17.8 阶段库与 Executor 映射
 
 | Stage Type | 默认 Executor | 说明 |

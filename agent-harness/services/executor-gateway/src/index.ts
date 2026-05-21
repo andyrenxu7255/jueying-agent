@@ -279,8 +279,8 @@ async function gracefulShutdown(signal: string): Promise<void> {
 async function autoExecuteWorkflowStages(workflowRef: string, runRef: string, orgId?: string): Promise<void> {
   try {
     const fetchUrl = orgId
-      ? `${workflowUrl}/internal/workflows/${workflowRef}?org_id=${encodeURIComponent(orgId)}`
-      : `${workflowUrl}/internal/workflows/${workflowRef}`;
+      ? `${workflowUrl}/internal/workflows/${workflowRef}?org_id=${encodeURIComponent(orgId)}&acting_role=admin`
+      : `${workflowUrl}/internal/workflows/${workflowRef}?acting_role=admin`;
     const workflowResponse = await fetch(fetchUrl);
     if (!workflowResponse.ok) {
       logger.warn('auto.execute.workflow_fetch_failed', 'Failed to fetch workflow for auto-execution', {
@@ -329,7 +329,7 @@ async function autoExecuteWorkflowStages(workflowRef: string, runRef: string, or
         stage: stage as unknown as import('@agent-harness/contracts').Stage,
         user_goal: userGoal,
         policy_snapshot_hash: policySnapshotHash,
-        context: { owner_user_id: workflow.owner_user_id, run_ref: runRef }
+        context: { owner_user_id: workflow.owner_user_id, org_id: workflow.org_id, run_ref: runRef }
       });
 
       const retryPolicy = (stage.retry_policy || {}) as Record<string, unknown>;
@@ -400,7 +400,7 @@ async function autoExecuteWorkflowStages(workflowRef: string, runRef: string, or
       }
 
       try {
-        const report = await postWorkflowWithRetry(
+      const report = await postWorkflowWithRetry(
           `/internal/workflows/${workflowRef}/stages/${stageId}/dispatch`,
           {
             status: result.status === 'completed' || result.status === 'succeeded' ? 'completed'
@@ -409,7 +409,12 @@ async function autoExecuteWorkflowStages(workflowRef: string, runRef: string, or
               : result.status === 'failed' ? 'failed' : 'completed',
             output: result.output?.slice(0, 5000) || '',
             artifacts: result.artifacts || [],
-            fact_refs: result.fact_refs || []
+            fact_refs: result.fact_refs || [],
+            retrieval_trace_id: result.retrieval_trace_id,
+            evidence_pack_hash: result.evidence_pack_hash,
+            model_call_ok: result.model_call_ok,
+            degraded: result.degraded || false,
+            degradation_reasons: result.degradation_reasons || []
           }
         );
         if (!report.ok) {

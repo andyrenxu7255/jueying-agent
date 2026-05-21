@@ -41,10 +41,12 @@ export class RetrievalAwareExecutor {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           owner_user_id: ownerUserId,
+          org_id: typeof input.context?.org_id === 'string' ? input.context.org_id : undefined,
           query_text: input.user_goal,
           intent_type: inferIntentType(input),
           allowed_scopes: allowedScopes,
           workflow_instance_id: input.workflow_instance_id,
+          workflow_stage_id: input.workflow_stage_id,
         }),
         signal: controller.signal,
       });
