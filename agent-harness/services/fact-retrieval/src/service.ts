@@ -32,6 +32,9 @@ import { artifactStorage } from './artifact-storage';
 
 const logger = createLogger('fact-retrieval');
 
+type RetrievalItem = { fact_id?: string; chunk_id?: string; content: string; score: number; source_scope: string };
+type RetrievalStepTrace = { step_type: string; ref: string; items_count: number; degraded: boolean };
+
 const GRAPH_NAME = 'knowledge_graph';
 const ALLOWED_GRAPH_NAMES = new Set([GRAPH_NAME]);
 
@@ -241,7 +244,7 @@ class FactRetrievalService {
   }
 
   async resetAllData(): Promise<void> {
-    const tableNames = ['retrieval_trace', 'fact_conflict', 'fact_evidence', 'fact', 'document_chunk', 'document_version', 'document'] as const;
+    const tableNames = ['retrieval_trace', 'fact_conflict', 'fact_evidence', 'fact', 'relation', 'entity_attribute', 'entity', 'document_chunk', 'document_version', 'document'] as const;
     for (const tableName of tableNames) {
       let deleted = 0;
       do {
@@ -296,6 +299,8 @@ class FactRetrievalService {
       chunks_count: insertedChunks.length
     });
 
+    await this.upsertSqlGraphFromDocument(input, document.id, userId, insertedChunks);
+
     if (insertedChunks.length > 0) {
       void this.backfillEmbeddings(insertedChunks.map(chunk => ({ id: chunk.id, contentText: chunk.contentText })));
     }
@@ -313,7 +318,7 @@ class FactRetrievalService {
     evidence_pack_hash: string;
     retrieval_trace_id: string;
     retrieval_steps: Array<{ step_type: string; ref: string; items_count: number; degraded: boolean }>;
-    items: Array<{ fact_id?: string; chunk_id?: string; content: string; score: number; source_scope: string }>;
+    items: RetrievalItem[];
     degraded: boolean;
     degradation_reasons: string[];
   }> {
@@ -326,19 +331,55 @@ class FactRetrievalService {
       return { ...cachedResult, items: cachedResult.items.slice(0, maxResults) };
     }
 
-    const allItems: Array<{ fact_id?: string; chunk_id?: string; content: string; score: number; source_scope: string }> = [];
-    const retrievalSteps: Array<{ step_type: string; ref: string; items_count: number; degraded: boolean }> = [];
+    const allItems: RetrievalItem[] = [];
+    const gatedItems: RetrievalItem[] = [];
+    const retrievalSteps: RetrievalStepTrace[] = [];
     let degraded = false;
     const degradationReasons: string[] = [];
     const startTime = Date.now();
 
     const orgId = input.org_id || null;
+    let wideCandidateItems: RetrievalItem[] = [];
+    let graphGateItems: RetrievalItem[] = [];
 
     for (const step of plan) {
       try {
-        let items: Array<{ fact_id?: string; chunk_id?: string; content: string; score: number; source_scope: string }> = [];
+        let items: RetrievalItem[] = [];
 
-        if (step === 'structured') {
+        if (step === 'wide_candidate') {
+          const wideCandidateResult = await this.collectWideCandidates(input.query_text, input.allowed_scopes, input.owner_user_id, orgId);
+          items = wideCandidateResult.items;
+          wideCandidateItems = items;
+          if (wideCandidateResult.degraded) {
+            degraded = true;
+            degradationReasons.push(...wideCandidateResult.degradationReasons);
+          }
+        } else if (step === 'graph_gate') {
+          const gateResult = await this.collectGraphGateCandidates(input.query_text, wideCandidateItems, input.allowed_scopes, input.owner_user_id, orgId);
+          items = gateResult.items;
+          graphGateItems = items;
+          gatedItems.push(...items);
+          if (gateResult.degraded) {
+            degraded = true;
+            degradationReasons.push(...gateResult.degradationReasons);
+          }
+        } else if (step === 'graph_inner_recall') {
+          const recallResult = await this.collectGraphInnerRecallCandidates(
+            input.query_text,
+            graphGateItems.length > 0 ? graphGateItems : wideCandidateItems,
+            input.allowed_scopes,
+            input.owner_user_id,
+            orgId
+          );
+          items = recallResult.items;
+          gatedItems.push(...items);
+          if (recallResult.degraded) {
+            degraded = true;
+            degradationReasons.push(...recallResult.degradationReasons);
+          }
+        } else if (step === 'rerank') {
+          continue;
+        } else if (step === 'structured') {
           const structuredItems = await this.runStructuredQuery(input.query_text, input.allowed_scopes, input.owner_user_id, orgId);
           items = structuredItems;
         } else if (step === 'vector') {
@@ -383,7 +424,16 @@ class FactRetrievalService {
       }
     }
 
-    const dedupedItems = this.deduplicateItems(allItems);
+    const graphEnabled = plan.includes('graph_gate');
+    if (graphEnabled && graphGateItems.length === 0) {
+      degraded = true;
+      degradationReasons.push('graph_gate_empty');
+    }
+
+    const candidateItems = graphEnabled
+      ? gatedItems.filter(item => item.fact_id || item.chunk_id)
+      : allItems;
+    const dedupedItems = this.deduplicateItems(candidateItems);
     let scoredItems = dedupedItems.sort((a, b) => b.score - a.score).slice(0, maxResults * 3);
 
     const enableRerank = process.env.ENABLE_RERANK !== 'false'
@@ -504,9 +554,111 @@ class FactRetrievalService {
       mode: input.mode
     });
 
+    await this.upsertSqlGraphFromFact(input, newFact.id, userId);
     void this.projectEntityFromFact(input, newFact.id);
 
     return { fact_id: newFact.id, mode: input.mode };
+  }
+
+  private async upsertSqlGraphFromDocument(
+    input: DocumentIndexInput,
+    documentId: string,
+    userId: string,
+    chunks: typeof documentChunks.$inferSelect[]
+  ): Promise<void> {
+    const scopeType = input.scope[0] || 'private';
+    const documentName = input.title || `document:${documentId}`;
+    const contentPreview = chunks.map(chunk => chunk.contentText).join('\n').slice(0, 4000);
+
+    try {
+      const entityId = await this.ensureEntityNode(userId, undefined, scopeType, documentName, 'Document', {
+        document_id: documentId,
+        source_type: input.source_type,
+        source_uri: input.source_uri
+      });
+
+      const attrs = [
+        { attrKey: 'title', attrValue: documentName },
+        { attrKey: 'content', attrValue: contentPreview }
+      ].filter(attr => attr.attrValue.length > 0);
+
+      if (attrs.length > 0) {
+        await withRetry(() => requireDb().insert(entityAttributes).values(attrs.map(attr => ({
+          entityId,
+          attrKey: attr.attrKey,
+          attrValue: attr.attrValue,
+          valueJson: {},
+          confidence: 0.8,
+          sourceRef: documentId
+        }))).onConflictDoNothing());
+      }
+    } catch (error) {
+      logger.warn('graph.document_projection.failed', 'Failed to update SQL graph projection from document', {
+        document_id: documentId,
+        error: String(error)
+      });
+    }
+  }
+
+  private async upsertSqlGraphFromFact(input: FactWriteInput, factId: string, userId: string): Promise<void> {
+    const scopeType = input.scope[0] || 'private';
+    const subjectName = input.subject_ref || input.owner_user_id;
+    const objectName = input.object_value || input.fact_text;
+    if (!subjectName) return;
+
+    try {
+      const subjectId = await this.ensureEntityNode(userId, input.org_id, scopeType, subjectName, 'Entity', { fact_id: factId, role: 'subject' });
+
+      if (objectName && input.predicate && objectName.length <= 512) {
+        const objectId = await this.ensureEntityNode(userId, input.org_id, scopeType, objectName, 'Entity', { fact_id: factId, role: 'object' });
+        await requireDb().insert(relations).values({
+          ownerUserId: userId,
+          orgId: input.org_id || null,
+          scopeType,
+          fromEntityId: subjectId,
+          relationType: input.predicate,
+          toEntityId: objectId,
+          status: 'active',
+          strength: input.confidence || 1.0,
+          evidenceRef: factId,
+          metadata: { source: 'fact_write' }
+        }).onConflictDoNothing();
+      }
+    } catch (error) {
+      logger.warn('graph.sql_projection.failed', 'Failed to update SQL graph projection from fact', {
+        fact_id: factId,
+        error: String(error)
+      });
+    }
+  }
+
+  private async ensureEntityNode(
+    userId: string,
+    orgId: string | undefined,
+    scopeType: string,
+    canonicalName: string,
+    entityType: string,
+    metadata: Record<string, unknown>
+  ): Promise<string> {
+    const [existing] = await withRetry(() => requireDb().select({ id: entities.id })
+      .from(entities)
+      .where(and(eq(entities.ownerUserId, userId), eq(entities.canonicalName, canonicalName), eq(entities.status, 'active')))
+      .limit(1));
+
+    if (existing) return existing.id;
+
+    const [created] = await withRetry(() => requireDb().insert(entities).values({
+      ownerUserId: userId,
+      orgId: orgId || null,
+      scopeType,
+      entityType,
+      canonicalName,
+      status: 'active',
+      sourceConfidence: 1.0,
+      metadata
+    }).returning({ id: entities.id }));
+
+    return created.id;
   }
 
   private async projectEntityFromFact(input: FactWriteInput, factId: string): Promise<void> {
@@ -861,18 +1013,126 @@ class FactRetrievalService {
 
   private buildPlan(intentType: string): string[] {
     const enableGraph = process.env.ENABLE_GRAPH !== 'false';
-    switch (intentType) {
-      case 'factual_lookup':
-        return enableGraph ? ['structured', 'fulltext', 'graph'] : ['structured', 'fulltext'];
-      case 'deep_analysis':
-        return enableGraph ? ['structured', 'vector', 'fulltext', 'graph'] : ['structured', 'vector', 'fulltext'];
-      case 'code_search':
-        return ['fulltext', 'vector'];
-      case 'relationship_query':
-        return ['graph', 'structured'];
-      default:
-        return enableGraph ? ['structured', 'vector', 'fulltext', 'graph'] : ['structured', 'vector', 'fulltext'];
+    if (!enableGraph) {
+      return ['wide_candidate', 'rerank'];
     }
+    return ['wide_candidate', 'graph_gate', 'graph_inner_recall', 'rerank'];
+  }
+
+  private extractSearchTerms(text: string, maxTerms: number = 6): string[] {
+    const seen = new Set<string>();
+    const terms: string[] = [];
+
+    for (const rawTerm of text
+      .replace(/[^\w\u4e00-\u9fff]/g, ' ')
+      .split(/\s+/)
+      .map(term => term.trim().toLowerCase())
+      .filter(term => term.length > 0)) {
+      if (seen.has(rawTerm)) continue;
+      seen.add(rawTerm);
+      terms.push(rawTerm);
+      if (terms.length >= maxTerms) break;
+    }
+
+    return terms;
+  }
+
+  private buildGraphSeedText(queryText: string, items: RetrievalItem[], maxTerms: number = 6): string {
+    const seedText = items.map(item => item.content).join(' ');
+    const seedTerms = this.extractSearchTerms(seedText, maxTerms);
+    if (seedTerms.length === 0) return queryText;
+    return `${seedTerms.join(' ')} ${queryText}`.trim();
+  }
+
+  private filterItemsByTerms(items: RetrievalItem[], terms: string[]): RetrievalItem[] {
+    if (terms.length === 0) return items;
+    const normalizedTerms = terms.map(term => term.toLowerCase());
+    return items.filter(item => {
+      const content = item.content.toLowerCase();
+      return normalizedTerms.some(term => content.includes(term));
+    });
+  }
+
+  private async collectWideCandidates(
+    queryText: string,
+    allowedScopes: string[],
+    ownerUserId: string,
+    orgId?: string | null
+  ): Promise<{ items: RetrievalItem[]; degraded: boolean; degradationReasons: string[] }> {
+    const degradationReasons: string[] = [];
+    let degraded = false;
+
+    const structuredItems = await this.runStructuredQuery(queryText, allowedScopes, ownerUserId, orgId);
+    const chunkItems = await this.runChunkQuery(queryText, allowedScopes, ownerUserId, orgId);
+
+    const embeddingResult = await embeddingAdapter.embedText(queryText);
+    if (embeddingResult.degraded) {
+      degraded = true;
+      degradationReasons.push(embeddingResult.degradation_reason || 'embedding_degraded');
+    }
+
+    let vectorItems: RetrievalItem[] = [];
+    if (embeddingResult.embedding) {
+      vectorItems = await this.runVectorQuery(queryText, allowedScopes, ownerUserId, embeddingResult.embedding, orgId);
+    } else {
+      degraded = true;
+      degradationReasons.push('embedding_unavailable');
+    }
+
+    const items = this.deduplicateItems([...structuredItems, ...chunkItems, ...vectorItems]).slice(0, 30);
+    return { items, degraded, degradationReasons };
+  }
+
+  private async collectGraphGateCandidates(
+    queryText: string,
+    wideCandidates: RetrievalItem[],
+    allowedScopes: string[],
+    ownerUserId: string,
+    orgId?: string | null
+  ): Promise<{ items: RetrievalItem[]; degraded: boolean; degradationReasons: string[] }> {
+    const gateText = this.buildGraphSeedText(queryText, wideCandidates);
+    const gateItems = await this.runGraphQuery(gateText, allowedScopes, ownerUserId, orgId);
+    return { items: this.deduplicateItems(gateItems).slice(0, 20), degraded: false, degradationReasons: [] };
+  }
+
+  private async collectGraphInnerRecallCandidates(
+    queryText: string,
+    graphCandidates: RetrievalItem[],
+    allowedScopes: string[],
+    ownerUserId: string,
+    orgId?: string | null
+  ): Promise<{ items: RetrievalItem[]; degraded: boolean; degradationReasons: string[] }> {
+    const degradationReasons: string[] = [];
+    let degraded = false;
+    const recallText = graphCandidates.length > 0
+      ? graphCandidates.map(item => item.content).join(' ')
+      : queryText;
+    const focusTerms = this.extractSearchTerms(recallText, 8);
+
+    const chunkItems = this.filterItemsByTerms(
+      await this.runChunkQuery(recallText, allowedScopes, ownerUserId, orgId),
+      focusTerms
+    );
+
+    const embeddingResult = await embeddingAdapter.embedText(recallText);
+    if (embeddingResult.degraded) {
+      degraded = true;
+      degradationReasons.push(embeddingResult.degradation_reason || 'embedding_degraded');
+    }
+
+    let vectorItems: RetrievalItem[] = [];
+    if (embeddingResult.embedding) {
+      vectorItems = this.filterItemsByTerms(
+        await this.runVectorQuery(recallText, allowedScopes, ownerUserId, embeddingResult.embedding, orgId),
+        focusTerms
+      );
+    } else {
+      degraded = true;
+      degradationReasons.push('embedding_unavailable');
+    }
+
+    const items = this.deduplicateItems([...chunkItems, ...vectorItems]).slice(0, 30);
+    return { items, degraded, degradationReasons };
   }
 
   async applyPendingProjectionEvents(): Promise<{ applied: number; failed: number }> {
@@ -1153,6 +1413,9 @@ class FactRetrievalService {
     const ownerDbId = userRefToDbId(ownerUserId);
     const includePublic = allowedScopes.some(s => s.startsWith('public'));
     const includeShared = allowedScopes.some(s => s === 'shared');
+    const searchTerms = this.extractSearchTerms(queryText);
+    if (searchTerms.length === 0) return [];
+
     const conditions = [eq(facts.status, 'active')];
     const scopeOrs: SQL[] = [eq(facts.ownerUserId, ownerDbId)];
     if (includePublic) {
@@ -1166,6 +1429,12 @@ class FactRetrievalService {
       scopeOrs.push(eq(facts.scopeType, 'shared'));
     }
     conditions.push(or(...scopeOrs)!);
+    const contentOrs = searchTerms.map(term => or(
+      sql`${facts.subjectRef} ILIKE ${'%' + term + '%'}`,
+      sql`${facts.predicate} ILIKE ${'%' + term + '%'}`,
+      sql`${facts.objectValue} ILIKE ${'%' + term + '%'}`
+    )!);
+    conditions.push(or(...contentOrs)!);
     const rows = await requireDb().select().from(facts)
       .where(and(...conditions))
       .limit(20);
@@ -1218,6 +1487,9 @@ class FactRetrievalService {
     const ownerDbId = userRefToDbId(ownerUserId);
     const includePublic = allowedScopes.some(s => s.startsWith('public'));
     const includeShared = allowedScopes.some(s => s === 'shared');
+    const searchTerms = this.extractSearchTerms(queryText);
+    if (searchTerms.length === 0) return [];
+
     const scopeOrs: SQL[] = [eq(documentChunks.ownerUserId, ownerDbId)];
     if (includePublic) {
       if (orgId) {
@@ -1229,7 +1501,8 @@ class FactRetrievalService {
     if (includeShared) {
       scopeOrs.push(eq(documentChunks.scopeType, 'shared'));
     }
-    const condition = or(...scopeOrs)!;
+    const contentOrs = searchTerms.map(term => sql`${documentChunks.contentText} ILIKE ${'%' + term + '%'}`);
+    const condition = and(or(...scopeOrs)!, or(...contentOrs)!);
 
     const rows = await requireDb().select().from(documentChunks)
       .where(condition)
@@ -1512,7 +1785,7 @@ class FactRetrievalService {
     return results;
   }
 
-  private deduplicateItems(items: Array<{ fact_id?: string; chunk_id?: string; content: string; score: number; source_scope: string }>): Array<{ fact_id?: string; chunk_id?: string; content: string; score: number; source_scope: string }> {
+  private deduplicateItems(items: RetrievalItem[]): RetrievalItem[] {
     const seen = new Set<string>();
     return items.filter(item => {
       const key = item.fact_id || item.chunk_id || item.content.slice(0, 100);

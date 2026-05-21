@@ -1,8 +1,8 @@
-# 文档 20：检索编排与 Fact Write 细则 v1.0
+# 文档 20：检索编排与 Fact Write 细则 v1.1
 
 ## 20.1 文档目的
 
-本文件把《Fact / Memory / Retrieval Orchestration V1》的原则进一步落实为：
+本文件把历史《Fact / Memory / Retrieval Orchestration V1》的原则进一步落实为：
 
 - 检索查询计划
 - 候选裁剪与 rerank 规则
@@ -22,6 +22,7 @@
 术语说明：
 
 - `public:workflow` 在检索链路中只对应 `workflow_definition` / template，不对应运行态 `workflow_instance`。
+- PostgreSQL 仍是唯一事实源；图只负责门控和关系取证，不承担独立事实写入。
 
 ## 20.3 Retrieval Query Plan
 
@@ -35,10 +36,10 @@
   "policy_snapshot_hash": "sha256:...",
   "allowed_scopes": ["private:u_123", "public:workflow", "public:skill"],
   "steps": [
-    {"type": "structured", "enabled": true},
-    {"type": "fulltext", "enabled": false},
-    {"type": "vector", "enabled": false},
-    {"type": "graph", "enabled": false}
+    {"type": "wide_candidate", "enabled": true},
+    {"type": "graph_gate", "enabled": true},
+    {"type": "graph_inner_recall", "enabled": true},
+    {"type": "rerank", "enabled": true}
   ],
   "candidate_limits": {
     "structured": 20,
@@ -54,12 +55,24 @@
 
 | 意图 | 首选链路 | 可选增强 | 默认禁用 |
 |---|---|---|---|
-| `object-status` | 结构化 | 全文补充 | 向量全库 |
-| `evidence` | 全文 | 向量召回、rerank | 图漫游 |
-| `relation` | 结构化 + 图增强 | 全文补充 | 全库向量 |
-| `similar-case` | 向量 | rerank、图补充 | 无约束 AGE |
-| `dev-context` | 结构化 + 全文 + 向量 | 图增强 | 整仓注入模型 |
-| `memory-hint` | memory 检索 | rerank | 直接覆盖主事实 |
+| `object-status` | 宽口候选 + 图门控 | 图内二次召回 | 绕开图直接结论 |
+| `evidence` | 全文 + 向量候选 | 图门控、rerank | 无门控全库向量 |
+| `relation` | 宽口候选 + 图门控 | 图内二次召回 | 无约束漫游 |
+| `similar-case` | 向量候选 | 图补充、rerank | 无约束 AGE |
+| `dev-context` | 结构化 + 全文 + 向量 | 图门控、图内召回 | 整仓注入模型 |
+| `memory-hint` | memory 检索 | 图门控补充 | 直接覆盖主事实 |
+
+## 20.4.1 图门控规则
+
+图能力不是单纯“增强”，而是事实层的门控和取证路径：
+
+1. 图衔接区先做“宽口候选”：用向量和 `like` 先找对象名、字段名、chunk 片段，允许命中对象名称，也允许命中对象内字段或正文片段。
+2. 再进入图门控：把候选落到 `entity` / `relation` / `fact` / `document_chunk` 的可达范围内，严格确认是否真属于当前图域。
+3. 最后在图内对象范围里二次召回：只对已落图的对象、字段或 chunk 再做向量或 `like` 补召回，补齐证据但不越界。
+4. `rerank` 只在门控后做最终排序，不允许越过图门控直接形成结论。
+5. 最终进入 Evidence Pack 的内容必须能回到 PostgreSQL 记录或其证据链。
+6. 向量只能提出候选，不能绕开图门控直接成为最终事实来源。
+7. `Apache AGE` 只是图投影与遍历加速，不是第二事实源。
 
 ## 20.5 检索步骤细则
 
@@ -111,12 +124,14 @@
 - 必须先 scope 过滤。
 - 必须有候选上限。
 - 必须记录使用的 embedding 模型版本。
+- 向量召回在图衔接区只负责找对象名、字段名、chunk 片段的候选。
+- 向量召回进入图内后，只能围绕已落图对象做二次补召回，不可直接跳过事实层进入最终结论。
 
 ### 20.5.5 Step 4：图增强
 
 触发条件：
 
-- 已拿到主对象，需要扩展一跳/二跳关系。
+- 已拿到主对象，或者已经通过向量/like 找到了候选对象，需要进行严格图门控。
 - 需要依赖链、影响链、引用链。
 
 约束：
@@ -124,6 +139,7 @@
 - `max_hops <= 2`
 - 必须带类型过滤
 - 必须可映射回 PostgreSQL 主键
+- 图遍历结果必须回灌到事实层证据，不得单独作为事实结论。
 
 ### 20.5.6 Step 5：Rerank
 
@@ -257,6 +273,28 @@ Evidence Pack 至少包含：
 2. 创建 `fact_conflict` 记录。
 3. 旧事实维持原状态，除非进入明确 supersede。
 4. 如涉及公共区发布，必须转人工确认。
+
+## 20.11 md / PG 分工
+
+Markdown 文件不是主事实源，职责仅限于：
+
+- 结果物
+- 过程留痕
+- 归档
+- 汇报
+- 重抽取证据
+
+PG 负责：
+
+- 用户、组织、权限、workflow、fact、entity、relation、document、artifact 的权威状态
+- 冲突、版本、审批、审计
+- 检索与写入的最终判定
+
+选择规则：
+
+1. 需要可执行状态、唯一真相、审批结果时，查 PG。
+2. 需要原文证据、过程摘要、长文本留痕时，查 md / artifact。
+3. 两者冲突时，PG 作为当前状态权威，md 作为证据材料保留。
 
 ## 20.11 Supersede 规则
 

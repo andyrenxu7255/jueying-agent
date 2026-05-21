@@ -390,13 +390,13 @@ Executor-stage mapping rules:
 Example workflows:
 
 1. Development task ("Fix the login page bug"):
-{"workflow_type":"development","risk_level":"medium","retrieval_profile":"balanced","stage_chain":[{"stage_type":"IntentClarification","purpose":"Clarify the bug details and reproduction steps","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}},{"stage_type":"EvidenceRetrieval","purpose":"Search codebase for related code and previous fixes","assigned_executor":"retrieval-aware-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":true,"intent_type":"code_search"},"timeouts":{"soft_timeout_sec":120,"hard_timeout_sec":600}},{"stage_type":"Implementation","purpose":"Implement the fix for the login bug","assigned_executor":"code-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":300,"hard_timeout_sec":900}},{"stage_type":"Verification","purpose":"Verify the fix works correctly","assigned_executor":"verification-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":120,"hard_timeout_sec":600}},{"stage_type":"ResultReporting","purpose":"Report the fix outcome","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}}]}
+{"workflow_type":"development","risk_level":"medium","retrieval_profile":"balanced","stage_chain":[{"stage_type":"IntentClarification","purpose":"Clarify the bug details and reproduction steps","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}},{"stage_type":"EvidenceRetrieval","purpose":"Search codebase for related code and previous fixes","assigned_executor":"retrieval-aware-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":true,"intent_type":"dev-context"},"timeouts":{"soft_timeout_sec":120,"hard_timeout_sec":600}},{"stage_type":"Implementation","purpose":"Implement the fix for the login bug","assigned_executor":"code-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":300,"hard_timeout_sec":900}},{"stage_type":"Verification","purpose":"Verify the fix works correctly","assigned_executor":"verification-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":120,"hard_timeout_sec":600}},{"stage_type":"ResultReporting","purpose":"Report the fix outcome","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}}]}
 
 2. Analysis task ("Analyze Q1 sales data and identify trends"):
-{"workflow_type":"analysis","risk_level":"medium","retrieval_profile":"comprehensive","stage_chain":[{"stage_type":"IntentClarification","purpose":"Clarify analysis scope and key metrics","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}},{"stage_type":"EvidenceRetrieval","purpose":"Retrieve sales data and historical trends","assigned_executor":"retrieval-aware-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":true,"intent_type":"deep_analysis"},"timeouts":{"soft_timeout_sec":180,"hard_timeout_sec":600}},{"stage_type":"DecisionMaking","purpose":"Identify key trends and insights","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":120,"hard_timeout_sec":600}},{"stage_type":"ResultReporting","purpose":"Present analysis findings","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}}]}
+{"workflow_type":"analysis","risk_level":"medium","retrieval_profile":"comprehensive","stage_chain":[{"stage_type":"IntentClarification","purpose":"Clarify analysis scope and key metrics","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}},{"stage_type":"EvidenceRetrieval","purpose":"Retrieve sales data and historical trends","assigned_executor":"retrieval-aware-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":true,"intent_type":"evidence"},"timeouts":{"soft_timeout_sec":180,"hard_timeout_sec":600}},{"stage_type":"DecisionMaking","purpose":"Identify key trends and insights","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":120,"hard_timeout_sec":600}},{"stage_type":"ResultReporting","purpose":"Present analysis findings","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}}]}
 
 3. Knowledge task ("What is RAG and how does it work?"):
-{"workflow_type":"knowledge","risk_level":"low","retrieval_profile":"precision-first","stage_chain":[{"stage_type":"IntentClarification","purpose":"Clarify the knowledge query scope","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":30,"hard_timeout_sec":120}},{"stage_type":"EvidenceRetrieval","purpose":"Search knowledge base for RAG information","assigned_executor":"retrieval-aware-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":true,"intent_type":"factual_lookup"},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}},{"stage_type":"ResultReporting","purpose":"Present the knowledge answer","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":30,"hard_timeout_sec":120}}]}
+{"workflow_type":"knowledge","risk_level":"low","retrieval_profile":"precision-first","stage_chain":[{"stage_type":"IntentClarification","purpose":"Clarify the knowledge query scope","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":30,"hard_timeout_sec":120}},{"stage_type":"EvidenceRetrieval","purpose":"Search knowledge base for RAG information","assigned_executor":"retrieval-aware-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":true,"intent_type":"object-status"},"timeouts":{"soft_timeout_sec":60,"hard_timeout_sec":300}},{"stage_type":"ResultReporting","purpose":"Present the knowledge answer","assigned_executor":"generic-executor","inputs":{"required_refs":[]},"retrieval_plan":{"enabled":false},"timeouts":{"soft_timeout_sec":30,"hard_timeout_sec":120}}]}
 
 Respond with JSON containing:
 {
@@ -681,10 +681,10 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
       retrieval_plan: {
         enabled: stageType === 'EvidenceRetrieval' || stageType === 'MemoryRetrieval',
         intent_type: stageType === 'EvidenceRetrieval' ? 'evidence' : undefined,
-        profiles: ['structured', 'fulltext'],
+        profiles: ['wide_candidate', 'graph_gate', 'graph_inner_recall', 'rerank'],
         max_candidates: 50,
-        allow_graph: false,
-        max_graph_hops: 0
+        allow_graph: stageType === 'EvidenceRetrieval' || stageType === 'MemoryRetrieval',
+        max_graph_hops: stageType === 'EvidenceRetrieval' || stageType === 'MemoryRetrieval' ? 2 : 0
       },
       acceptance: {
         must_have: ['non-empty output'],
@@ -731,10 +731,10 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
         retrieval_plan: {
           enabled: stage.retrieval_plan?.enabled || false,
           intent_type: stage.retrieval_plan?.intent_type as Stage['retrieval_plan']['intent_type'] || undefined,
-          profiles: ['structured'],
+          profiles: ['wide_candidate', 'graph_gate', 'graph_inner_recall', 'rerank'],
           max_candidates: 50,
-          allow_graph: false,
-          max_graph_hops: 0
+          allow_graph: Boolean(stage.retrieval_plan?.enabled),
+          max_graph_hops: stage.retrieval_plan?.enabled ? 2 : 0
         },
         acceptance: {
           must_have: ['non-empty output'],

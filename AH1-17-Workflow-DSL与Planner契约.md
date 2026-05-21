@@ -1,8 +1,8 @@
-# 文档 17：Workflow DSL 与 Planner 输出契约 v1.0
+# 文档 17：Workflow DSL 与 Planner 输出契约 v1.2
 
 ## 17.1 文档目的
 
-本文件把《Workflow & State Machine V1》中的概念化描述进一步细化为可验证的 Workflow DSL 与 Planner 输出契约，目标是让：
+本文件把历史《Workflow & State Machine V1》中的概念化描述进一步细化为可验证的 Workflow DSL 与 Planner 输出契约，目标是让：
 
 - Planner 能稳定输出结构化 Workflow 计划。
 - Workflow 引擎能校验计划是否合法。
@@ -88,7 +88,7 @@
   "retrieval_plan": {
     "enabled": true,
     "intent_type": "dev-context",
-    "profiles": ["structured", "fulltext", "vector"],
+    "profiles": ["wide_candidate", "graph_gate", "graph_inner_recall", "rerank"],
     "max_candidates": 40,
     "allow_graph": true,
     "max_graph_hops": 2
@@ -137,7 +137,8 @@ Planner 至少应读取以下输入对象：
   "execution_budget": 120,
   "fact_state_refs": [],
   "public_asset_refs": [],
-  "user_asset_refs": []
+  "user_asset_refs": [],
+  "task_mode": "auto_task"
 }
 ```
 
@@ -152,6 +153,8 @@ Planner 至少应读取以下输入对象：
 5. 每个阶段的验收条件。
 6. 超时、重试、修复上限。
 7. 需要用户确认或审批的节点。
+8. 是否存在自动任务首跑模式。
+9. 是否允许在成功后提炼为稳定 workflow。
 
 ### 17.6.2 输出禁止缺失的内容
 
@@ -199,6 +202,26 @@ Planner 至少应读取以下输入对象：
 4. `Verification`
 5. `ResultReporting`
 6. `Archive`
+
+### 17.7.4 自动任务模板
+
+自动任务不是新的持久化对象层级，而是首次任务的执行模式。
+
+推荐阶段链：
+
+1. `IntentClarification`
+2. `EvidenceRetrieval`
+3. `DecisionMaking`
+4. `Repair`
+5. `ResultReporting`
+6. `SkillExtraction` 或 `Archive`
+
+规则：
+
+- 任务首先尝试匹配既有 `workflow_definition`。
+- 未命中时，进入自动任务首跑模式。
+- 自动任务若执行通路成功，或用户明确认可过程与结果，则可以提炼为稳定 `workflow_definition`。
+- 该提炼结果默认先进入个人私有区，再由用户/管理员按权限推进到组织或公共可复用资产。
 
 ## 17.8 阶段库与 Executor 映射
 
@@ -257,7 +280,15 @@ Workflow 引擎在接收 Planner 输出后必须做静态校验。
 
 原因：相同逻辑计划在不同实例中应得到可比对的 hash。
 
-## 17.11 运行期可变字段
+## 17.12 工作流生命周期补充
+
+1. `workflow_instance` 负责一次具体任务的运行态。
+2. `workflow_definition` 负责稳定可复用的模板。
+3. 自动任务只是在 `workflow_instance` 层进行首跑，成功后可反向生成 `workflow_definition`。
+4. 用户确认是个人复用的授权动作，不是公共发布动作。
+5. 公共复用必须经过 admin 审批。
+
+## 17.13 运行期可变字段
 
 以下字段不属于 DSL 固化内容，可在运行期更新：
 
@@ -269,7 +300,7 @@ Workflow 引擎在接收 Planner 输出后必须做静态校验。
 - `verification_refs`
 - `fact_write_refs`
 
-## 17.12 Development 示例
+## 17.14 Development 示例
 
 ```json
 {
@@ -398,7 +429,7 @@ Workflow 引擎在接收 Planner 输出后必须做静态校验。
       "retrieval_plan": {
         "enabled": true,
         "intent_type": "object-status",
-        "profiles": ["structured", "fulltext"],
+        "profiles": ["wide_candidate", "graph_gate", "graph_inner_recall", "rerank"],
         "max_candidates": 20,
         "allow_graph": true,
         "max_graph_hops": 2
@@ -648,7 +679,7 @@ Workflow 引擎在接收 Planner 输出后必须做静态校验。
       "retrieval_plan": {
         "enabled": true,
         "intent_type": "object-status",
-        "profiles": ["structured", "fulltext"],
+        "profiles": ["wide_candidate", "graph_gate", "graph_inner_recall", "rerank"],
         "max_candidates": 100,
         "allow_graph": false,
         "max_graph_hops": 0
@@ -688,7 +719,7 @@ Workflow 引擎在接收 Planner 输出后必须做静态校验。
       "retrieval_plan": {
         "enabled": true,
         "intent_type": "similar-case",
-        "profiles": ["vector"],
+        "profiles": ["wide_candidate", "graph_gate", "graph_inner_recall", "rerank"],
         "max_candidates": 10,
         "allow_graph": false,
         "max_graph_hops": 0
@@ -905,7 +936,7 @@ Workflow 引擎在接收 Planner 输出后必须做静态校验。
       "retrieval_plan": {
         "enabled": true,
         "intent_type": "dev-context",
-        "profiles": ["structured", "fulltext", "vector"],
+        "profiles": ["wide_candidate", "graph_gate", "graph_inner_recall", "rerank"],
         "max_candidates": 30,
         "allow_graph": true,
         "max_graph_hops": 2
@@ -980,7 +1011,7 @@ Workflow 引擎在接收 Planner 输出后必须做静态校验。
       "retrieval_plan": {
         "enabled": true,
         "intent_type": "dev-context",
-        "profiles": ["structured", "fulltext", "vector"],
+        "profiles": ["wide_candidate", "graph_gate", "graph_inner_recall", "rerank"],
         "max_candidates": 50,
         "allow_graph": true,
         "max_graph_hops": 2

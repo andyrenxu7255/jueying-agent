@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 const { Client } = require('pg');
+const { databaseUrl } = require('./m2-test-env');
 
-const BASE_URL = 'http://localhost:3004';
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://agent_harness:dev_password@localhost:5432/agent_harness';
-const TEST_RESET_TOKEN = process.env.TEST_RESET_TOKEN || '';
+const BASE_URL = process.env.FACT_RETRIEVAL_URL || `http://localhost:${process.env.FACT_PORT || '3004'}`;
+const DATABASE_URL = databaseUrl();
+const TEST_RESET_TOKEN = process.env.TEST_RESET_TOKEN || 'm2-smoke-reset';
 
 async function postJson(path, payload, timeoutMs = 10000) {
   const controller = new AbortController();
@@ -109,6 +110,9 @@ async function main() {
   assert(aliceQuery.body.evidence_pack.items.length > 0, 'alice retrieval returned no items');
   assert(bobQuery.body.evidence_pack.items.length > 0, 'bob retrieval returned no items');
   assert(publicQuery.body.evidence_pack.items.some((item) => publicDoc.body.chunk_ids.includes(item.item_ref)), 'public retrieval missing public chunk');
+  assert(aliceQuery.body.retrieval_steps?.[0]?.step_type === 'wide_candidate', 'wide candidate step missing');
+  assert(aliceQuery.body.retrieval_steps?.some((step) => step.step_type === 'graph_gate'), 'graph gate step missing');
+  assert(aliceQuery.body.retrieval_steps?.some((step) => step.step_type === 'graph_inner_recall'), 'graph inner recall step missing');
 
   const aliceItemRefs = aliceQuery.body.evidence_pack.items.map((item) => item.item_ref);
   const bobItemRefs = bobQuery.body.evidence_pack.items.map((item) => item.item_ref);

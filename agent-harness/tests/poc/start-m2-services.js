@@ -4,10 +4,12 @@ const { spawn, spawnSync, exec } = require('child_process');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { WORK_DIR, databaseUrl, redisUrl, testEnv } = require('./m2-test-env');
 
-const WORK_DIR = 'D:/teamclaw/agent-harness';
-const FACT_SERVICE = { name: 'fact-retrieval', port: 3004, path: 'services/fact-retrieval/dist/index.js' };
-const EXECUTOR_PORT = 3002;
+const FACT_SERVICE = { name: 'fact-retrieval', port: Number(process.env.M2_FACT_PORT || 3304), path: 'services/fact-retrieval/dist/index.js' };
+const EXECUTOR_PORT = Number(process.env.M2_EXECUTOR_PORT || 3302);
+const DATABASE_URL = databaseUrl();
+const REDIS_URL = redisUrl();
 const DEFAULT_TIMEOUT_MS = 120000;
 const LOCK_PATH = path.join(WORK_DIR, 'ops', 'm2-runner.lock');
 
@@ -36,7 +38,7 @@ function killPortProcess(port) {
         stdout
           .split(/\r?\n/)
           .map((line) => line.trim().split(/\s+/).pop())
-          .filter((value) => value && /^\d+$/.test(value)),
+          .filter((value) => value && /^\d+$/.test(value) && value !== '0'),
       ));
 
       if (pids.length === 0) {
@@ -77,10 +79,11 @@ function waitForHealth(port, maxAttempts = 30) {
   });
 }
 
-function runNodeScript(scriptPath, timeoutMs = DEFAULT_TIMEOUT_MS) {
+function runNodeScript(scriptPath, timeoutMs = DEFAULT_TIMEOUT_MS, env = {}) {
   return new Promise((resolve, reject) => {
     const proc = spawn('node', [scriptPath], {
       cwd: WORK_DIR,
+      env: testEnv(env),
       stdio: 'inherit',
     });
 
@@ -116,6 +119,7 @@ function isProcessAlive(pid) {
 
 function acquireLock() {
   try {
+    fs.mkdirSync(path.dirname(LOCK_PATH), { recursive: true });
     fs.writeFileSync(LOCK_PATH, JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() }, null, 2), { flag: 'wx' });
     return true;
   } catch (error) {
@@ -152,9 +156,30 @@ async function ensurePortsClean() {
     const free = await checkPort(port);
     if (!free) {
       await killPortProcess(port);
-      await wait(300);
+      await wait(500);
     }
+    await waitForPortFree(port, 30);
+    await wait(250);
   }
+}
+
+async function waitForPortFree(port, maxAttempts = 20) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const free = await checkPort(port);
+    if (free) return true;
+    await wait(300);
+  }
+  return false;
+}
+
+function killProcessTree(proc) {
+  return new Promise((resolve) => {
+    if (!proc || !proc.pid) {
+      resolve();
+      return;
+    }
+    exec(`taskkill /F /T /PID ${proc.pid}`, () => resolve());
+  });
 }
 
 async function main() {
@@ -184,13 +209,17 @@ async function main() {
       }
 
       console.log('3) 启动 fact-retrieval...');
+      await waitForPortFree(FACT_SERVICE.port, 30);
+      await wait(500);
       factProc = spawn('node', [FACT_SERVICE.path], {
         cwd: WORK_DIR,
         env: {
-          ...process.env,
+          ...testEnv(),
           PORT: String(FACT_SERVICE.port),
           SERVER_PORT: String(FACT_SERVICE.port),
           LOG_LEVEL: 'info',
+          DATABASE_URL,
+          REDIS_URL,
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -204,50 +233,68 @@ async function main() {
       }
 
       console.log('4) M2 quick test...');
-      await runNodeScript('tests/poc/m2-quick-test.js', 120000);
+      await runNodeScript('tests/poc/m2-quick-test.js', 120000, {
+        FACT_PORT: String(FACT_SERVICE.port),
+        FACT_RETRIEVAL_URL: `http://localhost:${FACT_SERVICE.port}`,
+      });
 
       console.log('5) P0-3 extended test...');
-      await runNodeScript('tests/poc/m2-p0-3-extended.js', 120000);
+      await runNodeScript('tests/poc/m2-p0-3-extended.js', 120000, {
+        FACT_RETRIEVAL_URL: `http://localhost:${FACT_SERVICE.port}`,
+      });
     } catch (error) {
       failures.push(String(error));
     } finally {
       if (factProc) {
-        factProc.kill();
+        await killProcessTree(factProc);
+        await killPortProcess(FACT_SERVICE.port);
+        await waitForPortFree(FACT_SERVICE.port, 40);
         await wait(500);
       }
     }
 
     try {
       console.log('6) provider success smoke...');
-      await runNodeScript('tests/poc/m2-provider-success-smoke.js', 180000);
+      await runNodeScript('tests/poc/m2-provider-success-smoke.js', 180000, {
+        FACT_PORT: '3314',
+        PROVIDER_PORT: '3911',
+      });
     } catch (error) {
       failures.push(String(error));
     }
 
     try {
       console.log('7) minio live smoke...');
-      await runNodeScript('tests/poc/m2-minio-live-smoke.js', 180000);
+      await runNodeScript('tests/poc/m2-minio-live-smoke.js', 180000, { FACT_PORT: '3324' });
     } catch (error) {
       failures.push(String(error));
     }
 
     try {
       console.log('8) executor smoke...');
-      await runNodeScript('tests/poc/m2-executor-smoke.js', 180000);
+      await runNodeScript('tests/poc/m2-executor-smoke.js', 180000, {
+        WORKFLOW_PORT: '3331',
+        EXECUTOR_PORT: '3332',
+        FACT_PORT: '3334',
+      });
     } catch (error) {
       failures.push(String(error));
     }
 
     try {
       console.log('9) executor degraded smoke...');
-      await runNodeScript('tests/poc/m2-executor-degraded-smoke.js', 180000);
+      await runNodeScript('tests/poc/m2-executor-degraded-smoke.js', 180000, {
+        WORKFLOW_PORT: '3341',
+        EXECUTOR_PORT: '3342',
+        FACT_PORT: '3344',
+      });
     } catch (error) {
       failures.push(String(error));
     }
 
     try {
       console.log('10) provider fallback smoke...');
-      await runNodeScript('tests/poc/m2-provider-fallback-smoke.js', 180000);
+      await runNodeScript('tests/poc/m2-provider-fallback-smoke.js', 180000, { FACT_PORT: '3354' });
     } catch (error) {
       failures.push(String(error));
     }

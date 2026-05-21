@@ -87,7 +87,7 @@ export const StageSchema = z.object({
       'dev-context',
       'memory-hint'
     ]).optional(),
-    profiles: z.array(z.enum(['structured', 'fulltext', 'vector', 'graph'])).optional(),
+    profiles: z.array(z.enum(['wide_candidate', 'graph_gate', 'graph_inner_recall', 'rerank'])).optional(),
     max_candidates: z.number().int().min(1).max(100).optional(),
     allow_graph: z.boolean().optional(),
     max_graph_hops: z.number().int().min(0).max(2).optional()

@@ -1,6 +1,6 @@
 {
   "version": "v1.7",
-  "description": "Task routing configuration - Updated 2026-05-17: Synced with context-graph.json v2.2. Added DEV-18 B2B sales storyline and workflow observability path.",
+  "description": "Task routing configuration - Updated 2026-05-21: synced with context-graph.json v2.6 and added DEV-20 fact graph gating plus workflow public-pool path.",
   "default_bootstrap_docs": [
     "development/DEV-00-开发索引.md",
     "development/DEV-08-文件内容与依赖对象图谱.md",
@@ -156,6 +156,7 @@
     "sales_workflow_observability": {
       "must_read": [
         "development/DEV-18-B2B销售故事线与工作流可观测闭环.md",
+        "development/DEV-20-事实图门控与Workflow公共池.md",
         "AH1-17-Workflow-DSL与Planner契约.md",
         "AH1-18-Code-Executor与执行会话.md",
         "AH1-21-渠道接入与Session映射.md",

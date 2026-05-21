@@ -1,6 +1,6 @@
 # JueYing (绝影) — Agent Harness 🐎
 
-> 版本: 1.3.0 | 更新日期: 2026-05-17
+> 版本: 1.4.0 | 更新日期: 2026-05-21
 
 > **企业级 AI Agent 编排与执行平台** — 多渠道接入、既有 workflow 优先复用、LLM 任务规划、多阶段工作流自动执行
 
@@ -37,13 +37,13 @@ JueYing（绝影，内部代号 agent-harness）是一个**企业级 AI Agent �
 | 能力 | 说明 |
 |------|------|
 | 🌐 **多渠道接入** | 飞书长连接 WebSocket、企业微信 Webhook、Web Portal、移动端推送 |
-| 🧠 **LLM 任务规划** | 先匹配个人/组织/公共 workflow，未命中时再自动拆解为多阶段工作流 |
+| 🧠 **LLM 任务规划** | 先匹配既有 workflow，未命中时走自动任务首跑，再沉淀为可复用工作流 |
 | ⚙️ **工作流引擎** | 基于 XState 状态机的完整生命周期：plan → execute → verify → repair → report |
 | 📈 **销售管理样板** | 支持 B2B 销售晨会、卡单救援、回款风险、折扣审批和周复盘故事线 |
-| 🔍 **知识检索** | 向量搜索 + 全文检索 + 图检索 + 重排序，多维度知识获取 |
+| 🔍 **知识检索** | 宽口候选先用向量和 like 找对象/字段，图门控收口，图内二次召回补证据 |
 | 🗃️ **事实与实体管理** | 结构化事实存储、冲突检测、证据溯源、实体关系图谱 |
 | 🧠 **记忆与技能** | 会话记忆存储/召回/压缩、技能模板注册与复用 |
-| 🔁 **确认后复用** | 成功首跑会展示过程和结果，用户回复“确认工作流 wf_xxx”后沉淀为私有 workflow |
+| 🔁 **确认后复用** | 成功首跑会展示过程和结果，用户回复“确认工作流 wf_xxx”后沉淀为私有 workflow，之后可进入公共池审批 |
 | 📊 **可观测性** | OpenTelemetry + SigNoz 全链路追踪、审计日志、健康检查 |
 | 📁 **文件工作区** | 用户隔离存储、双后端(localFS/MinIO)、staging机制、三级scope共享 |
 | 🔐 **安全合规** | 用户/组织隔离、RBAC/ABAC 策略、密码 scrypt 哈希、SQL 参数化防护 |
@@ -51,7 +51,7 @@ JueYing（绝影，内部代号 agent-harness）是一个**企业级 AI Agent �
 ### 技术栈
 
 - **语言**: TypeScript 5.9 + Node.js ≥20
-- **数据库**: PostgreSQL 16 + pgvector + Apache AGE (图数据库)
+- **数据库**: PostgreSQL 16 + pgvector + Apache AGE（图投影与门控）
 - **缓存**: Redis 7
 - **对象存储**: MinIO (S3 兼容)
 - **LLM 网关**: LiteLLM Proxy (支持 MiniMax / DashScope / OpenAI 等多模型)

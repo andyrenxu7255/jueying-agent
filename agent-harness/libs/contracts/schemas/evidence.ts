@@ -21,7 +21,7 @@ export const EvidencePackSchema = z.object({
     allowed_scopes: z.array(z.string())
   }),
   retrieval_steps: z.array(z.object({
-    type: z.enum(['structured', 'fulltext', 'vector', 'graph', 'rerank']),
+    type: z.enum(['wide_candidate', 'graph_gate', 'graph_inner_recall', 'rerank']),
     ref: z.string(),
     candidates_count: z.number().int().optional(),
     duration_ms: z.number().int().optional()

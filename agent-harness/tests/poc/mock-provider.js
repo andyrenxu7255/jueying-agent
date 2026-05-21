@@ -14,7 +14,7 @@ function tokenize(value) {
 
 function embed(text) {
   const tokens = tokenize(text);
-  const vector = [0, 0, 0, 0];
+  const vector = Array.from({ length: 1536 }, () => 0);
   for (const token of tokens) {
     let sum = 0;
     for (let i = 0; i < token.length; i += 1) {
@@ -82,16 +82,19 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/rerank' && req.method === 'POST') {
     const body = await readJson(req);
-    const items = Array.isArray(body.candidates)
-      ? body.candidates
-        .map((candidate) => ({
-          id: candidate.id,
-          score: overlapScore(body.query, candidate.text),
+    const documents = Array.isArray(body.documents)
+      ? body.documents
+      : Array.isArray(body.candidates)
+        ? body.candidates.map((candidate) => candidate.text)
+        : [];
+    const results = documents
+        .map((document, index) => ({
+          index,
+          relevance_score: overlapScore(body.query, document),
         }))
-        .sort((left, right) => right.score - left.score)
-        .slice(0, Number(body.limit) || body.candidates.length)
-      : [];
-    sendJson(res, 200, { items });
+        .sort((left, right) => right.relevance_score - left.relevance_score)
+        .slice(0, Number(body.top_n || body.limit) || documents.length);
+    sendJson(res, 200, { results });
     return;
   }
 

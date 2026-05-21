@@ -1,6 +1,6 @@
 {
-  "version": "v2.5",
-  "description": "Agent Harness V1 context dependency graph - Updated 2026-05-18 R12: Web Portal Docker container monitoring enabled. Compose now mounts the Docker socket and the portal image includes docker-cli while preserving non-root appuser execution with socket group access.",
+  "version": "v2.6",
+  "description": "Agent Harness context dependency graph - Updated 2026-05-21: fact retrieval now uses wide-candidate collection, graph gating, and graph-internal recall; workflow lifecycle includes autonomous first-run and public-pool approval.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -34,6 +34,7 @@
       "development/DEV-17-冒烟测试与四角色体验闭环.md",
       "development/DEV-18-B2B销售故事线与工作流可观测闭环.md",
       "development/DEV-19-B2B故事线系统验收与UI冒烟.md",
+      "development/DEV-20-事实图门控与Workflow公共池.md",
       "AH1-13-仓库复用与改造边界.md"
     ],
     "L2_governance": [
@@ -209,7 +210,8 @@
       ],
       "execution": [
         "development/DEV-18-B2B销售故事线与工作流可观测闭环.md",
-        "development/DEV-19-B2B故事线系统验收与UI冒烟.md"
+        "development/DEV-19-B2B故事线系统验收与UI冒烟.md",
+        "development/DEV-20-事实图门控与Workflow公共池.md"
       ],
       "optional": [
         "AH1-20-检索编排与Fact-Write.md",
@@ -247,6 +249,7 @@
     "2026-05-18-R10": "B2B storyline acceptance and UI smoke: config manager now resolves config/default.yaml from service subdirectories; web portal guide shows 21 stories including B2B sales management daily loop; fact-retrieval tests assert canonical user refs and reject raw channel identity refs; DEV-19 records dependency, test, and UI validation.",
     "2026-05-18-R11": "Full-stack online remediation: Dockerfiles now copy root lockfile plus full workspaces; SigNoz/ClickHouse/Feishu health checks fixed; OTel health extension added; smoke-eval uses SigNoz /api/v1/health, unique users, and longer plan timeout; Web Portal restores CSP-compatible existing interactions, no-caches app.js, and adds workflow/org/quota/inspection proxies verified by Playwright.",
     "2026-05-18-R12": "Web Portal Docker monitoring enabled: web-portal image installs docker-cli; docker-compose mounts /var/run/docker.sock and adds socket group access so non-root appuser can read container stats; DEV-19 records verified container stats availability.",
+    "2026-05-21-R13": "Retrieval and workflow policy sync: DEV-20 adds fact graph gating + workflow public pool lifecycle; retrieval service now uses wide-candidate collection, graph gating, and graph-internal recall before rerank; docs and task routing updated accordingly.",
     "total_fixes": 62,
     "files_modified": 49,
     "ts_check": "pass (exit 0, 0 errors)",

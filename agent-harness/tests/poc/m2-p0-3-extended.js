@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 const { Client } = require('pg');
+const { databaseUrl } = require('./m2-test-env');
 
 const BASE_URL = process.env.FACT_RETRIEVAL_URL || 'http://localhost:3004';
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://agent_harness:dev_password@localhost:5432/agent_harness';
-const TEST_RESET_TOKEN = process.env.TEST_RESET_TOKEN || '';
+const DATABASE_URL = databaseUrl();
+const TEST_RESET_TOKEN = process.env.TEST_RESET_TOKEN || 'm2-smoke-reset';
 
 async function postJson(path, payload, timeoutMs = 10000) {
   const controller = new AbortController();

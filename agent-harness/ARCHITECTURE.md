@@ -1,7 +1,7 @@
 # agent-harness 系统架构文档
 
-> 版本: 2026-05-17 (第十七轮：冒烟测试 + 四角色体验闭环 + 高危依赖收口)
-> 当前状态: **全链路验证通过，TypeScript零错误，系统指南文档与图谱已全面更新至代码最新状态**
+> 版本: 2026-05-21 (第十九轮：事实图门控 + 自动任务公共池口径统一)
+> 当前状态: **全链路验证通过，当前文档已同步真实运行口径**
 
 ---
 
@@ -17,7 +17,7 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
 - **记忆系统**: 基于 Hermes 的会话记忆，支持压缩上下文召回
 - **梦境模式**: 记忆分层管理 + 技能发现生态，每日自动分析
 - **策略控制**: 基于 user_goal + policy 的细粒度权限检查
-- **事实检索**: 基于 pgvector 的向量检索 + 可选 Apache AGE 图检索
+- **事实检索**: 宽口候选先用向量/like 找对象与字段，图层严格门控，图内再做二次召回，PG 保持唯一事实源
 - **可观测性**: SigNoz（OpenTelemetry）全链路追踪
 
 ---
@@ -81,7 +81,7 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
 | **gateway-adapter** | `apps/gateway-adapter/` | ah-gateway | 3000 | 多渠道消息入口，身份解析与绑定，意图分类，路由到 workflow 或直接 LLM 对话 |
 | **workflow-service** | `services/workflow/` | ah-workflow | 3001 | 工作流规划(planner)、监督(supervisor)、状态机(engine)，CRUD |
 | **executor-gateway** | `services/executor-gateway/` | ah-executor | 3002 | 接收 dispatch，按阶段调度多种执行器，完成后回调 workflow |
-| **fact-retrieval** | `services/fact-retrieval/` | ah-fact-retrieval | 3004 | 事实存储与向量检索，可选图检索和重排序 |
+| **fact-retrieval** | `services/fact-retrieval/` | ah-fact-retrieval | 3004 | 事实存储、宽口候选召回、图门控、图内二次召回与重排序 |
 | **hermes-adapter** | `services/hermes-adapter/` | ah-hermes | 3005 | 会话记忆管理：存储、召回、压缩上下文 |
 | **feishu-longconn** | `services/feishu-longconn/` | ah-feishu-longconn | — | 飞书长连接 WebSocket 客户端，转发消息到 gateway |
 | **web-portal** | `apps/web-portal/` | ah-web-portal | 3003 | Web 管理界面：登录/设置向导/工作流管理/策略管理/组织管理/知识审核 |
@@ -95,7 +95,7 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
 
 | 服务 | 容器名 | 端口 | 职责 |
 |------|--------|------|------|
-| PostgreSQL + pgvector + AGE | ah-postgres | 5432 | 主数据库（用户、工作流、事实、策略、审计、向量检索、图检索） |
+| PostgreSQL + pgvector + AGE | ah-postgres | 5432 | 主数据库（用户、工作流、事实、策略、审计、向量检索、图投影门控） |
 | Redis 7 | ah-redis | 6379 | 会话缓存 |
 | MinIO | ah-minio | 9000/9001 | 对象存储（artifacts） |
 | LiteLLM Proxy | ah-litellm | 4000 | LLM 统一代理（MiniMax-M2.7、Qwen3-Max、GLM-5） |
@@ -135,9 +135,9 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
        a. 检查 identity_binding_state === 'bound'
        b. 检查 org 限额
        c. POST → workflow-service /internal/workflows/plan
-          → Planner 先匹配 active workflow skill:
+          → Planner 先匹配既有 workflow_definition:
              private(owner_user_id) → org(org_id) → public
-          → 未命中时由 LLM 生成 stage_chain
+          → 未命中时进入自动任务首跑模式，由 LLM 生成 stage_chain
        d. POST → workflow-service /internal/workflows/{ref}/dispatch
           → workflow 转发到 executor-gateway /internal/executor/dispatch
        e. 返回 "任务已受理，workflow=xxx"
@@ -148,8 +148,9 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
        → 用户收到执行过程、结果摘要和“确认工作流 wf_xxx”提示
   → 6. 用户确认:
        回复“确认工作流 wf_xxx”
-       → gateway 激活该 workflow 提取出的私有 draft skill
+       → gateway 激活该 workflow 提取出的私有 draft workflow/skill
        → 下次相似任务优先复用
+       → 若团队认可，可提交到公共池候选区，等待 admin 审批
 ```
 
 ### 4.3 执行器阶段执行流程
