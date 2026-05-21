@@ -1,8 +1,8 @@
 import { createServer } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { closeDbPool } from './db';
+import { closeDbPool, pool } from './db';
 import { type FactWriteInput, factRetrievalService, type RetrievalQueryInput } from './service';
-import { configManager, createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport } from '@agent-harness/shared';
+import { configManager, createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, recordHookEvent, recordKnowledgeRecall } from '@agent-harness/shared';
 
 const logger = createLogger('fact-retrieval', {
   logFile: process.env.LOG_FILE || 'logs/fact-retrieval.log'
@@ -139,10 +139,15 @@ const server = createServer(async (req, res) => {
       const body = await readJson(req);
       const ownerUserId = String(body.owner_user_id || '');
       if (!validateOwnerUserId(ownerUserId, res)) return;
+      const startedAt = Date.now();
+      const orgId = typeof body.org_id === 'string' && body.org_id ? body.org_id : undefined;
+      const workflowInstanceId = typeof body.workflow_instance_id === 'string' ? body.workflow_instance_id : undefined;
+      const workflowStageId = typeof body.workflow_stage_id === 'string' ? body.workflow_stage_id : undefined;
+      const queryText = String(body.query_text || '');
       const result = await factRetrievalService.query({
         owner_user_id: ownerUserId,
-        org_id: typeof body.org_id === 'string' && body.org_id ? body.org_id : undefined,
-        query_text: String(body.query_text || ''),
+        org_id: orgId,
+        query_text: queryText,
         intent_type: (body.intent_type as RetrievalQueryInput['intent_type']) || 'object-status',
         allowed_scopes: Array.isArray(body.allowed_scopes) ? body.allowed_scopes.map((item: unknown) => String(item)) : ['private'],
       });
@@ -154,6 +159,47 @@ const server = createServer(async (req, res) => {
         score: item.score,
         source_scope: item.source_scope
       }));
+      if (pool) {
+        void recordHookEvent(pool, {
+          orgId,
+          ownerUserId,
+          workflowInstanceId,
+          workflowStageId,
+          eventName: 'fact.recalled',
+          eventSource: 'fact-retrieval',
+          eventPhase: 'post',
+          resourceType: 'retrieval_trace',
+          resourceRef: result.retrieval_trace_id || result.evidence_pack_id,
+          result: result.degraded ? 'degraded' : 'success',
+          latencyMs: Date.now() - startedAt,
+          metadata: {
+            query_text: queryText,
+            intent_type: body.intent_type || 'object-status',
+            item_count: items.length,
+            degradation_reasons: result.degradation_reasons
+          }
+        });
+        for (const item of result.items) {
+          void recordKnowledgeRecall(pool, {
+            orgId,
+            ownerUserId,
+            workflowInstanceId,
+            workflowStageId,
+            recallSource: item.fact_id ? 'fact' : 'document_chunk',
+            itemRef: item.fact_id || item.chunk_id || item.content.slice(0, 80),
+            queryText,
+            retrievalTraceId: result.retrieval_trace_id || result.evidence_pack_id,
+            evidencePackHash: result.evidence_pack_hash,
+            score: item.score,
+            injected: items.length > 0,
+            injectionRef: result.evidence_pack_hash,
+            sourceScope: item.source_scope,
+            metadata: {
+              content_preview: item.content.slice(0, 200)
+            }
+          });
+        }
+      }
       sendJson(res, 200, {
         ok: true,
         evidence_pack: {

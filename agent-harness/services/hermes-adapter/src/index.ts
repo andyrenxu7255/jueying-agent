@@ -1,6 +1,17 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, analyze, writeAggregationReport, sendJson as sendJsonShared } from '@agent-harness/shared';
+import {
+  createLogger,
+  metricsRegistry,
+  httpRequestLogger,
+  httpResponseLogger,
+  analyze,
+  writeAggregationReport,
+  sendJson as sendJsonShared,
+  recordHookEvent,
+  recordKnowledgeRecall,
+  recordSkillRecall
+} from '@agent-harness/shared';
 import { hermesMemories } from '@agent-harness/shared';
 import { db } from './db';
 
@@ -23,6 +34,7 @@ interface MemoryEntry {
 
 interface SkillRecord {
   id: string;
+  version_id: string | null;
   skill_name: string;
   description: string;
   skill_type: string;
@@ -214,7 +226,7 @@ async function fetchSkillsFromDb(ownerUserId: string, orgId?: string, query?: st
 
     const sql = `
       SELECT s.id, s.skill_name, s.description, s.skill_type, s.scope_type, s.status,
-             sv.version, sv.definition_json
+             sv.id as version_id, sv.version, sv.definition_json
       FROM skill s
       LEFT JOIN LATERAL (
         SELECT version, definition_json FROM skill_version
@@ -229,6 +241,7 @@ async function fetchSkillsFromDb(ownerUserId: string, orgId?: string, query?: st
     const result = await pool.query(sql, params);
     return result.rows.map((row: Record<string, unknown>) => ({
       id: String(row.id),
+      version_id: row.version_id ? String(row.version_id) : null,
       skill_name: String(row.skill_name || ''),
       description: String(row.description || ''),
       skill_type: String(row.skill_type || 'prompt'),
@@ -438,6 +451,10 @@ const server = createServer(async (req, res) => {
     const sessionId = String(body.session_id || 'default');
     const orgId = typeof body.org_id === 'string' && body.org_id ? body.org_id : undefined;
     const limit = Math.min(Number(body.limit || 20), MAX_MEMORY_PER_SESSION);
+    const workflowInstanceId = typeof body.workflow_instance_id === 'string' ? body.workflow_instance_id : undefined;
+    const workflowStageId = typeof body.workflow_stage_id === 'string' ? body.workflow_stage_id : undefined;
+    const queryText = typeof body.query_text === 'string' ? body.query_text : undefined;
+    const startedAt = Date.now();
 
     if (!ownerUserId) {
       sendJson(res, 400, { ok: false, error: 'missing_owner_user_id' });
@@ -452,6 +469,43 @@ const server = createServer(async (req, res) => {
     const recalled = allEntries.slice(-limit);
 
     const compressed = await compressMemory(recalled);
+    const pool = await getDbPool();
+    if (pool) {
+      void recordHookEvent(pool, {
+        orgId,
+        ownerUserId,
+        sessionId,
+        workflowInstanceId,
+        workflowStageId,
+        eventName: 'memory.recalled',
+        eventSource: 'hermes-adapter',
+        eventPhase: 'post',
+        resourceType: 'hermes_memory',
+        result: recalled.length > 0 ? 'success' : 'degraded',
+        latencyMs: Date.now() - startedAt,
+        metadata: { entry_count: recalled.length, compressed_chars: compressed.length }
+      });
+      for (const entry of recalled.slice(-limit)) {
+        void recordKnowledgeRecall(pool, {
+          orgId: entry.org_id || orgId || null,
+          ownerUserId: entry.owner_user_id,
+          sessionId: entry.session_id,
+          workflowInstanceId,
+          workflowStageId,
+          recallSource: 'hermes_memory',
+          itemRef: entry.id,
+          queryText,
+          score: 1,
+          injected: compressed.length > 0,
+          injectionRef: compressed.length > 0 ? `memory_context:${sessionId}` : null,
+          sourceScope: 'private',
+          metadata: {
+            role: entry.role,
+            token_count: entry.token_count
+          }
+        });
+      }
+    }
 
     sendJson(res, 200, {
       ok: true,
@@ -513,6 +567,10 @@ const server = createServer(async (req, res) => {
     const ownerUserId = String(body.owner_user_id || '');
     const orgId = body.org_id ? String(body.org_id) : undefined;
     const query = String(body.query || '');
+    const sessionId = typeof body.session_id === 'string' ? body.session_id : undefined;
+    const workflowInstanceId = typeof body.workflow_instance_id === 'string' ? body.workflow_instance_id : undefined;
+    const workflowStageId = typeof body.workflow_stage_id === 'string' ? body.workflow_stage_id : undefined;
+    const inject = body.injected === true || body.inject === true;
 
     if (!ownerUserId) {
       sendJson(res, 400, { ok: false, error: 'missing_owner_user_id' });
@@ -520,6 +578,44 @@ const server = createServer(async (req, res) => {
     }
 
     const skills = await fetchSkillsFromDb(ownerUserId, orgId, query);
+    const pool = await getDbPool();
+    if (pool) {
+      void recordHookEvent(pool, {
+        orgId,
+        ownerUserId,
+        sessionId,
+        workflowInstanceId,
+        workflowStageId,
+        eventName: 'skill.recalled',
+        eventSource: 'hermes-adapter',
+        eventPhase: 'post',
+        resourceType: 'skill',
+        result: skills.length > 0 ? 'success' : 'degraded',
+        metadata: { query, total: skills.length, injected: inject }
+      });
+      for (const skill of skills) {
+        void recordSkillRecall(pool, {
+          orgId,
+          ownerUserId,
+          sessionId,
+          workflowInstanceId,
+          workflowStageId,
+          skillId: skill.id,
+          versionId: skill.version_id,
+          queryText: query,
+          recallReason: query ? 'keyword_match' : 'owner_scope_listing',
+          score: query ? 0.8 : 0.5,
+          injected: inject,
+          injectionRef: inject ? `skill_context:${workflowInstanceId || sessionId || 'adhoc'}` : null,
+          metadata: {
+            skill_name: skill.skill_name,
+            skill_type: skill.skill_type,
+            scope_type: skill.scope_type,
+            version: skill.version
+          }
+        });
+      }
+    }
 
     sendJson(res, 200, {
       ok: true,
@@ -776,6 +872,23 @@ const server = createServer(async (req, res) => {
         [resolvedOrgId, ownerUserId, memResult.rows.length, itemsCompressed, factsGenerated,
          JSON.stringify({ compressions: compressionResults, date: dateStr })]
       );
+      void recordHookEvent(pool, {
+        orgId: resolvedOrgId,
+        ownerUserId,
+        eventName: 'dream.completed',
+        eventSource: 'hermes-adapter',
+        eventPhase: 'async',
+        resourceType: 'memory_analysis_run',
+        resourceRef: String(runResult.rows[0].id),
+        result: 'success',
+        metadata: {
+          run_type: 'dream_user',
+          items_scanned: memResult.rows.length,
+          items_compressed: itemsCompressed,
+          facts_generated: factsGenerated,
+          date: dateStr
+        }
+      });
 
       sendJson(res, 200, {
         ok: true,
@@ -844,6 +957,20 @@ const server = createServer(async (req, res) => {
          VALUES ($1,'dream_org','completed',now(),now(),$2,$3,$4) RETURNING id`,
         [orgId, factsResult.rows.length, itemsExtracted, JSON.stringify({ date: new Date().toISOString().slice(0, 10) })]
       );
+      void recordHookEvent(pool, {
+        orgId,
+        eventName: 'dream.completed',
+        eventSource: 'hermes-adapter',
+        eventPhase: 'async',
+        resourceType: 'memory_analysis_run',
+        resourceRef: String(runResult.rows[0].id),
+        result: 'success',
+        metadata: {
+          run_type: 'dream_org',
+          items_scanned: factsResult.rows.length,
+          items_extracted: itemsExtracted
+        }
+      });
 
       sendJson(res, 200, {
         ok: true,

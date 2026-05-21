@@ -1479,6 +1479,77 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
 
+    // 召回与业务结果归因
+    if (pathname === '/api/admin/dream/attribution' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const pool = await getDbPool();
+      if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+      const reqUrl = new URL(req.url || '/', 'http://localhost');
+      const orgId = reqUrl.searchParams.get('org_id') || session.org_id || '';
+      const orgFilter = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId) ? orgId : '';
+      const days = Math.max(1, Math.min(Number(reqUrl.searchParams.get('days') || 30), 180));
+      try {
+        const [skills, knowledge, outcomes] = await Promise.all([
+          pool.query(
+            `SELECT skill_id, skill_name,
+                    SUM(recall_count)::int AS recall_count,
+                    SUM(injected_count)::int AS injected_count,
+                    SUM(succeeded_count)::int AS succeeded_count,
+                    ROUND(AVG(avg_business_score)::numeric, 2) AS avg_business_score
+             FROM skill_business_outcome_daily
+             WHERE usage_date >= current_date - ($1::int * interval '1 day')
+               AND ($2::text = '' OR EXISTS (
+                 SELECT 1 FROM skill s WHERE s.id = skill_business_outcome_daily.skill_id AND s.org_id = $2::uuid
+               ))
+             GROUP BY skill_id, skill_name
+             ORDER BY succeeded_count DESC, recall_count DESC
+             LIMIT 50`,
+            [days, orgFilter]
+          ),
+          pool.query(
+            `SELECT recall_source, item_ref,
+                    SUM(recall_count)::int AS recall_count,
+                    SUM(injected_count)::int AS injected_count,
+                    SUM(succeeded_count)::int AS succeeded_count,
+                    ROUND(AVG(avg_business_score)::numeric, 2) AS avg_business_score
+             FROM knowledge_business_outcome_daily
+             WHERE usage_date >= current_date - ($1::int * interval '1 day')
+               AND ($2::text = '' OR EXISTS (
+                 SELECT 1 FROM knowledge_recall_event kre
+                 WHERE kre.recall_source = knowledge_business_outcome_daily.recall_source
+                   AND kre.item_ref = knowledge_business_outcome_daily.item_ref
+                   AND kre.org_id = $2::uuid
+               ))
+             GROUP BY recall_source, item_ref
+             ORDER BY succeeded_count DESC, recall_count DESC
+             LIMIT 50`,
+            [days, orgFilter]
+          ),
+          pool.query(
+            `SELECT outcome_status, COUNT(*)::int AS count, ROUND(AVG(business_score)::numeric, 2) AS avg_business_score
+             FROM workflow_outcome_eval
+             WHERE created_at >= now() - ($1::int * interval '1 day')
+               AND ($2::text = '' OR org_id = $2::uuid)
+             GROUP BY outcome_status
+             ORDER BY outcome_status`,
+            [days, orgFilter]
+          )
+        ]);
+        sendJson(res, 200, {
+          ok: true,
+          days,
+          skills: skills.rows,
+          knowledge: knowledge.rows,
+          outcomes: outcomes.rows
+        });
+      } catch (err) {
+        logger.error('dream.attribution_failed', 'Failed to query dream attribution', { error: String(err) });
+        sendJson(res, 500, { ok: false, error: 'query_failed' });
+      }
+      return;
+    }
+
     // ============================================================
     // 梦境模式：技能发现 API 代理 (Dream Mode - Skill Discovery)
     // ============================================================
@@ -1570,17 +1641,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const pool = await getDbPool();
       if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
-      // TODO: gateway-adapter does not expose '/internal/query' - should query DB directly
-      const r = await fetchFromService(gatewayUrl + '/internal/query', {
-        method: 'POST',
-        body: JSON.stringify({ sql: 'SELECT * FROM dream_mode_config WHERE org_id = $1', params: [session.org_id || '00000000-0000-0000-0000-000000000001'] })
-      }).catch(() => null);
-      if (r && r.status === 200) {
-        const result = r.data as { rows?: Array<Record<string, unknown>> };
-        sendJson(res, 200, { ok: true, config: result.rows?.[0] || null });
-      } else {
-        sendJson(res, 200, { ok: true, config: null });
-      }
+      const orgId = session.org_id || '00000000-0000-0000-0000-000000000001';
+      const result = await pool.query('SELECT * FROM dream_mode_config WHERE org_id = $1 LIMIT 1', [orgId]);
+      sendJson(res, 200, { ok: true, config: result.rows[0] || null });
       return;
     }
 
@@ -2341,6 +2404,7 @@ function stopTaskScheduler(): void {
 // 梦境模式调度器 (Dream Mode Scheduler)
 // ============================================================
 let dreamSchedulerTimer: ReturnType<typeof setInterval> | null = null;
+const dreamSchedulerRuns = new Set<string>();
 
 async function runDreamScheduler(): Promise<void> {
   const pool = await getDbPool();
@@ -2356,9 +2420,12 @@ async function runDreamScheduler(): Promise<void> {
       const now = new Date();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
+      const dayKey = now.toISOString().slice(0, 10);
 
       // 梦境个人分析：在配置的小时执行
-      if (config.dream_scheduled_hour === currentHour && currentMinute < 5) {
+      const userDreamKey = `${config.org_id}:dream_user:${dayKey}:${currentHour}`;
+      if (config.dream_scheduled_hour === currentHour && currentMinute < 5 && !dreamSchedulerRuns.has(userDreamKey)) {
+        dreamSchedulerRuns.add(userDreamKey);
         // 获取该组织所有活跃用户
         const usersResult = await pool.query(
           `SELECT id FROM "user" WHERE org_id = $1 AND status = 'active' LIMIT 50`,
@@ -2370,7 +2437,7 @@ async function runDreamScheduler(): Promise<void> {
           try {
             await fetchFromService(hermesUrl + '/internal/memory/analyze', {
               method: 'POST',
-              body: JSON.stringify({ user_id: user.id, org_id: config.org_id }),
+              body: JSON.stringify({ owner_user_id: user.id, org_id: config.org_id }),
             });
             processed++;
             await new Promise(r => setTimeout(r, 2000));
@@ -2380,21 +2447,26 @@ async function runDreamScheduler(): Promise<void> {
         if (processed > 0) {
           logger.info('dream_scheduler.user_dreams_completed', 'User dream analysis completed', { org_id: config.org_id, users_processed: processed });
         }
+      }
 
-        if (currentMinute >= 55) {
-          try {
-            await fetchFromService(hermesUrl + '/internal/memory/analyze/org', {
-              method: 'POST',
-              body: JSON.stringify({ org_id: config.org_id }),
-            });
-            logger.info('dream_scheduler.org_analysis_completed', 'Org memory analysis completed', { org_id: config.org_id });
-          } catch (err) {
-            logger.warn('dream_scheduler.org_analysis_failed', 'Org memory analysis failed', { error: String(err) });
-          }
+      const orgDreamHour = (Number(config.dream_scheduled_hour) + 1) % 24;
+      const orgDreamKey = `${config.org_id}:dream_org:${dayKey}:${orgDreamHour}`;
+      if (orgDreamHour === currentHour && currentMinute < 5 && !dreamSchedulerRuns.has(orgDreamKey)) {
+        dreamSchedulerRuns.add(orgDreamKey);
+        try {
+          await fetchFromService(hermesUrl + '/internal/memory/analyze/org', {
+            method: 'POST',
+            body: JSON.stringify({ org_id: config.org_id }),
+          });
+          logger.info('dream_scheduler.org_analysis_completed', 'Org memory analysis completed', { org_id: config.org_id });
+        } catch (err) {
+          logger.warn('dream_scheduler.org_analysis_failed', 'Org memory analysis failed', { error: String(err) });
         }
       }
 
-      if (config.skill_audit_enabled && config.skill_audit_scheduled_hour === currentHour && currentMinute < 5) {
+      const skillAuditKey = `${config.org_id}:skill_audit:${dayKey}:${currentHour}`;
+      if (config.skill_audit_enabled && config.skill_audit_scheduled_hour === currentHour && currentMinute < 5 && !dreamSchedulerRuns.has(skillAuditKey)) {
+        dreamSchedulerRuns.add(skillAuditKey);
         try {
           await fetchFromService(skillLibraryUrl + '/internal/skills/audit/batch', {
             method: 'POST',

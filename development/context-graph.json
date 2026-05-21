@@ -1,6 +1,6 @@
 {
-  "version": "v2.6",
-  "description": "Agent Harness context dependency graph - Updated 2026-05-21: fact retrieval now uses wide-candidate collection, graph gating, and graph-internal recall; workflow lifecycle includes autonomous first-run and public-pool approval.",
+  "version": "v2.7",
+  "description": "Agent Harness context dependency graph - Updated 2026-05-21: dream mode now includes hook-style recall/outcome attribution; fact retrieval uses graph gating and workflow lifecycle includes autonomous first-run/public-pool approval.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -35,6 +35,7 @@
       "development/DEV-18-B2B销售故事线与工作流可观测闭环.md",
       "development/DEV-19-B2B故事线系统验收与UI冒烟.md",
       "development/DEV-20-事实图门控与Workflow公共池.md",
+      "development/DEV-21-梦境Hook与业务归因闭环.md",
       "AH1-13-仓库复用与改造边界.md"
     ],
     "L2_governance": [
@@ -66,8 +67,9 @@
     "error_degrade": "AH1-31-错误处理与降级策略.md",
     "api_version": "AH1-32-API版本管理策略.md",
     "skill": "AH1-17-Workflow-DSL与Planner契约.md",
+    "hook_outcome": "AH1-23-审计日志指标与告警.md",
     "resource": "AH1-26-Provider选择与配置.md",
-    "dream": "AH1-17-Workflow-DSL与Planner契约.md",
+    "dream": "AH1-23-审计日志指标与告警.md",
     "file_storage": "AH1-22-Artifact-Object-Storage.md"
   },
   "source_to_authority": {
@@ -75,8 +77,14 @@
     "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts": ["AH1-21-渠道接入与Session映射.md"],
     "agent-harness/apps/gateway-adapter/src/services/session-mapper.ts": ["AH1-21-渠道接入与Session映射.md"],
     "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": ["AH1-22-Artifact-Object-Storage.md"],
-    "agent-harness/services/workflow/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-19-Checkpoint-Resume-Replay.md"],
+    "agent-harness/services/workflow/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-19-Checkpoint-Resume-Replay.md", "AH1-23-审计日志指标与告警.md"],
+    "agent-harness/services/workflow/src/persistence/db.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md", "AH1-14-数据库表设计与索引.md"],
+    "agent-harness/services/fact-retrieval/src/index.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-23-审计日志指标与告警.md"],
     "agent-harness/services/fact-retrieval/src/service.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-14-数据库表设计与索引.md"],
+    "agent-harness/services/hermes-adapter/src/index.ts": ["AH1-23-审计日志指标与告警.md", "AH1-20-检索编排与Fact-Write.md"],
+    "agent-harness/services/skill-library/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md"],
+    "agent-harness/libs/shared/src/db/attribution.ts": ["AH1-23-审计日志指标与告警.md", "AH1-14-数据库表设计与索引.md"],
+    "agent-harness/db/migrations/026_recall_outcome_attribution.sql": ["AH1-14-数据库表设计与索引.md", "AH1-23-审计日志指标与告警.md"],
     "agent-harness/services/executor-gateway/src/executor/generic-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-17-Workflow-DSL与Planner契约.md"],
     "agent-harness/services/executor-gateway/src/executor/code-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-31-错误处理与降级策略.md"],
     "agent-harness/libs/shared/src/rate-limit/limiter.ts": ["AH1-31-错误处理与降级策略.md"],

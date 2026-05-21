@@ -855,6 +855,112 @@ export const orgSkillRegistries = pgTable('org_skill_registry', {
   ratingIdx: index('idx_org_skill_registry_rating').on(table.ratingAvg),
 }));
 
+export const hookEventLogs = pgTable('hook_event_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id'),
+  ownerUserId: uuid('owner_user_id'),
+  sessionId: text('session_id'),
+  workflowInstanceId: uuid('workflow_instance_id'),
+  workflowStageId: uuid('workflow_stage_id'),
+  eventName: text('event_name').notNull(),
+  eventSource: text('event_source').notNull(),
+  eventPhase: text('event_phase').notNull(),
+  resourceType: text('resource_type'),
+  resourceRef: text('resource_ref'),
+  result: text('result').notNull().default('observed'),
+  latencyMs: integer('latency_ms'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  workflowIdx: index('idx_hook_event_log_workflow').on(table.workflowInstanceId, table.createdAt),
+  orgEventIdx: index('idx_hook_event_log_org_event').on(table.orgId, table.eventName, table.createdAt),
+  resourceIdx: index('idx_hook_event_log_resource').on(table.resourceType, table.resourceRef, table.createdAt),
+}));
+
+export const knowledgeRecallEvents = pgTable('knowledge_recall_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id'),
+  ownerUserId: uuid('owner_user_id'),
+  sessionId: text('session_id'),
+  workflowInstanceId: uuid('workflow_instance_id'),
+  workflowStageId: uuid('workflow_stage_id'),
+  recallSource: text('recall_source').notNull(),
+  itemRef: text('item_ref').notNull(),
+  queryText: text('query_text'),
+  retrievalTraceId: text('retrieval_trace_id'),
+  evidencePackHash: text('evidence_pack_hash'),
+  score: real('score'),
+  injected: boolean('injected').notNull().default(false),
+  injectionRef: text('injection_ref'),
+  sourceScope: text('source_scope'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  workflowIdx: index('idx_knowledge_recall_workflow').on(table.workflowInstanceId, table.workflowStageId, table.createdAt),
+  itemIdx: index('idx_knowledge_recall_item').on(table.recallSource, table.itemRef, table.createdAt),
+  traceIdx: index('idx_knowledge_recall_trace').on(table.retrievalTraceId),
+  orgIdx: index('idx_knowledge_recall_org').on(table.orgId, table.createdAt),
+}));
+
+export const skillRecallEvents = pgTable('skill_recall_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id'),
+  ownerUserId: uuid('owner_user_id'),
+  sessionId: text('session_id'),
+  workflowInstanceId: uuid('workflow_instance_id'),
+  workflowStageId: uuid('workflow_stage_id'),
+  skillId: uuid('skill_id').notNull(),
+  versionId: uuid('version_id'),
+  queryText: text('query_text'),
+  recallReason: text('recall_reason'),
+  score: real('score'),
+  injected: boolean('injected').notNull().default(false),
+  injectionRef: text('injection_ref'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  skillIdx: index('idx_skill_recall_skill').on(table.skillId, table.createdAt),
+  workflowIdx: index('idx_skill_recall_workflow').on(table.workflowInstanceId, table.workflowStageId, table.createdAt),
+  orgIdx: index('idx_skill_recall_org').on(table.orgId, table.createdAt),
+}));
+
+export const workflowOutcomeEvals = pgTable('workflow_outcome_eval', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workflowInstanceId: uuid('workflow_instance_id').notNull(),
+  orgId: uuid('org_id'),
+  ownerUserId: uuid('owner_user_id'),
+  outcomeStatus: text('outcome_status').notNull(),
+  businessScore: real('business_score').notNull().default(0),
+  userFeedbackScore: real('user_feedback_score'),
+  durationMs: integer('duration_ms'),
+  successCriteria: jsonb('success_criteria').notNull().default({}),
+  graderVersion: text('grader_version').notNull().default('heuristic.v1'),
+  summary: text('summary'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  workflowUnique: uniqueIndex('idx_workflow_outcome_eval_workflow').on(table.workflowInstanceId),
+  orgScoreIdx: index('idx_workflow_outcome_eval_org_score').on(table.orgId, table.businessScore, table.createdAt),
+}));
+
+export const recallOutcomeAttributions = pgTable('recall_outcome_attribution', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  outcomeEvalId: uuid('outcome_eval_id').notNull(),
+  workflowInstanceId: uuid('workflow_instance_id').notNull(),
+  attributionType: text('attribution_type').notNull(),
+  sourceEventId: uuid('source_event_id').notNull(),
+  resourceType: text('resource_type').notNull(),
+  resourceRef: text('resource_ref').notNull(),
+  contributionScore: real('contribution_score').notNull().default(0),
+  contributionReason: text('contribution_reason'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  workflowIdx: index('idx_recall_outcome_workflow').on(table.workflowInstanceId, table.attributionType),
+  resourceIdx: index('idx_recall_outcome_resource').on(table.resourceType, table.resourceRef),
+  sourceUnique: uniqueIndex('idx_recall_outcome_source_unique').on(table.outcomeEvalId, table.attributionType, table.sourceEventId),
+}));
+
 export const resourceQuotas = pgTable('resource_quota', {
   id: uuid('id').primaryKey().defaultRandom(),
   scope: text('scope').notNull(),

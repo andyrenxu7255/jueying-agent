@@ -1874,14 +1874,43 @@ async function triggerInspection() {
 
 async function renderDreamMemory(el) {
   el.innerHTML = '<div class="page-header"><h2>💤 记忆分析 - 梦境模式</h2></div>' +
+    '<div class="card"><h3>召回与业务结果归因</h3><div id="dream-attribution-list">加载中...</div></div>' +
     '<div class="card"><h3>记忆分析运行记录</h3><div id="dream-runs-list">加载中...</div></div>' +
     '<div class="card"><h3>组织级记忆汇总 <span style="font-size:12px;color:var(--text2)">(管理员可见)</span></h3><div id="dream-summary-list">加载中...</div></div>' +
     '<div class="card"><h3>记忆压缩日志</h3><div id="dream-compression-list">加载中...</div></div>' +
     '<div class="card"><h3>记忆访问日志</h3><div id="dream-access-list">加载中...</div></div>';
+  await loadDreamAttribution();
   await loadDreamRuns();
   await loadDreamSummaries();
   await loadDreamCompressions();
   await loadDreamAccessLog();
+}
+
+async function loadDreamAttribution() {
+  let el = document.getElementById('dream-attribution-list');
+  const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
+  const r = await api('/api/admin/dream/attribution?org_id=' + encodeURIComponent(orgId) + '&days=30');
+  if (r.ok) {
+    const skills = r.data.skills || [];
+    const knowledge = r.data.knowledge || [];
+    const outcomes = r.data.outcomes || [];
+    const outcomeSummary = outcomes.length === 0 ? '暂无工作流结果评分' : outcomes.map(function(o) {
+      return escapeHtml(o.outcome_status || '-') + ': ' + (o.count || 0) + ' / 均分 ' + (o.avg_business_score || '-');
+    }).join('　');
+    const skillHtml = skills.length === 0 ? emptyState('🔧', '暂无技能归因记录', '技能被召回并完成工作流后会出现在这里') :
+      '<table><tr><th>技能</th><th>召回</th><th>注入</th><th>成功</th><th>业务均分</th></tr>' +
+      skills.slice(0, 8).map(function(s) {
+        return '<tr><td><strong>' + escapeHtml(s.skill_name || s.skill_id || '') + '</strong></td><td>' + (s.recall_count || 0) + '</td><td>' + (s.injected_count || 0) + '</td><td>' + (s.succeeded_count || 0) + '</td><td>' + (s.avg_business_score || '-') + '</td></tr>';
+      }).join('') + '</table>';
+    const knowledgeHtml = knowledge.length === 0 ? emptyState('🧠', '暂无知识归因记录', '知识被检索并完成工作流后会出现在这里') :
+      '<table><tr><th>来源</th><th>条目</th><th>召回</th><th>注入</th><th>成功</th><th>业务均分</th></tr>' +
+      knowledge.slice(0, 8).map(function(k) {
+        return '<tr><td>' + escapeHtml(k.recall_source || '') + '</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(k.item_ref || '') + '</td><td>' + (k.recall_count || 0) + '</td><td>' + (k.injected_count || 0) + '</td><td>' + (k.succeeded_count || 0) + '</td><td>' + (k.avg_business_score || '-') + '</td></tr>';
+      }).join('') + '</table>';
+    el.innerHTML = '<p class="section-desc">' + outcomeSummary + '</p><h4>技能效果</h4>' + skillHtml + '<h4 style="margin-top:16px">知识效果</h4>' + knowledgeHtml;
+  } else {
+    el.innerHTML = emptyState('⚠️', '无法加载归因数据', '请检查数据库迁移和 Web Portal 服务状态');
+  }
 }
 
 async function loadDreamRuns() {

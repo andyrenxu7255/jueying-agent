@@ -323,7 +323,7 @@ class FactRetrievalService {
     degradation_reasons: string[];
   }> {
     const maxResults = input.max_results || 10;
-    const plan = this.buildPlan(input.intent_type);
+    const plan = this.buildPlan();
 
     const cacheKey = `retrieval:${input.owner_user_id}:${input.org_id || input.owner_user_id}:${input.intent_type}:${input.query_text.slice(0, 200)}:${input.allowed_scopes.join(',')}`;
     const cachedResult = await this.checkCache(cacheKey);
@@ -1011,7 +1011,7 @@ class FactRetrievalService {
     }
   }
 
-  private buildPlan(intentType: string): string[] {
+  private buildPlan(): string[] {
     const enableGraph = process.env.ENABLE_GRAPH !== 'false';
     if (!enableGraph) {
       return ['wide_candidate', 'rerank'];

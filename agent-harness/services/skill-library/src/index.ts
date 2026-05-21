@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
-import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport, readJson, sendJson } from '@agent-harness/shared';
+import { createLogger, metricsRegistry, httpRequestLogger, httpResponseLogger, setupDefaultHealthChecks, analyze, writeAggregationReport, readJson, sendJson, recordHookEvent } from '@agent-harness/shared';
 
 /**
  * skill-library 服务 - 技能库管理服务
@@ -97,7 +97,7 @@ function computeAuditScores(def: unknown, defStrLength: number, scopeType: strin
 }
 
 function isValidOrgId(orgId: string | null | undefined): orgId is string {
-  return !!orgId && orgId !== AUDIT_CONFIG.bannedOrgId;
+  return !!orgId && orgId !== AUDIT_CONFIG.bannedOrgId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId);
 }
 
 /* ---- 类型定义 ---- */
@@ -1145,11 +1145,27 @@ const server = createServer(async (req, res) => {
            VALUES ($1,$2,$3,'manual_review',$4,$5,$6,$7,$8,$9)`,
           [skillId, auditorUserId || null, skill.org_id, functionalityScore, securityScore, performanceScore, orgFitScore, overallScore, auditResult]
         );
+        void recordHookEvent(pool, {
+          orgId: skill.org_id,
+          ownerUserId: skill.owner_user_id,
+          eventName: 'skill.audit.completed',
+          eventSource: 'skill-library',
+          eventPhase: 'post',
+          resourceType: 'skill',
+          resourceRef: skillId,
+          result: auditResult === 'approved' ? 'success' : 'degraded',
+          metadata: {
+            audit_type: 'manual_review',
+            overall_score: overallScore,
+            audit_result: auditResult,
+            scores: { functionality: functionalityScore, security: securityScore, performance: performanceScore, org_fit: orgFitScore }
+          }
+        });
 
         if (overallScore >= AUDIT_CONFIG.autoPromoteThreshold && (skill.scope_type === 'private' || skill.scope_type === 'draft')) {
           const targetOrgId = isValidOrgId(skill.org_id) ? skill.org_id : null;
           if (targetOrgId) {
-            await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skillId]);
+          await pool.query(`UPDATE skill SET scope_type = 'org', status = 'active' WHERE id = $1`, [skillId]);
 
             await pool.query(
               `INSERT INTO org_skill_registry (org_id, skill_id, promoted_by, promoted_from_skill_id, origination_type, origination_user_id, category, status)
@@ -1157,6 +1173,21 @@ const server = createServer(async (req, res) => {
                ON CONFLICT DO NOTHING`,
               [targetOrgId, skillId, auditorUserId || null, skill.owner_user_id]
             );
+            void recordHookEvent(pool, {
+              orgId: targetOrgId,
+              ownerUserId: skill.owner_user_id,
+              eventName: 'skill.promoted',
+              eventSource: 'skill-library',
+              eventPhase: 'post',
+              resourceType: 'skill',
+              resourceRef: skillId,
+              result: 'success',
+              metadata: {
+                promoted_by: auditorUserId || null,
+                overall_score: overallScore,
+                target_scope: 'org'
+              }
+            });
           }
         }
 
@@ -1177,7 +1208,7 @@ const server = createServer(async (req, res) => {
       const orgId = String(body.org_id || '');
       const pool = await getDbPool();
 
-      if (!orgId) { sendJson(res, 400, { ok: false, error: 'missing_org_id' }); return; }
+      if (!isValidOrgId(orgId)) { sendJson(res, 400, { ok: false, error: 'invalid_org_id' }); return; }
       if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
 
       try {
@@ -1212,6 +1243,21 @@ const server = createServer(async (req, res) => {
              VALUES ($1,null,$2,'daily_review',$3,$4,$5,$6,$7,$8)`,
             [skill.id, skill.org_id, functionalityScore, securityScore, performanceScore, orgFitScore, overallScore, auditResult]
           );
+          void recordHookEvent(pool, {
+            orgId: skill.org_id,
+            ownerUserId: skill.owner_user_id,
+            eventName: 'skill.audit.completed',
+            eventSource: 'skill-library',
+            eventPhase: 'post',
+            resourceType: 'skill',
+            resourceRef: String(skill.id),
+            result: auditResult === 'approved' ? 'success' : 'degraded',
+            metadata: {
+              audit_type: 'daily_review',
+              overall_score: overallScore,
+              audit_result: auditResult
+            }
+          });
 
           if (overallScore >= AUDIT_CONFIG.autoPromoteThreshold && (skill.scope_type === 'private' || skill.scope_type === 'draft')) {
             const targetOrgId = isValidOrgId(skill.org_id) ? skill.org_id : null;
@@ -1223,6 +1269,21 @@ const server = createServer(async (req, res) => {
                  ON CONFLICT DO NOTHING`,
                 [targetOrgId, skill.id, skill.owner_user_id]
               );
+              void recordHookEvent(pool, {
+                orgId: targetOrgId,
+                ownerUserId: skill.owner_user_id,
+                eventName: 'skill.promoted',
+                eventSource: 'skill-library',
+                eventPhase: 'post',
+                resourceType: 'skill',
+                resourceRef: String(skill.id),
+                result: 'success',
+                metadata: {
+                  promoted_by: null,
+                  overall_score: overallScore,
+                  target_scope: 'org'
+                }
+              });
               promoted++;
             }
           }
@@ -1264,6 +1325,21 @@ const server = createServer(async (req, res) => {
            ON CONFLICT DO NOTHING`,
           [targetOrgId, skillId, promotedBy || null, skill.owner_user_id]
         );
+        void recordHookEvent(pool, {
+          orgId: targetOrgId,
+          ownerUserId: skill.owner_user_id,
+          eventName: 'skill.promoted',
+          eventSource: 'skill-library',
+          eventPhase: 'post',
+          resourceType: 'skill',
+          resourceRef: skillId,
+          result: 'success',
+          metadata: {
+            promoted_by: promotedBy || null,
+            target_scope: 'org',
+            promotion_type: 'manual'
+          }
+        });
         sendJson(res, 200, { ok: true, skill_id: skillId, scope_type: 'org' });
       } catch (err) {
         logger.error('skill.promote_failed', 'Skill promotion failed', { error: String(err) });
@@ -1313,9 +1389,35 @@ const server = createServer(async (req, res) => {
       const pool = await getDbPool();
       if (!pool) { sendJson(res, 500, { ok: false, error: 'database_not_available' }); return; }
       try {
+        const skillId = parsedUrl.searchParams.get('skill_id') || '';
+        const days = Math.max(1, Math.min(Number(parsedUrl.searchParams.get('days') || 30), 180));
+        if (skillId) {
+          const aggregate = await pool.query(
+            `SELECT COALESCE(SUM(recall_count),0)::int AS total_invocations,
+                    COALESCE(SUM(succeeded_count),0)::int AS total_success,
+                    GREATEST(COALESCE(SUM(recall_count),0)::int - COALESCE(SUM(succeeded_count),0)::int, 0) AS total_failure,
+                    COALESCE(MAX(injected_count),0)::int AS max_users,
+                    ROUND(AVG(avg_business_score)::numeric, 2) AS avg_business_score
+             FROM skill_business_outcome_daily
+             WHERE skill_id = $1::uuid
+               AND usage_date >= current_date - ($2::int * interval '1 day')`,
+            [skillId, days]
+          );
+          const daily = await pool.query(
+            `SELECT * FROM skill_business_outcome_daily
+             WHERE skill_id = $1::uuid
+               AND usage_date >= current_date - ($2::int * interval '1 day')
+             ORDER BY usage_date DESC`,
+            [skillId, days]
+          );
+          sendJson(res, 200, { ok: true, aggregate: aggregate.rows[0] || {}, stats: daily.rows });
+          return;
+        }
         const result = await pool.query(
-          `SELECT sus.*, s.skill_name FROM skill_usage_stats sus JOIN skill s ON sus.skill_id = s.id
-           ORDER BY sus.usage_date DESC LIMIT 100`
+          `SELECT sbod.* FROM skill_business_outcome_daily sbod
+           WHERE usage_date >= current_date - ($1::int * interval '1 day')
+           ORDER BY usage_date DESC, recall_count DESC LIMIT 100`,
+          [days]
         );
         sendJson(res, 200, { ok: true, stats: result.rows });
       } catch (err) {

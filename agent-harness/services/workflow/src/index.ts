@@ -8,7 +8,7 @@ import { policyManager } from '@agent-harness/policy';
 import { workflowPlanner, PlannerInput } from './planner';
 import { checkpointManager, CheckpointCreateInput } from './checkpoint';
 import { createWorkflowMachine, WorkflowStateMachine, type WorkflowEvent } from './engine/workflow-machine';
-import { closeWorkflowDbPool, loadPersistedWorkflows, persistWorkflowRecord } from './persistence/db';
+import { closeWorkflowDbPool, loadPersistedWorkflows, persistWorkflowRecord, recordWorkflowOutcomeForRecord } from './persistence/db';
 import { workflowSupervisor } from './supervisor';
 
 const logger = createLogger('workflow-service', {
@@ -241,6 +241,25 @@ async function persistWorkflowStore(): Promise<void> {
   for (const record of records) {
     await persistWorkflowRecord(record);
   }
+}
+
+function toPersistedRecord(workflow: WorkflowRecord): PersistedWorkflowRecord {
+  return {
+    id: workflow.id,
+    status: workflow.status,
+    owner_user_id: workflow.owner_user_id,
+    org_id: workflow.org_id,
+    plan: workflow.plan,
+    stages: workflow.stages.map((stage) => ({ id: stage.id, status: stage.status, seq: stage.seq })),
+    created_at: workflow.created_at
+  };
+}
+
+async function recordTerminalWorkflowOutcome(workflow: WorkflowRecord): Promise<void> {
+  if (!['succeeded', 'failed', 'cancelled', 'completed'].includes(workflow.status)) {
+    return;
+  }
+  await recordWorkflowOutcomeForRecord(toPersistedRecord(workflow));
 }
 
 async function bootstrapWorkflowStoreFromDatabase(): Promise<void> {
@@ -570,6 +589,13 @@ const server = createServer(async (req, res) => {
     if (verificationMeta) {
       stage.verification_meta = verificationMeta;
     }
+    const stageMeta: Record<string, unknown> = { ...(stage.verification_meta || {}) };
+    if (typeof body.retrieval_trace_id === 'string') stageMeta.retrieval_trace_id = body.retrieval_trace_id;
+    if (typeof body.evidence_pack_hash === 'string') stageMeta.evidence_pack_hash = body.evidence_pack_hash;
+    if (typeof body.model_call_ok === 'boolean') stageMeta.model_call_ok = body.model_call_ok;
+    if (typeof body.degraded === 'boolean') stageMeta.degraded = body.degraded;
+    if (Array.isArray(body.degradation_reasons)) stageMeta.degradation_reasons = body.degradation_reasons;
+    stage.verification_meta = stageMeta;
 
     workflowSupervisor.recordHeartbeat(workflowRef, stageId, stage.seq);
 
@@ -708,6 +734,7 @@ const server = createServer(async (req, res) => {
 
     workflowSupervisor.unregisterWorkflow(workflowRef);
     await persistWorkflowStore();
+    await recordTerminalWorkflowOutcome(workflow);
 
     await auditWriter.write({
       user_id: workflow.owner_user_id,
@@ -769,6 +796,7 @@ const server = createServer(async (req, res) => {
 
     workflowSupervisor.unregisterWorkflow(workflowRef);
     await persistWorkflowStore();
+    await recordTerminalWorkflowOutcome(workflow);
 
     await auditWriter.write({
       user_id: actingUserId,
@@ -867,6 +895,7 @@ const server = createServer(async (req, res) => {
 
     workflowSupervisor.unregisterWorkflow(workflowRef);
     await persistWorkflowStore();
+    await recordTerminalWorkflowOutcome(workflow);
 
     await auditWriter.write({
       user_id: actingUserId,
@@ -1139,7 +1168,7 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (workflow.org_id && workflow.org_id !== orgId) {
+    if (workflow.org_id && actingRole !== 'admin' && workflow.org_id !== orgId) {
       sendJson(res, 403, { ok: false, error: 'org_mismatch', message: `org_id must be "${workflow.org_id}"` });
       return;
     }

@@ -1,6 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
-import { configManager, createLogger, getDatabaseSslConfig } from '@agent-harness/shared';
+import {
+  configManager,
+  createLogger,
+  getDatabaseSslConfig,
+  attributeWorkflowOutcome,
+  recordHookEvent,
+  recordWorkflowOutcome
+} from '@agent-harness/shared';
 
 const logger = createLogger('workflow-persistence-db');
 
@@ -256,6 +263,86 @@ export async function persistWorkflowRecord(record: PersistedWorkflowRecord): Pr
     }
   } catch (error) {
     logger.warn('workflow.persist.db_failed', 'Failed to persist workflow to database', {
+      workflow_ref: record.id,
+      error: String(error)
+    });
+  }
+}
+
+function scoreWorkflowOutcome(record: PersistedWorkflowRecord): number {
+  if (record.status === 'succeeded' || record.status === 'completed') return 90;
+  if (record.status === 'failed' || record.status === 'cancelled') return 20;
+  const completedStages = record.stages.filter((stage) => stage.status === 'completed').length;
+  if (record.stages.length === 0) return 0;
+  return Math.round((completedStages / record.stages.length) * 70);
+}
+
+function mapOutcomeStatus(status: string): 'succeeded' | 'failed' | 'cancelled' | 'partial' {
+  if (status === 'succeeded' || status === 'completed') return 'succeeded';
+  if (status === 'failed') return 'failed';
+  if (status === 'cancelled') return 'cancelled';
+  return 'partial';
+}
+
+export async function recordWorkflowOutcomeForRecord(record: PersistedWorkflowRecord): Promise<void> {
+  const db = await getWorkflowDbPool();
+  if (!db || !['succeeded', 'failed', 'cancelled', 'completed'].includes(record.status)) {
+    return;
+  }
+
+  try {
+    const workflowUuid = deterministicUuid(`workflow:${record.id}`);
+    const ownerUserUuid = deterministicUuid(`user:${record.owner_user_id}`);
+    let resolvedOwnerUserId = ownerUserUuid;
+    const ownerResult = await db.query<{ owner_user_id: string }>(
+      `SELECT owner_user_id FROM workflow_instance WHERE id = $1 LIMIT 1`,
+      [workflowUuid]
+    );
+    if (ownerResult.rows[0]?.owner_user_id) {
+      resolvedOwnerUserId = ownerResult.rows[0].owner_user_id;
+    }
+    const outcomeStatus = mapOutcomeStatus(record.status);
+    const businessScore = scoreWorkflowOutcome(record);
+    const outcomeEvalId = await recordWorkflowOutcome(db, {
+      workflowInstanceId: workflowUuid,
+      orgId: record.org_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(record.org_id) ? record.org_id : null,
+      ownerUserId: resolvedOwnerUserId,
+      outcomeStatus,
+      businessScore,
+      successCriteria: {
+        completed_stages: record.stages.filter((stage) => stage.status === 'completed').length,
+        total_stages: record.stages.length,
+        terminal_status: record.status
+      },
+      summary: `Workflow ${record.id} finished with ${record.status}`,
+      metadata: {
+        external_workflow_ref: record.id,
+        owner_user_ref: record.owner_user_id,
+        plan_type: record.plan.workflow_type
+      }
+    });
+
+    await recordHookEvent(db, {
+      orgId: record.org_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(record.org_id) ? record.org_id : null,
+      ownerUserId: resolvedOwnerUserId,
+      workflowInstanceId: workflowUuid,
+      eventName: 'outcome.evaluated',
+      eventSource: 'workflow-service',
+      eventPhase: 'final',
+      resourceType: 'workflow_instance',
+      resourceRef: record.id,
+      result: outcomeStatus === 'succeeded' ? 'success' : 'failure',
+      metadata: {
+        business_score: businessScore,
+        outcome_status: outcomeStatus
+      }
+    });
+
+    if (outcomeEvalId) {
+      await attributeWorkflowOutcome(db, workflowUuid, outcomeEvalId);
+    }
+  } catch (error) {
+    logger.warn('workflow.outcome.record_failed', 'Failed to record workflow outcome attribution', {
       workflow_ref: record.id,
       error: String(error)
     });
