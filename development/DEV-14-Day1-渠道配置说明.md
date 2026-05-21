@@ -27,7 +27,7 @@
 ```powershell
 $env:FEISHU_SIGNING_SECRET='dev-feishu-secret'
 $env:FEISHU_APP_ID='cli_xxx'
-$env:FEISHU_APP_SECRET='xxx'
+$env:FEISHU_APP_SECRET='<REPLACE_WITH_ROTATED_FEISHU_APP_SECRET>'
 $env:WECOM_TOKEN='dev-wecom-token'
 docker compose up -d --no-deps gateway-adapter
 ```
@@ -67,8 +67,8 @@ npm run smoke:channels
 
 ```powershell
 # 设置飞书凭据
-$env:FEISHU_APP_ID='cli_a95bad0b00b89cc9'
-$env:FEISHU_APP_SECRET='v4KJ6qyCFqN3X4F7g20ZxdLzSwCyJR5H'
+$env:FEISHU_APP_ID='<FEISHU_APP_ID>'
+$env:FEISHU_APP_SECRET='<REPLACE_WITH_ROTATED_FEISHU_APP_SECRET>'
 
 # 启动所有服务（包括长连接）
 npm run infra:bootstrap:full
