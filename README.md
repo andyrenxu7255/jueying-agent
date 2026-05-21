@@ -32,7 +32,7 @@ v1.5.0 的主题是 **Dream Hooks and Outcome Attribution**。它把系统从“
 - Workflow 优先：个人私有、组织、公共 workflow 优先复用，再进入自动首跑。
 - 受治理的检索：PostgreSQL 是唯一事实源，向量只提候选，图门控收口，Evidence Pack 可追溯。
 - 梦境与记忆系统：用户级记忆隔离、管理员级汇总分析、组织级知识整合。
-- Skill 生命周期：搜索、召回、注入、审核、提升、复用和业务贡献归因。
+- Skill 生命周期：搜索、召回、注入、审核、归因；高频高贡献 skill 进入 admin workflow 审批。
 - B2B 销售样板：晨会、卡单救援、折扣审批、回款风险、周复盘等日常管理路径。
 - 企业控制面：组织隔离、RBAC/ABAC、审计、Checkpoint/Resume/Replay、生产密码加固。
 - 可观测运营：OpenTelemetry、SigNoz、结构化日志、健康检查、归因看板。
@@ -127,6 +127,8 @@ AH1 系列仍是架构和实现约束的权威文档。常用入口：
 - `workflow_outcome_eval`：workflow 终态业务评分。
 - `recall_outcome_attribution`：召回事件到 outcome 的贡献归因。
 - `skill_business_outcome_daily` 与 `knowledge_business_outcome_daily`：日级报表视图。
+
+Skill 是可召回、可注入的能力资产；workflow 是经过确认或 admin 审批的执行契约。成熟 skill 可以成为 workflow 候选，但不会自动越过审批直接固化。
 
 详见 [RELEASE_NOTES.md](./RELEASE_NOTES.md)。
 
