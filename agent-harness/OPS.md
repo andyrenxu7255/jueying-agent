@@ -1,6 +1,6 @@
 # JueYing (绝影) — 运维手册
 
-> 版本: 1.5.0 | 更新日期: 2026-05-21
+> 版本: 1.6.2 | 更新日期: 2026-05-22
 > 适用场景: 开发、测试，生产环境部署与维护
 
 ---
@@ -45,8 +45,8 @@ cp .env.example .env
 | POSTGRES_PASSWORD | `<SECURE_PASSWORD>` |
 | POSTGRES_DB | `agent_harness` |
 | REDIS_PASSWORD | `<SECURE_PASSWORD>` |
-| MINIO_ROOT_USER | `minioadmin` |
-| MINIO_ROOT_PASSWORD | `change_me_123` |
+| MINIO_ROOT_USER | `<MINIO_ADMIN_USER>` |
+| MINIO_ROOT_PASSWORD | `<MINIO_ADMIN_PASSWORD>` |
 | ADMIN_PASSWORD | `<SECURE_PASSWORD>` |
 | CORS_ORIGINS | `http://localhost:3003` |
 
@@ -66,7 +66,7 @@ cp .env.example .env
 | `ADMIN_PASSWORD` | 否 | - | Web Portal 管理员初始密码 |
 | `CORS_ORIGINS` | 否 | `http://localhost:3003` | CORS 允许的来源 |
 | `POSTGRES_USER` | 否 | `agent_harness` | PostgreSQL 用户名 |
-| `POSTGRES_PASSWORD` | 否 | `dev_password` | PostgreSQL 密码 |
+| `POSTGRES_PASSWORD` | 否 | `<DB_PASSWORD>` | PostgreSQL 密码；生产环境必须显式设置 |
 | `DB_POOL_MAX` | 否 | `10` | 数据库连接池最大连接数 |
 | `LOG_LEVEL` | 否 | `debug` | 日志级别 (debug/info/warn/error) |
 | `SKIP_LLM_PLAN` | 否 | `true` | 跳过 LLM 任务规划（开发模式） |
@@ -244,11 +244,10 @@ SigNoz 提供全链路追踪能力:
 端口: 5432
 数据库: agent_harness
 用户: agent_harness
-密码: change_me_123 (本地开发) / dev_password (原默认值)
+密码: 通过 `POSTGRES_PASSWORD` 或 `DATABASE_URL` 注入；不要把真实值写入文档或提交到版本控制
 ```
 
-> ⚠️ **本地开发密码**: `change_me_123`
-> 已记录在 OPS.md 第 1.2.1 节和 `.env` 文件中。
+> ⚠️ **本地开发密码**: 只允许保存在本机 `.env` 文件中，且 `.env` 已被 `.gitignore` 排除。生产环境必须使用独立强密码。
 
 ### 4.2 迁移
 

@@ -1,6 +1,6 @@
 {
-  "version": "v1.9",
-  "description": "Task routing configuration - Updated 2026-05-21: synced with context-graph.json v2.9, added DEV-20 fact graph gating, and aligned reusable workflow paths to workflow_type skills plus workflow_definition_review approval.",
+  "version": "v1.10",
+  "description": "Task routing configuration - Updated 2026-05-22: synced with context-graph.json v2.10, added bilingual i18n files to web portal/API loading paths, and retained workflow_definition_review approval routing.",
   "default_bootstrap_docs": [
     "development/DEV-00-开发索引.md",
     "development/DEV-08-文件内容与依赖对象图谱.md",
@@ -43,6 +43,7 @@
         "AH1-17-Workflow-DSL与Planner契约.md",
         "AH1-21-渠道接入与Session映射.md",
         "agent-harness/apps/**",
+        "agent-harness/apps/web-portal/static/localization.js",
         "agent-harness/services/**"
       ],
       "optional": [
@@ -74,7 +75,8 @@
         "AH1-19-Checkpoint-Resume-Replay.md",
         "AH1-22-Artifact-Object-Storage.md",
         "agent-harness/services/**",
-        "agent-harness/apps/**"
+        "agent-harness/apps/**",
+        "agent-harness/apps/web-portal/static/localization.js"
       ],
       "optional": [
         "AH1-16-权限Scope-Policy-Snapshot.md",
@@ -89,6 +91,7 @@
         "AH1-26-Provider选择与配置.md",
         "AH1-28-配置管理.md",
         "agent-harness/config/**",
+        "agent-harness/libs/shared/src/i18n.ts",
         "agent-harness/services/**"
       ],
       "optional": [

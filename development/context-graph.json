@@ -1,6 +1,6 @@
 {
-  "version": "v2.9",
-  "description": "Agent Harness context dependency graph - Updated 2026-05-21: dream mode includes hook-style recall/outcome attribution; fact retrieval uses graph gating; reusable workflow paths now progress through workflow_type skills and workflow_definition_review before admin approval.",
+  "version": "v2.10",
+  "description": "Agent Harness context dependency graph - Updated 2026-05-22: bilingual portal/backend i18n files are included in source authority mapping; release hardening covers dependency audit fixes, frontend attribute escaping, and documentation/security hygiene.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -92,8 +92,10 @@
     "agent-harness/libs/shared/src/monitoring/security-check.ts": ["AH1-16-权限Scope-Policy-Snapshot.md", "AH1-34-安全架构增强.md"],
     "agent-harness/libs/shared/src/ai/embedding.ts": ["AH1-26-Provider选择与配置.md", "AH1-31-错误处理与降级策略.md"],
     "agent-harness/libs/shared/src/config/manager.ts": ["AH1-28-配置管理.md"],
-    "agent-harness/apps/web-portal/static/app.js": ["AH1-21-渠道接入与Session映射.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md"],
-    "agent-harness/apps/web-portal/src/index.ts": ["AH1-15-核心接口与事件契约.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md", "AH1-27-部署与运维.md"],
+    "agent-harness/apps/web-portal/static/app.js": ["AH1-21-渠道接入与Session映射.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md", "AH1-34-安全架构增强.md"],
+    "agent-harness/apps/web-portal/static/localization.js": ["AH1-21-渠道接入与Session映射.md", "AH1-15-核心接口与事件契约.md"],
+    "agent-harness/apps/web-portal/src/index.ts": ["AH1-15-核心接口与事件契约.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md", "AH1-27-部署与运维.md", "AH1-34-安全架构增强.md"],
+    "agent-harness/libs/shared/src/i18n.ts": ["AH1-15-核心接口与事件契约.md", "AH1-31-错误处理与降级策略.md"],
     "agent-harness/services/fact-retrieval/src/support.test.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-16-权限Scope-Policy-Snapshot.md"],
     "agent-harness/scripts/smoke-eval.js": ["AH1-23-审计日志指标与告警.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-27-部署与运维.md"],
     "agent-harness/docker-compose.yml": ["AH1-27-部署与运维.md", "AH1-23-审计日志指标与告警.md"],
@@ -261,8 +263,9 @@
     "2026-05-21-R13": "Retrieval and workflow policy sync: DEV-20 adds fact graph gating + workflow public pool lifecycle; retrieval service now uses wide-candidate collection, graph gating, and graph-internal recall before rerank; docs and task routing updated accordingly.",
     "2026-05-21-R14": "Skill/workflow lifecycle consistency: docs and UI then stated the implemented path precisely: workflow completions extract workflow-type draft skills, user confirmation activates private templates, skill-library promotes to org registry; workflow_definition approval was still pending until the later review bridge landed in R15.",
     "2026-05-21-R15": "Workflow definition review bridge: high-recall, high-injected, high-success workflow skills now nominate workflow_definition_review; admin approval writes active workflow_definition with org_id tenant boundary and planner priority above workflow skills.",
-    "total_fixes": 64,
-    "files_modified": 51,
+    "2026-05-22-R16": "Bilingual release hardening: web portal static localization and shared backend i18n mapped into graph; frontend dynamic attributes escaped; dynamic path parameters encoded; npm audit fixed brace-expansion/ws moderate advisories; .gitignore now covers local secrets.",
+    "total_fixes": 69,
+    "files_modified": 60,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
   }

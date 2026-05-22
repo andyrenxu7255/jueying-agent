@@ -1,6 +1,6 @@
 # JueYing (绝影) — Agent Harness
 
-> 版本: 1.6.0 | 更新日期: 2026-05-21
+> 版本: 1.6.2 | 更新日期: 2026-05-22
 
 > **企业级 AI Agent 编排与执行平台** — 多渠道接入、`workflow_definition` 优先复用、LLM 任务规划、多阶段工作流自动执行
 
@@ -260,7 +260,7 @@ agent-harness/
 | [系统架构](./ARCHITECTURE.md) | 完整架构图、数据流、API 端点矩阵、状态机设计 |
 | [运维手册](./OPS.md) | 部署流程、健康检查、资源管理、日志与备份 |
 | [用户故事线](./用户故事线.md) | 21 条验收故事线 (AH-1 ~ AH-21)，含梦境模式和 B2B 销售可观测闭环 |
-| [发布说明](../RELEASE_NOTES.md) | v1.6.0 梦境 Hook、业务归因与 Workflow Reviews 发布说明 |
+| [发布说明](../RELEASE_NOTES.md) | v1.6.2 双语体验与审计硬化发布说明 |
 | [DEV-21 梦境Hook与业务归因闭环](../development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回、Outcome 归因实现说明 |
 | [修复报告](./FIX-REPORT.md) | 代码审计与修复记录 |
 | [前端修改记录](./FRONTEND-AUDIT-CHANGELOG.md) | 前端页面审计修改记录（含15项初始化+梦境模式） |
@@ -401,7 +401,7 @@ docker exec ah-postgres pg_dump -U agent_harness agent_harness > backup.sql
 
 # JueYing (绝影) — Agent Harness
 
-> Version: 1.6.0 | Updated: 2026-05-21
+> Version: 1.6.2 | Updated: 2026-05-22
 
 > **Enterprise-grade AI Agent Orchestration and Execution Platform** — Multi-channel access, `workflow_definition` priority reuse, LLM task planning, multi-stage workflow auto-execution
 
@@ -662,7 +662,7 @@ User → [Feishu/WeCom/Web] → gateway-adapter
 | [System Architecture](./ARCHITECTURE.md) | Complete architecture diagram, data flows, API endpoint matrix, state machine design |
 | [Operations Manual](./OPS.md) | Deployment process, health checks, resource management, logging & backup |
 | [User Storylines](./用户故事线.md) | 21 acceptance storylines (AH-1 ~ AH-21), including Dream Mode and B2B sales observability closed loop |
-| [Release Notes](../RELEASE_NOTES.md) | v1.6.0 Dream Hooks, business attribution, and Workflow Reviews release notes |
+| [Release Notes](../RELEASE_NOTES.md) | v1.6.2 bilingual UX and audit hardening release notes |
 | [DEV-21 Dream Hooks & Business Attribution Closed Loop](../development/DEV-21-梦境Hook与业务归因闭环.md) | Dream, Hook, recall, and Outcome attribution implementation notes |
 | [Fix Report](./FIX-REPORT.md) | Code audit and fix records |
 | [Frontend Audit Changelog](./FRONTEND-AUDIT-CHANGELOG.md) | Frontend page audit modification records (including 15 initialization items + Dream Mode) |

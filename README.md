@@ -2,7 +2,7 @@
 
 > 企业级 AI Agent 编排、记忆、工作流与业务结果归因平台。
 >
-> 当前发布线：v1.6.0 | 更新日期：2026-05-21
+> 当前发布线：v1.6.2 | 更新日期：2026-05-22
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./agent-harness/LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
@@ -15,7 +15,7 @@ JueYing 把企业聊天入口、知识库、工作流、记忆系统和可复用
 
 ## 本版为什么重要
 
-v1.6.0 的主题是 **Dream Hooks, Outcome Attribution, and Workflow Reviews**。它把系统从“Agent 能记住东西”推进到“Agent 能知道什么真的有效，并把高价值路径固化为受审批的执行契约”。
+v1.6.2 发布线以 **Dream Hooks, Outcome Attribution, Workflow Reviews, Bilingual UX, and Audit Hardening** 为主题。它延续 v1.6.0 的业务结果归因闭环，补齐 v1.6.1 的中英文双语体验，并在本轮完成依赖、图谱、文档和前端安全渲染审计收口。
 
 | 能力 | 这次补齐了什么 |
 |---|---|
@@ -80,19 +80,18 @@ npm run docker:up -- --profile app
 
 ## 验证记录
 
-v1.6.0 发布线已执行：
+v1.6.2 发布线已执行：
 
 ```bash
-npm run db:migrate
 npm run lint
 npm run type-check
 npm run build
 npm test
-npm run test:dream-mode
-npm audit --audit-level=high
+npm run context:audit
+npm audit --audit-level=moderate
 ```
 
-结果：迁移、lint、类型检查、构建、8 个 Jest 测试套件 / 82 个用例、14 个 dream-mode 集成用例均通过。依赖审计无 high/critical；剩余 2 个 moderate 传递依赖提示已记录。
+结果：lint、类型检查、构建、8 个 Jest 测试套件 / 82 个用例、M1/M2/M3 图谱门控均通过；依赖审计 0 个漏洞。
 
 ## 文档总索引
 
@@ -101,12 +100,13 @@ npm audit --audit-level=high
 | [agent-harness/README.md](./agent-harness/README.md) | 应用级快速开始、架构、端口、工作流和开发命令。 |
 | [agent-harness/PRODUCT.md](./agent-harness/PRODUCT.md) | 产品说明、角色、功能矩阵和用户价值。 |
 | [agent-harness/OPS.md](./agent-harness/OPS.md) | 部署、健康检查、监控、备份和运维手册。 |
-| [RELEASE_NOTES.md](./RELEASE_NOTES.md) | v1.6.0 发布说明，可直接用于 GitHub Release。 |
-| [development/HANDOFF-2026-05-21-v1.6.0-upload.md](./development/HANDOFF-2026-05-21-v1.6.0-upload.md) | 明天上传 GitHub 的交接清单、验证结果和发布步骤。 |
+| [RELEASE_NOTES.md](./RELEASE_NOTES.md) | v1.6.2 发布说明，可直接用于 GitHub Release。 |
+| [development/HANDOFF-2026-05-22-i18n.md](./development/HANDOFF-2026-05-22-i18n.md) | 双语化交接、关键文件和已知限制。 |
+| [development/SYSTEM-AUDIT-2026-05-22-COMPREHENSIVE.md](./development/SYSTEM-AUDIT-2026-05-22-COMPREHENSIVE.md) | 本轮文档、图谱、架构、代码与安全审计记录。 |
 | [development/DEV-21-梦境Hook与业务归因闭环.md](./development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回和 Outcome 归因实现说明。 |
 | [development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md](./development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md) | 梦境 Hook 归因专项审计。 |
 | [development/DEV-00-开发索引.md](./development/DEV-00-开发索引.md) | 开发计划索引和里程碑地图。 |
-| [development/context-graph.json](./development/context-graph.json) | 机器可读上下文图谱，当前 v2.9。 |
+| [development/context-graph.json](./development/context-graph.json) | 机器可读上下文图谱，当前 v2.10。 |
 | [development/context-routing.json](./development/context-routing.json) | 任务路由配置，和上下文图谱同步。 |
 
 ### AH1 权威文档
@@ -121,7 +121,7 @@ AH1 系列仍是架构和实现约束的权威文档。常用入口：
 | [AH1-14-数据库表设计与索引.md](./AH1-14-数据库表设计与索引.md) | PostgreSQL schema 权威说明与迁移地图。 |
 | [AH1-27-部署与运维.md](./AH1-27-部署与运维.md) | 部署和运维架构。 |
 
-## 当前发布：v1.6.0
+## 当前发布：v1.6.2
 
 本次发布补齐 memory/skill recall 到真实业务结果之间的反馈链：
 
@@ -132,6 +132,8 @@ AH1 系列仍是架构和实现约束的权威文档。常用入口：
 - `skill_business_outcome_daily` 与 `knowledge_business_outcome_daily`：日级报表视图。
 
 Skill 是可召回、可注入的能力资产；workflow 是多阶段执行契约。当前实现里，成功路径会先提取为 `skill_type=workflow` 的 draft skill，用户确认后变为 private active 模板；当它多次被召回、注入并取得良好 outcome，skill-library 会提交 `workflow_definition_review`，管理员批准后固化为 `workflow_definition`，之后 Planner 会优先使用这个更稳定的执行契约。
+
+v1.6.2 额外完成发布前硬化：前端动态属性输出统一转义，敏感本地文件加入 `.gitignore` 防误提交，npm 传递依赖漏洞清零，发布入口和上下文图谱同步到双语化后的真实文件结构。
 
 详见 [RELEASE_NOTES.md](./RELEASE_NOTES.md)。
 
@@ -147,7 +149,7 @@ JueYing 使用 MIT License。详见 [agent-harness/LICENSE](./agent-harness/LICE
 
 > Enterprise-grade AI Agent orchestration, memory, workflow, and business outcome attribution platform.
 >
-> Current release line: v1.6.0 | Updated: 2026-05-21
+> Current release line: v1.6.2 | Updated: 2026-05-22
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./agent-harness/LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
@@ -160,7 +162,7 @@ JueYing unifies enterprise chat entry points, knowledge bases, workflows, memory
 
 ## Why This Release Matters
 
-The theme of v1.6.0 is **Dream Hooks, Outcome Attribution, and Workflow Reviews**. It advances the system from "the Agent can remember things" to "the Agent can know what really works and solidify high-value paths into approved execution contracts."
+The v1.6.2 release line is themed around **Dream Hooks, Outcome Attribution, Workflow Reviews, Bilingual UX, and Audit Hardening**. It continues the v1.6.0 business-outcome attribution loop, completes the v1.6.1 Chinese/English experience, and closes this round of dependency, graph, documentation, and frontend rendering security audit work.
 
 | Capability | What Was Added |
 |---|---|
@@ -225,19 +227,18 @@ In production, use `docker-compose.prod.yml` and provide all secrets via environ
 
 ## Verification Records
 
-The v1.6.0 release line has executed:
+The v1.6.2 release line has executed:
 
 ```bash
-npm run db:migrate
 npm run lint
 npm run type-check
 npm run build
 npm test
-npm run test:dream-mode
-npm audit --audit-level=high
+npm run context:audit
+npm audit --audit-level=moderate
 ```
 
-Results: Migrations, lint, type checking, build, 8 Jest test suites / 82 cases, 14 dream-mode integration cases all passed. Dependency audit shows no high/critical; 2 remaining moderate transitive dependency advisories have been recorded.
+Results: lint, type checking, build, 8 Jest test suites / 82 cases, and M1/M2/M3 context graph gates all passed. Dependency audit reports 0 vulnerabilities.
 
 ## Document Index
 
@@ -246,12 +247,13 @@ Results: Migrations, lint, type checking, build, 8 Jest test suites / 82 cases, 
 | [agent-harness/README.md](./agent-harness/README.md) | Application-level quick start, architecture, ports, workflows, and dev commands. |
 | [agent-harness/PRODUCT.md](./agent-harness/PRODUCT.md) | Product description, roles, feature matrix, and user value. |
 | [agent-harness/OPS.md](./agent-harness/OPS.md) | Deployment, health checks, monitoring, backup, and operations manual. |
-| [RELEASE_NOTES.md](./RELEASE_NOTES.md) | v1.6.0 release notes, ready for GitHub Release. |
-| [development/HANDOFF-2026-05-21-v1.6.0-upload.md](./development/HANDOFF-2026-05-21-v1.6.0-upload.md) | Handoff checklist, verification results, and release steps for tomorrow's GitHub upload. |
+| [RELEASE_NOTES.md](./RELEASE_NOTES.md) | v1.6.2 release notes, ready for GitHub Release. |
+| [development/HANDOFF-2026-05-22-i18n.md](./development/HANDOFF-2026-05-22-i18n.md) | Bilingual handoff, key files, and known limitations. |
+| [development/SYSTEM-AUDIT-2026-05-22-COMPREHENSIVE.md](./development/SYSTEM-AUDIT-2026-05-22-COMPREHENSIVE.md) | This round's documentation, graph, architecture, code, and security audit record. |
 | [development/DEV-21-梦境Hook与业务归因闭环.md](./development/DEV-21-梦境Hook与业务归因闭环.md) | Dream, Hook, recall, and Outcome attribution implementation notes. |
 | [development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md](./development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md) | Dream Hook attribution special audit. |
 | [development/DEV-00-开发索引.md](./development/DEV-00-开发索引.md) | Development plan index and milestone map. |
-| [development/context-graph.json](./development/context-graph.json) | Machine-readable context graph, current v2.9. |
+| [development/context-graph.json](./development/context-graph.json) | Machine-readable context graph, current v2.10. |
 | [development/context-routing.json](./development/context-routing.json) | Task routing configuration, synced with context graph. |
 
 ### AH1 Authoritative Documents
@@ -266,7 +268,7 @@ The AH1 series remains the authoritative source for architecture and implementat
 | [AH1-14-数据库表设计与索引.md](./AH1-14-数据库表设计与索引.md) | PostgreSQL schema authoritative description and migration map. |
 | [AH1-27-部署与运维.md](./AH1-27-部署与运维.md) | Deployment and operations architecture. |
 
-## Current Release: v1.6.0
+## Current Release: v1.6.2
 
 This release completes the feedback chain from memory/skill recall to real business outcomes:
 
@@ -277,6 +279,8 @@ This release completes the feedback chain from memory/skill recall to real busin
 - `skill_business_outcome_daily` and `knowledge_business_outcome_daily`: Daily report views.
 
 Skills are recallable, injectable capability assets; workflows are multi-stage execution contracts. In the current implementation, successful paths are first extracted as `skill_type=workflow` draft skills, which become private active templates upon user confirmation; when a skill is recalled, injected, and achieves good outcomes multiple times, skill-library submits a `workflow_definition_review`, and the Planner will thereafter prioritize this more stable execution contract once approved by the admin.
+
+v1.6.2 also adds release hardening: dynamic frontend attribute output is consistently escaped, sensitive local files are covered by `.gitignore`, npm transitive dependency vulnerabilities are cleared, and release entry points plus the context graph now reflect the bilingual file structure.
 
 See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for details.
 

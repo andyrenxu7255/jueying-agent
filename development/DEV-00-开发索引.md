@@ -25,6 +25,8 @@
 | DEV-18 | [B2B销售故事线与工作流可观测闭环](./DEV-18-B2B销售故事线与工作流可观测闭环.md) | 销售管理故事线、workflow 可观测、确认后复用 | 用户故事线 §21 |
 | DEV-21 | [梦境Hook与业务归因闭环](./DEV-21-梦境Hook与业务归因闭环.md) | Dream/Hook/Outcome 归因账本、调度修复、效果看板 | AH1-17/20/23 |
 | HANDOFF-2026-05-21 | [v1.6.0 上传交接](./HANDOFF-2026-05-21-v1.6.0-upload.md) | GitHub 上传对象、Release 内容、验证记录、已知限制 | README / RELEASE_NOTES |
+| HANDOFF-2026-05-22 | [v1.6.1 双语化交接](./HANDOFF-2026-05-22-i18n.md) | 前后端 i18n 关键文件、调试命令、已知限制 | README / Web Portal |
+| AUDIT-2026-05-22 | [v1.6.2 综合审计](./SYSTEM-AUDIT-2026-05-22-COMPREHENSIVE.md) | 文档、图谱、架构、代码、安全审计与修复记录 | README / context-graph |
 
 ---
 

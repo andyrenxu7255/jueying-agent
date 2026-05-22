@@ -58,12 +58,26 @@ function showToast(msg, type) {
 
 function escapeHtml(s) {
   if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function escapeAttr(s) {
+  return escapeHtml(s);
 }
 
 function escJsAttr(s) {
   if (s == null) return '';
-  return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'\\r').replace(/"/g,'&quot;');
+  return String(s)
+    .replace(/\\/g,'\\\\')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/'/g,'\\x27')
+    .replace(/"/g,'&quot;')
+    .replace(/\n/g,'\\n')
+    .replace(/\r/g,'\\r')
+    .replace(/\u2028/g,'\\u2028')
+    .replace(/\u2029/g,'\\u2029');
 }
 
 function statusBadge(status) {
@@ -945,7 +959,7 @@ async function renderConfig(el) {
   const tabs = document.getElementById('config-tabs');
 
   function makeTabs(sections) {
-    tabs.innerHTML = sections.map(function(s, i) { return '<div class="tab ' + (i === 0 ? 'active' : '') + '" data-section="' + s.key + '">' + s.label + '</div>'; }).join('');
+    tabs.innerHTML = sections.map(function(s, i) { return '<div class="tab ' + (i === 0 ? 'active' : '') + '" data-section="' + escapeAttr(s.key) + '">' + escapeHtml(s.label) + '</div>'; }).join('');
     tabs.querySelectorAll('.tab').forEach(function(t) {
       t.addEventListener('click', function() {
         tabs.querySelectorAll('.tab').forEach(function(x) { x.classList.remove('active'); });
@@ -990,21 +1004,21 @@ function renderConfigSection(sectionKey, sections, config) {
   if (descMap[sectionKey]) html += '<p class="section-desc">' + descMap[sectionKey] + '</p>';
   section.fields.forEach(function(f) {
     const val = config[f.key] || f.default || '';
-    const displayVal = f.sensitive ? '****' : escapeHtml(val);
+    const displayVal = f.sensitive ? '****' : escapeAttr(val);
     if (f.type === 'select') {
-      html += '<div class="form-group"><label>' + escapeHtml(f.label) + '</label><select id="cfg-' + f.key + '">' + (f.options || []).map(function(o) { return '<option value="' + o + '" ' + (val === o ? 'selected' : '') + '>' + o + '</option>'; }).join('') + '</select></div>';
+      html += '<div class="form-group"><label>' + escapeHtml(f.label) + '</label><select id="cfg-' + escapeAttr(f.key) + '">' + (f.options || []).map(function(o) { return '<option value="' + escapeAttr(o) + '" ' + (val === o ? 'selected' : '') + '>' + escapeHtml(o) + '</option>'; }).join('') + '</select></div>';
     } else {
-      html += '<div class="form-group"><label>' + escapeHtml(f.label) + '</label><input type="' + f.type + '" id="cfg-' + f.key + '" value="' + displayVal + '" ' + (f.sensitive ? 'placeholder="'+t('common.leaveBlank')+'"' : '') + '></div>';
+      html += '<div class="form-group"><label>' + escapeHtml(f.label) + '</label><input type="' + escapeAttr(f.type) + '" id="cfg-' + escapeAttr(f.key) + '" value="' + displayVal + '" ' + (f.sensitive ? 'placeholder="'+escapeAttr(t('common.leaveBlank'))+'"' : '') + '></div>';
     }
   });
-  html += '<button class="btn btn-primary" onclick="saveConfigSection(\'' + sectionKey + '\')">'+t('config.save')+'</button></div>';
+  html += '<button class="btn btn-primary" onclick="saveConfigSection(\'' + escJsAttr(sectionKey) + '\')">'+t('config.save')+'</button></div>';
   content.innerHTML = html;
 }
 
 async function renderLLMConfigSection(content, section, config, desc) {
   let html = '<div class="card"><h3>'+t('config.llm.title')+'</h3>';
   html += '<p class="section-desc">' + desc + '</p>';
-  html += '<div class="form-group"><label>'+t('config.llm.litellmUrl')+'</label><input type="text" id="cfg-LITELLM_URL" value="' + escapeHtml(config.LITELLM_URL || 'http://localhost:4000') + '" placeholder="'+t('config.llm.litellmPlaceholder')+'"></div>';
+  html += '<div class="form-group"><label>'+t('config.llm.litellmUrl')+'</label><input type="text" id="cfg-LITELLM_URL" value="' + escapeAttr(config.LITELLM_URL || 'http://localhost:4000') + '" placeholder="'+escapeAttr(t('config.llm.litellmPlaceholder'))+'"></div>';
   html += '<div class="form-group"><label>'+t('config.llm.masterKey')+'</label><input type="password" id="cfg-LITELLM_MASTER_KEY" value="' + (config.LITELLM_MASTER_KEY ? '****' : '') + '" placeholder="'+t('config.llm.leaveBlank')+'"></div>';
   html += '<button class="btn btn-primary" onclick="saveConfigSection(\'llm\')">'+t('config.llm.saveBase')+'</button></div>';
 
@@ -1073,7 +1087,7 @@ async function doAddLLMModel() {
 
 async function deleteLLMModel(modelId, modelName) {
   if (!confirm(t('config.llm.deleteConfirm') + modelName + t('config.llm.deleteConfirmSuffix'))) return;
-  const r = await api('/api/admin/llm-models/' + modelId, { method: 'DELETE' });
+  const r = await api('/api/admin/llm-models/' + encodeURIComponent(modelId), { method: 'DELETE' });
   if (r.ok) { showToast(t('config.llm.modelDeleted')); await loadLLMModels(); }
   else { showToast((r.data && r.data.error) || t('config.llm.deleteFailed'), 'error'); }
 }
@@ -1136,7 +1150,7 @@ async function showAssignOrg(username, currentOrgId) {
   const orgs = (r.ok && r.data.organizations) ? r.data.organizations : [];
   const body = '<div class="form-group"><label>'+t('users.userLabel')+'' + escapeHtml(username) + '</label></div>' +
     '<div class="form-group"><label>'+t('users.selectOrg')+'</label><select id="assign-org-id"><option value="">'+t('users.noOrg')+'</option>' +
-    orgs.map(function(o) { return '<option value="' + escapeHtml(o.id) + '"' + (String(o.id) === currentOrgId ? ' selected' : '') + '>' + escapeHtml(o.display_name || o.org_name) + '</option>'; }).join('') +
+    orgs.map(function(o) { return '<option value="' + escapeAttr(o.id) + '"' + (String(o.id) === currentOrgId ? ' selected' : '') + '>' + escapeHtml(o.display_name || o.org_name) + '</option>'; }).join('') +
     '</select></div><button class="btn btn-primary" onclick="doAssignOrg(\'' + escJsAttr(username) + '\')">'+t('users.confirmAssign')+'</button>';
   showModal(t('users.assignOrg'), body);
 }
@@ -1214,15 +1228,15 @@ async function doAddOrg() {
 }
 
 async function showEditOrg(orgId) {
-  const r = await api('/api/admin/organizations/' + orgId);
+  const r = await api('/api/admin/organizations/' + encodeURIComponent(orgId));
   if (!r.ok) { showToast(t('orgs.cannotLoad'), 'error'); return; }
   const org = r.data.organization;
   const settings = org.settings || {};
-  const body = '<div class="form-group"><label>'+t('orgs.displayNameLabel')+'</label><input type="text" id="edit-org-display" value="' + escapeHtml(org.display_name || '') + '"></div>' +
+  const body = '<div class="form-group"><label>'+t('orgs.displayNameLabel')+'</label><input type="text" id="edit-org-display" value="' + escapeAttr(org.display_name || '') + '"></div>' +
     '<div class="form-group"><label>'+t('orgs.statusLabel')+'</label><select id="edit-org-status"><option value="active"' + (org.status === 'active' ? ' selected' : '') + '>active</option><option value="suspended"' + (org.status === 'suspended' ? ' selected' : '') + '>suspended</option><option value="deleted"' + (org.status === 'deleted' ? ' selected' : '') + '>deleted</option></select></div>' +
     '<h4 style="margin-top:16px;margin-bottom:8px;color:var(--text2);font-size:14px">'+t('orgs.quotaTitle')+'</h4>' +
-    '<div class="form-group"><label>'+t('orgs.userLimit')+'</label><input type="number" id="edit-org-max-users" value="' + (settings.max_users || 100) + '" min="1"></div>' +
-    '<div class="form-group"><label>'+t('orgs.wfLimit')+'</label><input type="number" id="edit-org-max-wf" value="' + (settings.max_workflows_per_day || 500) + '" min="0"></div>' +
+    '<div class="form-group"><label>'+t('orgs.userLimit')+'</label><input type="number" id="edit-org-max-users" value="' + escapeAttr(settings.max_users || 100) + '" min="1"></div>' +
+    '<div class="form-group"><label>'+t('orgs.wfLimit')+'</label><input type="number" id="edit-org-max-wf" value="' + escapeAttr(settings.max_workflows_per_day || 500) + '" min="0"></div>' +
     '<button class="btn btn-primary" onclick="doEditOrg(\'' + escJsAttr(String(orgId)) + '\')">'+t('orgs.saveChanges')+'</button> <button class="btn btn-outline" onclick="closeModal()">'+t('common.cancel')+'</button>';
   showModal(t('orgs.editTitle') + org.org_name, body);
 }
@@ -1237,14 +1251,14 @@ async function doEditOrg(orgId) {
   if (displayName !== undefined) body.display_name = displayName;
   if (status) body.status = status;
   body.settings = settings;
-  const r = await api('/api/admin/organizations/' + orgId, { method: 'PUT', body: JSON.stringify(body) });
+  const r = await api('/api/admin/organizations/' + encodeURIComponent(orgId), { method: 'PUT', body: JSON.stringify(body) });
   if (r.ok) { showToast(t('orgs.updated')); closeModal(); renderView(); }
   else showToast((r.data && r.data.error) || t('orgs.updateFailed'), 'error');
 }
 
 async function deleteOrg(orgId, orgName) {
   if (!confirm(t('orgs.deleteConfirm') + orgName + t('orgs.deleteConfirmSuffix'))) return;
-  const r = await api('/api/admin/organizations/' + orgId, { method: 'DELETE' });
+  const r = await api('/api/admin/organizations/' + encodeURIComponent(orgId), { method: 'DELETE' });
   if (r.ok) { showToast(t('orgs.deleted')); renderView(); }
   else showToast((r.data && r.data.error) || t('config.llm.deleteFailed'), 'error');
 }
@@ -1294,7 +1308,7 @@ async function doUploadShared() {
 
 async function deleteSharedDoc(docId) {
   if (!confirm(t('shared.removeConfirm'))) return;
-  const r = await api('/api/admin/shared-knowledge/' + docId, { method: 'DELETE' });
+  const r = await api('/api/admin/shared-knowledge/' + encodeURIComponent(docId), { method: 'DELETE' });
   if (r.ok) { showToast(t('shared.removed')); await loadSharedDocs(); }
   else showToast((r.data && r.data.error) || t('shared.removeFailed'), 'error');
 }
@@ -1321,7 +1335,7 @@ async function loadOrgListForTask() {
   const sel = document.getElementById('ot-org');
   if (!sel || !r.ok) return;
   const orgs = r.data.organizations || [];
-  sel.innerHTML = '<option value="">'+t('common.allOrgs')+'</option>' + orgs.map(function(o) { return '<option value="' + escapeHtml(o.id) + '">' + escapeHtml(o.display_name || o.org_name) + '</option>'; }).join('');
+  sel.innerHTML = '<option value="">'+t('common.allOrgs')+'</option>' + orgs.map(function(o) { return '<option value="' + escapeAttr(o.id) + '">' + escapeHtml(o.display_name || o.org_name) + '</option>'; }).join('');
 }
 
 async function loadOrgTasks() {
@@ -1384,14 +1398,14 @@ async function triggerOrgTask(taskId) {
 }
 
 async function pauseOrgTask(taskId) {
-  const r = await api('/api/admin/tasks/' + taskId, { method: 'PUT', body: JSON.stringify({ status: 'paused' }) });
+  const r = await api('/api/admin/tasks/' + encodeURIComponent(taskId), { method: 'PUT', body: JSON.stringify({ status: 'paused' }) });
   if (r.ok) { showToast(t('tasks.paused')); } else { showToast((r.data && r.data.error) || t('tasks.pauseFailed'), 'error'); }
   await loadOrgTasks();
 }
 
 async function archiveOrgTask(taskId) {
   if (!confirm(t('tasks.archiveConfirm'))) return;
-  const r = await api('/api/admin/tasks/' + taskId, { method: 'DELETE' });
+  const r = await api('/api/admin/tasks/' + encodeURIComponent(taskId), { method: 'DELETE' });
   if (r.ok) { showToast(t('tasks.archived')); } else { showToast((r.data && r.data.error) || t('tasks.archiveFailed'), 'error'); }
   await loadOrgTasks();
 }
@@ -1417,7 +1431,7 @@ async function loadMyTasks() {
           '<p style="color:var(--text2);margin:4px 0">' + escapeHtml(a.prompt_message || '') + '</p>' +
           (completed
             ? '<p style="color:var(--success);font-size:13px">'+t('myTasks.submittedAt') + escapeHtml((a.completed_at && a.completed_at.slice(0, 16)) || '') + t('myTasks.submittedSuffix')+'</p>'
-            : '<div class="form-group"><textarea id="task-resp-' + a.id + '" style="min-height:80px" placeholder="'+t('myTasks.placeholder')+'"></textarea></div>' +
+            : '<div class="form-group"><textarea id="task-resp-' + escapeAttr(a.id) + '" style="min-height:80px" placeholder="'+escapeAttr(t('myTasks.placeholder'))+'"></textarea></div>' +
               '<button class="btn btn-primary btn-sm" onclick="submitTaskResponse(\'' + escJsAttr(String(a.id)) + '\')">'+t('myTasks.submit')+'</button>') +
           '</div>';
       }).join('');
@@ -1431,7 +1445,7 @@ async function submitTaskResponse(assignmentId) {
   const textarea = document.getElementById('task-resp-' + assignmentId);
   const summary = textarea.value.trim();
   if (!summary) { showToast(t('shared.enterContent'), 'error'); return; }
-  const r = await api('/api/tasks/' + assignmentId + '/submit', { method: 'POST', body: JSON.stringify({ summary }) });
+  const r = await api('/api/tasks/' + encodeURIComponent(assignmentId) + '/submit', { method: 'POST', body: JSON.stringify({ summary }) });
   if (r.ok) { showToast(t('myTasks.submitted')); await renderView(); }
   else showToast((r.data && r.data.error) || t('myTasks.submitFailed'), 'error');
 }
@@ -1457,7 +1471,7 @@ async function renderSkills(el) {
 
 async function archiveSkill(skillId, skillName) {
   if (!confirm(t('skills.archiveConfirm') + skillName + t('config.llm.deleteConfirmSuffix'))) return;
-  const r = await api('/api/admin/skills/' + skillId, { method: 'PUT', body: JSON.stringify({ status: 'archived' }) });
+  const r = await api('/api/admin/skills/' + encodeURIComponent(skillId), { method: 'PUT', body: JSON.stringify({ status: 'archived' }) });
   if (r.ok) { showToast(t('skills.archived')); renderView(); }
   else { showToast((r.data && r.data.error) || t('tasks.archiveFailed'), 'error'); }
 }
@@ -1607,7 +1621,7 @@ async function renderIdentities(el) {
 }
 
 async function rebindIdentity(id) {
-  const r = await api('/api/channels/identity/' + id + '/rebind', { method: 'POST' });
+  const r = await api('/api/channels/identity/' + encodeURIComponent(id) + '/rebind', { method: 'POST' });
   if (r.ok) showToast(t('identities.bindSuccess')); else showToast((r.data && r.data.error) || t('identities.bindFailed'), 'error');
   renderView();
 }
@@ -1860,7 +1874,7 @@ async function loadQuotaConfig() {
   config.innerHTML = dimensions.map(function(d) {
     const q = quotas[d.key] || {};
     const val = q.limit || q.max || '';
-    return '<div class="form-group"><label>' + d.label + '</label><input type="number" id="quota-' + d.key + '" value="' + escapeHtml(String(val)) + '" placeholder="'+t('common.noneLimit')+'"></div>';
+    return '<div class="form-group"><label>' + escapeHtml(d.label) + '</label><input type="number" id="quota-' + escapeAttr(d.key) + '" value="' + escapeAttr(String(val)) + '" placeholder="'+escapeAttr(t('common.noneLimit'))+'"></div>';
   }).join('') + '<button class="btn btn-primary" onclick="saveQuotaConfig()">'+t('config.save')+'</button>';
 }
 
@@ -2153,15 +2167,15 @@ async function renderDreamConfig(el) {
   document.getElementById('dream-config-form').innerHTML =
     '<div class="form-group"><label>'+t('dream.enabled')+'</label><select id="dc-enabled"><option value="true"' + (config.enabled !== false ? ' selected' : '') + '>'+t('common.enabled')+'</option><option value="false"' + (config.enabled === false ? ' selected' : '') + '>'+t('common.disabled')+'</option></select></div>' +
     '<div class="form-group"><label>'+t('dream.trigger')+'</label><select id="dc-trigger"><option value="auto"' + (config.dream_user_trigger === 'auto' ? ' selected' : '') + '>'+t('dream.triggerAuto')+'</option><option value="scheduled"' + (config.dream_user_trigger === 'scheduled' ? ' selected' : '') + '>'+t('dream.triggerScheduled')+'</option></select></div>' +
-    '<div class="form-group"><label>'+t('dream.hour')+'</label><input type="number" id="dc-hour" value="' + (config.dream_scheduled_hour || 3) + '" min="0" max="23"><span class="hint-text">'+t('dream.hourHint')+'</span></div>' +
-    '<div class="form-group"><label>'+t('dream.cooling')+'</label><input type="number" id="dc-cooling" value="' + (config.cooling_window_minutes || 120) + '" min="30"><span class="hint-text">'+t('dream.coolingHint')+'</span></div>' +
-    '<div class="form-group"><label>'+t('dream.threshold')+'</label><input type="number" id="dc-threshold" value="' + (config.compression_threshold_chars || 4000) + '" min="500"><span class="hint-text">'+t('dream.thresholdHint')+'</span></div>' +
-    '<div class="form-group"><label>'+t('dream.maxCompress')+'</label><input type="number" id="dc-max-compress" value="' + (config.max_compressions_per_run || 100) + '" min="1" max="500"></div>' +
+    '<div class="form-group"><label>'+t('dream.hour')+'</label><input type="number" id="dc-hour" value="' + escapeAttr(config.dream_scheduled_hour || 3) + '" min="0" max="23"><span class="hint-text">'+t('dream.hourHint')+'</span></div>' +
+    '<div class="form-group"><label>'+t('dream.cooling')+'</label><input type="number" id="dc-cooling" value="' + escapeAttr(config.cooling_window_minutes || 120) + '" min="30"><span class="hint-text">'+t('dream.coolingHint')+'</span></div>' +
+    '<div class="form-group"><label>'+t('dream.threshold')+'</label><input type="number" id="dc-threshold" value="' + escapeAttr(config.compression_threshold_chars || 4000) + '" min="500"><span class="hint-text">'+t('dream.thresholdHint')+'</span></div>' +
+    '<div class="form-group"><label>'+t('dream.maxCompress')+'</label><input type="number" id="dc-max-compress" value="' + escapeAttr(config.max_compressions_per_run || 100) + '" min="1" max="500"></div>' +
     '<hr>' +
     '<div class="form-group"><label>'+t('dream.auditEnabled')+'</label><select id="dc-audit-enabled"><option value="true"' + (config.skill_audit_enabled !== false ? ' selected' : '') + '>'+t('common.enabled')+'</option><option value="false"' + (config.skill_audit_enabled === false ? ' selected' : '') + '>'+t('common.disabled')+'</option></select></div>' +
-    '<div class="form-group"><label>'+t('dream.auditHour')+'</label><input type="number" id="dc-audit-hour" value="' + (config.skill_audit_scheduled_hour || 5) + '" min="0" max="23"><span class="hint-text">'+t('dream.auditHourHint')+'</span></div>' +
-    '<div class="form-group"><label>'+t('dream.autoPromote')+'</label><input type="number" id="dc-auto-promote" value="' + (config.auto_promote_threshold || 80) + '" min="0" max="100"><span class="hint-text">'+t('dream.autoPromoteHint')+'</span></div>' +
-    '<div class="form-group"><label>'+t('dream.minUsage')+'</label><input type="number" id="dc-min-usage" value="' + (config.min_usage_for_scene_detection || 3) + '" min="1" max="100"><span class="hint-text">'+t('dream.minUsageHint')+'</span></div>' +
+    '<div class="form-group"><label>'+t('dream.auditHour')+'</label><input type="number" id="dc-audit-hour" value="' + escapeAttr(config.skill_audit_scheduled_hour || 5) + '" min="0" max="23"><span class="hint-text">'+t('dream.auditHourHint')+'</span></div>' +
+    '<div class="form-group"><label>'+t('dream.autoPromote')+'</label><input type="number" id="dc-auto-promote" value="' + escapeAttr(config.auto_promote_threshold || 80) + '" min="0" max="100"><span class="hint-text">'+t('dream.autoPromoteHint')+'</span></div>' +
+    '<div class="form-group"><label>'+t('dream.minUsage')+'</label><input type="number" id="dc-min-usage" value="' + escapeAttr(config.min_usage_for_scene_detection || 3) + '" min="1" max="100"><span class="hint-text">'+t('dream.minUsageHint')+'</span></div>' +
     '<button class="btn btn-primary" onclick="saveDreamConfig()">'+t('dream.saveConfig')+'</button> ' +
     '<button class="btn btn-primary" onclick="triggerDreamManually()">'+t('dream.triggerManually')+'</button>';
 }

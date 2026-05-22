@@ -1,3 +1,14 @@
 *.log
 *.zip
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+id_rsa
+id_ed25519
 config-backup/
