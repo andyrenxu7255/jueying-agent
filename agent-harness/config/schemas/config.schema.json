@@ -83,6 +83,7 @@
         "embedding_provider_url": { "type": "string" },
         "embedding_provider_api_key": { "type": "string" },
         "embedding_provider_model": { "type": "string" },
+        "embedding_provider_dimensions": { "type": "integer", "minimum": 1 },
         "embedding_provider_timeout_ms": { "type": "integer", "minimum": 1000 },
         "rerank_provider_url": { "type": "string" },
         "rerank_provider_api_key": { "type": "string" },

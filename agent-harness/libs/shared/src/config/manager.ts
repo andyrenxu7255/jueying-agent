@@ -65,6 +65,7 @@ const ConfigSchema = z.object({
     embedding_provider_api_key: z.string().optional(),
     embedding_provider_model: z.string().optional(),
     embedding_provider_timeout_ms: z.number().int().default(5000),
+    embedding_provider_dimensions: z.coerce.number().int().nonnegative().optional(),
     rerank_provider_url: z.string().optional(),
     rerank_provider_api_key: z.string().optional(),
     rerank_provider_model: z.string().optional(),

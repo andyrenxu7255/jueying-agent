@@ -167,10 +167,13 @@ export class EmbeddingAdapter {
     const timeoutMs = Number(process.env.EMBEDDING_PROVIDER_TIMEOUT_MS || configManager.getPath<number>('retrieval.embedding_provider_timeout_ms') || 5000);
     const apiKey = process.env.EMBEDDING_PROVIDER_API_KEY || configManager.getPath<string>('retrieval.embedding_provider_api_key');
     const model = process.env.EMBEDDING_PROVIDER_MODEL || configManager.getPath<string>('retrieval.embedding_provider_model');
+    const dimensions = Number(process.env.EMBEDDING_PROVIDER_DIMENSIONS || configManager.getPath<number>('retrieval.embedding_provider_dimensions') || 0);
+    const requestBody: Record<string, unknown> = { input: text, model };
+    if (dimensions > 0) requestBody.dimensions = dimensions;
 
     const response = await postWithTimeout(
       `${providerUrl.replace(/\/$/, '')}/embeddings`,
-      { input: text, model },
+      requestBody,
       timeoutMs,
       apiKey ? { authorization: `Bearer ${apiKey}` } : undefined,
     );

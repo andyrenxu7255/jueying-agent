@@ -74,6 +74,7 @@ retrieval:
   embedding_provider_url: ${EMBEDDING_PROVIDER_URL}
   embedding_provider_api_key: ${EMBEDDING_PROVIDER_API_KEY}
   embedding_provider_model: ${EMBEDDING_PROVIDER_MODEL}
+  embedding_provider_dimensions: ${EMBEDDING_PROVIDER_DIMENSIONS:-0}
   embedding_provider_timeout_ms: 15000
   rerank_provider_url: ${RERANK_PROVIDER_URL}
   rerank_provider_api_key: ${RERANK_PROVIDER_API_KEY}
