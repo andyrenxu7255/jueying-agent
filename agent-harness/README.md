@@ -99,12 +99,18 @@ LITELLM_MASTER_KEY=your-master-key
 # 飞书渠道（可选）
 FEISHU_APP_ID=cli_xxxxxxxxxxxx
 FEISHU_APP_SECRET=xxxxxxxxxxxxxxxx
-FEISHU_SIGNING_SECRET=xxxxxxxxxxxxxxxx
+# 长连接模式只需要 App ID 和 App Secret。
+# FEISHU_SIGNING_SECRET 仅 webhook 回调验签需要，可留空。
+FEISHU_SIGNING_SECRET=
 
 # 企微渠道（可选）
 WECOM_TOKEN=xxxxxxxxxxxx
 WECOM_CORP_ID=xxxxxxxxxxxx
 ```
+
+Web Portal 的系统配置页支持热加载多数运行时配置。飞书、模型、Embedding、Rerank 等会影响独立进程的配置保存后，会在页面内显示可选重启按钮；长连接飞书通常重启 `feishu-longconn`，消息收发网关配置通常重启 `gateway-adapter`。
+
+模型配置页可以从 LiteLLM/OpenAI 兼容 `/v1/models` 获取模型目录，也支持维护模型优先级、上下文窗口、最大输出、思考模式与思考强度。Embedding/Rerank 同样提供目录选择和测试按钮；测试结果会显示延迟、维度或排序返回数。
 
 ### 4. 启动基础设施
 
@@ -500,12 +506,20 @@ LITELLM_MASTER_KEY=your-master-key
 # Feishu channel (optional)
 FEISHU_APP_ID=cli_xxxxxxxxxxxx
 FEISHU_APP_SECRET=xxxxxxxxxxxxxxxx
-FEISHU_SIGNING_SECRET=xxxxxxxxxxxxxxxx
+# Long-connection mode only needs App ID and App Secret.
+# FEISHU_SIGNING_SECRET is only needed for webhook signature verification.
+FEISHU_SIGNING_SECRET=
 
 # WeCom channel (optional)
 WECOM_TOKEN=xxxxxxxxxxxx
 WECOM_CORP_ID=xxxxxxxxxxxx
 ```
+
+The Web Portal system configuration page hot-reloads most runtime settings. When a change affects an independent process, such as Feishu, LLM, Embedding, or Rerank, the page shows optional restart buttons. Feishu long connection usually restarts `feishu-longconn`; message gateway changes usually restart `gateway-adapter`.
+
+The model configuration page can fetch model catalogs from LiteLLM/OpenAI-compatible `/v1/models`, and supports model priority, context window, max output, thinking mode, and thinking strength. You can add a model manually, select a catalog item, test a single model, or test the chat/embedding/rerank provider path. Embedding/Rerank also support catalog selection and test buttons; tests show latency, dimensions, or rerank result count.
+
+Knowledge import now treats manual text and uploaded files as two entry paths into the same ingestion flow: the source field is descriptive rather than a confusing manual/document/chat selector, and TXT, Markdown, PDF, DOCX, XLSX, CSV, JSON uploads are parsed into the review pipeline.
 
 ### 4. Start Infrastructure
 

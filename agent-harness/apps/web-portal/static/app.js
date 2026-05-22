@@ -1,7 +1,7 @@
 const API_BASE = '';
 let currentSession = null;
 let currentView = 'dashboard';
-let currentStatusFilter = 'unconfirmed';
+let currentStatusFilter = 'candidate';
 let serviceStatusInterval = null;
 let dockerStatsInterval = null;
 let containerStatsInterval = null;
@@ -18,12 +18,10 @@ async function api(path, options) {
   if (sessionId) headers['x-session-id'] = sessionId;
   try {
     const res = await fetch(API_BASE + path, { ...options, headers });
-    if (res.status === 401 && path !== '/api/auth/login') {
+    if (res.status === 401 && (path === '/api/auth/session' || path === '/api/auth/logout')) {
       localStorage.removeItem('ah_session_id');
       currentSession = null;
       stopAllIntervals();
-      renderLogin();
-      return { ok: false, status: 401, data: { error: 'session_expired', message: t('common.sessionExpired') } };
     }
     const contentType = res.headers.get('content-type') || '';
     let data;
@@ -32,6 +30,13 @@ async function api(path, options) {
     } else {
       const text = await res.text();
       try { data = JSON.parse(text); } catch { data = { error: 'non_json_response', message: text.substring(0, 200) }; }
+    }
+    if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/setup/status') {
+      localStorage.removeItem('ah_session_id');
+      currentSession = null;
+      stopAllIntervals();
+      if (!path.startsWith('/api/auth/')) showToast(t('common.sessionExpired'), 'error');
+      renderLogin();
     }
     return { ok: res.ok, status: res.status, data };
   } catch (e) {
@@ -85,8 +90,56 @@ function statusBadge(status) {
   return '<span class="badge badge-' + (map[status] || 'info') + '">' + escapeHtml(status) + '</span>';
 }
 
+function humanBytes(value) {
+  if (value == null || value === '') return '-';
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    value = String(value);
+  }
+  const text = String(value).trim();
+  const match = text.match(/^([0-9]+(?:\.[0-9]+)?)\s*([kmgtp]?i?b|[kmgtp]b)?$/i);
+  let raw = Number(text.replace(/[^\d.]/g, ''));
+  if (match) {
+    const num = Number(match[1]);
+    const unit = (match[2] || 'b').toUpperCase();
+    const scale = {
+      B: 1,
+      KB: 1024,
+      KIB: 1024,
+      MB: 1024 * 1024,
+      MIB: 1024 * 1024,
+      GB: 1024 * 1024 * 1024,
+      GIB: 1024 * 1024 * 1024,
+      TB: 1024 * 1024 * 1024 * 1024,
+      TIB: 1024 * 1024 * 1024 * 1024,
+      PB: 1024 * 1024 * 1024 * 1024 * 1024,
+      PIB: 1024 * 1024 * 1024 * 1024 * 1024,
+    };
+    raw = num * (scale[unit] || 1);
+  }
+  if (!Number.isFinite(raw) || raw < 0) return text;
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  let size = raw;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  const rounded = unit === 0 || size >= 10 ? Math.round(size) : Number(size.toFixed(1));
+  return rounded + ' ' + units[unit];
+}
+
 function emptyState(icon, title, desc, actionHtml) {
   return '<div class="empty-state"><div class="empty-icon">' + icon + '</div><h3>' + escapeHtml(title) + '</h3><p>' + escapeHtml(desc) + '</p>' + (actionHtml || '') + '</div>';
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
 function passwordStrengthHtml(score) {
@@ -171,13 +224,16 @@ async function doLogin() {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
   if (r.ok && r.data.session_id) {
     localStorage.setItem('ah_session_id', r.data.session_id);
+    currentSession = {
+      user_id: r.data.user_id || r.data.username || username,
+      username: r.data.username || username,
+      role: r.data.role || 'user',
+      org_id: r.data.org_id || null
+    };
+    localStorage.setItem('ah_username', currentSession.username);
     showToast(t('login.success'));
-    if (r.data.must_change_password) {
-      await initApp();
-      showChangePasswordModal(true);
-    } else {
-      await initApp();
-    }
+    renderApp();
+    if (r.data.must_change_password) showChangePasswordModal(true);
   } else {
     showToast((r.data && r.data.message) || (r.data && r.data.error) || t('login.failed'), 'error');
   }
@@ -1004,14 +1060,19 @@ function renderConfigSection(sectionKey, sections, config) {
   if (descMap[sectionKey]) html += '<p class="section-desc">' + descMap[sectionKey] + '</p>';
   section.fields.forEach(function(f) {
     const val = config[f.key] || f.default || '';
-    const displayVal = f.sensitive ? '****' : escapeAttr(val);
+    const displayVal = f.sensitive ? (val ? '****' : '') : escapeAttr(val);
     if (f.type === 'select') {
       html += '<div class="form-group"><label>' + escapeHtml(f.label) + '</label><select id="cfg-' + escapeAttr(f.key) + '">' + (f.options || []).map(function(o) { return '<option value="' + escapeAttr(o) + '" ' + (val === o ? 'selected' : '') + '>' + escapeHtml(o) + '</option>'; }).join('') + '</select></div>';
+    } else if (f.type === 'checkbox') {
+      html += '<div class="form-group"><label><input type="checkbox" id="cfg-' + escapeAttr(f.key) + '"' + (String(val) === 'true' ? ' checked' : '') + '> ' + escapeHtml(f.label) + '</label></div>';
     } else {
       html += '<div class="form-group"><label>' + escapeHtml(f.label) + '</label><input type="' + escapeAttr(f.type) + '" id="cfg-' + escapeAttr(f.key) + '" value="' + displayVal + '" ' + (f.sensitive ? 'placeholder="'+escapeAttr(t('common.leaveBlank'))+'"' : '') + '></div>';
     }
+    if (f.hint) html += '<p class="hint-text">' + escapeHtml(f.hint) + '</p>';
   });
-  html += '<button class="btn btn-primary" onclick="saveConfigSection(\'' + escJsAttr(sectionKey) + '\')">'+t('config.save')+'</button></div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="saveConfigSection(\'' + escJsAttr(sectionKey) + '\')">'+t('config.save')+'</button>';
+  if (sectionKey === 'feishu') html += '<button class="btn btn-outline" onclick="restartConfiguredService(\'feishu-longconn\')">'+t('config.llm.restartService')+'</button><button class="btn btn-outline" onclick="restartConfiguredService(\'gateway-adapter\')">'+t('config.feishu.restartGateway')+'</button>';
+  html += '</div><div id="config-save-result" class="hint-text" style="margin-top:10px"></div></div>';
   content.innerHTML = html;
 }
 
@@ -1020,12 +1081,30 @@ async function renderLLMConfigSection(content, section, config, desc) {
   html += '<p class="section-desc">' + desc + '</p>';
   html += '<div class="form-group"><label>'+t('config.llm.litellmUrl')+'</label><input type="text" id="cfg-LITELLM_URL" value="' + escapeAttr(config.LITELLM_URL || 'http://localhost:4000') + '" placeholder="'+escapeAttr(t('config.llm.litellmPlaceholder'))+'"></div>';
   html += '<div class="form-group"><label>'+t('config.llm.masterKey')+'</label><input type="password" id="cfg-LITELLM_MASTER_KEY" value="' + (config.LITELLM_MASTER_KEY ? '****' : '') + '" placeholder="'+t('config.llm.leaveBlank')+'"></div>';
-  html += '<button class="btn btn-primary" onclick="saveConfigSection(\'llm\')">'+t('config.llm.saveBase')+'</button></div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="saveConfigSection(\'llm\')">'+t('config.llm.saveBase')+'</button><button class="btn btn-outline" onclick="reloadRuntimeConfig()">'+t('common.refresh')+'</button><button class="btn btn-outline" onclick="restartConfiguredService(\'gateway-adapter\')">'+t('config.feishu.restartGateway')+'</button></div><div id="config-save-result" class="hint-text" style="margin-top:10px"></div></div>';
 
   html += '<div class="card"><h3>'+t('config.llm.modelList')+'</h3>';
   html += '<p class="section-desc">'+t('config.llm.modelListDesc')+'</p>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn-outline" onclick="syncLLMCatalog(\'chat\')">'+t('config.llm.syncCatalog')+'</button><button class="btn btn-outline" onclick="showCatalogPicker(\'chat\')">'+t('config.llm.pickFromCatalog')+'</button><button class="btn btn-outline" onclick="testLLMModelCatalog(\'chat\')">'+t('config.llm.testCatalog')+'</button></div>';
   html += '<div id="llm-models-list">'+t('common.loading')+'</div>';
   html += '<div style="margin-top:16px"><button class="btn btn-primary" onclick="showAddLLMModel()">'+t('config.llm.addModel')+'</button></div></div>';
+
+  html += '<div class="card"><h3>'+t('config.embedding.title')+'</h3>';
+  html += '<p class="section-desc">'+t('config.desc.embedding')+'</p>';
+  html += '<div class="form-group"><label>'+t('config.embedding.providerUrl')+'</label><input type="text" id="cfg-EMBEDDING_PROVIDER_URL" value="' + escapeAttr(config.EMBEDDING_PROVIDER_URL || '') + '" placeholder="'+escapeAttr(t('config.embedding.providerUrlPlaceholder'))+'"></div>';
+  html += '<div class="form-group"><label>'+t('config.embedding.providerModel')+'</label><input type="text" id="cfg-EMBEDDING_PROVIDER_MODEL" value="' + escapeAttr(config.EMBEDDING_PROVIDER_MODEL || '') + '" placeholder="'+escapeAttr(t('config.embedding.providerModelPlaceholder'))+'"></div>';
+  html += '<div class="form-group"><label>'+t('config.llm.apiKey')+'</label><input type="password" id="cfg-EMBEDDING_PROVIDER_API_KEY" value="' + (config.EMBEDDING_PROVIDER_API_KEY ? '****' : '') + '" placeholder="'+escapeAttr(t('config.llm.leaveBlank'))+'"></div>';
+  html += '<div class="form-group"><label>'+t('config.embedding.dimensions')+'</label><input type="number" id="cfg-EMBEDDING_PROVIDER_DIMENSIONS" value="' + escapeAttr(config.EMBEDDING_PROVIDER_DIMENSIONS || '') + '" placeholder="'+escapeAttr(t('config.embedding.dimensionsPlaceholder'))+'"></div>';
+  html += '<div class="form-group"><label>'+t('config.embedding.timeout')+'</label><input type="number" id="cfg-EMBEDDING_PROVIDER_TIMEOUT_MS" value="' + escapeAttr(config.EMBEDDING_PROVIDER_TIMEOUT_MS || '') + '" placeholder="'+escapeAttr(t('config.embedding.timeoutPlaceholder'))+'"></div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="saveConfigSection(\'embedding\')">'+t('config.save')+'</button><button class="btn btn-outline" onclick="showCatalogPicker(\'embedding\')">'+t('config.llm.pickFromCatalog')+'</button><button class="btn btn-outline" onclick="testProviderConfig(\'embedding\')">'+t('config.embedding.test')+'</button></div></div>';
+
+  html += '<div class="card"><h3>'+t('config.rerank.title')+'</h3>';
+  html += '<p class="section-desc">'+t('config.desc.rerank')+'</p>';
+  html += '<div class="form-group"><label>'+t('config.rerank.providerUrl')+'</label><input type="text" id="cfg-RERANK_PROVIDER_URL" value="' + escapeAttr(config.RERANK_PROVIDER_URL || '') + '" placeholder="'+escapeAttr(t('config.rerank.providerUrlPlaceholder'))+'"></div>';
+  html += '<div class="form-group"><label>'+t('config.rerank.providerModel')+'</label><input type="text" id="cfg-RERANK_PROVIDER_MODEL" value="' + escapeAttr(config.RERANK_PROVIDER_MODEL || '') + '" placeholder="'+escapeAttr(t('config.rerank.providerModelPlaceholder'))+'"></div>';
+  html += '<div class="form-group"><label>'+t('config.llm.apiKey')+'</label><input type="password" id="cfg-RERANK_PROVIDER_API_KEY" value="' + (config.RERANK_PROVIDER_API_KEY ? '****' : '') + '" placeholder="'+escapeAttr(t('config.llm.leaveBlank'))+'"></div>';
+  html += '<div class="form-group"><label>'+t('config.rerank.timeout')+'</label><input type="number" id="cfg-RERANK_PROVIDER_TIMEOUT_MS" value="' + escapeAttr(config.RERANK_PROVIDER_TIMEOUT_MS || '') + '" placeholder="'+escapeAttr(t('config.rerank.timeoutPlaceholder'))+'"></div>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="saveConfigSection(\'rerank\')">'+t('config.save')+'</button><button class="btn btn-outline" onclick="showCatalogPicker(\'rerank\')">'+t('config.llm.pickFromCatalog')+'</button><button class="btn btn-outline" onclick="testProviderConfig(\'rerank\')">'+t('config.rerank.test')+'</button></div></div>';
 
   content.innerHTML = html;
   await loadLLMModels();
@@ -1044,13 +1123,14 @@ async function loadLLMModels() {
     el.innerHTML = emptyState('🤖', t('config.llm.noModels'), t('config.llm.addFirst'), '<button class="btn btn-primary" onclick="showAddLLMModel()">'+t('config.llm.addModel')+'</button>');
     return;
   }
-  let html = '<table><tr><th>'+t('common.priority')+'</th><th>'+t('config.llm.modelNameLabel')+'</th><th>'+t('common.type')+'</th><th>'+t('common.address')+'</th><th>'+t('common.action')+'</th></tr>';
+  let html = '<table><tr><th>'+t('common.priority')+'</th><th>'+t('config.llm.modelNameLabel')+'</th><th>'+t('common.type')+'</th><th>Context</th><th>Output</th><th>Think</th><th>'+t('common.address')+'</th><th>'+t('common.action')+'</th></tr>';
   models.forEach(function(m, i) {
     const typeLabel = i === 0 ? '<span class="badge badge-success">'+t('config.llm.primary')+'</span>' : '<span class="badge badge-warning">'+t('config.llm.backup')+'' + i + '</span>';
     html += '<tr><td>' +
       (i > 0 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelUp(\'' + escJsAttr(m.id) + '\')" title="'+t('common.priority')+'">▲</button> ' : '') +
       (i < models.length - 1 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelDown(\'' + escJsAttr(m.id) + '\')" title="'+t('common.priority')+'">▼</button>' : '') +
-      '</td><td><strong>' + escapeHtml(m.name) + '</strong></td><td>' + typeLabel + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(m.url || '-') + '</td><td>' +
+      '</td><td><strong>' + escapeHtml(m.name) + '</strong><div class="hint-text">' + escapeHtml(m.provider_model || '') + '</div></td><td>' + typeLabel + '</td><td>' + escapeHtml(String(m.context_window || '-')) + '</td><td>' + escapeHtml(String(m.max_output_tokens || m.max_tokens || '-')) + '</td><td>' + (m.supports_thinking ? (m.thinking_enabled ? '<span class="badge badge-success">'+escapeHtml(String(m.thinking_strength || 'on'))+'</span>' : '<span class="badge badge-warning">supported</span>') : '-') + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(m.url || '-') + '</td><td>' +
+      '<button class="btn btn-sm btn-outline" onclick="testSingleLLMModel(\'' + escJsAttr(m.id) + '\')">'+t('common.detail')+'</button> ' +
       (i > 0 ? '<button class="btn btn-sm btn-danger" onclick="deleteLLMModel(\'' + escJsAttr(m.id) + '\',\'' + escJsAttr(m.name) + '\')">'+t('common.delete')+'</button>' : '<span class="hint-text">'+t('config.llm.cannotDeletePrimary')+'</span>') +
       '</td></tr>';
   });
@@ -1060,26 +1140,112 @@ async function loadLLMModels() {
 
 function showAddLLMModel() {
   const body = '<div class="form-group"><label>'+t('config.llm.modelNameLabel')+'</label><input type="text" id="new-llm-model-name" placeholder="'+t('config.llm.modelNamePlaceholder')+'"></div>' +
+    '<div class="form-group"><label>'+t('config.llm.providerModel')+'</label><input type="text" id="new-llm-model-provider" placeholder="Leave blank to reuse the model name"></div>' +
     '<div class="form-group"><label>'+t('config.llm.apiUrl')+'</label><input type="text" id="new-llm-model-url" placeholder="'+t('config.llm.apiUrlPlaceholder')+'"></div>' +
     '<div class="form-group"><label>'+t('config.llm.apiKey')+'</label><input type="password" id="new-llm-model-key" placeholder="'+t('config.llm.apiKeyPlaceholder')+'"></div>' +
+    '<div class="form-group"><label>'+t('config.llm.contextWindow')+'</label><input type="number" id="new-llm-model-context" placeholder="e.g. 131072"></div>' +
     '<div class="form-group"><label>'+t('config.llm.maxTokens')+'</label><input type="number" id="new-llm-model-max-tokens" placeholder="'+t('config.llm.maxTokensPlaceholder')+'"></div>' +
     '<div class="form-group"><label>'+t('config.llm.temperature')+'</label><input type="number" id="new-llm-model-temp" step="0.1" min="0" max="2" placeholder="'+t('config.llm.tempPlaceholder')+'"></div>' +
+    '<div class="form-group"><label>'+t('config.llm.thinking')+'</label><select id="new-llm-model-thinking"><option value="off">'+t('config.llm.thinkingOff')+'</option><option value="auto">'+t('config.llm.thinkingAuto')+'</option><option value="on">'+t('config.llm.thinkingOn')+'</option></select></div>' +
+    '<div class="form-group"><label>'+t('config.llm.thinkingStrength')+'</label><select id="new-llm-model-thinking-strength"><option value="">-</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></div>' +
     '<button class="btn btn-primary" onclick="doAddLLMModel()">'+t('config.llm.add')+'</button> <button class="btn btn-outline" onclick="closeModal()">'+t('common.cancel')+'</button>';
   showModal(t('config.llm.addModelTitle'), body);
+}
+
+function getVisibleSecretValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return '';
+  const value = el.value.trim();
+  return value === '****' ? '' : value;
+}
+
+function getCatalogRequestPayload(kind) {
+  const payload = { kind: kind };
+  if (kind === 'chat') {
+    const url = document.getElementById('cfg-LITELLM_URL');
+    if (url) payload.url = url.value.trim();
+    const key = getVisibleSecretValue('cfg-LITELLM_MASTER_KEY');
+    if (key) payload.api_key = key;
+  } else if (kind === 'embedding') {
+    const url = document.getElementById('cfg-EMBEDDING_PROVIDER_URL');
+    if (url) payload.url = url.value.trim();
+    const key = getVisibleSecretValue('cfg-EMBEDDING_PROVIDER_API_KEY');
+    if (key) payload.api_key = key;
+  } else if (kind === 'rerank') {
+    const url = document.getElementById('cfg-RERANK_PROVIDER_URL');
+    if (url) payload.url = url.value.trim();
+    const key = getVisibleSecretValue('cfg-RERANK_PROVIDER_API_KEY');
+    if (key) payload.api_key = key;
+  }
+  return payload;
+}
+
+async function showCatalogPicker(kind) {
+  const r = await api('/api/admin/llm-models/catalog', { method: 'POST', body: JSON.stringify(getCatalogRequestPayload(kind)) });
+  if (!r.ok || !r.data.models) { showToast((r.data && r.data.error) || t('common.loadFailed'), 'error'); return; }
+  const models = r.data.models || [];
+  if (models.length === 0) { showToast(t('config.llm.catalogEmpty'), 'error'); return; }
+  const rows = models.map(function(m) {
+    return '<tr><td><strong>' + escapeHtml(m.name || m.id || '') + '</strong><div class="hint-text">' + escapeHtml(m.provider_model || '') + '</div></td><td>' + escapeHtml(String(m.context_window || '-')) + '</td><td>' + escapeHtml(String(m.max_output_tokens || m.max_tokens || m.dimensions || '-')) + '</td><td><button class="btn btn-sm btn-primary" onclick="selectCatalogModel(\'' + escJsAttr(kind) + '\',\'' + escJsAttr(String(m.name || m.id || '')) + '\')">'+t('common.select')+'</button></td></tr>';
+  }).join('');
+  window.__catalogPickerModels = models;
+  showModal(t('config.llm.pickFromCatalog'), '<table><tr><th>'+t('common.name')+'</th><th>'+t('config.llm.contextWindow')+'</th><th>'+t('common.detail')+'</th><th>'+t('common.action')+'</th></tr>' + rows + '</table>');
+}
+
+function selectCatalogModel(kind, name) {
+  const models = window.__catalogPickerModels || [];
+  const model = models.find(function(m) { return String(m.name || m.id || '') === name; });
+  if (!model) return;
+  if (kind === 'chat') {
+    document.getElementById('new-llm-model-name') ? document.getElementById('new-llm-model-name').value = (model.name || '') : null;
+    document.getElementById('new-llm-model-provider') ? document.getElementById('new-llm-model-provider').value = (model.provider_model || model.name || '') : null;
+    document.getElementById('new-llm-model-url') ? document.getElementById('new-llm-model-url').value = (model.url || '') : null;
+    document.getElementById('new-llm-model-context') ? document.getElementById('new-llm-model-context').value = (model.context_window || '') : null;
+    document.getElementById('new-llm-model-max-tokens') ? document.getElementById('new-llm-model-max-tokens').value = (model.max_output_tokens || model.max_tokens || '') : null;
+    if (document.getElementById('new-llm-model-thinking')) document.getElementById('new-llm-model-thinking').value = model.supports_thinking ? 'auto' : 'off';
+    if (!document.getElementById('new-llm-model-name')) {
+      api('/api/admin/llm-models', { method: 'POST', body: JSON.stringify({ name: model.name, provider_model: model.provider_model || model.name, url: model.url, context_window: model.context_window, max_output_tokens: model.max_output_tokens, supports_thinking: model.supports_thinking, thinking_strength: model.thinking_strength }) }).then(function(r) {
+        if (r.ok) { showToast(t('config.llm.modelAdded')); closeModal(); loadLLMModels(); }
+        else showToast((r.data && r.data.error) || t('config.llm.addFailed'), 'error');
+      });
+    }
+  } else if (kind === 'embedding') {
+    document.getElementById('cfg-EMBEDDING_PROVIDER_MODEL').value = model.provider_model || model.name || '';
+    if (model.url) document.getElementById('cfg-EMBEDDING_PROVIDER_URL').value = model.url;
+    if (model.dimensions) document.getElementById('cfg-EMBEDDING_PROVIDER_DIMENSIONS').value = model.dimensions;
+    closeModal();
+  } else if (kind === 'rerank') {
+    document.getElementById('cfg-RERANK_PROVIDER_MODEL').value = model.provider_model || model.name || '';
+    if (model.url) document.getElementById('cfg-RERANK_PROVIDER_URL').value = model.url;
+    closeModal();
+  }
 }
 
 async function doAddLLMModel() {
   const name = document.getElementById('new-llm-model-name').value.trim();
   if (!name) { showToast(t('config.llm.enterModelName'), 'error'); return; }
   const body = { name: name };
+  const provider = document.getElementById('new-llm-model-provider').value.trim();
+  if (provider) body.provider_model = provider;
   const url = document.getElementById('new-llm-model-url').value.trim();
   if (url) body.url = url;
   const key = document.getElementById('new-llm-model-key').value.trim();
   if (key) body.api_key = key;
+  const contextWindow = document.getElementById('new-llm-model-context').value.trim();
+  if (contextWindow) body.context_window = parseInt(contextWindow, 10);
   const maxTokens = document.getElementById('new-llm-model-max-tokens').value.trim();
   if (maxTokens) body.max_tokens = parseInt(maxTokens, 10);
   const temp = document.getElementById('new-llm-model-temp').value.trim();
   if (temp) body.temperature = parseFloat(temp);
+  const thinking = document.getElementById('new-llm-model-thinking').value;
+  if (thinking === 'on') {
+    body.thinking_enabled = true;
+    body.supports_thinking = true;
+  } else if (thinking === 'auto') {
+    body.supports_thinking = true;
+  }
+  const thinkingStrength = document.getElementById('new-llm-model-thinking-strength').value;
+  if (thinkingStrength) body.thinking_strength = thinkingStrength;
   const r = await api('/api/admin/llm-models', { method: 'POST', body: JSON.stringify(body) });
   if (r.ok) { showToast(t('config.llm.modelAdded')); closeModal(); await loadLLMModels(); }
   else { showToast((r.data && r.data.message) || (r.data && r.data.error) || t('config.llm.addFailed'), 'error'); }
@@ -1090,6 +1256,69 @@ async function deleteLLMModel(modelId, modelName) {
   const r = await api('/api/admin/llm-models/' + encodeURIComponent(modelId), { method: 'DELETE' });
   if (r.ok) { showToast(t('config.llm.modelDeleted')); await loadLLMModels(); }
   else { showToast((r.data && r.data.error) || t('config.llm.deleteFailed'), 'error'); }
+}
+
+async function syncLLMCatalog(kind) {
+  const r = await api('/api/admin/llm-models/catalog', { method: 'POST', body: JSON.stringify(getCatalogRequestPayload(kind)) });
+  if (!r.ok || !r.data.models) { showToast((r.data && r.data.error) || t('common.loadFailed'), 'error'); return; }
+  const models = r.data.models;
+  if (models.length === 0) { showToast(t('config.llm.catalogEmpty'), 'error'); return; }
+  const createR = await api('/api/admin/llm-models', { method: 'POST', body: JSON.stringify({ name: models[0].name, provider_model: models[0].provider_model || models[0].name, url: models[0].url, context_window: models[0].context_window, max_output_tokens: models[0].max_output_tokens, supports_thinking: models[0].supports_thinking, thinking_enabled: models[0].thinking_enabled, thinking_strength: models[0].thinking_strength }) });
+  if (createR.ok) { showToast(t('config.llm.modelAdded')); await loadLLMModels(); }
+  else { showToast((createR.data && createR.data.error) || t('config.llm.addFailed'), 'error'); }
+}
+
+async function testLLMModelCatalog(kind) {
+  const r = await api('/api/admin/llm-models/test', { method: 'POST', body: JSON.stringify({ kind: kind }) });
+  if (r.ok) {
+    showToast((kind === 'chat' ? 'LLM' : kind) + ' OK · ' + (r.data.latency_ms || 0) + 'ms');
+  } else {
+    showToast((r.data && r.data.error) || t('common.failed'), 'error');
+  }
+}
+
+async function testSingleLLMModel(modelId) {
+  const r = await api('/api/admin/llm-models/test', { method: 'POST', body: JSON.stringify({ kind: 'chat', model_id: modelId }) });
+  if (r.ok) {
+    showToast((r.data.model || modelId) + ' OK · ' + (r.data.latency_ms || 0) + 'ms');
+  } else {
+    showToast((r.data && r.data.error) || t('common.failed'), 'error');
+  }
+}
+
+async function testProviderConfig(kind) {
+  const body = { kind: kind };
+  if (kind === 'embedding') {
+    body.EMBEDDING_PROVIDER_URL = document.getElementById('cfg-EMBEDDING_PROVIDER_URL').value.trim();
+    body.EMBEDDING_PROVIDER_MODEL = document.getElementById('cfg-EMBEDDING_PROVIDER_MODEL').value.trim();
+    body.EMBEDDING_PROVIDER_API_KEY = getVisibleSecretValue('cfg-EMBEDDING_PROVIDER_API_KEY');
+    body.EMBEDDING_PROVIDER_DIMENSIONS = document.getElementById('cfg-EMBEDDING_PROVIDER_DIMENSIONS').value.trim();
+    body.EMBEDDING_PROVIDER_TIMEOUT_MS = document.getElementById('cfg-EMBEDDING_PROVIDER_TIMEOUT_MS').value.trim();
+  } else if (kind === 'rerank') {
+    body.RERANK_PROVIDER_URL = document.getElementById('cfg-RERANK_PROVIDER_URL').value.trim();
+    body.RERANK_PROVIDER_MODEL = document.getElementById('cfg-RERANK_PROVIDER_MODEL').value.trim();
+    body.RERANK_PROVIDER_API_KEY = getVisibleSecretValue('cfg-RERANK_PROVIDER_API_KEY');
+    body.RERANK_PROVIDER_TIMEOUT_MS = document.getElementById('cfg-RERANK_PROVIDER_TIMEOUT_MS').value.trim();
+  }
+  const r = await api('/api/admin/llm-models/test', { method: 'POST', body: JSON.stringify(body) });
+  if (r.ok) {
+    if (kind === 'embedding') showToast('Embedding ' + (r.data.dimensions || '-') + ' dims · ' + (r.data.latency_ms || 0) + 'ms');
+    else if (kind === 'rerank') showToast('Rerank OK · ' + (r.data.result_count || 0) + ' results');
+    else showToast('OK · ' + (r.data.latency_ms || 0) + 'ms');
+  } else {
+    showToast((r.data && r.data.error) || t('common.failed'), 'error');
+  }
+}
+
+async function reloadRuntimeConfig() {
+  const r = await api('/api/admin/config/reload', { method: 'POST' });
+  if (r.ok) showToast(t('common.saveSuccess')); else showToast((r.data && r.data.error) || t('common.failed'), 'error');
+}
+
+async function restartConfiguredService(service) {
+  service = service || 'feishu-longconn';
+  const r = await api('/api/admin/services/restart', { method: 'POST', body: JSON.stringify({ service: service }) });
+  if (r.ok) showToast(service + ' restarted'); else showToast((r.data && r.data.error) || t('common.failed'), 'error');
 }
 
 async function moveLLMModelUp(modelId) {
@@ -1126,13 +1355,27 @@ async function saveConfigSection(sectionKey) {
   section.fields.forEach(function(f) {
     let el = document.getElementById('cfg-' + f.key);
     if (el) {
-      let val = el.value.trim();
+      let val = el.type === 'checkbox' ? String(el.checked) : el.value.trim();
       if (f.sensitive && val === '****') return;
       if (val) updates[f.key] = val;
     }
   });
   const res = await api('/api/admin/config', { method: 'POST', body: JSON.stringify(updates) });
-  if (res.ok) showToast(t('common.saveAndRestart')); else showToast((res.data && res.data.error) || t('common.saveFailed'), 'error');
+  if (res.ok) {
+    const resultEl = document.getElementById('config-save-result');
+    const restartTargets = (res.data && res.data.restart_targets) || [];
+    showToast(restartTargets.length ? t('common.saveAndRestart') : t('common.hotReloaded'));
+    if (resultEl) {
+      let html = escapeHtml(t('common.hotReloaded'));
+      if (restartTargets.length) {
+        html += ' · ' + escapeHtml(t('config.restartTargets') + ': ' + restartTargets.join(', '));
+        html += ' ' + restartTargets.map(function(service) {
+          return '<button class="btn btn-sm btn-outline" onclick="restartConfiguredService(\'' + escJsAttr(service) + '\')">' + escapeHtml(service) + '</button>';
+        }).join(' ');
+      }
+      resultEl.innerHTML = html;
+    }
+  } else showToast((res.data && res.data.error) || t('common.saveFailed'), 'error');
 }
 
 async function renderUsers(el) {
@@ -1451,7 +1694,7 @@ async function submitTaskResponse(assignmentId) {
 }
 
 async function renderSkills(el) {
-  el.innerHTML = '<div class="page-header"><h2>'+t('skills.title')+'</h2><div><button class="btn btn-outline btn-sm" onclick="showSearchSkill()">'+t('skills.searchMirror')+'</button> <button class="btn btn-primary btn-sm" onclick="showAddSkill()">'+t('skills.create')+'</button></div></div><div class="card"><p class="section-desc">'+t('skills.desc')+'</p><div id="skill-list">'+t('common.loading')+'</div></div>';
+  el.innerHTML = '<div class="page-header"><h2>'+t('skills.title')+'</h2><div><button class="btn btn-outline btn-sm" onclick="showSearchSkill()">'+t('skills.searchMirror')+'</button> <button class="btn btn-outline btn-sm" onclick="loadRecommendedSkills()">'+t('skills.recommended')+'</button> <button class="btn btn-primary btn-sm" onclick="showAddSkill()">'+t('skills.create')+'</button></div></div><div class="card"><p class="section-desc">'+t('skills.desc')+'</p><div id="skill-list">'+t('common.loading')+'</div></div><div class="card"><h3>'+t('skills.recommendedTitle')+'</h3><div id="recommended-skill-list">'+t('common.loading')+'</div></div>';
   const r = await api('/api/admin/skills');
   if (r.ok && r.data.skills) {
     const skills = r.data.skills;
@@ -1461,9 +1704,10 @@ async function renderSkills(el) {
       document.getElementById('skill-list').innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('common.type')+'</th><th>'+t('common.version')+'</th><th>'+t('common.status')+'</th><th>'+t('common.source')+'</th><th>'+t('common.action')+'</th></tr>' + skills.map(function(s) {
         const meta = s.metadata || {};
         const source = meta.installed_from ? '<span class="badge badge-info">'+t('skills.mirror')+'</span>' : '<span class="badge badge-warning">'+t('skills.manual')+'</span>';
-        return '<tr><td>' + escapeHtml(s.skill_name) + '</td><td>' + escapeHtml(s.skill_type || '-') + '</td><td>v' + escapeHtml(String(s.version || 1)) + '</td><td>' + statusBadge(s.status || 'active') + '</td><td>' + source + '</td><td><button class="btn btn-sm btn-outline" onclick="showSkillVersions(\'' + escJsAttr(String(s.id)) + '\')">'+t('skills.version')+'</button> <button class="btn btn-sm btn-danger" onclick="archiveSkill(\'' + escJsAttr(String(s.id)) + '\',\'' + escJsAttr(s.skill_name) + '\')">'+t('common.archive')+'</button></td></tr>';
+        return '<tr><td><button class="btn btn-link" style="padding:0" onclick="showSkillSummary(\'' + escJsAttr(String(s.id)) + '\')">' + escapeHtml(s.skill_name) + '</button></td><td>' + escapeHtml(s.skill_type || '-') + '</td><td>v' + escapeHtml(String(s.version || 1)) + '</td><td>' + statusBadge(s.status || 'active') + '</td><td>' + source + '</td><td><button class="btn btn-sm btn-outline" onclick="showSkillVersions(\'' + escJsAttr(String(s.id)) + '\')">'+t('skills.version')+'</button> <button class="btn btn-sm btn-danger" onclick="archiveSkill(\'' + escJsAttr(String(s.id)) + '\',\'' + escJsAttr(s.skill_name) + '\')">'+t('common.archive')+'</button></td></tr>';
       }).join('') + '</table>';
     }
+    loadRecommendedSkills();
   } else {
     document.getElementById('skill-list').innerHTML = emptyState('⚠️', t('skills.loadFailed'), t('skills.loadFailed'));
   }
@@ -1520,6 +1764,25 @@ async function showSkillVersions(skillId) {
   showModal(t('skills.versionTitle') + ' - ' + skill.skill_name, body);
 }
 
+async function showSkillSummary(skillId) {
+  const r = await api('/api/admin/skills/' + encodeURIComponent(skillId));
+  if (!r.ok || !r.data.skill) { showToast(t('skills.loadFailed'), 'error'); return; }
+  const skill = r.data.skill;
+  const meta = skill.metadata || {};
+  const definition = skill.definition_json || skill.definition || {};
+  const body = '<p><strong>'+escapeHtml(skill.skill_name)+'</strong></p>' +
+    '<p>'+escapeHtml(skill.description || '')+'</p>' +
+    '<p><span class="badge badge-info">'+escapeHtml(skill.skill_type || '-')+'</span> <span class="badge badge-warning">'+escapeHtml(skill.scope_type || '-')+'</span> <span class="badge badge-info">'+escapeHtml(String(skill.version || 1))+'</span></p>' +
+    '<h4>'+t('skills.defLabel')+'</h4><pre style="white-space:pre-wrap;background:var(--surface2);padding:12px;border-radius:6px;max-height:280px;overflow:auto">'+escapeHtml(JSON.stringify(definition, null, 2))+'</pre>' +
+    '<h4>'+t('common.details')+'</h4><pre style="white-space:pre-wrap;background:var(--surface2);padding:12px;border-radius:6px;max-height:200px;overflow:auto">'+escapeHtml(JSON.stringify(meta, null, 2))+'</pre>' +
+    '<div style="margin-top:12px;display:flex;gap:8px"><button class="btn btn-primary" onclick="installSkillFromSummary(\'' + escJsAttr(String(skill.id)) + '\',\'' + escJsAttr(skill.skill_name) + '\')">'+t('common.install')+'</button><button class="btn btn-outline" onclick="closeModal()">'+t('common.close')+'</button></div>';
+  showModal(t('skills.skillLabel') + skill.skill_name, body);
+}
+
+async function installSkillFromSummary(skillId, skillName) {
+  await doInstallSkill(skillId, skillName);
+}
+
 function showAddSkill() {
   const body = '<div class="form-group"><label>'+t('skills.nameLabel')+'</label><input type="text" id="new-skill-name" placeholder="'+t('skills.namePlaceholder')+'"></div>' +
     '<div class="form-group"><label>'+t('skills.typeLabel')+'</label><input type="text" id="new-skill-type" placeholder="'+t('skills.typePlaceholder')+'"></div>' +
@@ -1537,8 +1800,44 @@ async function doAddSkill() {
   if (!name) { showToast(t('skills.enterName'), 'error'); return; }
   let parsedDef = {};
   try { parsedDef = JSON.parse(definition || '{}'); } catch { showToast(t('common.saveFailed'), 'error'); return; }
-  const r = await api('/api/admin/skills', { method: 'POST', body: JSON.stringify({ name, type, description, definition: parsedDef }) });
+  const r = await api('/api/admin/skills', { method: 'POST', body: JSON.stringify({ skill_name: name, skill_type: type, description, definition_json: parsedDef }) });
   if (r.ok) { showToast(t('skills.created')); closeModal(); renderView(); } else showToast((r.data && r.data.error) || t('common.createFailed'), 'error');
+}
+
+async function loadRecommendedSkills() {
+  const el = document.getElementById('recommended-skill-list');
+  if (!el) return;
+  const r = await api('/api/admin/skills/recommended');
+  if (!r.ok || !r.data.skills) {
+    el.innerHTML = '<p style="color:var(--text2)">'+t('skills.loadFailed')+'</p>';
+    return;
+  }
+  const skills = r.data.skills;
+  if (skills.length === 0) {
+    el.innerHTML = emptyState('🔎', t('skills.emptyTitle'), t('skills.emptyDesc'));
+    return;
+  }
+  el.innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('common.type')+'</th><th>'+t('common.description')+'</th><th>'+t('common.action')+'</th></tr>' + skills.map(function(s) {
+    return '<tr><td><button class="btn btn-link" style="padding:0" onclick="showRecommendedSkill(\'' + escJsAttr(s.name) + '\')">' + escapeHtml(s.name) + '</button></td><td>' + escapeHtml(s.type) + '</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(s.description || '') + '</td><td><button class="btn btn-sm btn-primary" onclick="installRecommendedSkill(\'' + escJsAttr(s.name) + '\')">'+t('common.install')+'</button></td></tr>';
+  }).join('') + '</table>';
+}
+
+function showRecommendedSkill(name) {
+  api('/api/admin/skills/recommended').then(function(r) {
+    if (!r.ok || !r.data.skills) return;
+    const skill = r.data.skills.find(function(s) { return s.name === name; });
+    if (!skill) return;
+    const risk = skill.definition && skill.definition.risk_profile ? skill.definition.risk_profile : {};
+    const body = '<p><strong>'+escapeHtml(skill.name)+'</strong></p><p>'+escapeHtml(skill.description || '')+'</p><p><span class="badge badge-info">'+escapeHtml(skill.type)+'</span> <span class="badge badge-warning">'+escapeHtml(skill.risk || '')+'</span> <span class="badge badge-success">API key: '+escapeHtml(String(risk.api_key_required === true ? 'required' : 'none'))+'</span></p><pre style="white-space:pre-wrap;background:var(--surface2);padding:12px;border-radius:6px;max-height:280px;overflow:auto">'+escapeHtml(JSON.stringify(skill.definition || {}, null, 2))+'</pre>' +
+      '<div style="margin-top:12px"><button class="btn btn-primary" onclick="installRecommendedSkill(\'' + escJsAttr(skill.name) + '\')">'+t('common.install')+'</button> <button class="btn btn-outline" onclick="closeModal()">'+t('common.close')+'</button></div>';
+    showModal(skill.name, body);
+  });
+}
+
+async function installRecommendedSkill(name) {
+  const r = await api('/api/admin/skills/recommended', { method: 'POST', body: JSON.stringify({ name: name }) });
+  if (r.ok) { showToast(t('skills.installed')); closeModal(); renderView(); }
+  else { showToast((r.data && r.data.error) || t('skills.installFailed'), 'error'); }
 }
 
 function renderKnowledge(el) {
@@ -1547,7 +1846,8 @@ function renderKnowledge(el) {
     '<div class="card"><h3>'+t('knowledge.manualTitle')+'</h3>' +
     '<div class="form-group"><label>'+t('knowledge.titleLabel')+'</label><input type="text" id="kb-title" placeholder="'+t('knowledge.titlePlaceholder')+'"></div>' +
     '<div class="form-group"><label>'+t('knowledge.contentLabel')+'</label><textarea id="kb-content" style="min-height:200px" placeholder="'+t('knowledge.contentPlaceholder')+'"></textarea></div>' +
-    '<div class="form-group"><label>'+t('knowledge.sourceLabel')+'</label><select id="kb-source-type"><option value="manual">'+t('knowledge.sourceManual')+'</option><option value="document">'+t('knowledge.sourceDoc')+'</option><option value="conversation">'+t('knowledge.sourceConv')+'</option></select></div>' +
+    '<div class="form-group"><label>'+t('knowledge.sourceLabel')+'</label><input type="text" id="kb-source-uri" placeholder="'+t('knowledge.sourcePlaceholder')+'"><p class="hint-text">'+t('knowledge.sourceHint')+'</p></div>' +
+    '<div class="form-group"><label>'+t('knowledge.notesLabel')+'</label><textarea id="kb-notes" style="min-height:100px" placeholder="'+t('knowledge.notesPlaceholder')+'"></textarea></div>' +
     '<div class="form-group"><label>'+t('knowledge.scopeLabel')+'</label><select id="kb-scope"><option value="private">'+t('knowledge.scopePrivate')+'</option><option value="public">'+t('knowledge.scopePublic')+'</option></select></div>' +
     '<div class="form-group"><label><input type="checkbox" id="kb-extract" checked> '+t('knowledge.autoExtract')+'</label></div>' +
     '<button class="btn btn-primary" onclick="doImportKnowledge()">'+t('knowledge.importBtn')+'</button></div>' +
@@ -1561,7 +1861,7 @@ async function doImportKnowledge() {
   const title = document.getElementById('kb-title').value.trim();
   const content = document.getElementById('kb-content').value.trim();
   if (!content) { showToast(t('shared.enterContent'), 'error'); return; }
-  const r = await api('/api/knowledge/import', { method: 'POST', body: JSON.stringify({ title, content, source_type: document.getElementById('kb-source-type').value || 'manual', scope: document.getElementById('kb-scope').value || 'private', auto_extract: document.getElementById('kb-extract').checked }) });
+  const r = await api('/api/knowledge/import', { method: 'POST', body: JSON.stringify({ title, content, source_type: 'manual', source_uri: document.getElementById('kb-source-uri').value.trim(), notes: document.getElementById('kb-notes').value.trim(), scope: document.getElementById('kb-scope').value || 'private', auto_extract: document.getElementById('kb-extract').checked }) });
   if (r.ok) { showToast(t('knowledge.imported')); document.getElementById('kb-title').value = ''; document.getElementById('kb-content').value = ''; } else showToast((r.data && r.data.error) || t('common.importFailed'), 'error');
 }
 
@@ -1569,18 +1869,19 @@ async function doUploadKnowledgeFile() {
   const fileInput = document.getElementById('kb-file');
   if (!fileInput || !fileInput.files || fileInput.files.length === 0) { showToast(t('knowledge.selectFile'), 'error'); return; }
   const file = fileInput.files[0];
-  const maxSize = 2 * 1024 * 1024;
+  const maxSize = 12 * 1024 * 1024;
   if (file.size > maxSize) { showToast(t('common.fileSizeLimit'), 'error'); return; }
   const reader = new FileReader();
   reader.onload = async function(e) {
     const content = e.target.result;
+    const fileBuffer = arrayBufferToBase64(content);
     const title = file.name.replace(/\.[^.]+$/, '');
-    const r = await api('/api/knowledge/import', { method: 'POST', body: JSON.stringify({ title, content, source_type: 'document', scope: 'private', auto_extract: true }) });
+    const r = await api('/api/knowledge/import', { method: 'POST', body: JSON.stringify({ title, file_name: file.name, mime_type: file.type || 'application/octet-stream', file_buffer_b64: fileBuffer, source_type: 'document', scope: 'private', auto_extract: true }) });
     if (r.ok) { showToast(t('knowledge.imported')); fileInput.value = ''; }
     else showToast((r.data && r.data.error) || t('common.importFailed'), 'error');
   };
   reader.onerror = function() { showToast(t('common.fileReadFailed'), 'error'); };
-  reader.readAsText(file);
+  reader.readAsArrayBuffer(file);
 }
 
 async function renderAudit(el) {
@@ -1627,19 +1928,35 @@ async function rebindIdentity(id) {
 }
 
 async function renderDbMaint(el) {
-  el.innerHTML = '<div class="page-header"><h2>'+t('db.title')+'</h2></div><div class="card"><h3>'+t('db.stats')+'</h3><div id="db-stats">'+t('common.loading')+'</div></div><div class="card"><h3>'+t('db.maintenance')+'</h3><button class="btn btn-primary" onclick="dbMaintain(\'analyze\')" style="margin-right:8px">ANALYZE</button><button class="btn btn-outline" onclick="dbMaintain(\'checkpoint\')">CHECKPOINT</button></div>';
+  el.innerHTML = '<div class="page-header"><h2>'+t('db.title')+'</h2></div><div class="card"><h3>'+t('db.stats')+'</h3><div id="db-stats">'+t('common.loading')+'</div></div><div class="card"><h3>'+t('db.maintenance')+'</h3><div id="db-maint-result" class="hint-text" style="margin-bottom:12px"></div><button class="btn btn-primary" onclick="dbMaintain(\'analyze\')" style="margin-right:8px">ANALYZE</button><button class="btn btn-outline" onclick="dbMaintain(\'checkpoint\')">CHECKPOINT</button></div>';
   const r = await api('/api/admin/db/stats');
   if (r.ok && r.data.stats) {
     const s = r.data.stats;
-    document.getElementById('db-stats').innerHTML = '<p>'+t('resources.dbConnections')+': ' + escapeHtml(String(s.connections || '-')) + '</p><p>'+t('resources.dbSize')+': ' + escapeHtml(s.db_size || '-') + '</p><p>'+t('resources.quotaConfig')+': ' + escapeHtml(String(s.table_count || '-')) + '</p>';
+    document.getElementById('db-stats').innerHTML = '<p>'+t('resources.dbConnections')+': ' + escapeHtml(String(s.connections || '-')) + '</p><p>'+t('resources.dbSize')+': ' + escapeHtml(String(s.db_size || '-')) + '</p><p>'+t('resources.quotaConfig')+': ' + escapeHtml(String(s.table_count || '-')) + '</p>';
   } else {
     document.getElementById('db-stats').innerHTML = '<p style="color:var(--text2)">'+t('db.cannotLoad')+'</p>';
   }
 }
 
 async function dbMaintain(action) {
+  const resultEl = document.getElementById('db-maint-result');
+  const buttons = Array.from(document.querySelectorAll('#main-content button'));
+  if (resultEl) resultEl.textContent = action.toUpperCase() + ' · ' + t('db.opRunning');
+  buttons.forEach(function(btn) { btn.disabled = true; });
   const r = await api('/api/admin/db/maintenance', { method: 'POST', body: JSON.stringify({ action }) });
-  if (r.ok) showToast(t('db.opComplete')); else showToast((r.data && r.data.error) || t('common.failed'), 'error');
+  buttons.forEach(function(btn) { btn.disabled = false; });
+  if (r.ok) {
+    const stats = r.data.stats || {};
+    if (resultEl) resultEl.textContent = action.toUpperCase() + ' · ' + (r.data.duration_ms || 0) + 'ms · ' + (stats.db_size || '-');
+    const statsEl = document.getElementById('db-stats');
+    if (statsEl && stats) {
+      statsEl.innerHTML = '<p>'+t('resources.dbConnections')+': ' + escapeHtml(String(stats.connections || '-')) + '</p><p>'+t('resources.dbSize')+': ' + escapeHtml(String(stats.db_size || '-')) + '</p><p>'+t('resources.quotaConfig')+': ' + escapeHtml(String(stats.table_count || '-')) + '</p>';
+    }
+    showToast(t('db.opComplete'));
+  } else {
+    if (resultEl) resultEl.textContent = (r.data && r.data.error) || t('common.failed');
+    showToast((r.data && r.data.error) || t('common.failed'), 'error');
+  }
 }
 
 async function doLogout() {
@@ -1655,10 +1972,10 @@ async function doLogout() {
 }
 
 async function renderKnowledgeReview(el) {
-  const statusFilter = currentStatusFilter || 'unconfirmed';
+  const statusFilter = currentStatusFilter || 'candidate';
   el.innerHTML = '<div class="page-header"><h2>'+t('review.title')+'</h2>' +
     '<div style="display:flex;gap:8px;">' +
-    '<select id="status-filter" onchange="currentStatusFilter=this.value;renderView()"><option value="unconfirmed"' + (statusFilter === 'unconfirmed' ? ' selected' : '') + '>'+t('review.statusUnconfirmed')+'</option><option value="active"' + (statusFilter === 'active' ? ' selected' : '') + '>'+t('review.statusActive')+'</option><option value="rejected"' + (statusFilter === 'rejected' ? ' selected' : '') + '>'+t('review.statusRejected')+'</option></select>' +
+    '<select id="status-filter" onchange="currentStatusFilter=this.value;renderView()"><option value="candidate"' + (statusFilter === 'candidate' ? ' selected' : '') + '>'+t('review.statusUnconfirmed')+'</option><option value="active"' + (statusFilter === 'active' ? ' selected' : '') + '>'+t('review.statusActive')+'</option><option value="rejected"' + (statusFilter === 'rejected' ? ' selected' : '') + '>'+t('review.statusRejected')+'</option></select>' +
     '<button class="btn btn-outline btn-sm" onclick="renderView()">'+t('common.refresh')+'</button></div></div>' +
     '<div class="card"><div id="review-item-list">'+t('common.loading')+'</div></div>';
 
@@ -1668,7 +1985,7 @@ async function renderKnowledgeReview(el) {
 async function loadReviewItems(status) {
   const list = document.getElementById('review-item-list');
   if (!list) return;
-  const statusLabel = status === 'unconfirmed' ? t('review.statusUnconfirmed') : status === 'active' ? t('review.statusActive') : t('review.statusRejected');
+  const statusLabel = status === 'candidate' || status === 'unconfirmed' ? t('review.statusUnconfirmed') : status === 'active' ? t('review.statusActive') : t('review.statusRejected');
 
   try {
     const orgId = currentSession ? (currentSession.org_id || '') : '';
@@ -1692,7 +2009,7 @@ async function loadReviewItems(status) {
           '<td>' + escapeHtml(preview) + '</td>' +
           '<td><span class="badge badge-info">' + escapeHtml(sourceLabel) + '</span></td>' +
           '<td style="font-size:13px">' + escapeHtml(String(item.created_at || '')) + '</td>' +
-          '<td>' + (status === 'unconfirmed'
+          '<td>' + (status === 'candidate' || status === 'unconfirmed'
             ? '<button class="btn btn-sm btn-success" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'approve\')">'+t('common.approve')+'</button> ' +
               '<button class="btn btn-sm btn-primary" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'approve_shared\')">'+t('review.approveShared')+'</button> ' +
               '<button class="btn btn-sm btn-warning" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'return\')">'+t('review.return')+'</button> ' +
@@ -1757,11 +2074,15 @@ async function loadContainerStats() {
     el.innerHTML = '<table><tr><th>'+t('resources.containerName')+'</th><th>'+t('resources.image')+'</th><th>'+t('common.status')+'</th><th>CPU</th><th>'+t('resources.memory')+'</th><th>'+t('resources.memoryUsage')+'</th><th>'+t('resources.networkIo')+'</th><th>'+t('resources.diskIo')+'</th></tr>' +
       containers.map(function(c) {
         const statusClass = c.status && c.status.includes('Up') ? 'badge-success' : 'badge-danger';
-        return '<tr><td>' + escapeHtml(c.name) + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(c.image || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(c.status || '-') + '</span></td><td>' + escapeHtml(c.cpu_percent) + '</td><td>' + escapeHtml(c.memory_percent) + '</td><td style="font-size:13px">' + escapeHtml(c.memory_usage) + '</td><td style="font-size:13px">' + escapeHtml(c.net_io) + '</td><td style="font-size:13px">' + escapeHtml(c.block_io) + '</td></tr>';
+        const memoryUsage = String(c.memory_usage || '');
+        const parts = memoryUsage.split('/');
+        const current = parts[0] || '';
+        const limit = parts[1] || '';
+        return '<tr><td>' + escapeHtml(c.name) + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(c.image || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(c.status || '-') + '</span></td><td>' + escapeHtml(c.cpu_percent) + '</td><td>' + escapeHtml(String(c.memory_percent || '-')) + '</td><td style="font-size:13px">' + escapeHtml(humanBytes(current)) + ' / ' + escapeHtml(humanBytes(limit)) + '</td><td style="font-size:13px">' + escapeHtml(c.net_io) + '</td><td style="font-size:13px">' + escapeHtml(c.block_io) + '</td></tr>';
       }).join('') + '</table>';
     if (timeEl) timeEl.textContent = t('resources.updated') + new Date().toLocaleTimeString();
   } else if (r.ok && !r.data.docker_available) {
-    el.innerHTML = '<p style="color:var(--text2)">'+t('resources.noDocker')+'</p>';
+    el.innerHTML = '<p style="color:var(--text2)">'+t('resources.noDockerOptional')+'</p>';
   } else {
     el.innerHTML = '<p style="color:var(--text2)">'+t('resources.noContainerData')+'</p>';
   }
@@ -1788,7 +2109,7 @@ async function loadDockerStats() {
       '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.active_users || 0)) + '</div><div class="stat-label">'+t('resources.activeUsers')+'</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.total_documents || 0)) + '</div><div class="stat-label">'+t('resources.totalDocs')+'</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.total_skills || 0)) + '</div><div class="stat-label">'+t('resources.totalSkills')+'</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + escapeHtml(s.db_size || '-') + '</div><div class="stat-label">'+t('resources.dbSize')+'</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + escapeHtml(humanBytes(s.db_size || '-')) + '</div><div class="stat-label">'+t('resources.dbSize')+'</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.db_connections || 0)) + '</div><div class="stat-label">'+t('resources.dbConnections')+'</div></div>' +
       '</div>';
     if (timeEl) timeEl.textContent = t('resources.updated') + new Date().toLocaleTimeString();
@@ -1825,7 +2146,15 @@ async function loadQuotaStats() {
     storage_bytes: t('quota.storage'),
     llm_tokens: 'LLM Tokens'
   };
-  grid.innerHTML = Object.entries(quotas).map(function(_ref) { const k=_ref[0],v=_ref[1]; const q=v||{}; const limit=q.limit||q.max||'-'; const used=q.used||q.current||0; return '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(used)) + ' / ' + escapeHtml(String(limit)) + '</div><div class="stat-label">' + escapeHtml(labelMap[k]||k) + '</div></div>'; }).join('');
+  grid.innerHTML = Object.entries(quotas).map(function(_ref) {
+    const k=_ref[0],v=_ref[1];
+    const q=v||{};
+    const rawLimit=q.limit||q.max||'-';
+    const rawUsed=q.used||q.current||0;
+    const displayLimit = k === 'storage_bytes' ? humanBytes(rawLimit) : String(rawLimit);
+    const displayUsed = k === 'storage_bytes' ? humanBytes(rawUsed) : String(rawUsed);
+    return '<div class="stat-card"><div class="stat-value">' + escapeHtml(displayUsed) + ' / ' + escapeHtml(displayLimit) + '</div><div class="stat-label">' + escapeHtml(labelMap[k]||k) + '</div></div>';
+  }).join('');
 }
 
 async function loadInspectionReport() {
@@ -1868,13 +2197,13 @@ async function loadQuotaConfig() {
     { key: 'daily_api_calls', label: t('quota.apiCallsLimit') },
     { key: 'retrieval_queries', label: t('quota.retrievalLimit') },
     { key: 'execution_seconds', label: t('quota.execLimit') },
-    { key: 'storage_bytes', label: t('quota.storageLimit') },
+    { key: 'storage_bytes', label: t('quota.storageLimit'), help: t('quota.storageBytesHint') },
     { key: 'llm_tokens', label: t('quota.tokensLimit') }
   ];
   config.innerHTML = dimensions.map(function(d) {
     const q = quotas[d.key] || {};
     const val = q.limit || q.max || '';
-    return '<div class="form-group"><label>' + escapeHtml(d.label) + '</label><input type="number" id="quota-' + escapeAttr(d.key) + '" value="' + escapeAttr(String(val)) + '" placeholder="'+escapeAttr(t('common.noneLimit'))+'"></div>';
+    return '<div class="form-group"><label>' + escapeHtml(d.label) + '</label><input type="number" id="quota-' + escapeAttr(d.key) + '" value="' + escapeAttr(String(val)) + '" placeholder="'+escapeAttr(t('common.noneLimit'))+'">' + (d.help ? '<p class="hint-text">' + escapeHtml(d.help) + '</p>' : '') + '</div>';
   }).join('') + '<button class="btn btn-primary" onclick="saveQuotaConfig()">'+t('config.save')+'</button>';
 }
 

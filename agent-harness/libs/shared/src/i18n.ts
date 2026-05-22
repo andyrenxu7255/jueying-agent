@@ -148,6 +148,7 @@ const zh: LangPack = {
   'config.label.embedding': 'Embedding 模型配置',
   'config.label.rerank': 'Rerank 配置',
   'config.field.signing_secret': '签名密钥 (Signing Secret)',
+  'config.field.signing_secret_hint': '仅飞书 webhook 回调校验需要；飞书长连接模式只需要 App ID 和 App Secret，可留空。',
   'config.field.domain': '域名',
   'config.field.corp_id': '企业ID (Corp ID)',
   'config.field.callback_token': '回调验证 Token',
@@ -158,6 +159,10 @@ const zh: LangPack = {
   'config.field.default_model': '默认模型',
   'config.field.fallback_models': '备用模型 (逗号分隔)',
   'config.field.mode': '模式',
+  'config.field.dimensions': '向量维度',
+  'config.field.dimensions_hint': '可选；若上游支持，测试按钮会显示实际返回维度。',
+  'config.field.timeout_ms': '超时时间(ms)',
+  'config.field.timeout_ms_hint': '请求上游模型服务的超时时间。',
 }
 
 const en: LangPack = {
@@ -308,6 +313,7 @@ Core behavioral guidelines:
   'config.label.embedding': 'Embedding Model Config',
   'config.label.rerank': 'Rerank Config',
   'config.field.signing_secret': 'Signing Secret',
+  'config.field.signing_secret_hint': 'Only required for Feishu webhook signature verification. Long-connection mode only needs App ID and App Secret.',
   'config.field.domain': 'Domain',
   'config.field.corp_id': 'Corp ID',
   'config.field.callback_token': 'Callback Token',
@@ -318,6 +324,10 @@ Core behavioral guidelines:
   'config.field.default_model': 'Default Model',
   'config.field.fallback_models': 'Fallback Models (comma-separated)',
   'config.field.mode': 'Mode',
+  'config.field.dimensions': 'Dimensions',
+  'config.field.dimensions_hint': 'Optional. The test button shows the actual returned dimensions when available.',
+  'config.field.timeout_ms': 'Timeout (ms)',
+  'config.field.timeout_ms_hint': 'Timeout for upstream model service requests.',
 }
 
 export function getLangPack(lang: string): LangPack {

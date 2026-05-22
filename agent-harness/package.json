@@ -30,6 +30,7 @@
     "smoke:workflow-observability": "node scripts/workflow-observability-smoke.mjs",
     "test:task-dispatch": "npx tsx tests/integration/task-dispatch-lui-test.ts",
     "test:dream-mode": "node --experimental-strip-types tests/integration/dream-mode-test.ts",
+    "test:portal-admin": "npx tsx tests/integration/portal-admin-functional-test.ts",
     "preflight:audit": "npm run validate:m0 && npm run lint && npm run type-check && npm test && npm run context:audit",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",

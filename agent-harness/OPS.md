@@ -58,6 +58,7 @@ cp .env.example .env
 | `LITELLM_MASTER_KEY` | 是 | - | LiteLLM 代理主密钥 |
 | `FEISHU_APP_ID` | 否 | - | 飞书应用 ID |
 | `FEISHU_APP_SECRET` | 否 | - | 飞书应用密钥 |
+| `FEISHU_SIGNING_SECRET` | 否 | - | 仅 webhook 回调验签需要；飞书长连接模式可留空 |
 | `WECOM_CORP_ID` | 否 | - | 企业微信 CorpID |
 | `WECOM_CORP_SECRET` | 否 | - | 企业微信应用密钥 |
 | `WECOM_TOKEN` | 否 | - | 企业微信回调 Token |
@@ -165,6 +166,7 @@ docker logs ah-feishu-longconn --since 5m --tail 200  # 飞书最近 5 分钟
 # 重启单个服务
 docker compose --profile app restart gateway-adapter
 docker compose --profile app restart workflow-service
+docker compose --profile app restart feishu-longconn
 
 # 停止所有服务
 docker compose --profile app down
@@ -195,6 +197,16 @@ docker compose --profile app down -v
 | clickhouse | 1.00 vCPU | 2 GB |
 
 可根据实际负载调整，或在 docker-compose.yml 中移除 `deploy.resources.limits` 使用无限制模式。
+
+Web Portal 的资源监控会优先展示 Docker 容器状态；如果系统以本机进程、systemd 或其他方式运行，容器监控会降级为“未检测到容器运行时”，系统资源、数据库统计和配额巡检仍可使用。存储配额 `storage_bytes` 以字节保存，界面会自动换算为 B/KB/MB/GB，避免把字节值误读成 MB。
+
+模型配置与测试:
+
+- LLM 模型列表保存在 `LLM_MODELS`，同时同步 `LITELLM_MODEL` 与 `LITELLM_FALLBACK_MODELS`，列表顺序即优先级。
+- “同步模型目录/从模型目录选择”会访问 OpenAI 兼容 `/v1/models`，再合并本地 `config/litellm_config.yaml` 元数据。
+- Embedding/Rerank 支持从目录选择模型并测试。Embedding 测试会返回实际维度，Rerank 测试会返回排序结果数量。模型页还支持手动新增、调整优先级、查看上下文窗口、最大输出和思考设置。
+- 配置保存后页面会显示可选重启目标；大部分字段先热加载，独立服务如 `fact-retrieval`、`gateway-adapter`、`feishu-longconn` 可按按钮或命令重启。
+- 知识导入分为手动输入和文件上传两条入口，来源字段仅作说明，不再选择“文档/对话”；上传支持 TXT、Markdown、PDF、Word、Excel、CSV、JSON。
 
 ---
 
@@ -318,8 +330,10 @@ docker compose --profile app up -d <服务名>
 
 1. 检查 feishu-longconn 日志: `docker logs ah-feishu-longconn --tail 50`
 2. 确认 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET` 正确配置
-3. 确认飞书应用已发布并配置了事件订阅 URL
-4. 通过 Web Portal 检查身份绑定: http://localhost:3003 → 用户管理
+3. 长连接模式不需要 `FEISHU_SIGNING_SECRET`；只有 webhook 回调验签才需要 signing secret
+4. 确认飞书应用已发布并启用事件订阅
+5. Web Portal 保存飞书配置后，可在页面内点击 `feishu-longconn` / `gateway-adapter` 重启按钮
+6. 通过 Web Portal 检查身份绑定: http://localhost:3003 → 用户管理
 
 #### LLM 调用超时
 

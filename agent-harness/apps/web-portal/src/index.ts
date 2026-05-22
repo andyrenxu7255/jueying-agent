@@ -1,8 +1,10 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { createHash, randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { resolve, dirname, join } from 'node:path';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { Pool } from 'pg';
+import YAML from 'yaml';
 import { createLogger, configManager, checkProductionSecurity, t, tf } from '@agent-harness/shared';
 import { auditWriter } from '@agent-harness/audit';
 
@@ -13,7 +15,7 @@ const workflowUrl = process.env.WORKFLOW_URL || '';
 const executorUrl = process.env.EXECUTOR_URL || '';
 const factRetrievalUrl = process.env.FACT_RETRIEVAL_URL || '';
 const skillLibraryUrl = process.env.SKILL_LIBRARY_URL || '';
-const resourceSchedulerUrl = process.env.RESOURCE_SCHEDULER_URL || '';
+const resourceSchedulerUrl = process.env.RESOURCE_SCHEDULER_URL || 'http://resource-scheduler:3000';
 const mobileAppUrl = process.env.MOBILE_APP_URL || '';
 const hermesUrl = process.env.HERMES_URL || '';
 
@@ -37,10 +39,11 @@ interface ConfigSection {
   fields: Array<{
     key: string;
     label: string;
-    type: 'text' | 'password' | 'number' | 'select';
+    type: 'text' | 'password' | 'number' | 'select' | 'checkbox';
     options?: string[];
     default?: string;
     sensitive?: boolean;
+    hint?: string;
   }>;
 }
 
@@ -59,7 +62,7 @@ function getConfigSections(lang: PortalLang): ConfigSection[] {
       fields: [
         { key: 'FEISHU_APP_ID', label: 'App ID', type: 'text' },
         { key: 'FEISHU_APP_SECRET', label: 'App Secret', type: 'password', sensitive: true },
-        { key: 'FEISHU_SIGNING_SECRET', label: label('config.field.signing_secret'), type: 'password', sensitive: true },
+        { key: 'FEISHU_SIGNING_SECRET', label: label('config.field.signing_secret'), type: 'password', sensitive: true, hint: label('config.field.signing_secret_hint') },
         { key: 'FEISHU_DOMAIN', label: label('config.field.domain'), type: 'select', options: ['feishu', 'lark'], default: 'feishu' },
       ],
     },
@@ -92,6 +95,8 @@ function getConfigSections(lang: PortalLang): ConfigSection[] {
         { key: 'EMBEDDING_PROVIDER_URL', label: 'Provider URL', type: 'text' },
         { key: 'EMBEDDING_PROVIDER_MODEL', label: 'Provider Model', type: 'text' },
         { key: 'EMBEDDING_PROVIDER_API_KEY', label: 'API Key', type: 'password', sensitive: true },
+        { key: 'EMBEDDING_PROVIDER_DIMENSIONS', label: label('config.field.dimensions'), type: 'number', hint: label('config.field.dimensions_hint') },
+        { key: 'EMBEDDING_PROVIDER_TIMEOUT_MS', label: label('config.field.timeout_ms'), type: 'number', hint: label('config.field.timeout_ms_hint') },
       ],
     },
     {
@@ -102,6 +107,7 @@ function getConfigSections(lang: PortalLang): ConfigSection[] {
         { key: 'RERANK_PROVIDER_URL', label: 'Provider URL', type: 'text' },
         { key: 'RERANK_PROVIDER_MODEL', label: 'Provider Model', type: 'text' },
         { key: 'RERANK_PROVIDER_API_KEY', label: 'API Key', type: 'password', sensitive: true },
+        { key: 'RERANK_PROVIDER_TIMEOUT_MS', label: label('config.field.timeout_ms'), type: 'number', hint: label('config.field.timeout_ms_hint') },
       ],
     },
   ];
@@ -116,7 +122,9 @@ const MAX_SESSIONS = 10000;
 const MAX_AUDIT_ROWS = 500;
 const MAX_RETRIEVAL_ROWS = 300;
 const ENV_FILE_PATH = process.env.PORTAL_ENV_FILE || resolve(process.cwd(), '.env');
+const CONFIG_ENV_KEYS = Array.from(new Set(getConfigSections('zh-CN').flatMap(section => section.fields.map(field => field.key))));
 const SETUP_TOKEN = process.env.SETUP_TOKEN || '';
+const INTERNAL_TOKEN = process.env.INTERNAL_TOKEN || '';
 
 const SCRYPT_KEY_LENGTH = 32;
 const SCRYPT_COST = 16384;
@@ -128,6 +136,124 @@ const DEFAULT_QUOTAS = {
   storage_bytes: 1073741824,
   llm_tokens: 100000,
 };
+
+const CURATED_CLAWHUB_SKILLS: Array<{
+  name: string;
+  type: string;
+  description: string;
+  source: string;
+  category: string;
+  rating: number;
+  installCount: number;
+  risk: 'low' | 'medium';
+  definition: Record<string, unknown>;
+}> = [
+  {
+    name: 'Document Pro',
+    type: 'document',
+    category: 'office',
+    rating: 4.9,
+    installCount: 3200,
+    risk: 'low',
+    description: 'Office document toolkit for PDF, Word, PowerPoint, Excel, CSV, Markdown, and plain text parsing. No API key required.',
+    source: 'https://clawhub.ai/skills/document-pro',
+    definition: {
+      tools: ['office_parser', 'pdf_reader', 'excel_reader', 'mammoth_docx', 'markdown_parser'],
+      capabilities: ['read_pdf', 'read_docx', 'read_xlsx', 'read_pptx', 'read_csv', 'extract_text', 'extract_tables'],
+      risk_profile: { api_key_required: false, external_network: false, overlaps_memory: false }
+    }
+  },
+  {
+    name: 'Office to Markdown',
+    type: 'document',
+    category: 'office',
+    rating: 4.8,
+    installCount: 2400,
+    risk: 'low',
+    description: 'Converts common office documents into clean Markdown for review, indexing, or downstream workflows. No API key required.',
+    source: 'https://clawhub.ai/skills/office-to-markdown',
+    definition: {
+      tools: ['office_parser', 'markdown_writer'],
+      capabilities: ['docx_to_markdown', 'pptx_to_markdown', 'xlsx_to_markdown', 'pdf_to_markdown'],
+      risk_profile: { api_key_required: false, external_network: false, overlaps_memory: false }
+    }
+  },
+  {
+    name: 'PDF Generator',
+    type: 'document',
+    category: 'office',
+    rating: 4.7,
+    installCount: 1700,
+    risk: 'low',
+    description: 'Creates PDFs from Markdown or structured text and supports basic merge/split operations. Local processing; no API key required.',
+    source: 'https://clawhub.ai/skills/pdf-generator',
+    definition: {
+      tools: ['pdf_renderer', 'pdf_merge', 'pdf_split'],
+      capabilities: ['markdown_to_pdf', 'text_to_pdf', 'merge_pdfs', 'split_pdf'],
+      risk_profile: { api_key_required: false, external_network: false, overlaps_memory: false }
+    }
+  },
+  {
+    name: 'URL Fetcher',
+    type: 'search',
+    category: 'search',
+    rating: 4.7,
+    installCount: 1900,
+    risk: 'medium',
+    description: 'Fetches public web pages and extracts readable text for research and knowledge import. Requires network access, no API key.',
+    source: 'https://clawhub.ai/skills/url-fetcher',
+    definition: {
+      tools: ['http_fetch', 'html_readability'],
+      capabilities: ['fetch_url', 'extract_page_text', 'normalize_links'],
+      risk_profile: { api_key_required: false, external_network: true, overlaps_memory: false }
+    }
+  },
+  {
+    name: 'Search Intelligence',
+    type: 'search',
+    category: 'search',
+    rating: 4.8,
+    installCount: 2400,
+    risk: 'medium',
+    description: 'Plans multi-step web research using free search sources, de-duplicates results, and summarizes evidence. No API key required.',
+    source: 'https://clawhub.ai/skills/search-intelligence',
+    definition: {
+      tools: ['query_decomposer', 'free_web_search', 'answer_synthesizer'],
+      capabilities: ['decompose_question', 'multi_round_search', 'synthesize_findings', 'cite_sources'],
+      risk_profile: { api_key_required: false, external_network: true, overlaps_memory: false }
+    }
+  },
+  {
+    name: 'Weather',
+    type: 'utility',
+    category: 'office',
+    rating: 4.6,
+    installCount: 1100,
+    risk: 'low',
+    description: 'Uses public weather data for current weather and short forecasts. No API key required.',
+    source: 'https://clawhub.ai/skills/weather',
+    definition: {
+      tools: ['open_meteo_api'],
+      capabilities: ['current_weather', 'weekly_forecast', 'humidity_wind'],
+      risk_profile: { api_key_required: false, external_network: true, overlaps_memory: false }
+    }
+  },
+  {
+    name: 'Skill Vetter',
+    type: 'security',
+    category: 'security',
+    rating: 4.9,
+    installCount: 1600,
+    risk: 'low',
+    description: 'Reviews skill definitions for permissions, suspicious patterns, and conflict risk before installation.',
+    source: 'https://clawhub.ai/skills/skill-vetter',
+    definition: {
+      tools: ['permission_scanner', 'code_auditor'],
+      capabilities: ['scan_permissions', 'check_reputation', 'identify_risks', 'approve_or_block'],
+      risk_profile: { api_key_required: false, external_network: false, overlaps_memory: false }
+    }
+  }
+];
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');
@@ -168,15 +294,26 @@ function verifyPassword(password: string, storedHash: string): { valid: boolean;
   }
 }
 
+function validatePasswordStrength(password: string, lang: PortalLang): { valid: boolean; score: number; message: string } {
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  if (/[a-z]/.test(password)) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[0-9]/.test(password)) score += 1;
+  if (/[^a-zA-Z0-9]/.test(password)) score += 1;
+  const valid = score >= 3;
+  const message = score < 3
+    ? t(lang, 'portal.pwd.too_weak')
+    : score < 5
+      ? t(lang, 'portal.pwd.medium')
+      : t(lang, 'portal.pwd.good');
+  return { valid, score, message };
+}
+
 async function ensureDefaultAdmin(): Promise<void> {
   const pool = await getDbPool();
   if (!pool) return;
-
-  const metadata = {
-    password_hash: hashPassword(DEFAULT_ADMIN_PASSWORD),
-    source: 'default_admin',
-    must_change_password: true,
-  };
 
   await pool.query(
     `INSERT INTO organization (id, org_name, display_name, status, settings, metadata)
@@ -185,19 +322,39 @@ async function ensureDefaultAdmin(): Promise<void> {
     [DEFAULT_ORG_ID]
   );
 
-  await pool.query(
-    `INSERT INTO "user" (org_id, username, display_name, role, status, metadata)
-     VALUES ($1::uuid, $2, 'Default Admin', 'admin', 'active', $3::jsonb)
-     ON CONFLICT (org_id, username) DO UPDATE
-     SET role = 'admin',
-         status = 'active',
-         metadata = CASE
-           WHEN COALESCE("user".metadata->>'password_hash', '') = ''
-             THEN COALESCE("user".metadata, '{}'::jsonb) || $3::jsonb
-           ELSE COALESCE("user".metadata, '{}'::jsonb)
-         END`,
-    [DEFAULT_ORG_ID, DEFAULT_ADMIN_USERNAME, JSON.stringify(metadata)]
+  const desiredMetadata = {
+    password_hash: hashPassword(ADMIN_PASSWORD),
+    source: 'default_admin',
+    must_change_password: true,
+  };
+  const userResult = await pool.query(
+    `SELECT id, metadata
+       FROM "user"
+      WHERE org_id = $1::uuid
+        AND username = $2
+      LIMIT 1`,
+    [DEFAULT_ORG_ID, DEFAULT_ADMIN_USERNAME]
   );
+  if (userResult.rows.length === 0) {
+    await pool.query(
+      `INSERT INTO "user" (org_id, username, display_name, role, status, metadata)
+       VALUES ($1::uuid, $2, 'Default Admin', 'admin', 'active', $3::jsonb)`,
+      [DEFAULT_ORG_ID, DEFAULT_ADMIN_USERNAME, JSON.stringify(desiredMetadata)]
+    );
+    return;
+  }
+  const existingMetadata = userResult.rows[0].metadata || {};
+  const source = String(existingMetadata.source || '');
+  if (['default_admin', 'local_default_reset', 'migration'].includes(source)) {
+    await pool.query(
+      `UPDATE "user"
+          SET role = 'admin',
+              status = 'active',
+              metadata = $2::jsonb
+        WHERE id = $1`,
+      [userResult.rows[0].id, JSON.stringify(desiredMetadata)]
+    );
+  }
 }
 
 const sessionStore = new Map<string, Session>();
@@ -301,7 +458,7 @@ async function evictExpiredSessions(): Promise<void> {
   }
 }
 
-const MAX_BODY_SIZE = 1 * 1024 * 1024;
+const MAX_BODY_SIZE = 12 * 1024 * 1024;
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
   const contentLength = Number(req.headers['content-length'] || 0);
@@ -391,6 +548,14 @@ async function requireAdmin(req: IncomingMessage, res: ServerResponse): Promise<
     return null;
   }
   return session;
+}
+
+function toPortalOwnerUserId(session: Session): string {
+  return toWorkflowUserId(session);
+}
+
+function toPortalFileOwnerUserId(session: Session): string {
+  return toWorkflowUserId(session);
 }
 
 const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
@@ -495,13 +660,33 @@ function redactConfigValue(key: string, value: unknown, fieldType?: string): unk
   return value;
 }
 
+function serviceHeaders(headers?: Record<string, string>): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    ...(INTERNAL_TOKEN ? { 'x-internal-token': INTERNAL_TOKEN } : {}),
+    ...(headers || {})
+  };
+}
+
+function getResourceSchedulerUrl(): string {
+  const raw = (process.env.RESOURCE_SCHEDULER_URL || resourceSchedulerUrl || '').trim();
+  if (!raw) return 'http://resource-scheduler:3000';
+  try {
+    const parsed = new URL(raw);
+    if (['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)) return 'http://resource-scheduler:3000';
+    return raw;
+  } catch {
+    return 'http://resource-scheduler:3000';
+  }
+}
+
 async function fetchFromService(url: string, options?: { method?: string; headers?: Record<string, string>; body?: string }): Promise<{ status: number; data: unknown }> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
     const response = await fetch(url, {
       method: options?.method || 'GET',
-      headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
+      headers: serviceHeaders(options?.headers),
       body: options?.body,
       signal: controller.signal,
     });
@@ -533,6 +718,414 @@ function getWorkflowGoal(workflow: Record<string, unknown>): string {
   const plan = workflow.plan as Record<string, unknown> | undefined;
   const goal = plan?.goal as Record<string, unknown> | undefined;
   return String(goal?.user_goal || workflow.goal || workflow.id || '-');
+}
+
+function getConfigRoot(): string {
+  if (process.env.AGENT_HARNESS_CONFIG_ROOT) return resolve(process.env.AGENT_HARNESS_CONFIG_ROOT);
+  let current = resolve(process.cwd());
+  while (true) {
+    if (existsSync(resolve(current, 'config/default.yaml'))) return current;
+    const parent = dirname(current);
+    if (parent === current) return resolve(process.cwd());
+    current = parent;
+  }
+}
+
+function loadLiteLlmCatalog(): Array<Record<string, unknown>> {
+  const configPath = resolve(getConfigRoot(), 'config/litellm_config.yaml');
+  if (!existsSync(configPath)) return [];
+  try {
+    const parsed = YAML.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>;
+    const modelList = Array.isArray(parsed.model_list) ? parsed.model_list as Array<Record<string, unknown>> : [];
+    return modelList.map((item) => {
+      const params = (item.litellm_params || {}) as Record<string, unknown>;
+      const info = (item.model_info || {}) as Record<string, unknown>;
+      const mode = String(info.mode || 'chat');
+      return {
+        id: String(info.id || item.model_name || params.model || ''),
+        name: String(item.model_name || info.id || params.model || ''),
+        provider_model: String(params.model || ''),
+        api_base: String(params.api_base || ''),
+        mode,
+        context_window: Number(info.context_window || 0) || undefined,
+        max_output_tokens: Number(info.max_output_tokens || 0) || undefined,
+        dimensions: Number(info.dimensions || info.embedding_dimensions || 0) || undefined,
+        capabilities: Array.isArray(info.capabilities) ? info.capabilities : [],
+        supports_reasoning: Array.isArray(info.capabilities) && info.capabilities.includes('reasoning'),
+        supports_thinking: Array.isArray(info.capabilities) && info.capabilities.includes('reasoning')
+      };
+    }).filter((item) => item.name);
+  } catch (error) {
+    logger.warn('litellm.catalog_failed', 'Failed to load LiteLLM catalog', { error: String(error) });
+    return [];
+  }
+}
+
+function getLiteLlmCatalogByName(): Map<string, Record<string, unknown>> {
+  const map = new Map<string, Record<string, unknown>>();
+  for (const item of loadLiteLlmCatalog()) {
+    const names = [item.name, item.id, item.provider_model].map((value) => String(value || '').toLowerCase()).filter(Boolean);
+    for (const name of names) map.set(name, item);
+  }
+  return map;
+}
+
+function parseLlmModels(env: Record<string, string>): Array<Record<string, unknown>> {
+  const catalog = getLiteLlmCatalogByName();
+  const models = parseJsonEnv<Array<Record<string, unknown>>>(env.LLM_MODELS || process.env.LLM_MODELS, []);
+  const validModels = Array.isArray(models) ? models : [];
+  if (validModels.length > 0) {
+    return validModels.map((model, index) => enrichLlmModel(model, index, catalog));
+  }
+  const litellmUrl = env.LITELLM_URL || process.env.LITELLM_URL || 'http://localhost:4000';
+  const litellmKey = env.LITELLM_MASTER_KEY || process.env.LITELLM_MASTER_KEY || '';
+  const defaultModel = env.LITELLM_MODEL || process.env.LITELLM_MODEL || 'minimax-m2.7';
+  const fallbackStr = env.LITELLM_FALLBACK_MODELS || process.env.LITELLM_FALLBACK_MODELS || '';
+  const fallbacks = fallbackStr ? fallbackStr.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+  return [defaultModel, ...fallbacks].map((name, index) => enrichLlmModel({
+    id: `model-${index}`,
+    name,
+    url: litellmUrl,
+    api_key: litellmKey,
+  }, index, catalog));
+}
+
+function enrichLlmModel(model: Record<string, unknown>, index: number, catalog: Map<string, Record<string, unknown>>): Record<string, unknown> {
+  const name = String(model.name || '').trim();
+  const metadata = catalog.get(name.toLowerCase()) || {};
+  return {
+    ...metadata,
+    ...model,
+    id: String(model.id || `model-${index}`),
+    name,
+    priority: index + 1,
+    is_fallback: index > 0,
+    context_window: Number(model.context_window || metadata.context_window || 0) || undefined,
+    max_output_tokens: Number(model.max_output_tokens || model.max_tokens || metadata.max_output_tokens || 0) || undefined,
+    max_tokens: Number(model.max_tokens || model.max_output_tokens || metadata.max_output_tokens || 0) || undefined,
+    supports_thinking: Boolean(model.supports_thinking ?? model.thinking_enabled ?? metadata.supports_thinking),
+    supports_reasoning: Boolean(model.supports_reasoning ?? metadata.supports_reasoning),
+    thinking_enabled: Boolean(model.thinking_enabled),
+    thinking_strength: String(model.thinking_strength || ''),
+  };
+}
+
+function sanitizeLlmModel(model: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...model,
+    url: maskUrlPassword(String(model.url || '')),
+    api_key: String(model.api_key || '') ? '********' : ''
+  };
+}
+
+function persistLlmModels(env: Record<string, string>, models: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  const normalized: Array<Record<string, unknown>> = models.map((model, index) => ({
+    ...model,
+    priority: index + 1,
+    is_fallback: index > 0
+  }));
+  env.LLM_MODELS = JSON.stringify(normalized);
+  if (normalized.length > 0) env.LITELLM_MODEL = String(normalized[0].name || '');
+  env.LITELLM_FALLBACK_MODELS = normalized.slice(1).map((m) => String(m.name || '')).filter(Boolean).join(',');
+  return normalized;
+}
+
+function persistConfigEnv(env: Record<string, string>): Record<string, string> {
+  const persistedEnv = exportConfigEnv(env);
+  saveEnvFile(persistedEnv);
+  syncRuntimeEnv(persistedEnv);
+  reloadRuntimeConfig();
+  return persistedEnv;
+}
+
+function getModelCatalogByKind(kind: 'chat' | 'embedding' | 'rerank'): Array<Record<string, unknown>> {
+  const wantedMode = kind === 'chat' ? 'chat' : (kind === 'embedding' ? 'embeddings' : 'rerank');
+  return loadLiteLlmCatalog()
+    .filter((item) => String(item.mode || 'chat') === wantedMode)
+    .map((item) => ({ ...item, source: 'catalog' }));
+}
+
+function normalizeCatalogMode(value: unknown): string {
+  const mode = String(value || '').trim().toLowerCase();
+  if (mode === 'embedding') return 'embeddings';
+  return mode;
+}
+
+function normalizeModelCapabilityString(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
+  if (typeof value === 'string' && value.trim()) return value.split(',').map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
+function normalizeThinkingStrength(value: unknown): string {
+  const raw = String(value || '').trim().toLowerCase();
+  if (['low', 'medium', 'high', 'auto', 'off'].includes(raw)) return raw;
+  return '';
+}
+
+function normalizeModelRecord(model: Record<string, unknown>, fallbackId: string): Record<string, unknown> {
+  const contextWindow = Number(model.context_window || model.contextWindow || 0) || undefined;
+  const maxOutputTokens = Number(model.max_output_tokens || model.maxOutputTokens || model.max_tokens || 0) || undefined;
+  const maxTokens = Number(model.max_tokens || model.max_output_tokens || model.maxOutputTokens || 0) || undefined;
+  const thinkingEnabled = Boolean(model.thinking_enabled ?? model.supports_thinking);
+  const supportsThinking = Boolean(model.supports_thinking ?? model.thinking_enabled);
+  return {
+    id: String(model.id || fallbackId),
+    name: String(model.name || model.id || fallbackId).trim(),
+    url: String(model.url || '').trim(),
+    api_key: String(model.api_key || '').trim(),
+    context_window: contextWindow,
+    max_output_tokens: maxOutputTokens,
+    max_tokens: maxTokens,
+    temperature: model.temperature === '' || model.temperature === undefined || model.temperature === null ? undefined : Number(model.temperature),
+    supports_thinking: supportsThinking,
+    thinking_enabled: thinkingEnabled,
+    thinking_strength: normalizeThinkingStrength(model.thinking_strength),
+    capabilities: normalizeModelCapabilityString(model.capabilities),
+    mode: String(model.mode || 'chat'),
+    provider_model: String(model.provider_model || model.name || ''),
+    priority: Number(model.priority || 0) || undefined,
+    is_fallback: Boolean(model.is_fallback),
+  };
+}
+
+function buildModelUpsertPayload(body: Record<string, unknown>, base: Record<string, string>, index: number): Record<string, unknown> {
+  const name = String(body.name || '').trim();
+  const providerModel = String(body.provider_model || body.model || name).trim();
+  const url = String(body.url || base.LITELLM_URL || process.env.LITELLM_URL || 'http://localhost:4000').trim();
+  const apiKey = String(body.api_key || base.LITELLM_MASTER_KEY || process.env.LITELLM_MASTER_KEY || '').trim();
+  const temperatureRaw = body.temperature;
+  const temperature = temperatureRaw === '' || temperatureRaw === undefined || temperatureRaw === null ? undefined : Number(temperatureRaw);
+  return normalizeModelRecord({
+    id: String(body.id || `model-${Date.now()}-${index}`),
+    name,
+    provider_model: providerModel,
+    url,
+    api_key: apiKey,
+    context_window: body.context_window,
+    max_output_tokens: body.max_output_tokens,
+    max_tokens: body.max_tokens,
+    temperature: Number.isFinite(temperature as number) ? temperature : undefined,
+    supports_thinking: body.supports_thinking,
+    thinking_enabled: body.thinking_enabled,
+    thinking_strength: body.thinking_strength,
+    capabilities: body.capabilities,
+  }, `model-${index}`);
+}
+
+async function fetchProviderModelCatalog(baseUrl: string, apiKey: string): Promise<Array<Record<string, unknown>>> {
+  if (!baseUrl) return [];
+  try {
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        response = await fetch(buildProviderUrl(baseUrl, '/models'), {
+          headers: apiKey ? { authorization: `Bearer ${apiKey}` } : undefined,
+          signal: AbortSignal.timeout(10000)
+        });
+        if (response.ok) break;
+        if (attempt === 3) return [];
+      } catch {
+        if (attempt === 3) return [];
+      }
+      await sleep(250 * (attempt + 1));
+    }
+    if (!response || !response.ok) return [];
+    const body = await response.json() as { data?: Array<Record<string, unknown>> };
+    return Array.isArray(body.data)
+      ? body.data.map((item) => ({ id: String(item.id || ''), name: String(item.id || '') })).filter((item) => item.name)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function isMaskedSecret(value: unknown): boolean {
+  return typeof value === 'string' && /^(\*+|••••+)$/.test(value.trim());
+}
+
+function overlayProviderEnv(base: Record<string, string>, body: Record<string, unknown>): Record<string, string> {
+  const env = { ...base };
+  const keys = [
+    'EMBEDDING_PROVIDER_URL',
+    'EMBEDDING_PROVIDER_MODEL',
+    'EMBEDDING_PROVIDER_API_KEY',
+    'EMBEDDING_PROVIDER_DIMENSIONS',
+    'EMBEDDING_PROVIDER_TIMEOUT_MS',
+    'RERANK_PROVIDER_URL',
+    'RERANK_PROVIDER_MODEL',
+    'RERANK_PROVIDER_API_KEY',
+    'RERANK_PROVIDER_TIMEOUT_MS',
+    'LITELLM_URL',
+    'LITELLM_MASTER_KEY'
+  ];
+  for (const key of keys) {
+    if (body[key] !== undefined && !isMaskedSecret(body[key])) {
+      env[key] = String(body[key]);
+    }
+  }
+  return env;
+}
+
+function modelLooksLikeKind(model: Record<string, unknown>, kind: 'chat' | 'embedding' | 'rerank'): boolean {
+  const mode = normalizeCatalogMode(model.mode);
+  if (kind === 'rerank') {
+    if (mode && mode !== 'rerank') return false;
+    if (mode === 'rerank') return true;
+  }
+  if (kind === 'embedding') {
+    if (mode && mode !== 'embeddings') return false;
+    if (mode === 'embeddings') return true;
+  }
+  const text = [
+    model.mode,
+    model.name,
+    model.id,
+    model.provider_model,
+    ...(Array.isArray(model.capabilities) ? model.capabilities : [])
+  ].map((item) => String(item || '').toLowerCase()).join(' ');
+  if (kind === 'chat') return !/\b(embed|embedding|rerank|ranker|reranker)\b/.test(text);
+  if (kind === 'embedding') return /\b(embed|embedding|bge-m3|bce-embedding)\b/.test(text);
+  return /\b(rerank|ranker|reranker)\b/.test(text);
+}
+
+function buildProviderUrl(baseUrl: string, path: string): string {
+  const normalizedBase = String(baseUrl || '').trim().replace(/\/$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return normalizedBase.endsWith('/v1')
+    ? `${normalizedBase}${normalizedPath}`
+    : `${normalizedBase}/v1${normalizedPath}`;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchProviderJson(
+  baseUrl: string,
+  paths: string[],
+  init: RequestInit,
+): Promise<{ response: Response | null; body: Record<string, unknown> }> {
+  let lastResponse: Response | null = null;
+  let lastBody: Record<string, unknown> = {};
+  for (const path of paths) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const response = await fetch(buildProviderUrl(baseUrl, path), init);
+        const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+        lastResponse = response;
+        lastBody = body;
+        if (response.ok) return { response, body };
+        if ([404, 405].includes(response.status)) break;
+        if (attempt === 3) return { response, body };
+      } catch (error) {
+        lastBody = { error: String(error) };
+        if (attempt === 3) break;
+      }
+      await sleep(250 * (attempt + 1));
+    }
+  }
+  return { response: lastResponse, body: lastBody };
+}
+
+async function testChatModel(model: Record<string, unknown>, env: Record<string, string>): Promise<Record<string, unknown>> {
+  const baseUrl = String(model.url || env.LITELLM_URL || process.env.LITELLM_URL || 'http://localhost:4000').replace(/\/$/, '');
+  const apiKey = String(model.api_key || env.LITELLM_MASTER_KEY || process.env.LITELLM_MASTER_KEY || '');
+  const name = String(model.name || env.LITELLM_MODEL || process.env.LITELLM_MODEL || '');
+  const started = Date.now();
+  try {
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        response = await fetch(buildProviderUrl(baseUrl, '/chat/completions'), {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {})
+          },
+          body: JSON.stringify({
+            model: name,
+            messages: [{ role: 'user', content: 'Reply with ok.' }],
+            max_tokens: 8,
+            temperature: 0
+          }),
+          signal: AbortSignal.timeout(15000)
+        });
+        if (response.ok) break;
+        if (attempt === 3) break;
+      } catch {
+        if (attempt === 3) throw new Error('fetch_failed');
+      }
+      await sleep(250 * (attempt + 1));
+    }
+    if (!response) throw new Error('fetch_failed');
+    const latencyMs = Date.now() - started;
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      return { ok: false, status: response.status, latency_ms: latencyMs, error: text.slice(0, 300) || `http_${response.status}` };
+    }
+    const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+    return { ok: true, status: response.status, latency_ms: latencyMs, model: name, response_preview: JSON.stringify(body).slice(0, 300) };
+  } catch (error) {
+    return { ok: false, status: 0, latency_ms: Date.now() - started, error: String(error).slice(0, 300) };
+  }
+}
+
+async function testEmbeddingProvider(env: Record<string, string>): Promise<Record<string, unknown>> {
+  const baseUrl = String(env.EMBEDDING_PROVIDER_URL || process.env.EMBEDDING_PROVIDER_URL || '').replace(/\/$/, '');
+  if (!baseUrl) return { ok: false, error: 'missing_embedding_provider_url' };
+  const started = Date.now();
+  try {
+    const { response, body } = await fetchProviderJson(baseUrl, ['/embeddings', '/rerank/embeddings'], {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...((env.EMBEDDING_PROVIDER_API_KEY || process.env.EMBEDDING_PROVIDER_API_KEY) ? { authorization: `Bearer ${env.EMBEDDING_PROVIDER_API_KEY || process.env.EMBEDDING_PROVIDER_API_KEY}` } : {})
+      },
+      body: JSON.stringify({
+        model: env.EMBEDDING_PROVIDER_MODEL || process.env.EMBEDDING_PROVIDER_MODEL || undefined,
+        input: 'embedding test',
+        ...(Number(env.EMBEDDING_PROVIDER_DIMENSIONS || process.env.EMBEDDING_PROVIDER_DIMENSIONS || 0) > 0
+          ? { dimensions: Number(env.EMBEDDING_PROVIDER_DIMENSIONS || process.env.EMBEDDING_PROVIDER_DIMENSIONS) }
+          : {})
+      }),
+      signal: AbortSignal.timeout(Number(env.EMBEDDING_PROVIDER_TIMEOUT_MS || process.env.EMBEDDING_PROVIDER_TIMEOUT_MS || 15000))
+    });
+    const latencyMs = Date.now() - started;
+    const typedBody = body as { data?: Array<{ embedding?: unknown[] }>; model?: string };
+    const dims = Array.isArray(typedBody.data?.[0]?.embedding) ? typedBody.data[0].embedding.length : 0;
+    return { ok: Boolean(response?.ok) && dims > 0, status: response?.status || 0, latency_ms: latencyMs, dimensions: dims || undefined, model: typedBody.model };
+  } catch (error) {
+    return { ok: false, status: 0, latency_ms: Date.now() - started, error: String(error).slice(0, 300) };
+  }
+}
+
+async function testRerankProvider(env: Record<string, string>): Promise<Record<string, unknown>> {
+  const baseUrl = String(env.RERANK_PROVIDER_URL || process.env.RERANK_PROVIDER_URL || '').replace(/\/$/, '');
+  if (!baseUrl) return { ok: false, error: 'missing_rerank_provider_url' };
+  const started = Date.now();
+  try {
+    const { response, body } = await fetchProviderJson(baseUrl, ['/rerank'], {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...((env.RERANK_PROVIDER_API_KEY || process.env.RERANK_PROVIDER_API_KEY) ? { authorization: `Bearer ${env.RERANK_PROVIDER_API_KEY || process.env.RERANK_PROVIDER_API_KEY}` } : {})
+      },
+      body: JSON.stringify({
+        model: env.RERANK_PROVIDER_MODEL || process.env.RERANK_PROVIDER_MODEL || undefined,
+        query: 'alpha',
+        documents: ['alpha beta', 'gamma delta'],
+        top_n: 2,
+        return_documents: false
+      }),
+      signal: AbortSignal.timeout(Number(env.RERANK_PROVIDER_TIMEOUT_MS || process.env.RERANK_PROVIDER_TIMEOUT_MS || 15000))
+    });
+    const latencyMs = Date.now() - started;
+    const typedBody = body as { results?: unknown[] };
+    return { ok: Boolean(response?.ok) && Array.isArray(typedBody.results), status: response?.status || 0, latency_ms: latencyMs, result_count: Array.isArray(typedBody.results) ? typedBody.results.length : 0 };
+  } catch (error) {
+    return { ok: false, status: 0, latency_ms: Date.now() - started, error: String(error).slice(0, 300) };
+  }
 }
 
 function normalizeWorkflowList(data: unknown, status?: string): { ok: boolean; workflows: Array<Record<string, unknown>> } {
@@ -607,6 +1200,7 @@ function loadEnvFile(): Record<string, string> {
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1);
       }
+      value = value.replace(/\\"/g, '"').replace(/\\'/g, "'");
       env[key] = value;
     }
   }
@@ -616,29 +1210,203 @@ function loadEnvFile(): Record<string, string> {
 function saveEnvFile(env: Record<string, string>): void {
   const dir = dirname(ENV_FILE_PATH);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const jsonKeys = new Set(['LLM_MODELS']);
   const lines = Object.entries(env).map(([k, v]) => {
-    if (v.includes(' ') || v.includes('"') || v.includes("'")) {
-      return `${k}="${v.replace(/"/g, '\\"')}"`;
+    const raw = jsonKeys.has(k) ? v : v;
+    if (jsonKeys.has(k)) {
+      return `${k}=${JSON.stringify(raw)}`;
     }
-    return `${k}=${v}`;
+    if (raw.includes(' ') || raw.includes('"') || raw.includes("'") || raw.includes('#') || raw.includes('=') || raw.startsWith('{') || raw.startsWith('[')) {
+      return `${k}=${JSON.stringify(raw)}`;
+    }
+    return `${k}=${raw}`;
   });
   writeFileSync(ENV_FILE_PATH, lines.join('\n') + '\n', 'utf8');
 }
 
-function validatePasswordStrength(password: string, lang: PortalLang): { valid: boolean; score: number; message: string } {
-  if (!password || password.length < 8) {
-    return { valid: false, score: 0, message: t(lang, 'portal.pwd.min_length') };
+function syncHostEnvFile(): { synced: boolean; path?: string; error?: string } {
+  const hostEnvPath = process.env.PORTAL_HOST_ENV_FILE || '/workspace/.env';
+  if (!existsSync(hostEnvPath) || resolve(hostEnvPath) === resolve(ENV_FILE_PATH)) {
+    return { synced: false, path: hostEnvPath };
   }
-  let score = 0;
-  if (password.length >= 8) score += 1;
-  if (password.length >= 12) score += 1;
-  if (/[a-z]/.test(password)) score += 1;
-  if (/[A-Z]/.test(password)) score += 1;
-  if (/[0-9]/.test(password)) score += 1;
-  if (/[^a-zA-Z0-9]/.test(password)) score += 1;
-  if (score < 3) return { valid: false, score, message: t(lang, 'portal.pwd.too_weak') };
-  if (score < 5) return { valid: true, score, message: t(lang, 'portal.pwd.medium') };
-  return { valid: true, score, message: t(lang, 'portal.pwd.good') };
+  try {
+    copyFileSync(ENV_FILE_PATH, hostEnvPath);
+    return { synced: true, path: hostEnvPath };
+  } catch (error) {
+    logger.warn('env.host_sync_failed', 'Failed to sync host env file', { hostEnvPath, error: String(error) });
+    return { synced: false, path: hostEnvPath, error: 'host_env_sync_failed' };
+  }
+}
+
+function parseJsonEnv<T>(value: string | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function syncRuntimeEnv(env: Record<string, string>): void {
+  for (const [key, value] of Object.entries(env)) {
+    process.env[key] = value;
+  }
+}
+
+function exportConfigEnv(env: Record<string, string>): Record<string, string> {
+  const exported = { ...env };
+  for (const key of CONFIG_ENV_KEYS) {
+    if (exported[key] === undefined && process.env[key] !== undefined) {
+      exported[key] = String(process.env[key] || '');
+    }
+  }
+  return exported;
+}
+
+function reloadRuntimeConfig(): void {
+  try {
+    configManager.reload();
+  } catch (error) {
+    logger.warn('config.reload_failed', 'Runtime config reload failed', { error: String(error) });
+  }
+}
+
+function dockerComposeProjectArgs(): string[] {
+  return ['compose', '--profile', 'app'];
+}
+
+function restartServiceByName(serviceName: string): { ok: boolean; message?: string; error?: string } {
+  const allowed = new Set(['web-portal', 'feishu-longconn', 'fact-retrieval', 'skill-library', 'resource-scheduler', 'hermes-adapter', 'gateway-adapter']);
+  if (!allowed.has(serviceName)) {
+    return { ok: false, error: 'service_restart_not_allowed' };
+  }
+  try {
+    execFileSync('docker', [...dockerComposeProjectArgs(), 'restart', serviceName], { timeout: 120000, stdio: 'pipe' });
+    return { ok: true, message: 'restarted' };
+  } catch (error) {
+    logger.error('service.restart_failed', 'Service restart failed', { service: serviceName, error: String(error) });
+    return { ok: false, error: 'restart_failed' };
+  }
+}
+
+function getRestartTargetsForConfigKeys(keys: string[]): string[] {
+  const services = new Set<string>();
+  for (const key of keys) {
+    if (key.startsWith('FEISHU_')) {
+      services.add('gateway-adapter');
+      services.add('feishu-longconn');
+    } else if (key.startsWith('WECOM_')) {
+      services.add('gateway-adapter');
+    } else if (key.startsWith('EMBEDDING_') || key.startsWith('RERANK_')) {
+      services.add('fact-retrieval');
+    } else if (key.startsWith('LITELLM_')) {
+      services.add('gateway-adapter');
+    }
+  }
+  return Array.from(services);
+}
+
+function formatBytesToMb(value: string | number | null | undefined): string {
+  const raw = typeof value === 'number' ? value : Number(String(value || '').replace(/[^\d.]/g, ''));
+  if (!Number.isFinite(raw) || raw < 0) return '-';
+  if (raw > 1024 * 1024 * 1024) return `${(raw / (1024 * 1024 * 1024)).toFixed(raw % (1024 * 1024 * 1024) === 0 ? 0 : 1)} GB`;
+  if (raw > 1024 * 1024) return `${(raw / (1024 * 1024)).toFixed(raw % (1024 * 1024) === 0 ? 0 : 1)} MB`;
+  if (raw > 1024) return `${(raw / 1024).toFixed(raw % 1024 === 0 ? 0 : 1)} KB`;
+  return `${Math.round(raw)} B`;
+}
+
+function parseMemoryUsage(raw: string): { currentBytes: number; limitBytes: number; display: string } {
+  const [currentPart, limitPart] = raw.split('/').map(part => part.trim());
+  const parseUnit = (part: string): number => {
+    const match = part.match(/^([0-9.]+)\s*([kKmMgGtTpP]?i?B)?$/);
+    if (!match) return Number(part.replace(/[^\d.]/g, '')) || 0;
+    const num = Number(match[1]);
+    const unit = (match[2] || 'B').toUpperCase();
+    const scale: Record<string, number> = {
+      B: 1,
+      KB: 1024,
+      KIB: 1024,
+      MB: 1024 * 1024,
+      MIB: 1024 * 1024,
+      GB: 1024 * 1024 * 1024,
+      GIB: 1024 * 1024 * 1024,
+      TB: 1024 * 1024 * 1024 * 1024,
+      TIB: 1024 * 1024 * 1024 * 1024,
+      PB: 1024 * 1024 * 1024 * 1024 * 1024,
+      PIB: 1024 * 1024 * 1024 * 1024 * 1024,
+    };
+    return Math.round(num * (scale[unit] || 1));
+  };
+  const currentBytes = parseUnit(currentPart || '');
+  const limitBytes = parseUnit(limitPart || '');
+  return { currentBytes, limitBytes, display: `${formatBytesToMb(currentBytes)} / ${formatBytesToMb(limitBytes)}` };
+}
+
+async function parseKnowledgeFileContent(buffer: Buffer, fileName: string, mimeType: string): Promise<string> {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (['txt', 'md', 'csv', 'json', 'yaml', 'yml', 'xml', 'html', 'htm', 'css', 'js', 'ts', 'py', 'java', 'go', 'rs', 'sql', 'sh', 'log', 'conf', 'ini', 'env'].includes(ext)) {
+    return buffer.toString('utf8');
+  }
+  if (['pdf', 'docx', 'xlsx', 'xls', 'pptx', 'odt', 'odp', 'ods', 'rtf'].includes(ext) || mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('sheet') || mimeType.includes('presentation')) {
+    try {
+      const officeParser = await import('officeparser');
+      const parseFn = (officeParser as Record<string, unknown>).parseOffice || (officeParser as Record<string, { parseOffice?: unknown }>).default?.parseOffice || (officeParser as Record<string, unknown>).default;
+      if (typeof parseFn === 'function') {
+        const result = await (parseFn as (buf: Buffer) => Promise<unknown>)(buffer);
+        if (typeof result === 'string' && result.trim()) return result;
+        if (result && typeof result === 'object') {
+          const objectResult = result as Record<string, unknown>;
+          const parts: string[] = [];
+          const extractText = (node: Record<string, unknown>): void => {
+            if (typeof node.text === 'string' && node.text.trim()) parts.push(node.text.trim());
+            if (typeof node.value === 'string' && node.value.trim()) parts.push(node.value.trim());
+            const kids = (node.children || node.content || node.items || []) as Array<Record<string, unknown>>;
+            for (const child of kids) extractText(child);
+          };
+          const roots = (objectResult.children || objectResult.slides || objectResult.sheets || []) as Array<Record<string, unknown>>;
+          for (const root of roots) extractText(root);
+          if (parts.length > 0) return parts.join('\n');
+        }
+      }
+    } catch (error) {
+      logger.warn('knowledge.file.office_parse_failed', 'Office parser failed, falling back', { file_name: fileName, error: String(error) });
+    }
+    if (ext === 'pdf') {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        const doc = await (pdfjsLib as { getDocument: (src: { data: Uint8Array }) => { promise: Promise<{ numPages: number; getPage(page: number): Promise<{ getTextContent(): Promise<{ items: Array<{ str?: string }> }> }> }> } }).getDocument({ data: new Uint8Array(buffer) }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= doc.numPages; i += 1) {
+          const page = await doc.getPage(i);
+          const content = await page.getTextContent();
+          pages.push(content.items.map((item) => item.str || '').join(' '));
+        }
+        return pages.join('\n');
+      } catch (error) {
+        logger.warn('knowledge.file.pdf_parse_failed', 'PDF parse failed', { file_name: fileName, error: String(error) });
+      }
+    }
+    if (ext === 'docx') {
+      try {
+        const mammoth = await import('mammoth');
+        const result = await mammoth.extractRawText({ buffer });
+        if (result.value.trim()) return result.value;
+      } catch (error) {
+        logger.warn('knowledge.file.docx_parse_failed', 'DOCX parse failed', { file_name: fileName, error: String(error) });
+      }
+    }
+  }
+  return buffer.toString('utf8').replace(/[^\x20-\x7E\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\n\r]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50000);
+}
+
+function normalizeKnowledgeSourceType(sourceType: string): string {
+  const normalized = sourceType.trim().toLowerCase();
+  if (!normalized) return 'manual';
+  if (['manual', 'upload', 'workflow', 'channel', 'external'].includes(normalized)) return normalized;
+  if (['document', 'file', 'attachment'].includes(normalized)) return 'upload';
+  if (['conversation', 'chat', 'message'].includes(normalized)) return 'channel';
+  if (['template', 'guide', 'reference', 'url', 'web'].includes(normalized)) return 'external';
+  return 'manual';
 }
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -842,7 +1610,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         const newHash = hashPassword(newPassword);
         await pool.query(
           `UPDATE "user"
-           SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb) - 'must_change_password', '{password_hash}', $2::jsonb)
+           SET metadata = jsonb_set(
+             jsonb_set(COALESCE(metadata, '{}'::jsonb) - 'must_change_password', '{source}', '"user_changed"'::jsonb),
+             '{password_hash}',
+             $2::jsonb
+           )
            WHERE id = $1`,
           [session.user_id, JSON.stringify(newHash)]
         );
@@ -955,17 +1727,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         const env = loadEnvFile();
         if (body.feishu_app_id) env.FEISHU_APP_ID = String(body.feishu_app_id);
         if (body.feishu_app_secret) env.FEISHU_APP_SECRET = String(body.feishu_app_secret);
-        saveEnvFile(env);
+        persistConfigEnv(env);
       } else if (step === 'llm') {
         const env = loadEnvFile();
         if (body.litellm_url) env.LITELLM_URL = String(body.litellm_url);
         if (body.litellm_model) env.LITELLM_MODEL = String(body.litellm_model);
-        saveEnvFile(env);
+        persistConfigEnv(env);
       } else if (step === 'embedding') {
         const env = loadEnvFile();
         if (body.embedding_mode) env.EMBEDDING_MODE = String(body.embedding_mode);
         if (body.embedding_provider_url) env.EMBEDDING_PROVIDER_URL = String(body.embedding_provider_url);
-        saveEnvFile(env);
+        persistConfigEnv(env);
       }
       sendJson(res, 200, { ok: true });
       return;
@@ -1276,12 +2048,23 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const body = await readJson(req);
-      const r = await fetchFromService(skillLibraryUrl + '/internal/skills', { method: 'POST', body: JSON.stringify(body) });
+      const normalizedBody = {
+        owner_user_id: session.user_id,
+        org_id: session.org_id || undefined,
+        scope_type: body.scope_type || 'private',
+        skill_name: String(body.skill_name || body.name || '').trim(),
+        description: String(body.description || ''),
+        skill_type: String(body.skill_type || body.type || 'prompt'),
+        definition_json: body.definition_json || body.definition || {},
+        metadata: body.metadata || {},
+        source_uri: body.source_uri || body.source || undefined,
+      };
+      const r = await fetchFromService(skillLibraryUrl + '/internal/skills/create', { method: 'POST', body: JSON.stringify(normalizedBody) });
       sendJson(res, r.status, r.data);
       return;
     }
 
-    if (pathname.startsWith('/api/admin/skills/') && !pathname.includes('/mirror-') && method === 'GET') {
+    if (pathname.startsWith('/api/admin/skills/') && !pathname.includes('/mirror-') && pathname !== '/api/admin/skills/recommended' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
       const skillId = pathname.slice('/api/admin/skills/'.length);
@@ -1331,16 +2114,49 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const body = await readJson(req);
       const env = loadEnvFile();
       const sections = getConfigSections(getRequestLang(req));
+      const changedKeys: string[] = [];
       for (const section of sections) {
         for (const field of section.fields) {
           if (body[field.key] !== undefined) {
             if (field.sensitive && body[field.key] === '****') continue;
-            env[field.key] = String(body[field.key]);
+            const nextValue = String(body[field.key]);
+            if (env[field.key] !== nextValue) changedKeys.push(field.key);
+            env[field.key] = nextValue;
           }
         }
       }
-      saveEnvFile(env);
-      sendJson(res, 200, { ok: true });
+      const persistedEnv = persistConfigEnv(env);
+      const hostEnvSync = syncHostEnvFile();
+      const restart_targets = getRestartTargetsForConfigKeys(changedKeys);
+      sendJson(res, 200, {
+        ok: true,
+        reloaded: true,
+        hot_loaded: true,
+        changed_keys: changedKeys,
+        restart_targets,
+        restart_hint: restart_targets.length > 0 ? 'restart_optional' : undefined,
+        host_env_synced: hostEnvSync.synced,
+        host_env_sync_error: hostEnvSync.error
+      });
+      return;
+    }
+
+    if (pathname === '/api/admin/config/reload' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const env = loadEnvFile();
+      persistConfigEnv(env);
+      sendJson(res, 200, { ok: true, reloaded: true });
+      return;
+    }
+
+    if (pathname === '/api/admin/services/restart' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const body = await readJson(req);
+      const service = String(body.service || '').trim();
+      const result = restartServiceByName(service);
+      sendJson(res, result.ok ? 200 : 500, result);
       return;
     }
 
@@ -1402,9 +2218,25 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const body = await readJson(req);
       const action = String(body.action || '');
       try {
+        const started = Date.now();
         if (action === 'analyze') await pool.query('ANALYZE');
         else if (action === 'checkpoint') await pool.query('CHECKPOINT');
-        sendJson(res, 200, { ok: true });
+        else { sendJson(res, 400, { ok: false, error: 'invalid_action' }); return; }
+        const [connResult, sizeResult, tableResult] = await Promise.all([
+          pool.query(`SELECT count(*) as cnt FROM pg_stat_activity WHERE datname = current_database()`),
+          pool.query(`SELECT pg_size_pretty(pg_database_size(current_database())) as size`),
+          pool.query(`SELECT count(*) as cnt FROM information_schema.tables WHERE table_schema = 'public'`)
+        ]);
+        sendJson(res, 200, {
+          ok: true,
+          action,
+          duration_ms: Date.now() - started,
+          stats: {
+            connections: Number(connResult.rows[0]?.cnt || 0),
+            db_size: sizeResult.rows[0]?.size || '-',
+            table_count: Number(tableResult.rows[0]?.cnt || 0)
+          }
+        });
       } catch (error) {
         logger.error('db.maintenance_error', 'DB maintenance failed', { error: String(error) });
         sendJson(res, 500, { ok: false, error: 'db_error' });
@@ -1416,8 +2248,90 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireSession(req, res);
       if (!session) return;
       const body = await readJson(req);
-      const r = await fetchFromService(factRetrievalUrl + '/knowledge/import', { method: 'POST', body: JSON.stringify(body) });
-      sendJson(res, r.status, r.data);
+      const ownerUserId = toPortalOwnerUserId(session);
+      const sourceType = normalizeKnowledgeSourceType(String(body.source_type || body.source_kind || 'manual'));
+      const scope = String(body.scope || 'private') === 'public' ? 'public' : 'private';
+      let content = String(body.content || body.content_text || body.source_text || '');
+      let fileResult: { status: number; data: unknown } | null = null;
+      let fileWarning: string | undefined;
+      if (typeof body.file_buffer_b64 === 'string' && body.file_buffer_b64) {
+        const buffer = Buffer.from(String(body.file_buffer_b64), 'base64');
+        content = await parseKnowledgeFileContent(buffer, String(body.file_name || body.title || 'upload'), String(body.mime_type || 'application/octet-stream'));
+        if (factRetrievalUrl) {
+          fileResult = await fetchFromService(factRetrievalUrl + '/internal/files/upload', {
+            method: 'POST',
+            body: JSON.stringify({
+              owner_user_id: ownerUserId,
+              org_id: session.org_id || null,
+              file_buffer_b64: body.file_buffer_b64,
+              original_name: String(body.file_name || body.title || 'upload'),
+              mime_type: String(body.mime_type || 'application/octet-stream'),
+              source: 'import',
+              scope,
+              file_category: 'upload'
+            })
+          });
+          if (fileResult.status >= 400) {
+            const data = fileResult.data as Record<string, unknown>;
+            fileWarning = String(data.error || 'file_storage_unavailable');
+            logger.warn('knowledge.file_storage_failed', 'File storage failed while knowledge import continues', {
+              file_name: String(body.file_name || body.title || 'upload'),
+              status: fileResult.status,
+              error: fileWarning
+            });
+          }
+        } else {
+          fileWarning = 'fact_retrieval_url_missing';
+        }
+      }
+      if (!content.trim()) { sendJson(res, 400, { ok: false, error: 'missing_content' }); return; }
+      if (!factRetrievalUrl) { sendJson(res, 503, { ok: false, error: 'fact_retrieval_url_missing' }); return; }
+      const documentResult = await fetchFromService(factRetrievalUrl + '/internal/documents/index', {
+        method: 'POST',
+        body: JSON.stringify({
+          owner_user_id: ownerUserId,
+          org_id: session.org_id || undefined,
+          title: String(body.title || body.file_name || 'Knowledge Import'),
+          content_text: content,
+          source_type: sourceType,
+          source_uri: typeof body.source_uri === 'string' && body.source_uri
+            ? body.source_uri
+            : String(body.file_name || ''),
+          scope: [scope],
+          scope_type: scope
+        })
+      });
+      if (documentResult.status >= 400) {
+        sendJson(res, documentResult.status, documentResult.data);
+        return;
+      }
+      const factResult = await fetchFromService(factRetrievalUrl + '/internal/fact/submit', {
+        method: 'POST',
+        body: JSON.stringify({
+          owner_user_id: ownerUserId,
+          org_id: session.org_id || undefined,
+          source_text: content.slice(0, 20000),
+          source: sourceType === 'upload' ? 'portal_document_import' : 'portal_manual_import'
+        })
+      });
+      const documentData = (documentResult.data || {}) as Record<string, unknown>;
+      const factData = (factResult.data || {}) as Record<string, unknown>;
+      sendJson(res, 200, {
+        ok: true,
+        document: {
+          document_id: documentData.document_id,
+          version_id: documentData.version_id,
+          chunks_indexed: documentData.chunks_indexed,
+          chunk_ids: documentData.chunk_ids
+        },
+        review: {
+          submitted: factResult.status >= 200 && factResult.status < 300,
+          fact_id: factData.fact_id,
+          error: factData.error
+        },
+        file: fileResult && (fileResult.data as Record<string, unknown>).file ? (fileResult.data as Record<string, unknown>).file : undefined,
+        warning: fileWarning
+      });
       return;
     }
 
@@ -1445,6 +2359,24 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const r = await fetchFromService(factRetrievalUrl + '/admin/shared-knowledge');
+      if (r.status === 404 || (typeof r.data === 'object' && r.data && (r.data as Record<string, unknown>).error === 'not_found')) {
+        const pool = await getDbPool();
+        if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+        try {
+          const result = await pool.query(
+            `SELECT id, title, source_kind, source_uri, status, created_at
+               FROM document
+              WHERE scope_type = 'public' AND status = 'active'
+              ORDER BY created_at DESC
+              LIMIT 200`
+          );
+          sendJson(res, 200, { ok: true, documents: result.rows });
+        } catch (error) {
+          logger.error('shared_knowledge.list_failed', 'Failed to list shared knowledge', { error: String(error) });
+          sendJson(res, 500, { ok: false, error: 'db_error' });
+        }
+        return;
+      }
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1453,7 +2385,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const body = await readJson(req);
-      const r = await fetchFromService(factRetrievalUrl + '/admin/shared-knowledge', { method: 'POST', body: JSON.stringify(body) });
+      const payload = {
+        owner_user_id: toPortalOwnerUserId(session),
+        org_id: session.org_id || undefined,
+        title: String(body.title || 'Shared Doc'),
+        content_text: String(body.content || body.content_text || ''),
+        source_type: normalizeKnowledgeSourceType(String(body.source_kind || body.source_type || 'manual')),
+        source_uri: String(body.source_uri || ''),
+        scope: ['public'],
+        scope_type: 'public'
+      };
+      const r = await fetchFromService(factRetrievalUrl + '/internal/documents/index', { method: 'POST', body: JSON.stringify(payload) });
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1463,6 +2405,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const docId = pathname.slice('/api/admin/shared-knowledge/'.length);
       const r = await fetchFromService(factRetrievalUrl + '/admin/shared-knowledge/' + encodeURIComponent(docId), { method: 'DELETE' });
+      if (r.status === 404 || (typeof r.data === 'object' && r.data && (r.data as Record<string, unknown>).error === 'not_found')) {
+        const pool = await getDbPool();
+        if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
+        try {
+          await pool.query(`UPDATE document SET status='deleted', updated_at=now() WHERE id=$1`, [docId]);
+          sendJson(res, 200, { ok: true });
+        } catch (error) {
+          logger.error('shared_knowledge.delete_failed', 'Failed to delete shared knowledge', { docId, error: String(error) });
+          sendJson(res, 500, { ok: false, error: 'db_error' });
+        }
+        return;
+      }
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1853,8 +2807,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const scope = getQuotaScope(session);
-      const r = await fetchFromService(resourceSchedulerUrl + '/internal/quotas/' + scope);
-      if (r.status === 404) {
+      const r = await fetchFromService(getResourceSchedulerUrl() + '/internal/quotas/' + scope);
+      if (r.status === 404 || r.status === 502 || r.status === 504) {
         sendJson(res, 200, normalizeQuotaResponse({ quota: { scope, ...DEFAULT_QUOTAS }, usage: {} }));
         return;
       }
@@ -1871,9 +2825,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         scope: getQuotaScope(session),
         created_by: session.user_id,
         ...DEFAULT_QUOTAS,
-        ...Object.fromEntries(Object.keys(DEFAULT_QUOTAS).map(key => [key, Number(quotas[key] || DEFAULT_QUOTAS[key as keyof typeof DEFAULT_QUOTAS])])),
+        ...Object.fromEntries(Object.keys(DEFAULT_QUOTAS).map(key => {
+          const raw = quotas[key];
+          const fallback = DEFAULT_QUOTAS[key as keyof typeof DEFAULT_QUOTAS];
+          const parsed = raw === '' || raw === undefined || raw === null ? fallback : Number(raw);
+          return [key, Number.isFinite(parsed) ? parsed : fallback];
+        })),
       };
-      const r = await fetchFromService(resourceSchedulerUrl + '/internal/quotas/create', { method: 'POST', body: JSON.stringify(payload) });
+      const r = await fetchFromService(getResourceSchedulerUrl() + '/internal/quotas/create', { method: 'POST', body: JSON.stringify(payload) });
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1881,7 +2840,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/admin/quotas/report' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
-      const r = await fetchFromService(resourceSchedulerUrl + '/internal/inspections/report');
+      const r = await fetchFromService(getResourceSchedulerUrl() + '/internal/inspections/report');
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1889,7 +2848,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/admin/quotas/inspect' && method === 'POST') {
       const session = await requireAdmin(req, res);
       if (!session) return;
-      const r = await fetchFromService(resourceSchedulerUrl + '/internal/inspections/start', { method: 'POST' });
+      const r = await fetchFromService(getResourceSchedulerUrl() + '/internal/inspections/start', { method: 'POST' });
       sendJson(res, r.status, r.data);
       return;
     }
@@ -1980,29 +2939,16 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const env = loadEnvFile();
-      const modelsJson = env.LLM_MODELS || process.env.LLM_MODELS || '[]';
-      try {
-        const models = JSON.parse(modelsJson);
-        const sanitizedModels = (models as Array<Record<string, unknown>>).map((m: Record<string, unknown>) => ({
-          ...m,
-          url: maskUrlPassword(String(m.url || '')),
-          api_key: String(m.api_key || '') ? '********' : ''
-        }));
-        sendJson(res, 200, { ok: true, models: sanitizedModels });
-      } catch {
-        const litellmUrl = maskUrlPassword(env.LITELLM_URL || process.env.LITELLM_URL || 'http://localhost:4000');
-        const litellmKey = env.LITELLM_MASTER_KEY || process.env.LITELLM_MASTER_KEY || '';
-        const defaultModel = env.LITELLM_MODEL || process.env.LITELLM_MODEL || 'minimax-m2.7';
-        const fallbackStr = env.LITELLM_FALLBACK_MODELS || process.env.LITELLM_FALLBACK_MODELS || '';
-        const fallbacks = fallbackStr ? fallbackStr.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-        const models = [
-          { id: 'model-0', name: defaultModel, url: litellmUrl, api_key: litellmKey ? '********' : '', priority: 1, is_fallback: false },
-          ...fallbacks.map((m: string, i: number) => ({
-            id: 'model-' + (i + 1), name: m, url: litellmUrl, api_key: litellmKey ? '********' : '', priority: i + 2, is_fallback: true,
-          })),
-        ];
-        sendJson(res, 200, { ok: true, models });
-      }
+      const models = parseLlmModels(env).map((model) => sanitizeLlmModel(model));
+      sendJson(res, 200, {
+        ok: true,
+        models,
+        catalog: {
+          chat: getModelCatalogByKind('chat'),
+          embedding: getModelCatalogByKind('embedding'),
+          rerank: getModelCatalogByKind('rerank')
+        }
+      });
       return;
     }
 
@@ -2013,26 +2959,74 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const name = String(body.name || '').trim();
       if (!name) { sendJson(res, 400, { ok: false, error: 'missing_name', message: t(requestLang, 'portal.llm.name_required') }); return; }
       const env = loadEnvFile();
-      let models: Array<Record<string, unknown>> = [];
-      try { models = JSON.parse(env.LLM_MODELS || process.env.LLM_MODELS || '[]'); } catch { /* ignore */ }
-      const newId = 'model-' + Date.now();
-      const newModel = {
-        id: newId,
-        name,
-        url: String(body.url || env.LITELLM_URL || process.env.LITELLM_URL || 'http://localhost:4000'),
-        api_key: String(body.api_key || ''),
-        priority: models.length + 1,
-        is_fallback: models.length > 0,
-        max_tokens: body.max_tokens || undefined,
-        temperature: body.temperature || undefined,
-      };
-      models.push(newModel);
-      env.LLM_MODELS = JSON.stringify(models);
-      if (models.length > 0 && !env.LITELLM_MODEL) env.LITELLM_MODEL = models[0].name as string;
-      const fallbackNames = models.slice(1).map((m: Record<string, unknown>) => m.name).join(',');
-      if (fallbackNames) env.LITELLM_FALLBACK_MODELS = fallbackNames;
-      saveEnvFile(env);
-      sendJson(res, 200, { ok: true, model: newModel });
+      const models = parseLlmModels(env);
+      const newModel = buildModelUpsertPayload(body, env, models.length);
+      const normalized = [...models.map((item, idx) => normalizeModelRecord(item, String(item.id || `model-${idx}`))), newModel];
+      const persistedModels = persistLlmModels(env, normalized);
+      persistConfigEnv(env);
+      const persistedModel = persistedModels.find((item) => String(item.id) === String(newModel.id)) || persistedModels[persistedModels.length - 1] || newModel;
+      sendJson(res, 200, { ok: true, model: sanitizeLlmModel(persistedModel), models: persistedModels.map((item) => sanitizeLlmModel(item)) });
+      return;
+    }
+
+    if (pathname === '/api/admin/llm-models/catalog' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const body = await readJson(req);
+      const env = loadEnvFile();
+      const kind = String(body.kind || 'chat') as 'chat' | 'embedding' | 'rerank';
+      const baseUrl = String(body.url || env.LITELLM_URL || process.env.LITELLM_URL || 'http://localhost:4000').trim();
+      const rawApiKey = isMaskedSecret(body.api_key) ? '' : String(body.api_key || '').trim();
+      const apiKey = String(rawApiKey || env.LITELLM_MASTER_KEY || process.env.LITELLM_MASTER_KEY || '').trim();
+      const providerModels = await fetchProviderModelCatalog(baseUrl, apiKey);
+      const catalogMap = getLiteLlmCatalogByName();
+      const providerMerged = providerModels.map((item, index) => {
+        const meta = catalogMap.get(String(item.name || item.id || '').toLowerCase()) || {};
+        return normalizeModelRecord({
+          ...meta,
+          ...item,
+          url: baseUrl,
+          api_key: apiKey,
+          mode: meta.mode,
+        }, `catalog-${index}`);
+      });
+      const providerFiltered = providerMerged.filter((item) => modelLooksLikeKind(item, kind));
+      const localCatalog = getModelCatalogByKind(kind).map((item, index) => normalizeModelRecord({
+        ...item,
+        url: item.api_base || baseUrl,
+        api_key: apiKey,
+        mode: item.mode || (kind === 'embedding' ? 'embeddings' : kind)
+      }, `local-${index}`));
+      const byName = new Map<string, Record<string, unknown>>();
+      for (const item of [...providerFiltered, ...localCatalog]) {
+        const name = String(item.name || item.id || '').trim();
+        if (name && !byName.has(name.toLowerCase())) byName.set(name.toLowerCase(), item);
+      }
+      sendJson(res, 200, { ok: true, kind, models: Array.from(byName.values()).map((item) => sanitizeLlmModel(item)) });
+      return;
+    }
+
+    if (pathname === '/api/admin/llm-models/test' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const body = await readJson(req);
+      const env = overlayProviderEnv(loadEnvFile(), body);
+      const kind = String(body.kind || 'chat') as 'chat' | 'embedding' | 'rerank';
+      const modelId = String(body.model_id || body.modelId || '').trim();
+      const models = parseLlmModels(env);
+      const selected = modelId ? models.find((model) => String(model.id) === modelId || String(model.name) === modelId) : undefined;
+      if (kind === 'chat') {
+        const result = await testChatModel(selected || body, env);
+        sendJson(res, result.ok ? 200 : 502, result);
+        return;
+      }
+      if (kind === 'embedding') {
+        const result = await testEmbeddingProvider(env);
+        sendJson(res, result.ok ? 200 : 502, result);
+        return;
+      }
+      const result = await testRerankProvider(env);
+      sendJson(res, result.ok ? 200 : 502, result);
       return;
     }
 
@@ -2043,20 +3037,16 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const order = body.order as string[] | undefined;
       if (!order || !Array.isArray(order)) { sendJson(res, 400, { ok: false, error: 'invalid_order' }); return; }
       const env = loadEnvFile();
-      let models: Array<Record<string, unknown>> = [];
-      try { models = JSON.parse(env.LLM_MODELS || process.env.LLM_MODELS || '[]'); } catch { /* ignore */ }
+      const models = parseLlmModels(env);
       const reordered = order.map((id: string, idx: number) => {
-        const found = models.find((m: Record<string, unknown>) => m.id === id);
+        const found = models.find((m: Record<string, unknown>) => String(m.id) === id);
         if (!found) return null;
-        return { ...found, priority: idx + 1, is_fallback: idx > 0 };
+        return { ...normalizeModelRecord(found, id), priority: idx + 1, is_fallback: idx > 0 };
       }).filter(Boolean) as Array<Record<string, unknown>>;
       if (reordered.length === 0) { sendJson(res, 400, { ok: false, error: 'no_valid_models' }); return; }
-      env.LLM_MODELS = JSON.stringify(reordered);
-      env.LITELLM_MODEL = reordered[0].name as string;
-      const fallbackNames = reordered.slice(1).map((m: Record<string, unknown>) => m.name).join(',');
-      env.LITELLM_FALLBACK_MODELS = fallbackNames || '';
-      saveEnvFile(env);
-      sendJson(res, 200, { ok: true, models: reordered });
+      const persistedModels = persistLlmModels(env, reordered);
+      persistConfigEnv(env);
+      sendJson(res, 200, { ok: true, models: persistedModels.map((item) => sanitizeLlmModel(item)) });
       return;
     }
 
@@ -2065,17 +3055,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const modelId = pathname.slice('/api/admin/llm-models/'.length);
       const env = loadEnvFile();
-      let models: Array<Record<string, unknown>> = [];
-      try { models = JSON.parse(env.LLM_MODELS || process.env.LLM_MODELS || '[]'); } catch { /* ignore */ }
-      const filtered = models.filter((m: Record<string, unknown>) => m.id !== modelId);
+      const models = parseLlmModels(env);
+      const filtered = models.filter((m: Record<string, unknown>) => String(m.id) !== modelId);
       if (filtered.length === models.length) { sendJson(res, 404, { ok: false, error: 'model_not_found' }); return; }
-      filtered.forEach((m: Record<string, unknown>, i: number) => { m.priority = i + 1; m.is_fallback = i > 0; });
-      env.LLM_MODELS = JSON.stringify(filtered);
-      if (filtered.length > 0) env.LITELLM_MODEL = filtered[0].name as string;
-      const fallbackNames = filtered.slice(1).map((m: Record<string, unknown>) => m.name).join(',');
-      env.LITELLM_FALLBACK_MODELS = fallbackNames || '';
-      saveEnvFile(env);
-      sendJson(res, 200, { ok: true });
+      const normalized = filtered.map((m: Record<string, unknown>, i: number) => ({ ...normalizeModelRecord(m, String(m.id || `model-${i}`)), priority: i + 1, is_fallback: i > 0 }));
+      const persistedModels = persistLlmModels(env, normalized);
+      persistConfigEnv(env);
+      sendJson(res, 200, { ok: true, models: persistedModels.map((item) => sanitizeLlmModel(item)) });
       return;
     }
 
@@ -2083,9 +3069,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const containerStats: Array<Record<string, unknown>> = [];
+      let dockerAvailable = false;
       try {
         const { execFileSync } = await import('node:child_process');
-        let dockerAvailable = false;
         try { execFileSync('docker', ['info'], { timeout: 5000, stdio: 'pipe' }); dockerAvailable = true; } catch { /* docker not available */ }
 
         if (dockerAvailable) {
@@ -2106,7 +3092,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       } catch (error) {
         logger.warn('container_stats.error', 'Failed to collect container stats', { error: String(error) });
       }
-      sendJson(res, 200, { ok: true, containers: containerStats, docker_available: containerStats.length > 0, timestamp: new Date().toISOString() });
+      sendJson(res, 200, { ok: true, containers: containerStats, docker_available: dockerAvailable, timestamp: new Date().toISOString() });
       return;
     }
 
@@ -2151,6 +3137,40 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
 
+    if (pathname === '/api/admin/skills/recommended' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      sendJson(res, 200, { ok: true, skills: CURATED_CLAWHUB_SKILLS });
+      return;
+    }
+
+    if (pathname === '/api/admin/skills/recommended' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const body = await readJson(req);
+      const name = String(body.name || body.skill_name || '').trim();
+      const skill = CURATED_CLAWHUB_SKILLS.find((item) => item.name === name || item.source === body.source);
+      if (!skill) {
+        sendJson(res, 404, { ok: false, error: 'skill_not_found' });
+        return;
+      }
+      const r = await fetchFromService(skillLibraryUrl + '/internal/skills/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          owner_user_id: session.user_id,
+          org_id: session.org_id || undefined,
+          scope_type: 'private',
+          skill_name: skill.name,
+          description: skill.description,
+          skill_type: skill.type,
+          definition_json: skill.definition,
+          metadata: { curated: true, source: skill.source, risk: skill.risk, install_count: skill.installCount, rating: skill.rating, category: skill.category }
+        })
+      });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
     if (pathname === '/api/admin/service-status-history' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
@@ -2158,7 +3178,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!pool) { sendJson(res, 503, { ok: false, error: 'db_unavailable' }); return; }
       try {
         const result = await pool.query(
-          `SELECT * FROM service_status_event ORDER BY occurred_at DESC LIMIT 100`
+          `SELECT *, created_at AS occurred_at FROM service_status_event ORDER BY created_at DESC LIMIT 100`
         );
         sendJson(res, 200, { ok: true, events: result.rows });
       } catch {
@@ -2176,7 +3196,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const scope = reqUrl.searchParams.get('scope') || '';
       const limit = reqUrl.searchParams.get('limit') || '50';
       const offset = reqUrl.searchParams.get('offset') || '0';
-      let url = `${factRetrievalUrl}/internal/files?owner_user_id=${encodeURIComponent(session.user_id)}&limit=${limit}&offset=${offset}`;
+      let url = `${factRetrievalUrl}/internal/files?owner_user_id=${encodeURIComponent(toPortalFileOwnerUserId(session))}&limit=${limit}&offset=${offset}`;
       if (category) url += '&category=' + encodeURIComponent(category);
       if (scope) url += '&scope=' + encodeURIComponent(scope);
       const r = await fetchFromService(url);
@@ -2191,7 +3211,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const r = await fetchFromService(`${factRetrievalUrl}/internal/files/upload`, {
         method: 'POST',
         body: JSON.stringify({
-          owner_user_id: session.user_id,
+          owner_user_id: toPortalFileOwnerUserId(session),
           org_id: session.org_id,
           file_buffer_b64: String(body.file_buffer || ''),
           original_name: String(body.original_name || 'untitled'),
@@ -2210,7 +3230,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const fileId = pathname.split('/')[3];
       const r = await fetchFromService(
-        `${factRetrievalUrl}/internal/files/${encodeURIComponent(fileId)}/download?user_id=${encodeURIComponent(session.user_id)}`
+        `${factRetrievalUrl}/internal/files/${encodeURIComponent(fileId)}/download?user_id=${encodeURIComponent(toPortalFileOwnerUserId(session))}`
       );
       if (r.status === 200 && typeof r.data === 'object' && r.data) {
         const data = r.data as Record<string, unknown>;
@@ -2230,7 +3250,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const body = await readJson(req);
       const r = await fetchFromService(`${factRetrievalUrl}/internal/files/${encodeURIComponent(fileId)}/share`, {
         method: 'POST',
-        body: JSON.stringify({ scope: String(body.scope || 'shared'), requested_by: session.user_id })
+        body: JSON.stringify({ scope: String(body.scope || 'shared'), requested_by: toPortalFileOwnerUserId(session) })
       });
       sendJson(res, r.status, r.data);
       return;
@@ -2240,7 +3260,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireSession(req, res);
       if (!session) return;
       const fileId = pathname.split('/')[3];
-      const r = await fetchFromService(`${factRetrievalUrl}/internal/files/${encodeURIComponent(fileId)}?user_id=${encodeURIComponent(session.user_id)}`, { method: 'DELETE' });
+      const r = await fetchFromService(`${factRetrievalUrl}/internal/files/${encodeURIComponent(fileId)}?user_id=${encodeURIComponent(toPortalFileOwnerUserId(session))}`, { method: 'DELETE' });
       sendJson(res, r.status, r.data);
       return;
     }

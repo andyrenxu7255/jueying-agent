@@ -2,6 +2,7 @@ import { createLogger, metricsRegistry } from '@agent-harness/shared';
 import { eq, sql, and, or, type SQL } from 'drizzle-orm';
 import { artifactObjects, auditEvents, documentChunks, documents, documentVersions, embeddingAdapter, entities, entityAttributes, factConflicts, factEvidence, facts, projectionEvents, relations, retrievalTraces, rerankAdapter, userFiles, users } from '@agent-harness/shared';
 import { db, pool } from './db';
+import { randomUUID } from 'node:crypto';
 
 function requireDb(): NonNullable<typeof db> {
   if (!db) throw new Error('Database not available — service is running in degraded mode');
@@ -37,6 +38,13 @@ type RetrievalStepTrace = { step_type: string; ref: string; items_count: number;
 
 const GRAPH_NAME = 'knowledge_graph';
 const ALLOWED_GRAPH_NAMES = new Set([GRAPH_NAME]);
+const DOCUMENT_SOURCE_KINDS = new Set(['upload', 'workflow', 'channel', 'external', 'manual']);
+const FACT_REVIEW_STATUS_ALIASES: Record<string, string> = {
+  unconfirmed: 'candidate',
+  returned: 'candidate'
+};
+const FILE_CATEGORIES = new Set(['upload', 'artifact', 'generated', 'attachment', 'archive']);
+const FILE_SOURCES = new Set(['user_upload', 'llm_generated', 'stage_output', 'import', 'system']);
 
 function validateGraphName(name: string): string {
   if (!ALLOWED_GRAPH_NAMES.has(name)) {
@@ -134,6 +142,30 @@ function sanitizeCypherLiteral(value: string): string {
     .slice(0, 4096);
 }
 
+function normalizeDocumentSourceKind(sourceKind: string): string {
+  const normalized = String(sourceKind || '').trim().toLowerCase();
+  if (DOCUMENT_SOURCE_KINDS.has(normalized)) return normalized;
+  if (['document', 'file', 'attachment'].includes(normalized)) return 'upload';
+  if (['conversation', 'chat', 'message'].includes(normalized)) return 'channel';
+  if (['template', 'guide', 'reference', 'url', 'web'].includes(normalized)) return 'external';
+  return 'manual';
+}
+
+function normalizeReviewStatus(status: string): string {
+  const normalized = String(status || '').trim().toLowerCase();
+  return FACT_REVIEW_STATUS_ALIASES[normalized] || normalized || 'candidate';
+}
+
+function normalizeFileCategory(category: string): string {
+  const normalized = String(category || '').trim().toLowerCase();
+  return FILE_CATEGORIES.has(normalized) ? normalized : 'upload';
+}
+
+function normalizeFileSource(source: string): string {
+  const normalized = String(source || '').trim().toLowerCase();
+  return FILE_SOURCES.has(normalized) ? normalized : 'import';
+}
+
 class FactRetrievalService {
   private redisCacheInitialized = false;
 
@@ -145,12 +177,20 @@ class FactRetrievalService {
 
   private async ensureUser(userRef: string): Promise<string> {
     const userId = userRefToDbId(userRef);
+    const username = `${userRef.replace(/^u_/, '').slice(0, 48)}_${userId.slice(0, 8)}`;
+    const displayName = userRef.replace(/^u_/, '');
+
+    const [byId] = await requireDb().select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (byId) return byId.id;
 
     await requireDb().insert(users).values({
       id: userId,
       orgId: DEFAULT_ORG_ID,
-      username: userRef.replace(/^u_/, ''),
-      displayName: userRef.replace(/^u_/, ''),
+      username,
+      displayName,
       role: 'user',
       status: 'active',
       metadata: {},
@@ -262,9 +302,10 @@ class FactRetrievalService {
       ownerUserId: userId,
       scopeType: input.scope[0] || 'private',
       title: input.title,
-      sourceKind: input.source_type,
+      sourceKind: normalizeDocumentSourceKind(input.source_type),
       sourceUri: input.source_uri,
       status: 'active',
+      contentHash: sha256Prefixed(input.content_text),
       metadata: {}
     }).returning());
 
@@ -292,6 +333,10 @@ class FactRetrievalService {
         metadata: {}
       }))).returning());
     }
+
+    await withRetry(() => requireDb().update(documents)
+      .set({ currentVersionId: version.id, updatedAt: new Date() })
+      .where(eq(documents.id, document.id)));
 
     logger.info('document.indexed', 'Document indexed', {
       document_id: document.id,
@@ -521,6 +566,7 @@ class FactRetrievalService {
 
     const [newFact] = await withRetry(() => requireDb().insert(facts).values({
       ownerUserId: userId,
+      orgId: input.org_id || null,
       scopeType: input.scope[0] || 'private',
       subjectRef: input.subject_ref || input.owner_user_id,
       predicate: input.predicate || 'states',
@@ -569,9 +615,13 @@ class FactRetrievalService {
     const scopeType = input.scope[0] || 'private';
     const documentName = input.title || `document:${documentId}`;
     const contentPreview = chunks.map(chunk => chunk.contentText).join('\n').slice(0, 4000);
+    const [owner] = await requireDb().select({ orgId: users.orgId })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
     try {
-      const entityId = await this.ensureEntityNode(userId, undefined, scopeType, documentName, 'Document', {
+      const entityId = await this.ensureEntityNode(userId, owner?.orgId || undefined, scopeType, documentName, 'Document', {
         document_id: documentId,
         source_type: input.source_type,
         source_uri: input.source_uri
@@ -1161,17 +1211,22 @@ class FactRetrievalService {
         try {
           await client.query('SET search_path = ag_catalog, public');
           await client.query('SET statement_timeout = 10000');
+          await this.ensureAgeGraph(client, graphName);
 
           const applyCypher = async (cypherSql: string): Promise<void> => {
             try {
               await client.query(cypherSql);
             } catch (cypherErr: unknown) {
               const msg = String((cypherErr as { message?: string })?.message || '');
-              if (!graphRecovered && msg.includes('unhandled cypher')) {
+              if (!graphRecovered && (msg.includes('unhandled cypher') || msg.includes(`graph "${graphName}" does not exist`))) {
                 graphRecovered = true;
                 logger.warn('graph.recovering', 'Recreating corrupted AGE graph', { graphName });
-                await client.query(`SELECT drop_graph('${graphName}', true)`);
-                await client.query(`SELECT create_graph('${graphName}')`);
+                try {
+                  await client.query(`SELECT drop_graph('${graphName}', true)`);
+                } catch {
+                  // Missing graph is fine here; create_graph below is the repair step.
+                }
+                await this.ensureAgeGraph(client, graphName, true);
                 await client.query(cypherSql);
               } else {
                 throw cypherErr;
@@ -1226,7 +1281,7 @@ class FactRetrievalService {
   }
 
   // submitUserFact: 接收用户通过消息通道主动提交的知识片段
-  // 将用户原文写入 fact 表，状态设为 unconfirmed 等待管理员审核
+  // 将用户原文写入 fact 表，状态设为 candidate 等待管理员审核
   // 参数:
   //   input.source_text - 用户原始消息文本
   //   input.owner_user_id - 提交者ID
@@ -1235,20 +1290,21 @@ class FactRetrievalService {
   // 返回:
   //   fact_id - 新创建的知识条目ID
   async submitUserFact(input: { source_text: string; owner_user_id: string; org_id?: string; source: string }): Promise<{ fact_id: string }> {
-    const factId = randomRef('fact');
+    const factId = randomUUID();
+    const userId = await withRetry(() => this.ensureUser(input.owner_user_id));
     // 尝试从文本中抽取主体和关系作为结构化字段
     const extracted = this.tryExtractSubjectPredicate(input.source_text);
 
     await withRetry(() => requireDb().insert(facts).values({
       id: factId,
-      ownerUserId: userRefToDbId(input.owner_user_id),
+      ownerUserId: userId,
       orgId: input.org_id || null,
       scopeType: 'private',
       subjectRef: extracted.subject || 'unknown',
       predicate: extracted.predicate || 'unknown',
       objectValue: input.source_text,
       objectJson: {},
-      status: 'unconfirmed',
+      status: 'candidate',
       confidence: 0.5,
       metadata: {
         source: input.source,
@@ -1310,11 +1366,10 @@ class FactRetrievalService {
   // listFactsForReview: 列出待审核的知识条目集合
   // 按 org_id + status 过滤，支持分页
   async listFactsForReview(input: { org_id?: string; status: string; limit: number; offset: number }): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
-    const conditions: SQL[] = [eq(facts.status, input.status)];
+    const status = normalizeReviewStatus(input.status);
+    const conditions: SQL[] = [eq(facts.status, status)];
     if (input.org_id) {
       conditions.push(eq(facts.orgId, input.org_id));
-    } else {
-      conditions.push(sql`f.org_id IS NOT NULL`);
     }
 
     const totalResult = await requireDb().select({ count: sql<number>`count(*)` }).from(facts)
@@ -1334,7 +1389,7 @@ class FactRetrievalService {
         subject: row.subjectRef,
         predicate: row.predicate,
         object_value: row.objectValue,
-        status: row.status,
+        status: row.status === 'candidate' ? 'unconfirmed' : row.status,
         source: meta.source || 'unknown',
         confidence: row.confidence,
         created_at: row.createdAt?.toISOString(),
@@ -1348,14 +1403,14 @@ class FactRetrievalService {
   }
 
   // reviewFact: 管理员审核知识条目
-  // 支持 approve(批准→active), approve_shared(批准→active+scope=shared), approve_org(批准→active+scope=public), reject(拒绝), return(退回)
+  // 支持 approve(批准→active), approve_org(批准→active+scope=public), reject(拒绝), return(退回)
   async reviewFact(input: { fact_id: string; action: 'approve' | 'approve_shared' | 'approve_org' | 'reject' | 'return'; reviewer_id: string; review_note: string }): Promise<{ success: boolean; new_status: string }> {
     const statusMap: Record<string, { status: string; scope?: string }> = {
       approve: { status: 'active' },
-      approve_shared: { status: 'active', scope: 'shared' },
+      approve_shared: { status: 'active', scope: 'public' },
       approve_org: { status: 'active', scope: 'public' },
       reject: { status: 'rejected' },
-      return: { status: 'unconfirmed' }
+      return: { status: 'candidate' }
     };
 
     const mapping = statusMap[input.action];
@@ -1406,7 +1461,17 @@ class FactRetrievalService {
       new_status: mapping.status
     });
 
-    return { success: true, new_status: mapping.status };
+    return { success: true, new_status: mapping.status === 'candidate' ? 'unconfirmed' : mapping.status };
+  }
+
+  private async ensureAgeGraph(client: { query: (text: string, values?: unknown[]) => Promise<unknown> }, graphName: string, forceCreate = false): Promise<void> {
+    validateGraphName(graphName);
+    if (!forceCreate) {
+      const result = await client.query('SELECT 1 FROM ag_catalog.ag_graph WHERE name = $1 LIMIT 1', [graphName]) as { rows?: unknown[] };
+      if ((result.rows || []).length > 0) return;
+    }
+    await client.query(`SELECT create_graph('${graphName}')`);
+    logger.info('graph.created', 'AGE graph is ready', { graphName });
   }
 
   private async runStructuredQuery(queryText: string, allowedScopes: string[], ownerUserId: string, orgId?: string | null): Promise<Array<{ fact_id: string; content: string; score: number; source_scope: string }>> {
@@ -1584,6 +1649,7 @@ class FactRetrievalService {
     try {
       await client.query('SET search_path = ag_catalog, public');
       await client.query('SET statement_timeout = 10000');
+      await this.ensureAgeGraph(client, graphName);
       cypherResult = await client.query(
         `SELECT * FROM cypher('${graphName}', $tag$ ${cypher} $tag$) AS (seed_name text, seed_type text, connected_name text, connected_type text, scope_type text, hop_distance integer)`
       );
@@ -1821,8 +1887,8 @@ class FactRetrievalService {
         try {
           // 从 memory_item 表中获取未处理的记忆内容
           const memories = await requireDb().select({
-            content: sql<string>`(row_data->>'content')`,
-            id: sql<string>`(row_data->>'id')`
+            content: sql<string>`content_text`,
+            id: sql<string>`id`
           }).from(sql`memory_item`)
             .where(sql`((metadata->>'processed_for_extraction') IS NULL OR (metadata->>'processed_for_extraction') = 'false') AND owner_user_id = ${user.owner_user_id}`)
             .orderBy(sql`created_at DESC`)
@@ -1939,7 +2005,7 @@ class FactRetrievalService {
     conditions.push(eq(userFiles.userId, input.owner_user_id));
     conditions.push(sql`${userFiles.status} != 'deleted'`);
     if (input.org_id) conditions.push(eq(userFiles.orgId, input.org_id));
-    if (input.category) conditions.push(eq(userFiles.fileCategory, input.category));
+    if (input.category) conditions.push(eq(userFiles.fileCategory, normalizeFileCategory(input.category)));
     if (input.scope) conditions.push(eq(userFiles.scope, input.scope));
 
     const totalResult = await requireDb().select({ count: sql<number>`count(*)` }).from(userFiles)
@@ -1999,6 +2065,8 @@ class FactRetrievalService {
 
     const writeResult = await artifactStorage.storeUserFile(backend, input.owner_user_id, input.org_id, buffer, input.original_name, monthStr);
     const contentHash = sha256Buffer(buffer);
+    const fileCategory = normalizeFileCategory(input.file_category || 'upload');
+    const fileSource = normalizeFileSource(input.source || 'user_upload');
 
     const [file] = await withRetry(() => requireDb().insert(userFiles).values({
       userId: input.owner_user_id,
@@ -2009,11 +2077,14 @@ class FactRetrievalService {
       mimeType: input.mime_type,
       byteSize: buffer.byteLength,
       contentHash,
-      fileCategory: input.file_category || 'upload',
+      fileCategory,
       scope: input.scope || 'private',
-      source: input.source || 'user_upload',
+      source: fileSource,
       status: 'active',
-      metadata: {},
+      metadata: {
+        requested_file_category: input.file_category || '',
+        requested_source: input.source || ''
+      },
     }).returning());
 
     logger.info('file.stored', 'User file stored', { file_id: file.id, user_id: input.owner_user_id, original_name: input.original_name });
