@@ -3,7 +3,7 @@ import { createHash, randomUUID, scryptSync, randomBytes, timingSafeEqual } from
 import { resolve, dirname, join } from 'node:path';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { Pool } from 'pg';
-import { createLogger, configManager, checkProductionSecurity } from '@agent-harness/shared';
+import { createLogger, configManager, checkProductionSecurity, t, tf } from '@agent-harness/shared';
 import { auditWriter } from '@agent-harness/audit';
 
 const logger = createLogger('web-portal');
@@ -322,7 +322,7 @@ function checkLoginRateLimit(identifier: string): { blocked: boolean; retryAfter
     return {
       blocked: true,
       retryAfterMs: entry.lockedUntil - now,
-      message: `登录尝试次数过多，请等待 ${remaining} 秒后重试`
+      message: tf('zh-CN', 'portal.login.rate_limited', { remaining: String(remaining) })
     };
   }
 
@@ -351,7 +351,7 @@ function recordLoginFailure(identifier: string): { blocked: boolean; retryAfterM
     return {
       blocked: true,
       retryAfterMs: lockoutMs,
-      message: `登录尝试次数过多，请等待 ${seconds} 秒后重试`
+      message: tf('zh-CN', 'portal.login.rate_limited', { remaining: String(seconds) })
     };
   }
 
@@ -528,7 +528,7 @@ function saveEnvFile(env: Record<string, string>): void {
 
 function validatePasswordStrength(password: string): { valid: boolean; score: number; message: string } {
   if (!password || password.length < 8) {
-    return { valid: false, score: 0, message: '密码长度至少8位' };
+    return { valid: false, score: 0, message: t('zh-CN', 'portal.pwd.min_length') };
   }
   let score = 0;
   if (password.length >= 8) score += 1;
@@ -537,15 +537,15 @@ function validatePasswordStrength(password: string): { valid: boolean; score: nu
   if (/[A-Z]/.test(password)) score += 1;
   if (/[0-9]/.test(password)) score += 1;
   if (/[^a-zA-Z0-9]/.test(password)) score += 1;
-  if (score < 3) return { valid: false, score, message: '密码强度不足：需包含大小写字母、数字或特殊字符' };
-  if (score < 5) return { valid: true, score, message: '密码强度中等' };
-  return { valid: true, score, message: '密码强度良好' };
+  if (score < 3) return { valid: false, score, message: t('zh-CN', 'portal.pwd.too_weak') };
+  if (score < 5) return { valid: true, score, message: t('zh-CN', 'portal.pwd.medium') };
+  return { valid: true, score, message: t('zh-CN', 'portal.pwd.good') };
 }
 
 const CONFIG_SECTIONS: ConfigSection[] = [
   {
     key: 'feishu',
-    label: '飞书渠道配置',
+    label: t('zh-CN', 'config.label.feishu'),
     fields: [
       { key: 'FEISHU_APP_ID', label: 'App ID', type: 'text' },
       { key: 'FEISHU_APP_SECRET', label: 'App Secret', type: 'password', sensitive: true },
@@ -555,7 +555,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
   },
   {
     key: 'wecom',
-    label: '企业微信渠道配置',
+    label: t('zh-CN', 'config.label.wecom'),
     fields: [
       { key: 'WECOM_CORP_ID', label: '企业ID (Corp ID)', type: 'text' },
       { key: 'WECOM_TOKEN', label: '回调验证 Token', type: 'password', sensitive: true },
@@ -566,7 +566,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
   },
   {
     key: 'llm',
-    label: 'LLM 模型配置',
+    label: t('zh-CN', 'config.label.llm'),
     fields: [
       { key: 'LITELLM_URL', label: 'LiteLLM 地址', type: 'text', default: 'http://localhost:4000' },
       { key: 'LITELLM_MASTER_KEY', label: 'Master Key', type: 'password', sensitive: true },
@@ -576,7 +576,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
   },
   {
     key: 'embedding',
-    label: 'Embedding 模型配置',
+    label: t('zh-CN', 'config.label.embedding'),
     fields: [
       { key: 'EMBEDDING_MODE', label: '模式', type: 'select', options: ['deterministic', 'provider'], default: 'deterministic' },
       { key: 'EMBEDDING_PROVIDER_URL', label: 'Provider URL', type: 'text' },
@@ -586,7 +586,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
   },
   {
     key: 'rerank',
-    label: 'Rerank 配置',
+    label: t('zh-CN', 'config.label.rerank'),
     fields: [
       { key: 'RERANK_MODE', label: '模式', type: 'select', options: ['deterministic', 'provider'], default: 'deterministic' },
       { key: 'RERANK_PROVIDER_URL', label: 'Provider URL', type: 'text' },
@@ -634,6 +634,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
 
+    if (pathname === '/localization.js') {
+      sendFile(res, join(STATIC_DIR, 'localization.js'), 'application/javascript; charset=utf-8');
+      return;
+    }
+
     if (pathname === '/app.js') {
       sendFile(res, join(STATIC_DIR, 'app.js'), 'application/javascript; charset=utf-8');
       return;
@@ -663,7 +668,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const rawUsername = String(body.username || '').trim();
       const password = String(body.password || '');
       if (!rawUsername || !password) {
-        sendJson(res, 400, { ok: false, error: 'missing_credentials', message: '用户名和密码不能为空' });
+        sendJson(res, 400, { ok: false, error: 'missing_credentials', message: t('zh-CN', 'portal.login.empty_credentials') });
         return;
       }
       const adminOverride = ADMIN_PASSWORD && password === ADMIN_PASSWORD;
@@ -708,7 +713,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           if (failResult.blocked) {
             sendJson(res, 429, { ok: false, error: 'rate_limited', message: failResult.message, retry_after_ms: failResult.retryAfterMs });
           } else {
-            sendJson(res, 401, { ok: false, error: 'invalid_credentials', message: '用户名或密码错误' });
+            sendJson(res, 401, { ok: false, error: 'invalid_credentials', message: t('zh-CN', 'portal.login.wrong_credentials') });
           }
           return;
         }
@@ -716,7 +721,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       clearLoginAttempts(rateLimitKey);
       await evictExpiredSessions();
       if (sessionStore.size >= MAX_SESSIONS) {
-        sendJson(res, 429, { ok: false, error: 'too_many_sessions', message: '会话数已达上限' });
+        sendJson(res, 429, { ok: false, error: 'too_many_sessions', message: t('zh-CN', 'portal.login.max_sessions') });
         return;
       }
       const sessionId = randomUUID();
@@ -758,7 +763,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const oldPassword = String(body.old_password || '');
       const newPassword = String(body.new_password || '');
       if (!oldPassword || !newPassword) {
-        sendJson(res, 400, { ok: false, error: 'missing_fields', message: '请输入旧密码和新密码' });
+        sendJson(res, 400, { ok: false, error: 'missing_fields', message: t('zh-CN', 'portal.pwd.empty_fields') });
         return;
       }
       const strength = validatePasswordStrength(newPassword);
@@ -780,7 +785,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         const metadata = userResult.rows[0].metadata || {};
         const storedHash = metadata.password_hash || '';
         if (!verifyPassword(oldPassword, storedHash).valid && oldPassword !== ADMIN_PASSWORD) {
-          sendJson(res, 401, { ok: false, error: 'invalid_old_password', message: '旧密码不正确' });
+          sendJson(res, 401, { ok: false, error: 'invalid_old_password', message: t('zh-CN', 'portal.pwd.wrong_old') });
           return;
         }
         const newHash = hashPassword(newPassword);
@@ -789,7 +794,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           [session.user_id, JSON.stringify(newHash)]
         );
         await auditWriter.write({ action: 'user.change_password', user_id: session.user_id, resource_type: 'user', resource_ref: session.user_id, resource_scope: 'system', result: 'success', detail_json: {} });
-        sendJson(res, 200, { ok: true, message: '密码修改成功' });
+        sendJson(res, 200, { ok: true, message: t('zh-CN', 'portal.pwd.changed') });
       } catch (error) {
         sendJson(res, 500, { ok: false, error: 'db_error' });
       }
@@ -801,7 +806,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (sessionId) {
         await deleteSessionFromStore(sessionId);
       }
-      sendJson(res, 200, { ok: true, message: '已退出登录' });
+      sendJson(res, 200, { ok: true, message: t('zh-CN', 'portal.logout.success') });
       return;
     }
 
@@ -852,21 +857,21 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const body = await readJson(req);
       if (!LOCAL_IPS.has(clientIp)) {
         if (!SETUP_TOKEN || body.setup_token !== SETUP_TOKEN) {
-          sendJson(res, 403, { ok: false, error: 'forbidden', message: '仅限本地访问或提供有效 SETUP_TOKEN' });
+          sendJson(res, 403, { ok: false, error: 'forbidden', message: t('zh-CN', 'portal.setup.local_only') });
           return;
         }
       }
       const step = String(body.step || '');
       const pool = await getDbPool();
       if (!pool) {
-        sendJson(res, 503, { ok: false, error: 'db_unavailable', message: '数据库不可用' });
+        sendJson(res, 503, { ok: false, error: 'db_unavailable', message: t('zh-CN', 'portal.setup.db_unavailable') });
         return;
       }
       const setupCheck = await pool.query(`SELECT COUNT(*) as cnt FROM organization WHERE status = 'active'`);
       if (Number(setupCheck.rows[0]?.cnt) > 0) {
         const adminCheck = await pool.query(`SELECT COUNT(*) as cnt FROM "user" WHERE role = 'admin' AND status = 'active'`);
         if (Number(adminCheck.rows[0]?.cnt) > 0) {
-          sendJson(res, 403, { ok: false, error: 'already_initialized', message: '系统已完成初始化' });
+          sendJson(res, 403, { ok: false, error: 'already_initialized', message: t('zh-CN', 'portal.setup.already_initialized') });
           return;
         }
       }
@@ -883,7 +888,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         const username = String(body.username || 'admin').trim();
         const password = String(body.password || '').trim();
         if (!password) {
-          sendJson(res, 400, { ok: false, error: 'missing_password', message: '管理员密码不能为空' });
+          sendJson(res, 400, { ok: false, error: 'missing_password', message: t('zh-CN', 'portal.setup.admin_pass_required') });
           return;
         }
         const passwordHash = hashPassword(password);
@@ -1951,7 +1956,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const body = await readJson(req);
       const name = String(body.name || '').trim();
-      if (!name) { sendJson(res, 400, { ok: false, error: 'missing_name', message: '模型名称不能为空' }); return; }
+      if (!name) { sendJson(res, 400, { ok: false, error: 'missing_name', message: t('zh-CN', 'portal.llm.name_required') }); return; }
       const env = loadEnvFile();
       let models: Array<Record<string, unknown>> = [];
       try { models = JSON.parse(env.LLM_MODELS || process.env.LLM_MODELS || '[]'); } catch { /* ignore */ }
@@ -2073,7 +2078,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!skillId) { sendJson(res, 400, { ok: false, error: 'missing_skill_id' }); return; }
       const detailR = await fetchFromService(skillLibraryUrl + '/internal/skills/' + encodeURIComponent(skillId));
       if (detailR.status !== 200 || !(detailR.data as Record<string, unknown>).skill) {
-        sendJson(res, 404, { ok: false, error: 'skill_not_found', message: '技能不存在或服务不可用' });
+        sendJson(res, 404, { ok: false, error: 'skill_not_found', message: t('zh-CN', 'portal.skill.not_found') });
         return;
       }
       const sourceSkill = (detailR.data as Record<string, unknown>).skill as Record<string, unknown>;

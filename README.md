@@ -138,3 +138,148 @@ Skill 是可召回、可注入的能力资产；workflow 是多阶段执行契�
 ## License
 
 JueYing 使用 MIT License。详见 [agent-harness/LICENSE](./agent-harness/LICENSE) 和 [agent-harness/LICENSES.md](./agent-harness/LICENSES.md)。
+
+---
+
+## English Version / 英文版
+
+# JueYing (绝影) Agent
+
+> Enterprise-grade AI Agent orchestration, memory, workflow, and business outcome attribution platform.
+>
+> Current release line: v1.6.0 | Updated: 2026-05-21
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./agent-harness/LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
+
+JueYing unifies enterprise chat entry points, knowledge bases, workflows, memory systems, and reusable skills into a governable Agent platform. Users can initiate requests from Feishu, WeCom, or the Web Portal; the system retrieves permission-constrained context, prioritizes approved `workflow_definition` records, falls back to active workflow-type skill templates, auto-runs first-time planning when necessary, executes stage tasks, records audit evidence, and attributes good business outcomes back to the knowledge and skills that really worked.
+
+"JueYing" (绝影) means fast, reliable, and steerable. In this project, it represents an Agent Harness that takes a team from natural language requests to verifiable results.
+
+## Why This Release Matters
+
+The theme of v1.6.0 is **Dream Hooks, Outcome Attribution, and Workflow Reviews**. It advances the system from "the Agent can remember things" to "the Agent can know what really works and solidify high-value paths into approved execution contracts."
+
+| Capability | What Was Added |
+|---|---|
+| Dream Mode | Off-peak memory consolidation is no longer just compression — it enters the operational feedback loop. |
+| Hook Ledger | Records lifecycle events such as memory/fact/skill recall, skill injection, workflow outcome, and dream completion. |
+| Recall Attribution | Knowledge and skill recalls are linked to subsequent workflow results, answering "which content led to good outcomes." |
+| Outcome Evaluation | Successful, failed, and cancelled workflows all record terminal state results, avoiding sampling bias toward successes only. |
+| Admin Dashboard | Web Portal adds 30-day knowledge and skill business effectiveness views. |
+| Contract Solidification | High-frequency, high-scoring, genuinely injected workflow-type skills with good business outcomes enter `workflow_definition` review; upon admin approval they become execution contracts that the Planner prioritizes. |
+| Graph Sync | The development context graph has incorporated dream, hook, outcome, and workflow_definition review as explicit architectural domains. |
+
+## Core Highlights
+
+- Multi-channel entry: Feishu long-connection, WeCom Webhook, Web Portal, mobile push.
+- Reuse-first: Approved `workflow_definition` takes priority, then personal private / org / public active workflow-type skill templates, with first-run planning only when no match is found.
+- Governed retrieval: PostgreSQL is the single source of truth, vectors only provide candidates, graph gating closes the loop, and the Evidence Pack is traceable.
+- Dream and memory system: User-level memory isolation, admin-level aggregate analysis, org-level knowledge integration.
+- Skill lifecycle: Search, recall, injection, audit, attribution; high-frequency high-contribution workflow-type skills enter `workflow_definition_review` and become `workflow_definition` upon admin approval.
+- B2B sales blueprint: Morning briefing, stuck-deal rescue, discount approval, collection risk, weekly review, and other daily management paths.
+- Enterprise control plane: Organization isolation, RBAC/ABAC, audit, Checkpoint/Resume/Replay, production credential hardening.
+- Observable operations: OpenTelemetry, SigNoz, structured logging, health checks, attribution dashboard.
+
+## Repository Structure
+
+```text
+.
+├── agent-harness/              # Runnable TypeScript monorepo
+│   ├── apps/                   # gateway-adapter, web-portal, mobile-app
+│   ├── services/               # workflow, retrieval, executor, hermes, skills
+│   ├── libs/                   # contracts, shared DB/config/logging, policy, audit
+│   ├── db/migrations/          # SQL migrations
+│   ├── scripts/                # bootstrap, health, migration, smoke helpers
+│   └── tests/                  # unit and integration tests
+├── development/                # Execution plans, graphs, audits, topic implementation notes
+├── AH1-*.md                    # Authoritative architecture and implementation documents
+├── RELEASE_NOTES.md            # Current release notes
+└── README.md                   # GitHub default entry point
+```
+
+## Quick Start
+
+```bash
+git clone https://github.com/andyrenxu7255/jueying-agent.git
+cd jueying-agent/agent-harness
+npm install
+cp .env.example .env
+npm run docker:core:up
+npm run db:migrate
+npm run docker:up -- --profile app
+```
+
+After startup, access:
+
+| Interface | URL |
+|---|---|
+| Web Portal | http://localhost:3003 |
+| LiteLLM Dashboard | http://localhost:4000/ui |
+| SigNoz | http://localhost:3301 |
+| MinIO Console | http://localhost:9001 |
+
+In production, use `docker-compose.prod.yml` and provide all secrets via environment variables. Never use local development passwords in production.
+
+## Verification Records
+
+The v1.6.0 release line has executed:
+
+```bash
+npm run db:migrate
+npm run lint
+npm run type-check
+npm run build
+npm test
+npm run test:dream-mode
+npm audit --audit-level=high
+```
+
+Results: Migrations, lint, type checking, build, 8 Jest test suites / 82 cases, 14 dream-mode integration cases all passed. Dependency audit shows no high/critical; 2 remaining moderate transitive dependency advisories have been recorded.
+
+## Document Index
+
+| Entry | Content |
+|---|---|
+| [agent-harness/README.md](./agent-harness/README.md) | Application-level quick start, architecture, ports, workflows, and dev commands. |
+| [agent-harness/PRODUCT.md](./agent-harness/PRODUCT.md) | Product description, roles, feature matrix, and user value. |
+| [agent-harness/OPS.md](./agent-harness/OPS.md) | Deployment, health checks, monitoring, backup, and operations manual. |
+| [RELEASE_NOTES.md](./RELEASE_NOTES.md) | v1.6.0 release notes, ready for GitHub Release. |
+| [development/HANDOFF-2026-05-21-v1.6.0-upload.md](./development/HANDOFF-2026-05-21-v1.6.0-upload.md) | Handoff checklist, verification results, and release steps for tomorrow's GitHub upload. |
+| [development/DEV-21-梦境Hook与业务归因闭环.md](./development/DEV-21-梦境Hook与业务归因闭环.md) | Dream, Hook, recall, and Outcome attribution implementation notes. |
+| [development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md](./development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md) | Dream Hook attribution special audit. |
+| [development/DEV-00-开发索引.md](./development/DEV-00-开发索引.md) | Development plan index and milestone map. |
+| [development/context-graph.json](./development/context-graph.json) | Machine-readable context graph, current v2.9. |
+| [development/context-routing.json](./development/context-routing.json) | Task routing configuration, synced with context graph. |
+
+### AH1 Authoritative Documents
+
+The AH1 series remains the authoritative source for architecture and implementation constraints. Common entry points:
+
+| Document | Topic |
+|---|---|
+| [AH1-17-Workflow-DSL与Planner契约.md](./AH1-17-Workflow-DSL与Planner契约.md) | Workflow DSL, Planner contracts, lifecycle, and skill extraction. |
+| [AH1-20-检索编排与Fact-Write.md](./AH1-20-检索编排与Fact-Write.md) | Retrieval orchestration, graph gating, Evidence Pack, and fact writing. |
+| [AH1-23-审计日志指标与告警.md](./AH1-23-审计日志指标与告警.md) | Audit, metrics, Dashboard, and Dream Hook attribution views. |
+| [AH1-14-数据库表设计与索引.md](./AH1-14-数据库表设计与索引.md) | PostgreSQL schema authoritative description and migration map. |
+| [AH1-27-部署与运维.md](./AH1-27-部署与运维.md) | Deployment and operations architecture. |
+
+## Current Release: v1.6.0
+
+This release completes the feedback chain from memory/skill recall to real business outcomes:
+
+- `hook_event_log`: Lifecycle events.
+- `knowledge_recall_event` and `skill_recall_event`: Recall and injection tracking.
+- `workflow_outcome_eval`: Workflow terminal state business scoring.
+- `recall_outcome_attribution`: Contribution attribution from recall events to outcomes.
+- `skill_business_outcome_daily` and `knowledge_business_outcome_daily`: Daily report views.
+
+Skills are recallable, injectable capability assets; workflows are multi-stage execution contracts. In the current implementation, successful paths are first extracted as `skill_type=workflow` draft skills, which become private active templates upon user confirmation; when a skill is recalled, injected, and achieves good outcomes multiple times, skill-library submits a `workflow_definition_review`, and the Planner will thereafter prioritize this more stable execution contract once approved by the admin.
+
+See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for details.
+
+## License
+
+JueYing is licensed under the MIT License. See [agent-harness/LICENSE](./agent-harness/LICENSE) and [agent-harness/LICENSES.md](./agent-harness/LICENSES.md).

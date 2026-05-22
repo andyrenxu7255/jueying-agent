@@ -8,3 +8,4 @@ export * from './src/monitoring';
 export * from './src/retry/strategy';
 export * from './src/rate-limit/limiter';
 export * from './src/archive';
+export * from './src/i18n';

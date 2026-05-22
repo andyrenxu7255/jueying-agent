@@ -897,3 +897,907 @@ docker logs -f ah-mobile-app
 | `services/workflow/src/persistence/db.test.ts` | 数据库持久化单元测试 |
 | `db/migrations/022_user_file_storage.sql` | 用户文件存储迁移（user_file 表 + 索引） |
 | `db/migrations/` | 数据库迁移文件 |
+
+---
+
+## English Version / 英文版
+
+# agent-harness System Architecture Document
+
+> Version: 2026-05-21 (Round 21: workflow_definition approval bridge implemented)
+> Current Status: **Full-chain verification passed. This document is synced with actual runtime.**
+
+---
+
+## 1. System Overview
+
+agent-harness (brand name JueYing / 绝影) is an AI Agent orchestration and execution platform. Users interact with the system through IM channels such as Feishu/WeCom. The system uses LLMs to plan user intent as multi-stage workflows, automatically dispatches executors to complete each stage, and reports results. The system supports multi-user, organization isolation, policy control, and memory management.
+
+Core capabilities:
+- **Multi-channel access**: Feishu long-connection WebSocket, WeCom Webhook, Web Portal
+- **LLM task planning**: Automatically decompose user goals into knowledge / development type stage chains
+- **Workflow engine**: XState state-machine-based full lifecycle management
+- **Multiple executors**: generic-executor, code-executor, retrieval-aware-executor, verification-executor, repair-executor, approval-executor
+- **Memory system**: Hermes-based session memory, supporting compressed context recall
+- **Dream Mode**: Hierarchical memory management + skill discovery ecosystem, daily auto-analysis
+- **Policy control**: Fine-grained permission checks based on user_goal + policy
+- **Fact retrieval**: Wide-candidate vector/like to find objects and fields, strict graph layer gating, in-graph secondary recall, PG as the single source of truth
+- **Observability**: SigNoz (OpenTelemetry) full-chain tracing
+
+---
+
+## 2. Service Architecture Diagram
+
+```
+                  ┌─────────────┐
+                  │  Feishu App  │
+                  │ (Long-conn WS)│
+                  └──────┬──────┘
+                         │ WebSocket
+                  ┌──────▼──────┐
+                  │ feishu-longconn │
+                  │ (Relay Service)  │
+                  └──────┬──────┘
+                         │ HTTP POST /channels/feishu/longconn/event
+                  ┌──────▼──────┐
+                  │  gateway-    │ ← Multi-channel adaptation & identity mapping & 5-way intent classification
+                  │  adapter     │
+                  └──┬───┬───┬──┘
+                     │   │   │
+        ┌────────────┘   │   └────────────┐
+        │                │                │
+   ┌────▼────┐    ┌──────▼──────┐   ┌─────▼──────┐
+   │ LiteLLM │    │  workflow-  │   │  fact-      │
+   │  Proxy  │ ←──│  service    │──→│  retrieval  │
+   └─────────┘    └──┬─────┬────┘   └──────┬──────┘
+                     │     │               │
+             ┌───────┘     └────────┐      │ (knowledge review/extraction)
+             │                      │      │
+      ┌──────▼──────┐     ┌────────▼──────┐ │
+      │  executor-  │     │    hermes-      │ │
+      │  gateway    │     │    adapter      │ │
+      └──┬────┬─────┘     │  (memory/context)│ │
+         │    │            └─────────────────┘ │
+    ┌────┘    └────┐                            │
+    │              │                            │
+┌───▼───┐    ┌────▼────┐  ┌──────────┐  ┌──────▼──────┐
+│generic│    │ code     │  │ skill-    │  │  web-portal │
+│exec.  │    │ exec.    │  │ library   │  │ (Admin Console)│
+└───┬───┘    └────┬────┘  │ (3007)    │  └──────┬──────┘
+    │             │       └──────────┘         │
+    └──────┬──────┘              │             │ (review/policy/monitoring)
+           │                     │             │
+    ┌──────▼──────┐  ┌───────────▼──┐  ┌──────▼──────┐
+    │  PostgreSQL │  │  resource-   │  │  mobile-app │
+    │  + pgvector │  │  scheduler   │  │  (Push Service)│
+    │  + AGE Graph│  │  (3008)      │  │  (3009)     │
+    └─────────────┘  └──────────────┘  └─────────────┘
+```
+
+---
+
+## 3. Service Inventory & Responsibilities
+
+### 3.1 Core Business Services
+
+| Service | Directory | Container Name | Host Port (internal all 3000) | Responsibility |
+|---------|-----------|------|------------------------------|------|
+| **gateway-adapter** | `apps/gateway-adapter/` | ah-gateway | 3000 | Multi-channel message entry, identity resolution & binding, intent classification, routing to workflow or direct LLM chat |
+| **workflow-service** | `services/workflow/` | ah-workflow | 3001 | Workflow planning (planner), supervision (supervisor), state machine (engine), CRUD |
+| **executor-gateway** | `services/executor-gateway/` | ah-executor | 3002 | Receive dispatch, schedule multiple executors by stage, callback workflow upon completion |
+| **fact-retrieval** | `services/fact-retrieval/` | ah-fact-retrieval | 3004 | Fact storage, wide-candidate recall, graph gating, in-graph secondary recall & rerank |
+| **hermes-adapter** | `services/hermes-adapter/` | ah-hermes | 3005 | Session memory management: store, recall, compress context |
+| **feishu-longconn** | `services/feishu-longconn/` | ah-feishu-longconn | — | Feishu long-connection WebSocket client, forwarding messages to gateway |
+| **web-portal** | `apps/web-portal/` | ah-web-portal | 3003 | Web admin interface: login/setup wizard/workflow management/policy management/org management/knowledge review |
+| **skill-library** | `services/skill-library/` | ah-skill-library | 3007 | Skill library management: Skill registration/version management/candidate generation/tag retrieval/reuse statistics |
+| **resource-scheduler** | `services/resource-scheduler/` | ah-resource-scheduler | 3008 | Resource quota & inspection: org quota checks/resource reclamation/health inspection/scheduled dispatch |
+| **mobile-app** | `apps/mobile-app/` | ah-mobile-app | 3009 | Mobile push service: FCM/APNs push/device registration/notification templates/task completion reminders |
+
+> Note: All service containers internally listen on port 3000; docker-compose maps to different host ports via ports. Inter-service communication uses `http://<container-name>:3000`.
+
+### 3.2 Infrastructure Services
+
+| Service | Container Name | Port | Responsibility |
+|---------|------|------|------|
+| PostgreSQL + pgvector + AGE | ah-postgres | 5432 | Primary database (users, workflows, facts, policies, audit, vector retrieval, graph projection gating) |
+| Redis 7 | ah-redis | 6379 | Session cache |
+| MinIO | ah-minio | 9000/9001 | Object storage (artifacts) |
+| LiteLLM Proxy | ah-litellm | 4000 | LLM unified proxy (MiniMax-M2.7, Qwen3-Max, GLM-5) |
+| SigNoz OTel Collector | ah-signoz-otel | 4317/4318 | OpenTelemetry data collection |
+| SigNoz Query | ah-signoz-query | 8080 | Query service |
+| SigNoz Frontend | ah-signoz-frontend | 3301 | Web UI |
+| ClickHouse | ah-clickhouse | 8123 | Time-series data storage |
+
+---
+
+## 4. Core Data Flows
+
+### 4.1 Chat Message Flow (Regular Conversation)
+
+```
+User sends message in Feishu
+  → feishu-longconn WebSocket receives
+  → HTTP POST → gateway-adapter /channels/feishu/longconn/event
+  → Immediately returns 200 OK (non-blocking)
+  → Async processing:
+      1. resolveIdentity (query channel_identity table → auto-bind or reuse)
+      2. normalizeMessage (extract session_hint, conversation_id)
+      3. classifyIntentWithLLM → LiteLLM → determine chat/task
+      4. [chat path]:
+         a. recallContext → hermes /internal/memory/recall (fetch history)
+         b. generateChatReply → LiteLLM (with context)
+         c. rememberContext → hermes /internal/memory (store message)
+      5. sendFeishuTextReply → Feishu API → user receives reply
+```
+
+### 4.2 Task Message Flow (Long-Running Task)
+
+```
+User sends task message in Feishu
+  → ... (same as Chat steps 1-3)
+  → 4. [task path]:
+       a. Check identity_binding_state === 'bound'
+       b. Check org quota
+       c. POST → workflow-service /internal/workflows/plan
+          → Planner first matches active workflow_definition
+          → On miss, match active workflow-type skill templates:
+             private(owner_user_id) → org(org_id) → public
+          → skill_type=workflow directly used as workflow stage chain template
+          → On further miss, enter auto-task first-run mode, LLM generates stage_chain
+       d. POST → workflow-service /internal/workflows/{ref}/dispatch
+          → workflow forwards to executor-gateway /internal/executor/dispatch
+       e. Return "Task accepted, workflow=xxx"
+       f. sendFeishuTextReply → user receives acceptance reply
+  → 5. Background polling (pollAndReplyWorkflowResult):
+       Poll workflow status every 10 seconds
+       → After workflow completed → sendFeishuTextReply
+       → User receives execution process, result summary, and "confirm workflow wf_xxx" prompt
+  → 6. User confirmation:
+       Reply "confirm workflow wf_xxx"
+       → gateway activates the private draft skill extracted from that workflow (skill_type=workflow)
+       → Next similar task can reuse it
+       → skill-library submits workflow_definition_review based on recall, injection, outcome, and audit scores
+       → Upon admin approval, written as active workflow_definition
+       → Planner prioritizes this workflow_definition thereafter
+```
+
+### 4.3 Executor Stage Execution Flow
+
+```
+executor-gateway /internal/executor/dispatch
+  → Generate runRef
+  → Immediately return dispatch_status: 'accepted'
+  → Async call autoExecuteWorkflowStages:
+      1. Pull complete plan from workflow-service
+      2. Extract user_goal (from plan.goal.user_goal)
+      3. Execute each stage sequentially:
+         - Create ExecutorInput (user_goal + context + policy_hash)
+         - executor.execute(input) → LLM call → return result
+         - If stage fails and repair_or_fail allowed → repair-executor auto-repairs once
+         - POST → workflow-service /internal/workflows/{ref}/stages/{id}/dispatch (report results)
+         - workflow records heartbeat
+      4. After all complete:
+         - POST → workflow /internal/workflows/{ref}/complete (trigger state machine advancement)
+         - workflow: running → verifying → reporting → succeeded
+         - Deregister supervisor
+```
+
+### 4.3.1 B2B Sales Management Blueprint Path
+
+JueYing's default experience baseline uses B2B sales management as the blueprint: the boss gives a business intent in IM, e.g. "This week, reduce collection risk in East China, push two key accounts to closing." The system first checks approved `workflow_definition`; if matched, directly uses the stable stage chain; if not, checks user's own, org, or public active workflow-type skills; if still no match, runs first-time path generation, retrieving pipeline, customer stage, visit evidence, quotes, and collection risk, outputting only exceptions and decisions the boss needs to handle. After task completion, the report must include stage process, exception handling, result summary, and confirmation entry point. After user confirmation, the path becomes a private workflow-type skill template; when recall rate, injection rate, business score, and audit score are all good, skill-library submits `workflow_definition_review`, and upon admin approval it solidifies as an active `workflow_definition`.
+
+### 4.4 Knowledge Submit Flow (Proactive Knowledge Submission)
+
+```
+User sends knowledge message in Feishu (containing keywords like "take a note"/"memo"/"update contact info" etc.)
+  → ... (same as Chat steps 1-3)
+  → 4. [knowledge_submit path]:
+       a. classifyIntentWithLLM → intent_type: 'knowledge_submit'
+       b. submitKnowledge → POST → fact-retrieval /internal/fact/submit
+          → Write to unconfirmed pool (source='user_submitted', status='unconfirmed')
+          → Auto-extract subject/predicate (based on Chinese semantic templates)
+       c. Return "Knowledge submitted, awaiting review"
+       d. sendFeishuTextReply → user receives confirmation
+  → 5. Admin reviews in web-portal "Knowledge Review" page → approve/share/return/reject
+```
+
+### 4.5 Quick Lookup Flow (Fast Information Retrieval)
+
+```
+User sends lookup message in Feishu ("/find xxx"/"查 xxx"/name query/contact query etc.)
+  → ... (same as Chat steps 1-3)
+  → 4. [quick_lookup path]:
+       a. classifyIntentWithLLM → intent_type: 'quick_lookup'
+       b. quickLookup → POST → workflow-service /internal/workflows/plan
+          → Create lightweight single-stage workflow (rapid-retrieval, 15s timeout)
+       c. Short polling (3 rounds × 5s) → retrieve workflow result
+         → Success: return retrieved info text
+         → Timeout/Failure: auto-degrade to chat path
+       d. sendFeishuTextReply → user receives result
+```
+
+---
+
+## 5. Workflow State Machine
+
+```
+draft → planned → running → verifying → reporting → succeeded → archived
+                  ↓          ↓            ↓           ↓
+              waiting_user  repairing    paused      failed
+                  ↓          ↓
+              blocked      paused
+```
+
+Key state transitions:
+- `planned → running`: dispatch successful
+- `running → verifying → reporting → succeeded`: executor auto-advances sequentially after completion
+- Any terminal state → `archived`: requires explicit event
+
+## 5b. File Storage Mechanism
+
+### 5.1 Storage Architecture
+
+The system uses a **dual backend + user isolation** file storage scheme:
+
+```
+{storage_root}/
+├── staging/                          # Temporary pre-ingestion area (upload → validate → ingest → cleanup)
+│   └── {session_id}/
+│       └── {original_filename}
+├── users/                             # User-independent storage space
+│   └── {org_id}/
+│       └── {user_id}/
+│           ├── uploads/               # User-uploaded original files (archived by year-month)
+│           │   └── {YYYY-MM}/
+│           │       └── {timestamp}_{random}_{sanitized_name}
+│           └── artifacts/             # LLM/stage generated artifact files
+│               └── {artifact_id}.{ext}
+├── legacy/                            # Legacy org-level storage (backward compatible)
+│   └── {org_id}/
+│       └── {artifact_id}.txt
+└── shared/                            # Org-level shared files
+    └── {org_id}/
+        └── ...
+```
+
+### 5.2 Storage Backends
+
+| Backend | Configuration | Use |
+|---------|--------------|-----|
+| `localfs` | `config/default.yaml` → `storage.backend: localfs` | Development, `.runtime/artifacts/` |
+| `minio` | Environment variables `MINIO_ENDPOINT/MINIO_ACCESS_KEY/MINIO_SECRET_KEY` | Production, S3-compatible object storage |
+
+### 5.3 User-Independent Storage Space
+
+Each user has a **fully isolated** personal storage directory:
+- **Path**: `users/{org_id}/{user_id}/`
+- **Uploaded files**: Saved in `uploads/{YYYY-MM}/` subdirectory, preserving original files
+- **AI-generated files**: Saved in `artifacts/` subdirectory
+- **Permissions**: Only the file owner and org admin can access `private` files
+- **Sharing mechanism**: Users can change file scope from `private` to `shared` (org-visible) or `public` (visible to all)
+
+### 5.4 File Upload Flow
+
+```
+User sends file (Feishu/WeCom/Web)
+  → downloadFile() → Buffer
+  → sanitizeFileName() + validateFileForImport()
+  → storeStaging(temp)           ← Staged to staging/{session}/
+  → extractTextFromFile()        ← Text extraction (PDF/DOCX/XLSX multi-format)
+  → artifactStorage.storeUserFile()  ← Save original to users/{user}/uploads/
+  → POST fact-retrieval /internal/documents/index  ← Text indexed into document_chunks
+  → INSERT user_file             ← Write file metadata record
+  → cleanupStaging()             ← Clean up temporary files
+```
+
+### 5.5 File Access Control
+
+| scope | Read Permission | Modify Permission |
+|-------|----------------|-------------------|
+| `private` | File owner only | File owner only |
+| `shared` | All org members | File owner/admin only |
+| `public` | Everyone | File owner/admin only |
+
+### 5.6 Key Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `user_file` | File metadata (owner, path, size, hash, category, scope, source) |
+| `document` | Document index master table |
+| `document_version` | Document version (includes `raw_file_ref` pointing to original upload) |
+| `document_chunk` | Document chunks (includes embedding vectors) |
+| `artifact_object` | Artifact objects (LLM-generated outputs) |
+
+---
+
+## 6. Database Core Tables
+
+### 6.1 Users & Identity
+
+| Table | Purpose |
+|-------|---------|
+| `user` | User master table (username, org_id, role, status) |
+| `organization` | Organization |
+| `channel_identity` | Channel identity binding (channel_type, external_identity → user_id, binding_status) |
+| `user_profile` | User profile & persona table (persona_tier, soul, identity, tone_style, behavior_boundary, skill_tags, work_preference, evolved_history) |
+
+### 6.2 Workflow
+
+| Table | Purpose |
+|-------|---------|
+| `workflow_definition` | Workflow definition/template (scope_type, org_id, name, workflow_type, version, definition_json); scope_type only private/public, org_id as org visibility boundary |
+| `workflow_instance` | Workflow instance (status, plan, owner_user_id, org_id, policy_snapshot_id) |
+| `workflow_stage` | Workflow stage (stage_type, status, assigned_executor, seq) |
+| `checkpoint` | Workflow checkpoint (checkpoint_type, resume_token, state_hash, policy_snapshot_hash) |
+| `workflow_event` | Workflow event record (event_type, from_status, to_status) |
+| `execution_session` | Execution session (repo_ref, branch_ref, status, backend_type, policy_snapshot_hash) |
+
+### 6.3 Policy & Audit
+
+| Table | Purpose |
+|-------|---------|
+| `org_policy` | Org-level policy rules (role, resource, action → decision) |
+| `policy_snapshot` | Policy snapshot (snapshot_hash, allowed_scopes, resource_rules, constraints) |
+| `audit_event` | Audit log (user_id, action, resource_type, resource_ref, result) |
+
+### 6.4 Memory & Context
+
+| Table | Purpose |
+|-------|---------|
+| `hermes_memory` | Session memory (owner_user_id, session_id, role, content, token_count) |
+| `memory_item` | Structured memory item (memory_type, summary, embedding, status, source_kind) |
+| `memory_source` | Memory source (memory_item_id, source_type, source_ref, relevance_score) |
+| `memory_usage_log` | Memory usage log (memory_item_id, workflow_instance_id, usage_type) |
+
+### 6.5 Fact Retrieval
+
+| Table | Purpose |
+|-------|---------|
+| `fact` | Fact entry (subject_ref, predicate, object_value, status, confidence, supersedes_fact_id) |
+| `fact_evidence` | Fact evidence (fact_id, evidence_ref, evidence_type, excerpt) |
+| `fact_conflict` | Fact conflict (existing_fact_id, incoming_fact_id, conflict_reason, resolution_status) |
+| `entity` | Entity (entity_type, canonical_name, status, source_confidence) |
+| `entity_attribute` | Entity attribute (entity_id, attr_key, attr_value, confidence, source_ref) |
+| `relation` | Entity relationship (from_entity_id, relation_type, to_entity_id, strength, evidence_ref) |
+| `document` | Document (title, scope_type, source_kind, status) |
+| `document_version` | Document version (document_id, version_no, content_hash, storage_ref) |
+| `document_chunk` | Document chunk (content_text, embedding, search_tsv — includes GIN index for full-text search) |
+| `artifact_object` | Artifact object (artifact_type, storage_backend, storage_ref, content_hash, byte_size) |
+| `retrieval_trace` | Retrieval trace (query_text, intent_type, scope_summary, duration_ms) |
+| `projection_event` | AGE graph projection event (source_table, operation, payload, applied) |
+
+### 6.6 Skills
+
+| Table | Purpose |
+|-------|---------|
+| `skill` | Skill master table (skill_name, skill_type, scope_type, status) |
+| `skill_version` | Skill version (skill_id, version, definition_json, content_hash) |
+| `skill_source` | Skill source (skill_version_id, source_type, source_uri) |
+
+### 6.7 File Storage
+
+| Table | Purpose |
+|-------|---------|
+| `user_file` | User file (storage_backend, storage_path, original_name, mime_type, scope, file_category) |
+
+### 6.8 Organization Tasks
+
+| Table | Purpose |
+|-------|---------|
+| `org_task` | Organization task (task_type, schedule_type, cron_expression, status, prompt_message) |
+| `org_task_assignment` | Task assignment (task_id, user_id, status, workflow_ref, notified_at) |
+
+### 6.9 Dream Mode
+
+| Table | Purpose |
+|-------|---------|
+| `dream_mode_config` | Dream Mode configuration (org-level, including schedule time/compression threshold/audit parameters) |
+| `memory_analysis_run` | Memory analysis run record (tracks each dream analysis task status and results) |
+| `org_memory_summary` | Org-level integrated memory (Admin central knowledge base, includes embedding vector retrieval) |
+| `memory_access_log` | Memory access permission audit log (records all memory access behaviors) |
+| `memory_compression_log` | Memory compression archive record (compression method/original/compressed/archive file reference) |
+| `scene_value_assessment` | Scene value assessment (use count/success count/value score/status flow) |
+| `skill_audit_record` | Multi-dimensional skill audit record (Functionality/Security/Performance/Compatibility four-dimension scoring) |
+| `skill_usage_stats` | Skill usage daily statistics (call count/success/failure/avg duration/active users) |
+| `org_skill_registry` | Organization skill registry (user skill promoted to org-level skill registry) |
+
+---
+
+## 7. Key Configuration Items (.env)
+
+```bash
+# Database
+DATABASE_URL=postgresql://<DB_USER>:<DB_PASSWORD>@<DB_HOST>:5432/<DB_NAME>
+DATABASE_NAME=<DB_NAME>
+DATABASE_HOST=<DB_HOST>
+DATABASE_PORT=5432
+DATABASE_USER=<DB_USER>
+DATABASE_PASSWORD=<DB_PASSWORD>
+
+# Redis
+REDIS_URL=redis://:<REDIS_PASSWORD>@<REDIS_HOST>:6379
+
+# MinIO
+MINIO_ROOT_USER=<MINIO_ADMIN_USER>
+MINIO_ROOT_PASSWORD=<MINIO_ADMIN_PASSWORD>
+MINIO_ENDPOINT=<MINIO_HOST>
+MINIO_PORT=9000
+MINIO_BUCKET=<BUCKET_NAME>
+
+# LiteLLM
+LITELLM_MASTER_KEY=<LITELLM_MASTER_KEY>
+LITELLM_MODEL=<LLM_MODEL_NAME>
+LITELLM_PLAN_MODEL=<LLM_MODEL_NAME>
+LITELLM_CODE_MODEL=<LLM_MODEL_NAME>
+LITELLM_PLAN_TIMEOUT_MS=60000
+
+# Feishu
+FEISHU_APP_ID=<FEISHU_APP_ID>
+FEISHU_APP_SECRET=<FEISHU_APP_SECRET>
+FEISHU_VERIFICATION_TOKEN=
+FEISHU_SIGNING_SECRET=<FEISHU_SIGNING_SECRET>
+FEISHU_DOMAIN=feishu
+
+# Web Portal
+PORTAL_PORT=3003
+JWT_SECRET=<JWT_SECRET>
+
+# Inter-service communication URLs (within containers)
+WORKFLOW_URL=http://workflow-service:3000
+EXECUTOR_URL=http://executor-gateway:3000
+FACT_RETRIEVAL_URL=http://fact-retrieval:3000
+HERMES_URL=http://hermes-adapter:3000
+GATEWAY_URL=http://gateway-adapter:3000
+SKILL_LIBRARY_URL=http://skill-library:3000
+RESOURCE_SCHEDULER_URL=http://resource-scheduler:3000
+MOBILE_APP_URL=http://mobile-app:3000
+```
+
+---
+
+## 8. Startup Commands
+
+```bash
+# Location: D:\teamclaw\agent-harness
+
+# Full build and start (app profile: all business services)
+docker compose --profile app up -d --build
+
+# Start infrastructure only (postgres, redis, minio, litellm)
+docker compose up -d
+
+# Database migrations
+npm run db:migrate
+
+# View service status
+docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# View individual service logs
+docker logs -f ah-gateway
+docker logs -f ah-workflow
+docker logs -f ah-executor
+docker logs -f ah-skill-library
+docker logs -f ah-resource-scheduler
+docker logs -f ah-mobile-app
+```
+
+---
+
+## 9. API Endpoint Quick Reference
+
+### gateway-adapter (Host Port 3000)
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/channels/feishu/longconn/event` | Receive Feishu long-connection events |
+| POST | `/channels/feishu/webhook` | Receive Feishu Webhook callbacks |
+| POST | `/channels/wecom/webhook` | Receive WeCom callbacks |
+| POST | `/webhook/feishu` | Feishu callback (compat path) |
+| POST | `/webhook/wecom` | WeCom callback (compat path) |
+
+### workflow-service (Host Port 3001)
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/internal/workflows/plan` | Generate workflow plan |
+| GET | `/internal/workflows` | List workflows |
+| GET | `/internal/workflows/:ref` | Get workflow details |
+| POST | `/internal/workflows/:ref/dispatch` | Dispatch to executor |
+| POST | `/internal/workflows/:ref/stages/:sid/dispatch` | Stage result reporting |
+| POST | `/internal/workflows/:ref/complete` | Completion callback |
+| POST | `/internal/workflows/:ref/pause` | Pause workflow |
+| POST | `/internal/workflows/:ref/resume` | Resume workflow |
+| POST | `/internal/workflows/:ref/cancel` | Cancel workflow |
+| POST | `/internal/workflows/:ref/fail` | Force failure |
+| POST | `/internal/workflows/:ref/heartbeat` | Stage heartbeat |
+| GET | `/internal/workflows/:ref/supervision` | Supervisor progress query |
+| GET | `/internal/workflows/:ref/progress` | Workflow progress details |
+| POST | `/internal/checkpoints/create` | Create checkpoint |
+| POST | `/internal/checkpoints/resume` | Resume from checkpoint |
+
+### executor-gateway (Host Port 3002)
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/internal/executor/dispatch` | Receive workflow dispatch |
+| POST | `/internal/executor/execute` | Direct executor stage execution |
+| GET | `/internal/executor/runs/:ref` | Query execution run status |
+| POST | `/internal/executor/sessions/:id` | Session operations (terminate/status/cancel/pause/resume) |
+| GET | `/health` | Health check |
+
+### hermes-adapter (Host Port 3005)
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/internal/memory` | Store memory entry |
+| POST | `/internal/memory/recall` | Recall memory (including compressed context) |
+| POST | `/internal/memory/clear` | Clear session memory |
+| POST | `/internal/context/compress` | Compress context |
+| POST | `/internal/memory/analyze` | Dream Mode: personal memory analysis (collect → compress → extract) |
+| POST | `/internal/memory/analyze/org` | Dream Mode: org-level memory integration |
+| GET | `/internal/memory/summary` | Dream Mode: org-level memory summary query |
+| GET | `/internal/memory/analysis-runs` | Dream Mode: analysis run history |
+| GET | `/internal/memory/compression-logs` | Dream Mode: compression log query |
+| GET | `/internal/memory/access-log` | Dream Mode: memory access audit log |
+
+### fact-retrieval (Host Port 3004)
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/internal/documents/index` | Document indexing (chunking, vectorization, full-text search) |
+| POST | `/internal/retrieval/query` | Vector + full-text hybrid retrieval |
+| POST | `/internal/facts/write` | Fact writing (insert/supersede/conflict/attach-evidence) |
+| POST | `/internal/artifacts/write` | Artifact writing (LLM output storage) |
+| POST | `/internal/artifacts/read` | Artifact reading (with permission filtering) |
+| POST | `/internal/entities/write` | Batch entity & relationship writing |
+| POST | `/internal/embeddings/backfill` | Trigger embedding backfill task |
+| POST | `/internal/fact/submit` | Receive user-submitted knowledge snippets (write to unconfirmed pool) |
+| GET | `/internal/fact/review` | List pending/reviewed knowledge items (supports status + org_id filtering) |
+| POST | `/internal/fact/review` | Admin knowledge review (approve/approve_shared/reject/return) |
+| POST | `/internal/knowledge/extract` | Extract structured knowledge from conversation memory |
+| GET | `/internal/files` | List user files (supports category/scope filtering) |
+| POST | `/internal/files/upload` | Upload file (base64 encoded) |
+| GET | `/internal/files/:id/download` | Download file |
+| POST | `/internal/files/:id/share` | Modify file scope (private/shared/public) |
+| DELETE | `/internal/files/:id` | Soft delete file |
+
+### skill-library (Host Port 3007)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/internal/skills` | Skill list (supports pagination and filtering) |
+| POST | `/internal/skills/create` | Register new skill (auto-generate v1) |
+| GET | `/internal/skills/search` | Search skills (keyword, type filtering) |
+| GET | `/internal/skills/:id` | Get skill details (including latest version definition) |
+| POST | `/internal/skills/:id/update` | Update skill definition (auto-increment version) |
+| POST | `/internal/skills/:id/publish` | Publish skill (draft → active) |
+| POST | `/internal/skills/:id/archive` | Archive skill (active → archived) |
+| POST | `/internal/skills/import` | Import skill from Markdown content |
+| GET | `/internal/skills/:id/export` | Export skill definition as Markdown |
+| GET | `/internal/skills/:id/versions` | List all versions of a skill |
+| POST | `/internal/skills/audit` | Dream Mode: single skill four-dimension audit |
+| POST | `/internal/skills/audit/batch` | Dream Mode: batch skill audit |
+| POST | `/internal/skills/:id/promote-to-org` | Dream Mode: promote skill to org level |
+| GET | `/internal/skills/org-registry` | Dream Mode: org skill registry |
+| GET | `/internal/skills/audit-records` | Dream Mode: audit record query |
+| GET | `/internal/skills/usage-stats` | Dream Mode: skill usage statistics |
+| GET | `/internal/skills/scene-assessments` | Dream Mode: scene value assessment |
+
+### web-portal (Host Port 3003)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/setup/status` | Setup wizard status |
+| POST | `/api/setup/initialize` | Initialization step |
+| POST | `/api/auth/login` | Login |
+| GET | `/api/admin/policies` | Policy list |
+| POST | `/api/admin/policies` | Create policy |
+| GET | `/api/admin/organization-invitations` | Organization invitation list |
+| GET | `/api/admin/organization-members` | Organization member list |
+| GET | `/api/knowledge/review` | Knowledge review list (proxies to fact-retrieval) |
+| POST | `/api/knowledge/review` | Submit review decision (proxies to fact-retrieval) |
+| POST | `/api/admin/dream/analyze` | Dream Mode: trigger personal memory analysis |
+| POST | `/api/admin/dream/analyze-org` | Dream Mode: trigger org-level memory integration |
+| GET | `/api/admin/dream/summary` | Dream Mode: org-level memory summary |
+| GET | `/api/admin/dream/runs` | Dream Mode: analysis run history |
+| GET | `/api/admin/dream/compressions` | Dream Mode: compression logs |
+| GET | `/api/admin/dream/access-log` | Dream Mode: access audit logs |
+| POST | `/api/admin/dream/skill-audit` | Dream Mode: single skill audit |
+| POST | `/api/admin/dream/skill-audit-batch` | Dream Mode: batch skill audit |
+| GET | `/api/admin/dream/skill-audit-records` | Dream Mode: audit records |
+| GET | `/api/admin/dream/org-skills` | Dream Mode: org skill library |
+| GET | `/api/admin/dream/skill-usage` | Dream Mode: skill usage statistics |
+| GET | `/api/admin/dream/scenes` | Dream Mode: scene value assessment |
+| POST | `/api/admin/skills/:id/promote-to-org` | Dream Mode: promote skill to org level |
+| GET | `/api/admin/dream/config` | Dream Mode: read configuration |
+| POST | `/api/admin/dream/config` | Dream Mode: save configuration |
+
+---
+
+## 10. Round 3 Fixes (2026-05-01)
+
+This round addressed issues found during actual Feishu usage:
+
+| # | Issue | Root Cause | Fix Location |
+|---|-------|-----------|-------------|
+| 1 | No "responding" indicator in Feishu | handleFeishuEvent processed all logic synchronously before returning 200, Feishu timed out | `apps/gateway-adapter/src/index.ts` — Return 200 immediately, process asynchronously |
+| 2 | Long `feishu:xxx:conv:xxx` string at end of every reply | session_ref was concatenated into reply text, leaked to user | `apps/gateway-adapter/src/index.ts` — Remove concatenation |
+| 3 | User identity could not be bound | New users only created pending bindings to placeholder users, no auto-binding mechanism | `apps/gateway-adapter/src/services/identity-resolver.ts` — Auto-create user + immediate binding |
+| 4 | Multi-turn conversations had no context | Gateway LLM calls didn't use Hermes memory service at all | `apps/gateway-adapter/src/index.ts` — Integrate recallContext + rememberContext |
+| 5 | Executor received `[object Object]` | plan.goal was an object, String() converted to `[object Object]` | `services/executor-gateway/src/index.ts` — Extract plan.goal.user_goal |
+| 6 | No final reply after workflow completion | Gateway only sent acceptance reply, didn't track completion status | `apps/gateway-adapter/src/index.ts` — Added pollAndReplyWorkflowResult |
+
+## 11. Round 4 Fixes (2026-05-03)
+
+This round conducted a comprehensive code audit based on 19 user storylines (AH-1~AH-19), found 19 issues, fixed by P0/P1/P2 priority:
+
+### P0 Fixes (Blocking Defects)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P0-1 | Missing `knowledge_submit` intent recognition | Users couldn't submit business knowledge through conversation | `apps/gateway-adapter/src/index.ts` — Added `isKnowledgeSubmitIntent()` + keyword matching + LLM intent classification extension |
+| P0-2 | Missing knowledge review desk/API | Submitted knowledge went unreviewed, knowledge base couldn't grow | `services/fact-retrieval/src/index.ts` — Added `/internal/fact/submit`, `/internal/fact/review` (GET/POST); `services/fact-retrieval/src/service.ts` — Added `submitUserFact()`, `listFactsForReview()`, `reviewFact()`; `apps/web-portal/src/index.ts` — Added "Knowledge Review" nav page + `renderKnowledgeReview()` |
+| P0-3 | Missing scheduled knowledge extraction scheduling | Scattered conversation memories couldn't auto-convert to structured knowledge | `services/fact-retrieval/src/service.ts` — Added `extractKnowledgeFromMemory()` |
+| P0-4 | document_chunk missing full-text search index | Poor Chinese keyword retrieval performance | `libs/shared/src/db/schema.ts` — Added `search_tsv` tsvector column + GIN index `idx_document_chunk_search_tsv` |
+
+### P1 Fixes (Feature Gaps)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P1-1 | Missing `quick_lookup` routing path | Users couldn't quickly look up known info (names/contacts) | `apps/gateway-adapter/src/index.ts` — Added `isQuickLookupIntent()` + `quickLookup()` (lightweight workflow + short polling + chat fallback) |
+| P1-2 | Missing Workflow → Skill candidate extraction | Successful workflow patterns couldn't be reused as Skills | `apps/gateway-adapter/src/index.ts` — Added `extractWorkflowAsSkillCandidate()`, auto-triggered after workflow completes |
+| P1-3 | Dream Summarization missing compression trigger detection | Lengthy sessions consumed excessive context windows | `services/executor-gateway/src/executor/generic-executor.ts` — Enhanced `executeDreamSummarization()`, added `needs_compression` detection + three-level compression tasks |
+| P1-4 | AGE graph label set too small | Couldn't model business relationship scenarios (client/contact/opportunity/project) | `services/fact-retrieval/src/service.ts` — VERTEX_LABELS 8→12 (added Client, Contact, Opportunity, Project), EDGE_LABELS 8→16 (added BELONGS_TO, EMPLOYES, INVOLVED_IN, INTERACTS_WITH, REPORTS_TO, PARTNERS_WITH, COMPETES_WITH, SUPPLIES_TO) |
+
+### P2 Fixes (Experience Enhancements)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P2-1 | System persona fixed and uniform | Couldn't personalize tone/behavior per org/user | `libs/shared/src/db/schema.ts` — Added `user_profile` table (three-tier persona system: system base → org persona → user profile); `apps/gateway-adapter/src/index.ts` — Enhanced system prompt (6 behavior rules) |
+| P2-2 | No push notification on workflow completion | Mobile users couldn't receive timely task completion alerts | `apps/gateway-adapter/src/index.ts` — Integrated `sendMobilePushNotification()` into `pollAndReplyWorkflowResult` |
+
+---
+
+## 12. Round 5 Fixes (2026-05-04) — Dream Mode Implementation
+
+This round implemented storyline AH-20 "Dream Mode: Hierarchical Memory Management + Skill Discovery Ecosystem", adding 9 database tables, 14 API endpoints, 3 Web Portal pages, and an auto-scheduler.
+
+### Branch 1: Hierarchical Memory Management System
+
+| # | New Feature | Implementation Location |
+|---|------------|------------------------|
+| D-01 | Personal dream analysis endpoint `POST /internal/memory/analyze` | `services/hermes-adapter/src/index.ts` — Three-step pipeline (collect → compress → extract) |
+| D-02 | Org-level memory integration endpoint `POST /internal/memory/analyze/org` | `services/hermes-adapter/src/index.ts` — Scan dream_extraction facts → deduplicate & integrate → org_memory_summary |
+| D-03 | Memory summary/run history/compression log/access log query endpoints | `services/hermes-adapter/src/index.ts` — 4 GET endpoints |
+| D-04 | Database migration 021_dream_mode.sql | `db/migrations/021_dream_mode.sql` — 9 new tables |
+
+### Branch 2: Skill Discovery & Management Ecosystem
+
+| # | New Feature | Implementation Location |
+|---|------------|------------------------|
+| D-05 | Single skill four-dimension audit endpoint `POST /internal/skills/audit` | `services/skill-library/src/index.ts` — Functionality/Security/Performance/Compatibility scoring |
+| D-06 | Batch skill audit endpoint `POST /internal/skills/audit/batch` | `services/skill-library/src/index.ts` — Daily auto-audit |
+| D-07 | Skill promotion/registry/audit records/usage stats/scene assessment endpoints | `services/skill-library/src/index.ts` — 5 endpoints |
+
+### Web Portal Integration
+
+| # | New Feature | Implementation Location |
+|---|------------|------------------------|
+| D-08 | Dream Mode API proxy (14 endpoints) | `apps/web-portal/src/index.ts` — Proxy to hermes/skill-library |
+| D-09 | Dream Mode auto-scheduler | `apps/web-portal/src/index.ts` — Check every 2 minutes, trigger analysis/audit per config |
+| D-10 | Dream Mode UI pages (3 pages) | `apps/web-portal/static/app.js` — Memory Analysis/Skill Discovery/Configuration Management |
+
+---
+
+## 13. Round 6 Fixes (2026-05-05) — Security Closure + Documentation Alignment
+
+This round systematically closed out remaining issues based on previous five rounds of audit findings:
+
+### P0 Fixes (Security Closure)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P0-5 | executor services still had hardcoded API key fallback value `'litellm-dev-key'` | If env var missing, service runs with guessable key | `generic-executor.ts`, `verification-executor.ts`, `repair-executor.ts`, `code-executor.ts` — All 4 files removed hardcoded fallback values, changed to `''` + `logger.warn` warning |
+| P0-6 | planner.ts had hardcoded API key fallback value `'ollama'` | Same as above | `services/workflow/src/planner/planner.ts` — Removed hardcoded fallback value |
+
+### P1 Fixes (Documentation Alignment)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P1-5 | `CORS_ORIGINS` default value documentation lagged (included `,*` wildcard) | Ops config reference didn't match reality | `OPS.md` — Synced to `http://localhost:3003` |
+| P1-6 | User storyline service ports inconsistent with Docker internal ports | New developer configuration confusion | `用户故事线.md` — All service URLs unified to container-internal `:3000` |
+| P1-7 | skill-library API endpoint documentation didn't match actual code paths | API docs untrustworthy | `ARCHITECTURE.md` — Complete rewrite of skill-library endpoint table |
+| P1-8 | gateway-adapter API endpoints had non-existent `/channels/webot/callback` | Documentation described non-existent functionality | `ARCHITECTURE.md` — Updated to actual paths |
+| P1-9 | fact-retrieval endpoint docs severely lacking (only 4 vs actual 18) | Internal API docs incomplete | `ARCHITECTURE.md` — Completed all 18 endpoints |
+| P1-10 | File storage endpoint path incorrect (`/api/files` → `/internal/files`) | Callers using wrong paths | `ARCHITECTURE.md` — Merged into fact-retrieval main endpoint table |
+
+### P2 Fixes (Engineering Improvements)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P2-3 | Core services missing unit tests | High refactor/modification risk | Existing: `libs/shared/src/http/index.test.ts`, `services/workflow/src/engine/workflow-machine.test.ts`; This round added: `gateway-adapter`, `fact-retrieval`, `hermes-adapter` tests |
+| P2-4 | Knowledge graph not synced with this round's changes | Graph out of sync with docs | `context-graph.json` — Updated version number and description |
+
+---
+
+## 14. Round 7 Fixes (2026-05-05) — Docker Ops Completeness + Error Handling Improvements
+
+### P1 Fixes (Ops Completeness)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P1-11 | 8 app services missing Docker health checks | Container orchestrator couldn't determine real service readiness | `docker-compose.yml` — Added unified `node -e "require('http').get('/health/live')"` health checks for gateway-adapter, workflow-service, fact-retrieval, executor-gateway, feishu-longconn, hermes-adapter, skill-library, resource-scheduler |
+
+### Ops Enhancement Details
+
+| Service | Before | After |
+|---------|:------:|:-----:|
+| gateway-adapter | ❌ | ✅ |
+| workflow-service | ❌ | ✅ |
+| fact-retrieval | ❌ | ✅ |
+| executor-gateway | ❌ | ✅ |
+| feishu-longconn | ❌ | ✅ |
+| hermes-adapter | ❌ | ✅ |
+| skill-library | ❌ | ✅ |
+| resource-scheduler | ❌ | ✅ |
+
+### P2 Fixes (Code Quality)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P2-5 | planner.ts `catch {}` empty catch block losing debug info | Couldn't locate root cause when JSON parsing failed | `services/workflow/src/planner/planner.ts:L183` — Changed to `catch (parseError)` and log error info |
+
+---
+
+## 15. Round 8 Fixes (2026-05-06) — Comprehensive System Audit Fixes
+
+This round used 7 parallel audit agents to deeply audit all workspace code, documents, and graphs, finding 104 issues (including 9 items carried over from previous rounds), fixed by P0/P1/P2 priority.
+
+### P0 Fixes (Security Closure)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P0-7 | `.env` contained 5 sets of plaintext API keys + 3 default passwords | Credential leak risk | `.env` — All replaced with `<CHANGE_ME>` placeholders |
+| P0-8 | `safeCompareSignature` padding mechanism exploitable by timing analysis | Feishu signatures forgeable | `gateway-adapter/index.ts` — Removed padding, directly using length check + `timingSafeEqual` |
+| P0-9 | fact-retrieval artifact-storage path traversal risk | Malicious filenames could escalate access to filesystem | `fact-retrieval/src/artifact-storage.ts` — Added `validateSecurePath()` path constraint + bucket name regex validation |
+
+### P1 Fixes (Code Quality)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P1-11 | gateway-adapter 40 instances of `fireAndForget(...),'tag'` missing spaces | Inconsistent code style | `gateway-adapter/index.ts` — Added space after comma |
+| P1-12 | `sharedDbPool` type too broad + `getSharedDbPool` no error handling | Runtime type unsafe | `gateway-adapter/index.ts` — Changed to `Pool` type + try-catch |
+| P1-13 | `getFeishuApiBase` unknown domain directly returned raw value | Feishu API call failures | `gateway-adapter/index.ts` — Unknown domain degrades to `feishu.cn` + logger.warn |
+| P1-14 | identity-resolver no input validation + catch block swallowing errors | Invalid parameter penetration + hard to troubleshoot | `identity-resolver.ts` — Added type/length validation + `console.error` error logging |
+| P1-15 | approval-executor no approver limit + logs leaking user IDs | DoS risk + privacy leak | `approval-executor.ts` — `MAX_APPROVERS=20` + logs use `approver_count` |
+| P1-16 | evaluateAlerts only checked counter, ignoring histogram | Histogram metric alerts non-functional | `libs/shared/metrics.ts` — Extended to support histogram average comparison |
+| P1-17 | app.js using `var` throughout + `\|\|` old-style defaults | Not ES6+ compliant | `web-portal/static/app.js` — All `var`→`const`/`let`, `\|\|`→`??` |
+
+### P2 Fixes (Document/Graph Sync)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P2-6 | context-graph.json v1.6 missing DEV-14/15/16 + AH1-36 | Toolchain loading incomplete | `context-graph.json` — v1.7 completed 6 document references |
+| P2-7 | context-graph.json authority_map 3 mappings inaccurate | skill/resource/dream authoritative doc errors | `context-graph.json` — resource→AH1-24, dream→AH1-20 |
+| P2-8 | context-routing.json v1.2 missing `types/**` path | Types files inaccessible | `context-routing.json` — v1.3 added `agent-harness/types/**` |
+| P2-9 | object-relationship-graph.md missing new DEV docs + AH1-36 | Graph out of sync with doc layer | `object-relationship-graph.md` — v2.2 completed L1/L2 layers |
+
+### Verified No-Fix-Needed Items (Previous Round Audit False Positives)
+
+| # | Audit Finding | Actual Status |
+|---|--------------|--------------|
+| — | `verifyInternalAuth` bypass logic | Correctly implemented production rejection logic |
+| — | `evictOldest` Map iteration order | JavaScript Map iterates in insertion order, first = oldest, logic correct |
+| — | embedding error log missing | Correctly logs HTTP status code and response body summary |
+| — | `timer.unref()` not called | Already exists in approval-executor.ts |
+
+---
+
+## 16. Round 5 Comprehensive Code Audit (2026-05-17)
+
+This round conducted deep audit from 4 dimensions: dependencies, frontend UX/security, backend security, and inter-service communication, found 31 issues, fixed 25.
+
+### P0 Fixes (Functional Blockers/Security Vulnerabilities)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P0-1 | `const guideTab` assignment failed (const can't be reassigned) | Guide page tab switching completely broken | `app.js:L328` → `let guideTab` |
+| P0-2 | `const container` reassignment in showToast caused crash | Toast notifications completely unusable | `app.js:L44` → `let container` |
+| P0-3 | showModal ESC listener leak on overlay click close | Memory leak + multiple bindings | `app.js:L94` → Unified `closeModal()` call |
+| P0-4 | Dream Scheduler calling `/api/admin/dream/*` without session → 401 | All Dream Mode scheduled tasks failed | `index.ts` → Direct `fetchFromService(hermesUrl/skillLibraryUrl)` |
+| P0-5 | Task Scheduler similarly HTTP self-calling without session | Org task distribution scheduling invalid | `index.ts` → `fetchFromService(gatewayUrl)` |
+| P0-6 | `/internal/tasks/assign` and `/internal/tasks/notify` no auth | Any user could manipulate task distribution | `index.ts` → Added `requireAdmin()` |
+
+### P1 Fixes (Security Hardening)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P1-1 | setup IP check using `includes` substring match | `127.0.0.100` could bypass | `index.ts` → `Set.has()` exact match + `x-forwarded-for` |
+| P1-2 | setup not self-disabling after initialization | System config could be repeatedly overwritten | `index.ts` → Check org+admin already exists then reject |
+| P1-3 | `fetchFromService` no timeout mechanism | Infinite hang on downstream failure | `index.ts` → 30s AbortController + AbortError handling |
+| P1-4 | litellm image `main-latest` floating tag | Non-reproducible deployment | `docker-compose.yml` → `main-v1.74.4-stable` |
+| P1-5 | ADMIN_PASSWORD env var default to empty | Potential empty password backdoor | `docker-compose.yml` → `${ADMIN_PASSWORD:-default_admin_changeme}` |
+| P1-6 | Redis healthcheck using `redis-cli -a` exposing password in process list | Password leak risk | `docker-compose.yml` → `REDISCLI_AUTH` environment variable |
+| P1-7 | ollama + ollama-pull services present (user explicitly doesn't need local models) | Unnecessary infrastructure | `docker-compose.yml` → Removed 3 ollama-related definitions |
+
+### P2 Fixes (Code Quality/UX)
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| P2-1 | triggerOrgTask/pauseOrgTask/archiveOrgTask didn't check `r.ok` | False success displayed on failure | `app.js` → Added error checks and error toasts |
+| P2-2 | handleApproval refreshed view even after failure | Lost error context | `app.js` → Only call `renderView()` on success |
+| P2-3 | initApp no error boundary | Startup failure → white screen | `app.js` → try-catch + error UI |
+| P2-4 | doLogout didn't call backend to invalidate session | Session persisted until expiry | `app.js` → `POST /api/auth/logout` |
+| P2-5 | pg version inconsistent (3 places ^8.15.3) | Documentation misleading | `audit/hermes/web-portal package.json` → `^8.20.0` |
+| P2-6 | yaml version inconsistent (shared ^2.4.0) | Documentation misleading | `shared/package.json` → `^2.8.3` |
+| P2-7 | hermes-adapter using drizzle-orm but not declaring dependency | Implicit dependency | `hermes-adapter/package.json` → Added `drizzle-orm` |
+| P2-8 | pdf-parse CVE-2023-26134 known vulnerability | User PDF upload risk | `gateway-adapter/index.ts` → Replaced with `pdfjs-dist` and synced lockfile |
+
+### Verification Results
+
+| Check | Result |
+|--------|--------|
+| `tsc --noEmit` | ✅ pass (exit 0) |
+| `docker compose config --quiet` | ✅ pass (exit 0) |
+| context-graph.json | ✅ valid JSON, v2.9 |
+| context-routing.json | ✅ valid JSON, v1.9 |
+| diagnostics | ✅ 0 errors |
+
+---
+
+## 17. Round 6 Smoke Testing & Four-Role Experience Closed Loop (2026-05-17)
+
+This round, building on the previous security and UX fixes, conducted end-to-end acceptance along four storylines: Developer, Operations, Admin, and Regular User, focusing on bringing script reproducibility, Compose startability, channel smoke tests, Dream Mode, organization boundaries, and dependency security into the same pre-release check.
+
+### Fixes & Optimizations
+
+| # | Issue | Impact | Fix Location |
+|---|-------|--------|-------------|
+| S-1 | M0 validation script referencing old Jest config name | New devs following docs hit immediate failure | `scripts/validate-m0.js` → Points to `tests/setup/jest.config.cjs` |
+| S-2 | SQL migration script not reading `.env` and default password inconsistent with Compose | DB migrations failed in local dev stack | `scripts/apply-sql-migrations.js` → Reads `.env` and constructs connection string from `POSTGRES_*` |
+| S-3 | Channel smoke tests and Compose dev default signing keys inconsistent | Feishu/WeCom local smoke tests false positives | `docker-compose.yml`, `scripts/channel-webhook-smoke.mjs` |
+| S-4 | SigNoz query health check hitting historical path | `smoke:eval` reported 404 for available service | `scripts/smoke-eval.js` → Changed to current entry `/` |
+| S-5 | Quick Lookup not carrying `org_id` | Quick lookup missing org isolation context | `apps/gateway-adapter/src/index.ts` |
+| S-6 | Dream personal analysis test user missing org/user records | Admin manual dream analysis foreign key failures | `services/hermes-adapter/src/index.ts` |
+| S-7 | Org memory/skill endpoints missing mandatory `org_id` | Admin org boundaries not sufficiently clear | `services/hermes-adapter/src/index.ts`, `services/skill-library/src/index.ts` |
+| S-8 | `pdf-parse` known vulnerability residual | PDF upload parsing dependency risk | `pdfjs-dist` replacement and `package-lock.json` sync |
+| S-9 | OpenTelemetry direct dependencies hitting high audit items | Observability dependency DoS risk | Upgraded `@opentelemetry/auto-instrumentations-node`, `@opentelemetry/sdk-node` |
+
+### Acceptance Storylines
+
+The developer perspective required: from a clean workspace, follow docs to complete dependency install, migration, lint, type checking, unit tests, context audit, and smoke tests. The ops perspective required: Compose stack must start, health checks must hit real endpoints, and the system must distinguish missing real credentials from core service failures. The Admin perspective required: org-level dream, knowledge, and skill governance must mandate `org_id` and return explainable business result fields. The Regular User perspective required: Feishu/WeCom messages must async-ACK, deduplicate, quick-lookup, submit knowledge, run long tasks, and parse files — all gracefully degraded within org boundaries.
+
+See [用户故事线.md](./用户故事线.md) "Storyline 21" and [DEV-17-冒烟测试与四角色体验闭环.md](../development/DEV-17-冒烟测试与四角色体验闭环.md) for detailed storylines.
+
+## 18. Document Navigation
+
+| Document | Content |
+|----------|---------|
+| [Product Description](./PRODUCT.md) | Features, use cases, core value |
+| [Operations Manual](./OPS.md) | Deployment, monitoring, troubleshooting, backup & recovery, security hardening |
+| [Open Source Licenses](./LICENSES.md) | Third-party dependency license list, compliance obligations |
+| [Handoff Document](./HANDOFF-SESSION.md) | Development history, fix records, current status |
+| [Smoke & Security Audit Report](./AUDIT-REPORT-2026-05-17-SMOKE.md) | This round's smoke, UX storylines, security dependencies, and remaining risks |
+
+## 19. Key File Index
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Full service orchestration, environment variables |
+| `.env` | Environment variable configuration (keys, passwords) |
+| `.env.example` | Environment variable template |
+| `apps/gateway-adapter/src/index.ts` | Gateway main logic (5-way intent classification + knowledge submission/quick lookup/skill extraction/push) |
+| `apps/gateway-adapter/src/services/identity-resolver.ts` | Identity resolution & binding |
+| `services/workflow/src/index.ts` | Workflow CRUD + dispatch |
+| `services/workflow/src/planner/planner.ts` | LLM task planning |
+| `services/workflow/src/supervisor/manager.ts` | Heartbeat monitoring |
+| `services/workflow/src/engine/workflow-machine.ts` | XState state machine |
+| `services/executor-gateway/src/index.ts` | Auto-execution orchestration |
+| `services/executor-gateway/src/executor/generic-executor.ts` | Generic executor (includes Dream compression enhancement) |
+| `services/hermes-adapter/src/index.ts` | Memory management |
+| `services/fact-retrieval/src/service.ts` | Fact retrieval core business logic (includes knowledge review/extraction + AGE graph label extension) |
+| `services/skill-library/src/index.ts` | Skill library management |
+| `services/resource-scheduler/src/index.ts` | Resource quota & inspection |
+| `apps/mobile-app/src/index.ts` | Mobile push service |
+| `apps/web-portal/src/index.ts` | Web admin console (includes knowledge review rendering + file management API) |
+| `apps/web-portal/static/app.js` | Web admin frontend (includes file browser UI) |
+| `libs/shared/src/db/schema.ts` | Database schema definition (includes user_profile + user_file tables + GIN index) |
+| `services/fact-retrieval/src/artifact-storage.ts` | File storage backend abstraction (dual backend: localFS + MinIO, user isolation + staging) |
+| `libs/shared/src/http/index.test.ts` | HTTP utility function unit tests |
+| `services/workflow/src/engine/workflow-machine.test.ts` | Workflow state machine unit tests |
+| `services/workflow/src/persistence/db.test.ts` | Database persistence unit tests |
+| `db/migrations/022_user_file_storage.sql` | User file storage migration (user_file table + indexes) |
+| `db/migrations/` | Database migration files |

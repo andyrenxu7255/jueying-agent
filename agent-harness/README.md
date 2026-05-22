@@ -394,3 +394,405 @@ docker exec ah-postgres pg_dump -U agent_harness agent_harness > backup.sql
 <p align="center">
   <sub>Built with ❤️ by <a href="https://github.com/andyrenxu7255">Andy Ren</a></sub>
 </p>
+
+---
+
+## English Version / 英文版
+
+# JueYing (绝影) — Agent Harness
+
+> Version: 1.6.0 | Updated: 2026-05-21
+
+> **Enterprise-grade AI Agent Orchestration and Execution Platform** — Multi-channel access, `workflow_definition` priority reuse, LLM task planning, multi-stage workflow auto-execution
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+
+---
+
+## Table of Contents
+
+- [Project Introduction](#project-introduction)
+- [Quick Start](#quick-start)
+- [Environment Configuration](#environment-configuration)
+- [Project Architecture](#project-architecture)
+- [Service Port Quick Reference](#service-port-quick-reference)
+- [Document Index](#document-index)
+- [User Storylines](#user-storylines)
+- [Development Guide](#development-guide)
+- [Deployment & Operations](#deployment--operations)
+- [License](#license)
+
+---
+
+## Project Introduction
+
+JueYing (绝影, internal codename agent-harness) is an **enterprise-grade AI Agent orchestration and execution platform**.
+
+> 💡 *JueYing* (绝影) was Cao Cao's legendary steed, meaning "swift as wind, fleet as lightning, covering a thousand miles in an instant." In Agent Harness, a super-user leads their team through AI Agents — like a general riding JueYing, charging ahead. The brand's English name is **JueYing**. GitHub: `jueying-agent`.
+
+### Core Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| 🌐 **Multi-Channel Access** | Feishu long-connection WebSocket, WeCom Webhook, Web Portal, mobile push |
+| 🧠 **LLM Task Planning** | First matches approved `workflow_definition`, then falls back to workflow-type active skills; when no match, auto-task first-run then solidifies as reusable workflow-type skill |
+| ⚙️ **Workflow Engine** | XState state-machine-based full lifecycle: plan → execute → verify → repair → report |
+| 📈 **Sales Management Blueprint** | Supports B2B sales morning briefing, stuck-deal rescue, collection risk, discount approval, and weekly review storylines |
+| 🔍 **Knowledge Retrieval** | Wide-candidate vector + like to find objects/fields, graph gating to close the loop, in-graph secondary recall to supplement evidence |
+| 🗃️ **Fact & Entity Management** | Structured fact storage, conflict detection, evidence provenance, entity relationship graph |
+| 🧠 **Memory & Skills** | Session memory store/recall/compress, skill template registration and reuse |
+| 🌙 **Dream & Business Attribution** | Off-peak memory consolidation, hook event ledger, knowledge/skill recall tracking, workflow outcome contribution attribution |
+| 🔁 **Confirm-to-Reuse** | Successful first runs display process and results; user replies "confirm workflow wf_xxx" to activate the private workflow-type skill template; admins can review and promote to org template; high-effectiveness paths then undergo review to solidify as `workflow_definition` |
+| 📊 **Observability** | OpenTelemetry + SigNoz full-chain tracing, audit logging, health checks |
+| 📁 **File Workspace** | User-isolated storage, dual backend (localFS/MinIO), staging mechanism, three-level scope sharing |
+| 🔐 **Security & Compliance** | User/org isolation, RBAC/ABAC policies, scrypt password hashing, parameterized SQL |
+
+### Tech Stack
+
+- **Language**: TypeScript 5.9 + Node.js ≥20
+- **Database**: PostgreSQL 16 + pgvector + Apache AGE (graph projection and gating)
+- **Cache**: Redis 7
+- **Object Storage**: MinIO (S3 compatible)
+- **LLM Gateway**: LiteLLM Proxy (supports MiniMax / DashScope / OpenAI and other models)
+- **Observability**: OpenTelemetry Collector + SigNoz + ClickHouse
+- **Containerization**: Docker + Docker Compose
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- **Node.js** ≥ 20.0.0
+- **Docker** & **Docker Compose** v2+
+- **Git**
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/andyrenxu7255/jueying-agent.git
+cd agent-harness
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure Environment Variables
+
+```bash
+cp .env.example .env
+```
+
+Edit the `.env` file and fill in your API Keys:
+
+```ini
+# Required
+MINIMAX_API_KEY=sk-xxxxxxxxxxxxxxxx
+DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxx
+LITELLM_MASTER_KEY=your-master-key
+
+# Feishu channel (optional)
+FEISHU_APP_ID=cli_xxxxxxxxxxxx
+FEISHU_APP_SECRET=xxxxxxxxxxxxxxxx
+FEISHU_SIGNING_SECRET=xxxxxxxxxxxxxxxx
+
+# WeCom channel (optional)
+WECOM_TOKEN=xxxxxxxxxxxx
+WECOM_CORP_ID=xxxxxxxxxxxx
+```
+
+### 4. Start Infrastructure
+
+```bash
+# Core services only (PostgreSQL + Redis + MinIO)
+npm run docker:core:up
+
+# Core + LiteLLM Gateway
+npm run infra:bootstrap:llm
+
+# Core + LiteLLM + SigNoz (full observability)
+npm run infra:bootstrap:full
+```
+
+### 5. Apply Database Migrations
+
+```bash
+npm run db:migrate
+```
+
+### 6. Start All Application Services
+
+```bash
+npm run docker:up -- --profile app
+```
+
+### 7. Health Check
+
+```bash
+npm run health:core
+```
+
+Once complete, access:
+- **Web Portal**: http://localhost:3003 (log in and see the full architecture guide and usage manual on the "System Guide" page)
+- **LiteLLM Dashboard**: http://localhost:4000/ui
+- **SigNoz Observability**: http://localhost:3301
+- **MinIO Console**: http://localhost:9001
+
+---
+
+## Environment Configuration
+
+### Required Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `MINIMAX_API_KEY` | MiniMax API key | `sk-xxxxxxxxxxxxxxxx` |
+| `DASHSCOPE_API_KEY` | DashScope API key | `sk-xxxxxxxxxxxxxxxx` |
+| `LITELLM_MASTER_KEY` | LiteLLM master key | `your-master-key` |
+
+### Production Security Requirements
+
+For production deployment, you **must** use the secure configuration file:
+
+```bash
+# Use production security overlay
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+`docker-compose.prod.yml` enforces that all passwords must be provided via environment variables, **prohibiting default weak passwords**.
+
+Development environment default passwords (local dev only):
+
+| Service | Username | Default Password |
+|---------|----------|-----------------|
+| PostgreSQL | `agent_harness` | `dev_password_changeme` |
+| Redis | — | `redis_changeme` |
+| MinIO | `minioadmin` | `minioadmin_changeme` |
+| ClickHouse | `clickhouse` | `clickhouse_changeme` |
+
+> ⚠️ **Never use these default passwords in production!**
+
+---
+
+## Project Architecture
+
+```
+agent-harness/
+├── apps/                    # Application layer
+│   ├── gateway-adapter/     # Multi-channel access gateway (Feishu/WeCom/Web/Mobile)
+│   ├── web-portal/          # Web admin console
+│   └── mobile-app/          # Mobile push service
+├── services/                # Microservices layer
+│   ├── workflow/            # Workflow engine (Planner + Supervisor + StateMachine)
+│   ├── fact-retrieval/      # Knowledge retrieval (vector + full-text + graph + rerank)
+│   ├── executor-gateway/    # Executor gateway (multi-type Executor dispatch)
+│   ├── hermes-adapter/      # Memory & skill management
+│   ├── skill-library/       # Skill registry
+│   ├── resource-scheduler/  # Resource quota & health inspection
+│   ├── feishu-longconn/     # Feishu long-connection WebSocket
+│   └── ollama/              # Local LLM runtime (optional)
+├── libs/                    # Shared libraries
+│   ├── contracts/           # Zod Schema + TypeScript types + API contracts
+│   ├── shared/              # Logging/HTTP/DB/Config/Rate-limit/Monitoring
+│   ├── policy/              # RBAC/ABAC permission engine
+│   └── audit/               # Audit logging
+├── config/                  # Environment configuration (YAML)
+├── db/                      # Database migrations (SQL)
+├── docker/                  # Docker build files
+├── scripts/                 # Operations scripts
+└── tests/                   # Tests (integration tests + POC scripts)
+```
+
+### Data Flow
+
+```
+User → [Feishu/WeCom/Web] → gateway-adapter
+                                │
+                   ┌────────────┼────────────┐
+                   ↓            ↓            ↓
+             Knowledge/Chat  Long Task/     Quick
+                             Workflow      Lookup
+                   │            │            │
+                   ↓            ↓            │
+            hermes-adapter  workflow-service  │
+            fact-retrieval       │           │
+                   │             ↓           │
+                   │    executor-gateway     │
+                   │     (dispatch executors) │
+                   └─────────┬───────────────┘
+                             ↓
+                      Result returned to user
+```
+
+---
+
+## Service Port Quick Reference
+
+| Service | Port | Container Name | Function |
+|---------|:---:|------|------|
+| gateway-adapter | 3000 | ah-gateway | Multi-channel entry, intent classification, routing |
+| workflow-service | 3001 | ah-workflow | Workflow planning & state machine |
+| executor-gateway | 3002 | ah-executor | Multi-executor dispatch |
+| web-portal | 3003 | ah-web-portal | Web admin interface |
+| fact-retrieval | 3004 | ah-fact-retrieval | Knowledge retrieval & fact storage |
+| hermes-adapter | 3005 | ah-hermes | Memory & skills |
+| feishu-longconn | dynamic | ah-feishu-longconn | Feishu long connection |
+| skill-library | 3007 | ah-skill-library | Skill registry |
+| resource-scheduler | 3008 | ah-resource-scheduler | Resource quota inspection |
+| mobile-app | 3009 | ah-mobile-app | Mobile push |
+| PostgreSQL | 5432 | ah-postgres | Primary database |
+| Redis | 6379 | ah-redis | Cache |
+| MinIO | 9000/9001 | ah-minio | Object storage |
+| LiteLLM | 4000 | ah-litellm | LLM gateway |
+| SigNoz Frontend | 3301 | ah-signoz-frontend | Observability UI |
+
+---
+
+## Document Index
+
+| Document | Content |
+|----------|---------|
+| [Product Description](./PRODUCT.md) | Feature matrix, use cases, role definitions, core value |
+| [System Architecture](./ARCHITECTURE.md) | Complete architecture diagram, data flows, API endpoint matrix, state machine design |
+| [Operations Manual](./OPS.md) | Deployment process, health checks, resource management, logging & backup |
+| [User Storylines](./用户故事线.md) | 21 acceptance storylines (AH-1 ~ AH-21), including Dream Mode and B2B sales observability closed loop |
+| [Release Notes](../RELEASE_NOTES.md) | v1.6.0 Dream Hooks, business attribution, and Workflow Reviews release notes |
+| [DEV-21 Dream Hooks & Business Attribution Closed Loop](../development/DEV-21-梦境Hook与业务归因闭环.md) | Dream, Hook, recall, and Outcome attribution implementation notes |
+| [Fix Report](./FIX-REPORT.md) | Code audit and fix records |
+| [Frontend Audit Changelog](./FRONTEND-AUDIT-CHANGELOG.md) | Frontend page audit modification records (including 15 initialization items + Dream Mode) |
+| [Handoff Document](./HANDOFF-SESSION.md) | Development history, 11 rounds of fix details, current system status |
+| [Audit Report](./AUDIT-REPORT.md) | 7 categories, 53 code quality/security audit items |
+| [Open Source License Statement](./LICENSES.md) | Complete LICENSE text + third-party dependency license list |
+
+---
+
+## User Storylines
+
+See [用户故事线.md](./用户故事线.md) for the complete user storylines.
+
+**21 Storylines at a Glance**:
+
+| # | Storyline | Services Involved |
+|:---:|------|------|
+| AH-1 | Multi-channel message intake & identity recognition | gateway-adapter |
+| AH-2 | Multi-source knowledge ingestion & chunked vectorization | fact-retrieval |
+| AH-3 | Structured fact extraction & storage | fact-retrieval |
+| AH-4 | Multi-party fact conflict detection & merging | fact-retrieval |
+| AH-5 | Natural language knowledge retrieval | fact-retrieval |
+| AH-6 | Human knowledge review & approval | web-portal |
+| AH-7 | Intent recognition & task planning | workflow-service |
+| AH-8 | Workflow stage auto-execution | executor-gateway |
+| AH-9 | WeChat/Feishu long task async feedback | gateway-adapter |
+| AH-10 | Memory storage & context compression | hermes-adapter |
+| AH-11 | Skill library management & skill extraction | skill-library |
+| AH-12 | User profile & persona system | web-portal |
+| AH-13 | Permission policies & data isolation | policy |
+| AH-14 | AI code execution tool | executor-gateway |
+| AH-15 | Artifact storage & version management | fact-retrieval |
+| AH-16 | Workflow Checkpoint & recovery | workflow-service |
+| AH-17 | Audit logging & full-chain tracing | audit |
+| AH-18 | Inspection scheduling & resource reclamation | resource-scheduler |
+| AH-19 | Mobile push notifications | mobile-app |
+| AH-20 | Dream Mode: hierarchical memory management + skill discovery ecosystem, with knowledge/skill business attribution tracking | hermes-adapter, skill-library, workflow-service, fact-retrieval, web-portal |
+| AH-21 | B2B sales management daily routine & workflow observability closed loop | gateway-adapter, workflow-service, executor-gateway, fact-retrieval, web-portal |
+
+---
+
+## Development Guide
+
+### Project Structure
+
+This project is an **npm workspaces monorepo**:
+
+```bash
+npm install          # Install all workspace dependencies
+npm run type-check   # TypeScript type checking
+npm run build        # Compile all packages
+npm test             # Run tests
+npm run lint         # Code style checks
+npm run smoke:workflow-observability  # Workflow reuse, observability, and confirm-to-solidify smoke test
+npm run test:dream-mode  # Dream Mode and attribution closed-loop integration tests
+```
+
+### Development Mode
+
+In development mode, application service source code is mounted into containers via Docker volumes:
+
+```yaml
+volumes:
+  - ./services/workflow/src:/app/src:ro
+```
+
+After modifying source code, restart the container for changes to take effect:
+
+```bash
+docker compose restart workflow-service
+```
+
+### Database Development
+
+```bash
+# View Drizzle Schema
+cat db/schema.ts
+
+# Generate migration (Drizzle Kit)
+npm run db:generate
+
+# Push Schema to database
+npm run db:push
+
+# Execute SQL migrations
+npm run db:migrate
+```
+
+---
+
+## Deployment & Operations
+
+### Production Deployment Checklist
+
+- [ ] Set all environment variables (never use default passwords)
+- [ ] Use `docker-compose.prod.yml` overlay file
+- [ ] Configure HTTPS reverse proxy (nginx/Caddy)
+- [ ] Configure Feishu/WeCom Webhook callback URLs
+- [ ] Initialize admin account: `node scripts/init-admin.cjs`
+- [ ] Run health check: `npm run health:core`
+- [ ] Configure log rotation (see OPS.md)
+
+### Common Operations Commands
+
+```bash
+# View service logs
+docker compose logs -f gateway-adapter
+
+# Restart a single service
+docker compose restart workflow-service
+
+# Stop all services
+npm run docker:down
+
+# Database backup
+docker exec ah-postgres pg_dump -U agent_harness agent_harness > backup.sql
+```
+
+For detailed operations guidance, see the [Operations Manual](./OPS.md).
+
+---
+
+## License
+
+This project itself is licensed under the **MIT License**. See [LICENSE](./LICENSE).
+
+Third-party component licenses used by this project are detailed in [LICENSES.md](./LICENSES.md), covering all open-source license statements for NPM packages and Docker images.
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ by <a href="https://github.com/andyrenxu7255">Andy Ren</a></sub>
+</p>

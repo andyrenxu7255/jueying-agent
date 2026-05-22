@@ -271,3 +271,282 @@ JueYing (Agent Harness) 本体采用 **MIT** 开源许可证。
 | [运维手册](./OPS.md) | 部署、监控、故障排查、备份恢复 |
 | [开源协议](./LICENSES.md) | 第三方依赖许可证清单 |
 | [交接文档](./HANDOFF-SESSION.md) | 开发历史与当前状态 |
+
+---
+
+## English Version / 英文版
+
+# JueYing (绝影) — Product Description
+
+> Version: 1.6.0 | Updated: 2026-05-21
+> Brand Name: JueYing (绝影) | Internal Codename: agent-harness
+
+---
+
+## 1. Product Overview
+
+JueYing (绝影) is an **enterprise-grade AI Agent orchestration and execution platform**. Users interact with the system through IM channels such as Feishu and WeCom. The system first checks for an approved `workflow_definition`, then falls back to reusable active skill templates, and uses Large Language Models (LLMs) to automatically plan new tasks as multi-stage workflows. When no existing path exists, the system first runs in auto-task first-run mode to establish the path, then solidifies mature paths as workflow-type skill templates. It dispatches specialized executors to complete each stage and proactively pushes explainable processes and results.
+
+### 1.1 Product Positioning
+
+An AI work assistant for enterprise office scenarios, enabling employees to invoke AI Agents to complete complex work tasks through the IM tools they use every day, without switching systems or learning new tools.
+
+### 1.2 Core Value
+
+| Value Dimension | Description |
+|-----------------|-------------|
+| **Zero Learning Cost** | Chat directly through Feishu/WeCom, using AI as naturally as talking to a colleague |
+| **Task Automation** | Complex tasks are automatically decomposed into executable stage chains; after a successful first run, they can be solidified as reusable workflow-type skill templates |
+| **Business Closed Loop** | Centered on B2B sales management, supporting boss decision-making, manager process tracking, salesperson execution, and exception escalation |
+| **Unified Multi-Channel** | Feishu, WeCom, Web Portal unified access with automatic identity binding |
+| **Contextual Memory** | Multi-turn conversation memory — the AI remembers previous exchanges |
+| **Enterprise Security** | Organization isolation, RBAC permissions, policy control, audit logging |
+| **Extensible Skills** | Install pre-built skills from the ClawHub skill marketplace; also solidify user-confirmed successful paths as private workflow-type skill templates, which admins can review and promote to org templates |
+
+---
+
+## 2. Core Features
+
+### 2.1 Intelligent Chat
+
+Users send natural language messages, and the system uses LLMs to understand intent and generate replies.
+
+**Features:**
+- Contextual memory: Maintains coherence across multi-turn conversations
+- History compression: Auto-summarizes when exceeding context window
+- Anonymous fallback: Memory isolation for unauthenticated users
+- Intent classification: Auto-identifies chitchat / task request / knowledge submission / quick lookup
+
+### 2.2 Long-Running Task Workflows
+
+When a user raises a task requiring multiple steps, the system automatically performs task planning.
+
+**Workflow Four Stages:**
+```
+Intent Clarification → Evidence Retrieval → Decision Reasoning → Result Reporting
+        ↓                    ↓                    ↓                  ↓
+   Understand needs     Find materials      Analyze & judge     Generate output
+```
+
+**Features:**
+- Reuse-first: First checks approved active `workflow_definition`, then checks personal private, org, and public active workflow-type skill templates for existing paths
+- Auto task decomposition: LLM breaks down complex goals into executable stages
+- Multi-executor dispatch: Automatically matches the best executor based on stage type
+- Process observability: Real-time stage status monitoring, with execution process, exceptions, and results explained in the final report
+- Fault recovery: Pause, resume, and autonomous repair for failed stages
+- Result push notification: Automatically pushes to IM channel upon completion
+- User confirmation solidification: Successful first runs generate private draft workflow-type skills; user replies "confirm workflow wf_xxx" to activate and reuse; admins can promote to org templates via skill review
+- Contract solidification: Workflow-type skills with high recall rate, good injection results, good business outcomes, and high audit scores enter `workflow_definition_review`; upon admin approval they are solidified as `workflow_definition`
+
+### 2.2.1 B2B Sales Management Blueprint Scenario
+
+JueYing's daily management blueprint is benchmarked on B2B sales teams: the boss only inputs business goals and constraints, and the Agent decomposes them into sales manager morning briefings, frontline salesperson daily eight-visit reminders, stuck-deal rescue, discount approvals, collection tracking, and weekly reviews. The system organizes red/yellow/green customer status, stage dwell time, promised actions, evidence gaps, and items requiring boss decisions into a briefing, so that management time is spent on exceptions and decisions rather than scrolling through CRM pipelines.
+
+### 2.3 Knowledge Management
+
+Users accumulate organizational knowledge through everyday conversations.
+
+| Feature | Description |
+|---------|-------------|
+| Knowledge Submission | Users say "take a note" to write information into the knowledge base (pending review) |
+| Knowledge Review | Admins review/approve/return/reject user-submitted knowledge in the Web Portal |
+| Knowledge Extraction | Periodically auto-extracts structured knowledge points from conversation memory |
+| Quick Lookup | Use `/find` prefix to quickly search known information (names, contact info, etc.) |
+
+### 2.4 Memory System
+
+| Feature | Description |
+|---------|-------------|
+| Session Memory | Records user/assistant messages for each conversation round |
+| Context Recall | Retrieves relevant history based on the current message |
+| Compression & Summary | Auto-compresses overly long conversations into summaries |
+| Quota Management | Configurable max memory entries per session |
+
+### 2.4.1 Dream Mode
+
+A daily auto-running system for hierarchical memory management, skill discovery, and business attribution. Dream Mode not only addresses "amnesia" and context inflation, but also tracks which knowledge, memories, and skills were recalled, injected, and ultimately produced good results in real workflows.
+
+**Hierarchical Memory Management:**
+- User memory isolation: Dedicated memory space per user (owner_user_id isolation)
+- Admin Agent analysis: Scheduled scanning of all user memories, LLM compression of overly long memories + knowledge point extraction
+- Org-level integration: Aggregate user knowledge → deduplication & classification → integration into org knowledge base
+- Memory retrieval optimization: User-level / admin-level memory routing, complete access audit logs
+
+**Skill Discovery Ecosystem:**
+- High-value scenario identification: Analyze user interaction patterns, auto-identify reusable scenarios
+- Multi-dimensional skill auditing: Functionality / Security / Performance / Compatibility four-dimension scoring, ≥80 auto-promotion
+- Org-level skill library: Reviewed user skills → standardization → org-wide skills
+- Skill usage statistics: Daily call count / success rate / active users real-time tracking
+
+**Hooks and Business Attribution:**
+- Hook event ledger: Records `memory.recalled`, `fact.recalled`, `skill.recalled`, `skill.injected`, `outcome.evaluated`, `dream.completed`
+- Knowledge recall ledger: Records whether memory / fact / document_chunk / org_memory / hermes_memory entered the Evidence Pack or model context
+- Skill recall ledger: Records skill version, recall reason, whether injected into context, subsequent workflow results
+- Outcome scoring: Successful, failed, and cancelled workflows all record terminal state scores, reducing sampling bias toward successes only
+- Attribution dashboard: Admins view 30-day knowledge and skill recall count, success rate, average business score, and contribution score
+- Workflow definition review: Admins can generate review candidates from the Dream skill discovery page, view source skill and business scores, and approve to generate stable `workflow_definition`
+
+### 2.5 Skill System
+
+Install pre-built skills via the ClawHub China mirror site (mirror-cn.clawhub.com) to extend Agent capabilities. All 14 skills require no API Key.
+
+**Pre-built Skills (14 items, all free, no API Key required):**
+- **Document Pro**: Full-format reading and parsing of PDF/Word/PPT/Excel/CSV/Markdown
+- **Document Generator**: AI-driven auto-generation of Word/PPT/Excel reports
+- **PDF Converter**: PDF ↔ Word/Excel format conversion, merge/split/compress
+- **Multi Search**: DuckDuckGo + Bing + Baidu + Sogou multi-channel aggregation
+- **Deep Search**: Multi-round progressive research search with automatic sub-question decomposition
+- **Real-Time News**: RSS + Weibo/Zhihu/36Kr hot topic aggregation push
+- **Summarize**: Intelligent content extraction from web pages/PDFs/images
+- **WeCom File Bridge**: WeCom file send/receive, automatic document parsing and import into knowledge base
+- **Weather**: Public weather data real-time query, 7-day forecast
+- **Agent Browser**: Headless browser automation, data collection
+- **Ontology**: Automatic entity/relationship extraction, AGE graph database knowledge graph construction
+- **Memory Compress**: Conversational object-oriented memory storage, automatic object relationship graph construction
+- **Skill Vetter**: Pre-install permission and risk review for skills
+- **self-improving-agent**: Experience recording, continuous self-optimization
+
+### 2.6 Organization & User Management
+
+| Feature | Description |
+|---------|-------------|
+| Organization Isolation | Users, workflows, memories fully isolated by organization |
+| Role Permissions | admin / user roles, configurable fine-grained policies |
+| Invitation Management | Admins can invite members and manage their permissions |
+| Audit Logging | Records all key operations (login, create, modify) |
+
+### 2.5.1 File Storage & Management Workspace
+
+Each user has a fully isolated personal file workspace.
+
+| Feature | Description |
+|---------|-------------|
+| File Upload | Upload original documents (PDF/DOCX/XLSX etc.) via Feishu/WeCom/Web Portal |
+| User Isolation | Independent storage space per user `users/{org}/{user}/` |
+| Dual Backend Storage | localfs (dev) + MinIO/S3 (prod) |
+| Staging Mechanism | Temporary storage in staging area before ingestion; auto-cleanup after ingestion |
+| File Sharing | Three-level scope: private/shared/public |
+| AI-Generated Files | LLM/workflow-generated files saved in the same user space under artifacts/ subdirectory |
+| Version Tracking | Original file hashCode + user_file metadata table |
+
+### 2.7 Web Admin Portal
+
+| Feature | Description |
+|---------|-------------|
+| Setup Wizard | Guided initialization during first use |
+| System Guide | Architecture overview, core capabilities, scenario stories, quick start — 4 tabs to help users understand the system |
+| Workflow Management | View, monitor, manage all workflows, with empty/error state differentiated prompts |
+| Task Intake | Create tasks, select executors, LUI dialogue mode (research-type tasks) |
+| Approval Desk | Approve workflows and knowledge submissions, with empty/error state differentiated prompts |
+| User Management | Create/manage users, assign organizations, view binding status |
+| Organization Management | Create/manage organizations, member invitations |
+| Skill Management | Mirror site search & install, manual creation, version management, source identification |
+| Dream Skill Discovery | View org skills, audit records, scenario value, and workflow_definition review/approval |
+| Knowledge Import | Manual input + file upload (TXT/MD/PDF/DOCX etc.), permission control |
+| Knowledge Review | Review user-submitted knowledge items (approve/share/return/reject) |
+| System Configuration | Channel configuration (Feishu/WeCom), LLM multi-model management (priority + fallback), Embedding/Rerank configuration |
+| Resource Monitoring | Docker container-level metrics (CPU/Memory/Network/Disk), system resources, quota management, inspection reports |
+| Identity Binding | Channel identity to system user binding management |
+| Audit Logging | Records all key operations (login, create, modify) |
+| Password Management | First-login forced password change, password strength validation (6-point scale) |
+
+---
+
+## 3. Supported Channels
+
+### 3.1 Feishu
+
+- **Access Method**: Long-connection WebSocket
+- **Message Types**: Text messages, rich text cards
+- **Notable Features**:
+  - Auto-generate "responding" status indicator
+  - Automatic identity binding
+  - Task result card push
+
+### 3.2 WeCom (企业微信)
+
+- **Access Method**: Webhook callback
+- **Message Types**: Text messages
+- **Security Mechanisms**:
+  - URL signature verification (SHA1)
+  - AES-256-CBC message encryption/decryption
+  - CorpID validation
+
+### 3.3 Web Portal
+
+- **Access Method**: Browser HTTP/HTTPS
+- **Security Mechanisms**:
+  - Session Cookie + Redis persistence
+  - scrypt(N=16384) password hashing
+  - CORS whitelist mode
+  - Password strength policy (6-point scale: length + case + digits + special chars)
+  - First-login forced default password change
+  - Multi-model API Key secure storage
+
+---
+
+## 4. Technical Architecture Overview
+
+```
+┌────────────────────────────────────────────────────┐
+│                  User Entry Points                   │
+│  Feishu App  │  WeCom  │  Web Portal (Browser)      │
+└────────────┬────────────┬───────────────────────────┘
+             │            │
+     ┌───────┴────────────┴────────┐
+     │      Gateway Adapter         │  Multi-channel adaptation
+     │  (Identity Binding · 5-way    │
+     │   Intent Routing)            │
+     └───┬──────┬──────┬──────┬─────┘
+         │      │      │      │
+    ┌────▼──┐ ┌▼────┐ ┌▼───┐ ┌▼───────┐
+    │LiteLLM│ │WF Svc│ │Exec│ │Hermes  │
+    │Proxy  │ │      │ │GW  │ │Adapter │
+    └───────┘ └──┬───┘ └─┬──┘ └───┬────┘
+                 │        │         │
+    ┌────────────┴────────┴─────────┴──────────┐
+    │  PostgreSQL+AGE  │  Redis  │  MinIO       │
+    │  skill-library   │  resource-scheduler    │
+    │  mobile-app      │  Web Portal (Admin)    │
+    └───────────────────────────────────────────┘
+```
+
+---
+
+## 5. Deployment Methods
+
+The system supports the following deployment methods:
+
+| Method | Suitable For | Description |
+|--------|-------------|-------------|
+| Docker Compose | Dev/Test/Small-to-Medium | One-click start all 18 containers |
+| Bare Metal | Custom environments | Manual installation of each service dependency |
+| Kubernetes | Production/Large-scale | Deploy with Helm Chart |
+
+### Minimum Hardware Requirements
+
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| CPU | 4 cores | 8+ cores |
+| Memory | 8 GB | 16 GB+ |
+| Disk | 20 GB | 50 GB+ (SSD) |
+| Network | Internet access (LLM API) | Low-latency stable connection |
+
+---
+
+## 6. License
+
+JueYing (Agent Harness) itself is open-sourced under the **MIT** license.
+
+This project uses numerous third-party open-source components; their licenses are detailed in [LICENSES.md](./LICENSES.md).
+
+---
+
+## 7. Related Documents
+
+| Document | Content |
+|----------|---------|
+| [Architecture Document](./ARCHITECTURE.md) | System architecture, data flows, API endpoint quick reference |
+| [Operations Manual](./OPS.md) | Deployment, monitoring, troubleshooting, backup and recovery |
+| [Open Source Licenses](./LICENSES.md) | Third-party dependency license list |
+| [Handoff Document](./HANDOFF-SESSION.md) | Development history and current status |
