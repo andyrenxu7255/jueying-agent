@@ -1,4 +1,74 @@
 model_list:
+  - model_name: mimo-v2.5-pro
+    litellm_params:
+      model: openai/mimo-v2.5-pro
+      api_base: https://token-plan-cn.xiaomimimo.com/v1
+      api_key: os.environ/LITELLM_API_KEY
+      timeout: 120
+      max_retries: 3
+      rpm: 60
+      tpm: 100000
+    model_info:
+      id: mimo-v2.5-pro
+      context_window: 1048576
+      max_output_tokens: 1048576
+      capabilities:
+        - planning
+        - code
+        - reasoning
+
+  - model_name: mimo-v2.5
+    litellm_params:
+      model: openai/mimo-v2.5
+      api_base: https://token-plan-cn.xiaomimimo.com/v1
+      api_key: os.environ/LITELLM_API_KEY
+      timeout: 120
+      max_retries: 3
+      rpm: 60
+      tpm: 100000
+    model_info:
+      id: mimo-v2.5
+      context_window: 1048576
+      max_output_tokens: 1048576
+      capabilities:
+        - planning
+        - reasoning
+
+  - model_name: mimo-v2-pro
+    litellm_params:
+      model: openai/mimo-v2-pro
+      api_base: https://token-plan-cn.xiaomimimo.com/v1
+      api_key: os.environ/LITELLM_API_KEY
+      timeout: 120
+      max_retries: 3
+      rpm: 60
+      tpm: 100000
+    model_info:
+      id: mimo-v2-pro
+      context_window: 1048576
+      max_output_tokens: 1048576
+      capabilities:
+        - planning
+        - code
+        - reasoning
+
+  - model_name: mimo-v2-omni
+    litellm_params:
+      model: openai/mimo-v2-omni
+      api_base: https://token-plan-cn.xiaomimimo.com/v1
+      api_key: os.environ/LITELLM_API_KEY
+      timeout: 120
+      max_retries: 3
+      rpm: 60
+      tpm: 100000
+    model_info:
+      id: mimo-v2-omni
+      context_window: 1048576
+      max_output_tokens: 1048576
+      capabilities:
+        - planning
+        - multimodal
+
   - model_name: minimax-m2.7
     litellm_params:
       model: anthropic/MiniMax-M2.7
@@ -86,10 +156,12 @@ router_settings:
   allowed_fails: 3
   cooldown_time: 30
   model_group_alias:
-    primary: minimax-m2.7
-    default: minimax-m2.7
-    fallback: qwen3-max
+    primary: mimo-v2.5-pro
+    default: mimo-v2.5-pro
+    fallback: mimo-v2.5
   fallbacks:
+    - mimo-v2.5-pro: ["mimo-v2.5", "mimo-v2-pro", "mimo-v2-omni"]
+    - mimo-v2.5: ["mimo-v2-pro", "mimo-v2-omni"]
     - minimax-m2.7: ["qwen3-max", "glm-5"]
     - qwen3-max: ["glm-5"]
 
@@ -110,6 +182,18 @@ litellm_settings:
   callbacks: ["otel"]
 
 model_rate_limits:
+  mimo-v2.5-pro:
+    rpm: 60
+    tpm: 100000
+  mimo-v2.5:
+    rpm: 60
+    tpm: 100000
+  mimo-v2-pro:
+    rpm: 60
+    tpm: 100000
+  mimo-v2-omni:
+    rpm: 60
+    tpm: 100000
   minimax-m2.7:
     rpm: 60
     tpm: 100000
