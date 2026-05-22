@@ -14,7 +14,7 @@ function getSessionId() {
 async function api(path, options) {
   options = options || {};
   const sessionId = getSessionId();
-  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  const headers = { 'Content-Type': 'application/json', 'Accept-Language': LOCALE.lang === 'en' ? 'en' : 'zh-CN', ...(options.headers || {}) };
   if (sessionId) headers['x-session-id'] = sessionId;
   try {
     const res = await fetch(API_BASE + path, { ...options, headers });
@@ -81,6 +81,22 @@ function passwordStrengthHtml(score) {
   return '<div class="password-strength"><div class="password-strength-bar" style="width:' + pct + '%;background:' + color + '"></div></div>';
 }
 
+function langSwitchButton() {
+  return '<button id="lang-switch" class="btn btn-outline btn-sm" style="font-size:11px;padding:2px 8px" onclick="event.stopPropagation();setLang(LOCALE.lang===\'en\'?\'zh-CN\':\'en\')">' + (LOCALE.lang === 'en' ? '中文' : 'English') + '</button>';
+}
+
+async function refreshLocaleView() {
+  closeModal();
+  if (currentSession) {
+    renderApp();
+  } else if (window.__setupStatus) {
+    const setup = await checkSetup();
+    renderSetupWizard(setup || window.__setupStatus);
+  } else {
+    renderLogin();
+  }
+}
+
 /**
  * 显示模态对话框
  * WARNING: bodyHtml 参数不会被转义，调用者必须确保传入的是安全的硬编码 HTML
@@ -128,7 +144,8 @@ async function checkAuth() {
 }
 
 function renderLogin() {
-  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><h1>JueYing</h1><p>'+t('login.subtitle')+'</p><div class="form-group"><label>'+t('login.username')+'</label><input type="text" id="login-user" placeholder="'+t('login.placeholder_user')+'" autofocus></div><div class="form-group"><label>'+t('login.password')+'</label><input type="password" id="login-pass" placeholder="'+t('login.placeholder_pass')+'"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">'+t('login.btn')+'</button></div></div>';
+  window.__setupStatus = null;
+  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><div style="display:flex;justify-content:flex-end;margin-bottom:8px">'+langSwitchButton()+'</div><h1>JueYing</h1><p>'+t('login.subtitle')+'</p><div class="form-group"><label>'+t('login.username')+'</label><input type="text" id="login-user" placeholder="'+t('login.placeholder_user')+'" autofocus></div><div class="form-group"><label>'+t('login.password')+'</label><input type="password" id="login-pass" placeholder="'+t('login.placeholder_pass')+'"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">'+t('login.btn')+'</button></div></div>';
   document.getElementById('login-user').addEventListener('keydown', function(e) { if (e.key === 'Enter') document.getElementById('login-pass').focus(); });
   document.getElementById('login-pass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
 }
@@ -192,11 +209,12 @@ async function doChangePassword() {
 }
 
 function renderSetupWizard(setupStatus) {
+  window.__setupStatus = setupStatus;
   const steps = (setupStatus && setupStatus.steps) || [];
   const allDone = steps.every(function(s) { return s.done; });
   if (allDone) { initApp(); return; }
   const currentStep = steps.findIndex(function(s) { return !s.done; });
-  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card setup-wizard"><h1>'+t('setup.title')+'</h1><p>'+t('setup.subtitle')+'</p><div class="step-indicator">' +
+  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card setup-wizard"><div style="display:flex;justify-content:flex-end;margin-bottom:8px">'+langSwitchButton()+'</div><h1>'+t('setup.title')+'</h1><p>'+t('setup.subtitle')+'</p><div class="step-indicator">' +
     steps.map(function(s, i) { return '<div class="step-dot ' + (s.done ? 'done' : (i === currentStep ? 'active' : '')) + '">' + (s.done ? '✓' : (i + 1)) + '</div>'; }).join('') +
     '</div><div id="setup-content"></div></div></div>';
   renderSetupStep(currentStep, steps);
@@ -221,7 +239,7 @@ function renderSetupStep(stepIndex, steps) {
     html += '<div class="form-group"><label>'+t('setup.litellmUrl')+'</label><input type="text" id="setup-litellm-url" value="http://localhost:4000" placeholder="'+t('setup.litellmUrlPlaceholder')+'"></div>';
     html += '<div class="form-group"><label>'+t('setup.defaultModel')+'</label><input type="text" id="setup-litellm-model" value="minimax-m2.7" placeholder="'+t('setup.modelPlaceholder')+'"></div>';
   } else if (step.key === 'embedding') {
-    html += '<div class="form-group"><label>'+t('setup.embMode')+'</label><select id="setup-emb-mode"><option value="deterministic">deterministic (无需外部服务)</option><option value="provider">provider (需配置外部服务)</option></select></div>';
+    html += '<div class="form-group"><label>'+t('setup.embMode')+'</label><select id="setup-emb-mode"><option value="deterministic">'+t('setup.embDeterministic')+'</option><option value="provider">'+t('setup.embProvider')+'</option></select></div>';
     html += '<div class="form-group"><label>'+t('setup.embUrl')+'</label><input type="text" id="setup-emb-url" placeholder="'+t('setup.embUrlPlaceholder')+'"></div>';
   } else {
     html += '<p>'+t('setup.autoDone')+'</p>';
@@ -293,7 +311,7 @@ function renderApp() {
   const orgId = sessionData.org_id || '';
   const initial = username.charAt(0).toUpperCase();
 
-  document.getElementById('app').innerHTML = '<div class="app-container"><div class="sidebar"><div class="sidebar-brand" style="display:flex;justify-content:space-between;align-items:center"><span>JueYing</span><button id="lang-switch" class="btn btn-outline btn-sm" style="font-size:11px;padding:2px 8px" onclick="event.stopPropagation();setLang(LOCALE.lang===\'en\'?\'zh-CN\':\'en\')">English</button></div><nav class="sidebar-nav">' +
+  document.getElementById('app').innerHTML = '<div class="app-container"><div class="sidebar"><div class="sidebar-brand" style="display:flex;justify-content:space-between;align-items:center"><span>JueYing</span>'+langSwitchButton()+'</div><nav class="sidebar-nav">' +
     navItems.map(function(g) { return '<div class="nav-section">' + g.section + '</div>' + g.items.map(function(i) { return '<a href="#" data-view="' + i.key + '" class="' + (currentView === i.key ? 'active' : '') + '">' + i.icon + ' ' + i.label + '</a>'; }).join(''); }).join('') +
     '</nav><div class="sidebar-footer"><div class="user-info"><div class="user-avatar">' + escapeHtml(initial) + '</div><div class="user-details"><div class="user-name">' + escapeHtml(username) + '</div><div class="user-role">' + escapeHtml(role) + '</div></div><div class="user-menu"><button class="btn btn-sm btn-outline" onclick="toggleUserMenu()">&#x25B2;</button><div class="user-menu-dropdown" id="user-menu-dropdown"><a href="#" onclick="showChangePasswordModal(false);return false;">' + t('chpwd.menu') + '</a><a href="#" onclick="doLogout();return false;" style="color:var(--danger)">' + t('chpwd.logout') + '</a></div></div></div></div></div><div class="main-content" id="main-content"></div></div>';
   document.querySelectorAll('.sidebar-nav a[data-view]').forEach(function(a) {
@@ -801,7 +819,7 @@ function startServiceStatusPolling() {
         }
         previousServiceStatus[s.name] = s.status;
       });
-      svcList.innerHTML = '<table><tr><th>服务</th><th>状态</th><th>延迟</th></tr>' + o.services.map(function(s) {
+      svcList.innerHTML = '<table><tr><th>'+t('workflows.service')+'</th><th>'+t('common.status')+'</th><th>'+t('workflows.latency')+'</th></tr>' + o.services.map(function(s) {
         const dot = s.status === 'healthy' ? 'healthy' : (s.status === 'unreachable' ? 'unreachable' : 'unhealthy');
         return '<tr><td><span class="status-dot ' + dot + '"></span>' + escapeHtml(s.name) + '</td><td>' + statusBadge(s.status) + '</td><td>' + escapeHtml(String(s.latency_ms || '-')) + 'ms</td></tr>';
       }).join('') + '</table>';
@@ -818,12 +836,12 @@ async function renderWorkflows(el) {
     if (wfs.length === 0) {
       document.getElementById('wf-list').innerHTML = emptyState('📋', t('workflows.emptyTitle'), t('workflows.emptyDesc'), '<button class="btn btn-primary" onclick="currentView=\'task-input\';renderView()">'+t('workflows.create')+'</button>');
     } else {
-      document.getElementById('wf-list').innerHTML = '<table><tr><th>引用</th><th>目标</th><th>状态</th><th>创建时间</th><th>操作</th></tr>' + wfs.map(function(w) { return '<tr><td>' + escapeHtml(w.ref || w.id) + '</td><td>' + escapeHtml(w.goal || '-') + '</td><td>' + statusBadge(w.status) + '</td><td>' + escapeHtml(w.created_at || '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="viewWorkflow(\'' + escJsAttr(w.ref || w.id) + '\')">详情</button></td></tr>'; }).join('') + '</table>';
+      document.getElementById('wf-list').innerHTML = '<table><tr><th>'+t('common.reference')+'</th><th>'+t('common.goal')+'</th><th>'+t('common.status')+'</th><th>'+t('common.createdAt')+'</th><th>'+t('common.action')+'</th></tr>' + wfs.map(function(w) { return '<tr><td>' + escapeHtml(w.ref || w.id) + '</td><td>' + escapeHtml(w.goal || '-') + '</td><td>' + statusBadge(w.status) + '</td><td>' + escapeHtml(w.created_at || '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="viewWorkflow(\'' + escJsAttr(w.ref || w.id) + '\')">'+t('common.detail')+'</button></td></tr>'; }).join('') + '</table>';
     }
   } else {
     const errMsg = (r.data && r.data.error) || t('common.unknownError');
     const isNetwork = r.status === 0;
-    document.getElementById('wf-list').innerHTML = emptyState('⚠️', isNetwork ? t('workflows.cannotConnect') : t('workflows.loadFailed'), isNetwork ? t('workflows.checkService') : '错误: ' + escapeHtml(errMsg), '<button class="btn btn-primary" onclick="renderView()">'+t('common.retry')+'</button>');
+    document.getElementById('wf-list').innerHTML = emptyState('⚠️', isNetwork ? t('workflows.cannotConnect') : t('workflows.loadFailed'), isNetwork ? t('workflows.checkService') : t('common.errorPrefix') + escapeHtml(errMsg), '<button class="btn btn-primary" onclick="renderView()">'+t('common.retry')+'</button>');
   }
 }
 
@@ -834,7 +852,7 @@ async function viewWorkflow(ref) {
     const w = r.data.workflow;
     el.innerHTML = '<div class="page-header"><h2>'+t('workflows.detail')+'' + escapeHtml(ref) + '</h2><button class="btn btn-outline" onclick="renderView()">'+t('common.back')+'</button></div><div class="card"><h3>'+t('workflows.basicInfo')+'</h3><p>'+t('workflows.goal')+'' + escapeHtml(w.goal || '-') + '</p><p>'+t('workflows.status')+'' + statusBadge(w.status) + '</p><p>'+t('workflows.created')+'' + escapeHtml(w.created_at || '-') + '</p></div><div class="card"><h3>'+t('workflows.stages')+'</h3><div id="wf-stages">'+t('common.loading')+'</div></div>';
     if (w.stages && w.stages.length > 0) {
-      document.getElementById('wf-stages').innerHTML = '<table><tr><th>序号</th><th>名称</th><th>类型</th><th>状态</th></tr>' + w.stages.map(function(s, i) { return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(s.name || '-') + '</td><td>' + escapeHtml(s.stage_type || '-') + '</td><td>' + statusBadge(s.status) + '</td></tr>'; }).join('') + '</table>';
+      document.getElementById('wf-stages').innerHTML = '<table><tr><th>'+t('common.index')+'</th><th>'+t('workflows.stageName')+'</th><th>'+t('workflows.stageType')+'</th><th>'+t('common.status')+'</th></tr>' + w.stages.map(function(s, i) { return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(s.name || '-') + '</td><td>' + escapeHtml(s.stage_type || '-') + '</td><td>' + statusBadge(s.status) + '</td></tr>'; }).join('') + '</table>';
     } else {
       document.getElementById('wf-stages').innerHTML = '<p style="color:var(--text2)">'+t('workflows.noStages')+'</p>';
     }
@@ -889,29 +907,29 @@ async function submitLUITask() {
   const input = document.getElementById('lui-input').value.trim();
   if (!input) { showToast(t('task.enterQuestion'), 'error'); return; }
   const respEl = document.getElementById('lui-response');
-  respEl.innerHTML = '<p style="color:var(--text2)">正在调研中...</p>';
+  respEl.innerHTML = '<p style="color:var(--text2)">'+t('task.searching')+'</p>';
   const body = { goal: input, task_type: 'research', risk_level: 'low' };
   const r = await api('/api/workflows/create-from-markdown', { method: 'POST', body: JSON.stringify(body) });
   if (r.ok) {
-    respEl.innerHTML = '<p style="color:var(--success)">调研任务已提交，请前往Workflow控制台查看结果</p><button class="btn btn-sm btn-outline" onclick="currentView=\'workflows\';renderView()">查看工作流</button>';
+    respEl.innerHTML = '<p style="color:var(--success)">'+t('task.submitted')+'</p><button class="btn btn-sm btn-outline" onclick="currentView=\'workflows\';renderView()">'+t('task.viewWorkflow')+'</button>';
   } else {
-    respEl.innerHTML = '<p style="color:var(--danger)">提交失败: ' + escapeHtml((r.data && r.data.error) || t('common.unknownError')) + '</p>';
+    respEl.innerHTML = '<p style="color:var(--danger)">'+t('task.submitFailed') + escapeHtml((r.data && r.data.error) || t('common.unknownError')) + '</p>';
   }
 }
 
 async function renderApprovals(el) {
-  el.innerHTML = '<div class="page-header"><h2>'+t('approvals.title')+'</h2><button class="btn btn-outline btn-sm" onclick="renderView()">'+t('common.refresh')+'</button></div><div class="card"><p class="section-desc">t('approvals.desc')</p><div id="approval-list">'+t('common.loading')+'</div></div>';
+  el.innerHTML = '<div class="page-header"><h2>'+t('approvals.title')+'</h2><button class="btn btn-outline btn-sm" onclick="renderView()">'+t('common.refresh')+'</button></div><div class="card"><p class="section-desc">'+t('approvals.desc')+'</p><div id="approval-list">'+t('common.loading')+'</div></div>';
   const r = await api('/api/workflows?status=pending_approval');
   if (r.ok && r.data) {
     const wfs = r.data.workflows || [];
     if (wfs.length === 0) {
       document.getElementById('approval-list').innerHTML = emptyState('✅', t('approvals.emptyTitle'), t('approvals.emptyDesc'));
     } else {
-      document.getElementById('approval-list').innerHTML = '<table><tr><th>引用</th><th>目标</th><th>操作</th></tr>' + wfs.map(function(w) { return '<tr><td>' + escapeHtml(w.ref || w.id) + '</td><td>' + escapeHtml(w.goal || '-') + '</td><td><button class="btn btn-sm btn-success" onclick="handleApproval(\'' + escJsAttr(w.ref) + '\',\'approve\')">'+t('common.approve')+'</button> <button class="btn btn-sm btn-danger" onclick="handleApproval(\'' + escJsAttr(w.ref) + '\',\'reject\')">'+t('common.reject')+'</button></td></tr>'; }).join('') + '</table>';
+      document.getElementById('approval-list').innerHTML = '<table><tr><th>'+t('common.reference')+'</th><th>'+t('common.goal')+'</th><th>'+t('common.action')+'</th></tr>' + wfs.map(function(w) { return '<tr><td>' + escapeHtml(w.ref || w.id) + '</td><td>' + escapeHtml(w.goal || '-') + '</td><td><button class="btn btn-sm btn-success" onclick="handleApproval(\'' + escJsAttr(w.ref) + '\',\'approve\')">'+t('common.approve')+'</button> <button class="btn btn-sm btn-danger" onclick="handleApproval(\'' + escJsAttr(w.ref) + '\',\'reject\')">'+t('common.reject')+'</button></td></tr>'; }).join('') + '</table>';
     }
   } else {
     const isNetwork = r.status === 0;
-    document.getElementById('approval-list').innerHTML = emptyState('⚠️', isNetwork ? '无法连接审批服务' : '加载审批列表失败', isNetwork ? t('workflows.checkService') : '请稍后重试', '<button class="btn btn-primary" onclick="renderView()">'+t('common.retry')+'</button>');
+    document.getElementById('approval-list').innerHTML = emptyState('⚠️', isNetwork ? t('approvals.cannotConnect') : t('approvals.loadFailed'), isNetwork ? t('workflows.checkService') : t('approvals.retryLater'), '<button class="btn btn-primary" onclick="renderView()">'+t('common.retry')+'</button>');
   }
 }
 
@@ -976,7 +994,7 @@ function renderConfigSection(sectionKey, sections, config) {
     if (f.type === 'select') {
       html += '<div class="form-group"><label>' + escapeHtml(f.label) + '</label><select id="cfg-' + f.key + '">' + (f.options || []).map(function(o) { return '<option value="' + o + '" ' + (val === o ? 'selected' : '') + '>' + o + '</option>'; }).join('') + '</select></div>';
     } else {
-      html += '<div class="form-group"><label>' + escapeHtml(f.label) + '</label><input type="' + f.type + '" id="cfg-' + f.key + '" value="' + displayVal + '" ' + (f.sensitive ? 'placeholder="留空则不修改"' : '') + '></div>';
+      html += '<div class="form-group"><label>' + escapeHtml(f.label) + '</label><input type="' + f.type + '" id="cfg-' + f.key + '" value="' + displayVal + '" ' + (f.sensitive ? 'placeholder="'+t('common.leaveBlank')+'"' : '') + '></div>';
     }
   });
   html += '<button class="btn btn-primary" onclick="saveConfigSection(\'' + sectionKey + '\')">'+t('config.save')+'</button></div>';
@@ -1012,14 +1030,14 @@ async function loadLLMModels() {
     el.innerHTML = emptyState('🤖', t('config.llm.noModels'), t('config.llm.addFirst'), '<button class="btn btn-primary" onclick="showAddLLMModel()">'+t('config.llm.addModel')+'</button>');
     return;
   }
-  let html = '<table><tr><th>优先级</th><th>模型名称</th><th>类型</th><th>地址</th><th>操作</th></tr>';
+  let html = '<table><tr><th>'+t('common.priority')+'</th><th>'+t('config.llm.modelNameLabel')+'</th><th>'+t('common.type')+'</th><th>'+t('common.address')+'</th><th>'+t('common.action')+'</th></tr>';
   models.forEach(function(m, i) {
     const typeLabel = i === 0 ? '<span class="badge badge-success">'+t('config.llm.primary')+'</span>' : '<span class="badge badge-warning">'+t('config.llm.backup')+'' + i + '</span>';
     html += '<tr><td>' +
-      (i > 0 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelUp(\'' + escJsAttr(m.id) + '\')" title="上移优先级">▲</button> ' : '') +
-      (i < models.length - 1 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelDown(\'' + escJsAttr(m.id) + '\')" title="下移优先级">▼</button>' : '') +
+      (i > 0 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelUp(\'' + escJsAttr(m.id) + '\')" title="'+t('common.priority')+'">▲</button> ' : '') +
+      (i < models.length - 1 ? '<button class="btn btn-sm btn-outline" onclick="moveLLMModelDown(\'' + escJsAttr(m.id) + '\')" title="'+t('common.priority')+'">▼</button>' : '') +
       '</td><td><strong>' + escapeHtml(m.name) + '</strong></td><td>' + typeLabel + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(m.url || '-') + '</td><td>' +
-      (i > 0 ? '<button class="btn btn-sm btn-danger" onclick="deleteLLMModel(\'' + escJsAttr(m.id) + '\',\'' + escJsAttr(m.name) + '\')">删除</button>' : '<span class="hint-text">'+t('config.llm.cannotDeletePrimary')+'</span>') +
+      (i > 0 ? '<button class="btn btn-sm btn-danger" onclick="deleteLLMModel(\'' + escJsAttr(m.id) + '\',\'' + escJsAttr(m.name) + '\')">'+t('common.delete')+'</button>' : '<span class="hint-text">'+t('config.llm.cannotDeletePrimary')+'</span>') +
       '</td></tr>';
   });
   html += '</table>';
@@ -1107,7 +1125,7 @@ async function renderUsers(el) {
   el.innerHTML = '<div class="page-header"><h2>'+t('users.title')+'</h2><button class="btn btn-primary" onclick="showAddUser()">'+t('users.addUser')+'</button></div><div class="card"><div id="user-list">'+t('common.loading')+'</div></div>';
   const r = await api('/api/users');
   if (r.ok && r.data.users) {
-    document.getElementById('user-list').innerHTML = '<table><tr><th>用户名</th><th>角色</th><th>状态</th><th>组织</th><th>操作</th></tr>' + r.data.users.map(function(u) { return '<tr><td>' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.role) + '</td><td>' + statusBadge(u.status) + '</td><td>' + escapeHtml(u.org_id || '-') + '</td><td><button class="btn btn-sm btn-outline" onclick="showAssignOrg(\'' + escJsAttr(u.username) + '\',\'' + escJsAttr(String(u.org_id || '')) + '\')">'+t('users.assignOrg')+'</button></td></tr>'; }).join('') + '</table>';
+    document.getElementById('user-list').innerHTML = '<table><tr><th>'+t('login.username')+'</th><th>'+t('common.role')+'</th><th>'+t('common.status')+'</th><th>'+t('common.organization')+'</th><th>'+t('common.action')+'</th></tr>' + r.data.users.map(function(u) { return '<tr><td>' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.role) + '</td><td>' + statusBadge(u.status) + '</td><td>' + escapeHtml(u.org_id || '-') + '</td><td><button class="btn btn-sm btn-outline" onclick="showAssignOrg(\'' + escJsAttr(u.username) + '\',\'' + escJsAttr(String(u.org_id || '')) + '\')">'+t('users.assignOrg')+'</button></td></tr>'; }).join('') + '</table>';
   } else {
     document.getElementById('user-list').innerHTML = emptyState('⚠️', t('users.loadFailed'), t('users.checkService'), '<button class="btn btn-primary" onclick="renderView()">'+t('common.retry')+'</button>');
   }
@@ -1119,7 +1137,7 @@ async function showAssignOrg(username, currentOrgId) {
   const body = '<div class="form-group"><label>'+t('users.userLabel')+'' + escapeHtml(username) + '</label></div>' +
     '<div class="form-group"><label>'+t('users.selectOrg')+'</label><select id="assign-org-id"><option value="">'+t('users.noOrg')+'</option>' +
     orgs.map(function(o) { return '<option value="' + escapeHtml(o.id) + '"' + (String(o.id) === currentOrgId ? ' selected' : '') + '>' + escapeHtml(o.display_name || o.org_name) + '</option>'; }).join('') +
-    '</select></div><button class="btn btn-primary" onclick="doAssignOrg(\'' + escJsAttr(username) + '\')">确认分配</button>';
+    '</select></div><button class="btn btn-primary" onclick="doAssignOrg(\'' + escJsAttr(username) + '\')">'+t('users.confirmAssign')+'</button>';
   showModal(t('users.assignOrg'), body);
 }
 
@@ -1152,7 +1170,7 @@ function updateNewUserPwdStrength() {
   if (/[0-9]/.test(pwd)) score += 1;
   if (/[^a-zA-Z0-9]/.test(pwd)) score += 1;
   const msg = score < 3 ? t('common.weak') : score < 5 ? t('common.medium') : t('common.strong');
-  strengthEl.innerHTML = passwordStrengthHtml(score) + '<span class="hint-text">密码强度: ' + msg + '</span>';
+  strengthEl.innerHTML = passwordStrengthHtml(score) + '<span class="hint-text">' + t('common.pwdStrength') + msg + '</span>';
 }
 
 async function doAddUser() {
@@ -1169,11 +1187,11 @@ async function renderOrganizations(el) {
   el.innerHTML = '<div class="page-header"><h2>'+t('orgs.title')+'</h2><button class="btn btn-primary" onclick="showAddOrg()">'+t('orgs.createOrg')+'</button></div><div class="card"><div id="org-list">'+t('common.loading')+'</div></div><div id="org-editor" class="hidden"></div>';
   const r = await api('/api/admin/organizations');
   if (r.ok && r.data.organizations) {
-    document.getElementById('org-list').innerHTML = '<table><tr><th>名称</th><th>显示名称</th><th>状态</th><th>配额</th><th>创建时间</th><th>操作</th></tr>' + r.data.organizations.map(function(o) {
+    document.getElementById('org-list').innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('common.displayName')+'</th><th>'+t('common.status')+'</th><th>'+t('common.quota')+'</th><th>'+t('common.createdAt')+'</th><th>'+t('common.action')+'</th></tr>' + r.data.organizations.map(function(o) {
       const settings = o.settings || {};
       const quotaInfo = '' + (settings.max_users || '-') + ' / ' + (settings.max_workflows_per_day || '-');
       const statusClass = o.status === 'active' ? 'badge-success' : o.status === 'suspended' ? 'badge-warning' : 'badge-danger';
-      return '<tr><td>' + escapeHtml(o.org_name) + '</td><td>' + escapeHtml(o.display_name || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(o.status) + '</span></td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(quotaInfo) + '</td><td>' + escapeHtml(o.created_at || '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="showEditOrg(\'' + escJsAttr(String(o.id)) + '\')">编辑</button> <button class="btn btn-sm btn-danger" onclick="deleteOrg(\'' + escJsAttr(String(o.id)) + '\',\'' + escJsAttr(o.org_name) + '\')">删除</button></td></tr>';
+      return '<tr><td>' + escapeHtml(o.org_name) + '</td><td>' + escapeHtml(o.display_name || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(o.status) + '</span></td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(quotaInfo) + '</td><td>' + escapeHtml(o.created_at || '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="showEditOrg(\'' + escJsAttr(String(o.id)) + '\')">'+t('common.edit')+'</button> <button class="btn btn-sm btn-danger" onclick="deleteOrg(\'' + escJsAttr(String(o.id)) + '\',\'' + escJsAttr(o.org_name) + '\')">'+t('common.delete')+'</button></td></tr>';
     }).join('') + '</table>';
   } else {
     document.getElementById('org-list').innerHTML = emptyState('🏢', t('orgs.emptyTitle'), t('orgs.emptyDesc'), '<button class="btn btn-primary" onclick="showAddOrg()">'+t('orgs.createOrg')+'</button>');
@@ -1232,7 +1250,7 @@ async function deleteOrg(orgId, orgName) {
 }
 
 async function renderSharedKnowledge(el) {
-  el.innerHTML = '<div class="page-header"><h2>'+t('shared.title')+'</h2><span style="color:var(--text2);font-size:14px">t('shared.subtitle')</span></div>' +
+  el.innerHTML = '<div class="page-header"><h2>'+t('shared.title')+'</h2><span style="color:var(--text2);font-size:14px">'+t('shared.subtitle')+'</span></div>' +
     '<div class="card"><h3>'+t('shared.uploadTitle')+'</h3>' +
     '<div class="form-group"><label>'+t('shared.titleLabel')+'</label><input type="text" id="shared-title" placeholder="'+t('shared.titlePlaceholder')+'"></div>' +
     '<div class="form-group"><label>'+t('shared.contentLabel')+'</label><textarea id="shared-content" style="min-height:160px" placeholder="'+t('shared.contentPlaceholder')+'"></textarea></div>' +
@@ -1250,8 +1268,8 @@ async function loadSharedDocs() {
     if (r.data.documents.length === 0) {
       el.innerHTML = emptyState('📚', t('shared.empty'), t('shared.emptyDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>标题</th><th>类型</th><th>创建时间</th><th>操作</th></tr>' +
-        r.data.documents.map(function(d) { return '<tr><td>' + escapeHtml(d.title) + '</td><td>' + escapeHtml(d.source_kind || '-') + '</td><td>' + escapeHtml(d.created_at || '-') + '</td><td><button class="btn btn-sm btn-danger" onclick="deleteSharedDoc(\'' + escJsAttr(String(d.id)) + '\')">移除</button></td></tr>'; }).join('') + '</table>';
+      el.innerHTML = '<table><tr><th>'+t('shared.titleLabel')+'</th><th>'+t('common.type')+'</th><th>'+t('common.createdAt')+'</th><th>'+t('common.action')+'</th></tr>' +
+        r.data.documents.map(function(d) { return '<tr><td>' + escapeHtml(d.title) + '</td><td>' + escapeHtml(d.source_kind || '-') + '</td><td>' + escapeHtml(d.created_at || '-') + '</td><td><button class="btn btn-sm btn-danger" onclick="deleteSharedDoc(\'' + escJsAttr(String(d.id)) + '\')">'+t('shared.remove')+'</button></td></tr>'; }).join('') + '</table>';
     }
   } else {
     el.innerHTML = '<p style="color:var(--text2)">'+t('shared.cannotLoad')+'</p>';
@@ -1303,7 +1321,7 @@ async function loadOrgListForTask() {
   const sel = document.getElementById('ot-org');
   if (!sel || !r.ok) return;
   const orgs = r.data.organizations || [];
-  sel.innerHTML = '<option value="">全部组织</option>' + orgs.map(function(o) { return '<option value="' + escapeHtml(o.id) + '">' + escapeHtml(o.display_name || o.org_name) + '</option>'; }).join('');
+  sel.innerHTML = '<option value="">'+t('common.allOrgs')+'</option>' + orgs.map(function(o) { return '<option value="' + escapeHtml(o.id) + '">' + escapeHtml(o.display_name || o.org_name) + '</option>'; }).join('');
 }
 
 async function loadOrgTasks() {
@@ -1315,15 +1333,15 @@ async function loadOrgTasks() {
     if (tasks.length === 0) {
       el.innerHTML = emptyState('📋', t('tasks.empty'), t('tasks.emptyDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>标题</th><th>类型</th><th>调度</th><th>状态</th><th>创建时间</th><th>操作</th></tr>' +
+      el.innerHTML = '<table><tr><th>'+t('shared.titleLabel')+'</th><th>'+t('common.type')+'</th><th>'+t('common.schedule')+'</th><th>'+t('common.status')+'</th><th>'+t('common.createdAt')+'</th><th>'+t('common.action')+'</th></tr>' +
         tasks.map(function(t) {
           const stats = t.assignment_stats || [];
           const completed = stats.filter(function(s) { return s.status === 'completed'; }).length;
           const total = stats.length;
-          return '<tr><td><strong>' + escapeHtml(t.title) + '</strong></td><td>' + escapeHtml(t.task_type) + '</td><td>' + escapeHtml(t.schedule_type) + (t.cron_expression ? ' (' + escapeHtml(t.cron_expression) + ')' : '') + '</td><td>' + escapeHtml(t.status) + (total > 0 ? ' <span style="font-size:12px;color:var(--text2)">(' + completed + '/' + total + ' 完成)</span>' : '') + '</td><td>' + escapeHtml((t.created_at && t.created_at.slice(0, 10)) || '-') + '</td><td>' +
-            '<button class="btn btn-sm btn-primary" onclick="triggerOrgTask(\'' + escJsAttr(String(t.id)) + '\')">立即分发</button> ' +
-            (t.status === 'active' ? '<button class="btn btn-sm btn-warning" onclick="pauseOrgTask(\'' + escJsAttr(String(t.id)) + '\')">暂停</button>' : '') +
-            ' <button class="btn btn-sm btn-danger" onclick="archiveOrgTask(\'' + escJsAttr(String(t.id)) + '\')">归档</button></td></tr>';
+          return '<tr><td><strong>' + escapeHtml(t.title) + '</strong></td><td>' + escapeHtml(t.task_type) + '</td><td>' + escapeHtml(t.schedule_type) + (t.cron_expression ? ' (' + escapeHtml(t.cron_expression) + ')' : '') + '</td><td>' + escapeHtml(t.status) + (total > 0 ? ' <span style="font-size:12px;color:var(--text2)">(' + completed + '/' + total + ' '+t('myTasks.completed')+')</span>' : '') + '</td><td>' + escapeHtml((t.created_at && t.created_at.slice(0, 10)) || '-') + '</td><td>' +
+            '<button class="btn btn-sm btn-primary" onclick="triggerOrgTask(\'' + escJsAttr(String(t.id)) + '\')">'+t('tasks.dispatchNow')+'</button> ' +
+            (t.status === 'active' ? '<button class="btn btn-sm btn-warning" onclick="pauseOrgTask(\'' + escJsAttr(String(t.id)) + '\')">'+t('tasks.pause')+'</button>' : '') +
+            ' <button class="btn btn-sm btn-danger" onclick="archiveOrgTask(\'' + escJsAttr(String(t.id)) + '\')">'+t('tasks.archive')+'</button></td></tr>';
         }).join('') + '</table>';
     }
   } else {
@@ -1398,9 +1416,9 @@ async function loadMyTasks() {
         return '<div class="card" style="margin-bottom:12px"><h4>' + escapeHtml(a.title) + ' <span style="font-size:13px;color:var(--text2)">' + statusLabel + '</span></h4>' +
           '<p style="color:var(--text2);margin:4px 0">' + escapeHtml(a.prompt_message || '') + '</p>' +
           (completed
-            ? '<p style="color:var(--success);font-size:13px">已于 ' + escapeHtml((a.completed_at && a.completed_at.slice(0, 16)) || '') + ' 提交</p>'
+            ? '<p style="color:var(--success);font-size:13px">'+t('myTasks.submittedAt') + escapeHtml((a.completed_at && a.completed_at.slice(0, 16)) || '') + t('myTasks.submittedSuffix')+'</p>'
             : '<div class="form-group"><textarea id="task-resp-' + a.id + '" style="min-height:80px" placeholder="'+t('myTasks.placeholder')+'"></textarea></div>' +
-              '<button class="btn btn-primary btn-sm" onclick="submitTaskResponse(\'' + escJsAttr(String(a.id)) + '\')">提交反馈</button>') +
+              '<button class="btn btn-primary btn-sm" onclick="submitTaskResponse(\'' + escJsAttr(String(a.id)) + '\')">'+t('myTasks.submit')+'</button>') +
           '</div>';
       }).join('');
     }
@@ -1419,17 +1437,17 @@ async function submitTaskResponse(assignmentId) {
 }
 
 async function renderSkills(el) {
-  el.innerHTML = '<div class="page-header"><h2>'+t('skills.title')+'</h2><div><button class="btn btn-outline btn-sm" onclick="showSearchSkill()">'+t('skills.searchMirror')+'</button> <button class="btn btn-primary btn-sm" onclick="showAddSkill()">'+t('skills.create')+'</button></div></div><div class="card"><p class="section-desc">t('skills.desc')</p><div id="skill-list">'+t('common.loading')+'</div></div>';
+  el.innerHTML = '<div class="page-header"><h2>'+t('skills.title')+'</h2><div><button class="btn btn-outline btn-sm" onclick="showSearchSkill()">'+t('skills.searchMirror')+'</button> <button class="btn btn-primary btn-sm" onclick="showAddSkill()">'+t('skills.create')+'</button></div></div><div class="card"><p class="section-desc">'+t('skills.desc')+'</p><div id="skill-list">'+t('common.loading')+'</div></div>';
   const r = await api('/api/admin/skills');
   if (r.ok && r.data.skills) {
     const skills = r.data.skills;
     if (skills.length === 0) {
-      document.getElementById('skill-list').innerHTML = emptyState('🔧', t('skills.emptyTitle'), t('skills.emptyDesc'), '<button class="btn btn-primary" onclick="showSearchSkill()">'+t('skills.searchMirror')+'</button> <button class="btn btn-outline" onclick="showAddSkill()">手动创建</button>');
+      document.getElementById('skill-list').innerHTML = emptyState('🔧', t('skills.emptyTitle'), t('skills.emptyDesc'), '<button class="btn btn-primary" onclick="showSearchSkill()">'+t('skills.searchMirror')+'</button> <button class="btn btn-outline" onclick="showAddSkill()">'+t('skills.manualCreate')+'</button>');
     } else {
-      document.getElementById('skill-list').innerHTML = '<table><tr><th>名称</th><th>类型</th><th>版本</th><th>状态</th><th>来源</th><th>操作</th></tr>' + skills.map(function(s) {
+      document.getElementById('skill-list').innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('common.type')+'</th><th>'+t('common.version')+'</th><th>'+t('common.status')+'</th><th>'+t('common.source')+'</th><th>'+t('common.action')+'</th></tr>' + skills.map(function(s) {
         const meta = s.metadata || {};
         const source = meta.installed_from ? '<span class="badge badge-info">'+t('skills.mirror')+'</span>' : '<span class="badge badge-warning">'+t('skills.manual')+'</span>';
-        return '<tr><td>' + escapeHtml(s.skill_name) + '</td><td>' + escapeHtml(s.skill_type || '-') + '</td><td>v' + escapeHtml(String(s.version || 1)) + '</td><td>' + statusBadge(s.status || 'active') + '</td><td>' + source + '</td><td><button class="btn btn-sm btn-outline" onclick="showSkillVersions(\'' + escJsAttr(String(s.id)) + '\')">版本</button> <button class="btn btn-sm btn-danger" onclick="archiveSkill(\'' + escJsAttr(String(s.id)) + '\',\'' + escJsAttr(s.skill_name) + '\')">归档</button></td></tr>';
+        return '<tr><td>' + escapeHtml(s.skill_name) + '</td><td>' + escapeHtml(s.skill_type || '-') + '</td><td>v' + escapeHtml(String(s.version || 1)) + '</td><td>' + statusBadge(s.status || 'active') + '</td><td>' + source + '</td><td><button class="btn btn-sm btn-outline" onclick="showSkillVersions(\'' + escJsAttr(String(s.id)) + '\')">'+t('skills.version')+'</button> <button class="btn btn-sm btn-danger" onclick="archiveSkill(\'' + escJsAttr(String(s.id)) + '\',\'' + escJsAttr(s.skill_name) + '\')">'+t('common.archive')+'</button></td></tr>';
       }).join('') + '</table>';
     }
   } else {
@@ -1455,19 +1473,19 @@ async function doSearchSkillMirror() {
   const query = document.getElementById('skill-search-query').value.trim();
   if (!query) { showToast(t('skills.enterSearch'), 'error'); return; }
   let el = document.getElementById('skill-search-results');
-  el.innerHTML = '<p style="color:var(--text2)">正在搜索镜像站...</p>';
+  el.innerHTML = '<p style="color:var(--text2)">'+t('skills.searching')+'</p>';
   const r = await api('/api/admin/skills/mirror-search?query=' + encodeURIComponent(query));
   if (!r.ok || !r.data.skills) {
-    el.innerHTML = '<p style="color:var(--text2)">搜索失败，请检查技能库服务状态</p>';
+    el.innerHTML = '<p style="color:var(--text2)">'+t('skills.searchFailed')+'</p>';
     return;
   }
   const results = r.data.skills;
   if (results.length === 0) {
-    el.innerHTML = '<p style="color:var(--text2)">未找到匹配的技能，请尝试其他关键词</p>';
+    el.innerHTML = '<p style="color:var(--text2)">'+t('skills.noResults')+'</p>';
     return;
   }
-  el.innerHTML = '<table><tr><th>名称</th><th>类型</th><th>描述</th><th>操作</th></tr>' + results.map(function(s) {
-    return '<tr><td>' + escapeHtml(s.skill_name) + '</td><td>' + escapeHtml(s.skill_type || '-') + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml((s.description || '').substring(0, 80)) + '</td><td><button class="btn btn-sm btn-primary" onclick="doInstallSkill(\'' + escJsAttr(String(s.id)) + '\',\'' + escJsAttr(s.skill_name) + '\')">安装</button></td></tr>';
+  el.innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('common.type')+'</th><th>'+t('common.description')+'</th><th>'+t('common.action')+'</th></tr>' + results.map(function(s) {
+    return '<tr><td>' + escapeHtml(s.skill_name) + '</td><td>' + escapeHtml(s.skill_type || '-') + '</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml((s.description || '').substring(0, 80)) + '</td><td><button class="btn btn-sm btn-primary" onclick="doInstallSkill(\'' + escJsAttr(String(s.id)) + '\',\'' + escJsAttr(s.skill_name) + '\')">'+t('common.install')+'</button></td></tr>';
   }).join('') + '</table>';
 }
 
@@ -1483,9 +1501,9 @@ async function showSkillVersions(skillId) {
   const r = await api('/api/admin/skills/' + encodeURIComponent(skillId));
   if (!r.ok || !r.data.skill) { showToast(t('skills.loadFailed'), 'error'); return; }
   const skill = r.data.skill;
-  const body = '<p>技能: ' + escapeHtml(skill.skill_name) + '</p><p>当前版本: v' + (skill.version || 1) + '</p><p>状态: ' + statusBadge(skill.status || 'active') + '</p>' +
-    '<div style="margin-top:12px"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>';
-  showModal('技能版本 - ' + skill.skill_name, body);
+  const body = '<p>'+t('skills.skillLabel') + escapeHtml(skill.skill_name) + '</p><p>'+t('skills.currentVersion')+': v' + (skill.version || 1) + '</p><p>'+t('common.status')+': ' + statusBadge(skill.status || 'active') + '</p>' +
+    '<div style="margin-top:12px"><button class="btn btn-outline" onclick="closeModal()">'+t('common.close')+'</button></div>';
+  showModal(t('skills.versionTitle') + ' - ' + skill.skill_name, body);
 }
 
 function showAddSkill() {
@@ -1506,12 +1524,12 @@ async function doAddSkill() {
   let parsedDef = {};
   try { parsedDef = JSON.parse(definition || '{}'); } catch { showToast(t('common.saveFailed'), 'error'); return; }
   const r = await api('/api/admin/skills', { method: 'POST', body: JSON.stringify({ name, type, description, definition: parsedDef }) });
-  if (r.ok) { showToast(t('skills.enterName')); closeModal(); renderView(); } else showToast((r.data && r.data.error) || t('common.createFailed'), 'error');
+  if (r.ok) { showToast(t('skills.created')); closeModal(); renderView(); } else showToast((r.data && r.data.error) || t('common.createFailed'), 'error');
 }
 
 function renderKnowledge(el) {
   el.innerHTML = '<div class="page-header"><h2>'+t('knowledge.title')+'</h2></div>' +
-    '<div class="card"><p class="section-desc">t('knowledge.desc')</p></div>' +
+    '<div class="card"><p class="section-desc">'+t('knowledge.desc')+'</p></div>' +
     '<div class="card"><h3>'+t('knowledge.manualTitle')+'</h3>' +
     '<div class="form-group"><label>'+t('knowledge.titleLabel')+'</label><input type="text" id="kb-title" placeholder="'+t('knowledge.titlePlaceholder')+'"></div>' +
     '<div class="form-group"><label>'+t('knowledge.contentLabel')+'</label><textarea id="kb-content" style="min-height:200px" placeholder="'+t('knowledge.contentPlaceholder')+'"></textarea></div>' +
@@ -1555,7 +1573,7 @@ async function renderAudit(el) {
   el.innerHTML = '<div class="page-header"><h2>'+t('audit.title')+'</h2><button class="btn btn-outline btn-sm" onclick="renderView()">'+t('common.refresh')+'</button></div><div class="card"><div id="audit-list">'+t('common.loading')+'</div></div>';
   const r = await api('/api/admin/audit');
   if (r.ok && r.data.events) {
-    document.getElementById('audit-list').innerHTML = '<table><tr><th>时间</th><th>操作</th><th>用户</th><th>详情</th></tr>' + r.data.events.map(function(e) { return '<tr><td>' + escapeHtml(e.occurred_at || '-') + '</td><td>' + escapeHtml(e.action) + '</td><td>' + escapeHtml(e.user_id || '-') + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(JSON.stringify(e.detail_json || {}).substring(0, 100)) + '</td></tr>'; }).join('') + '</table>';
+    document.getElementById('audit-list').innerHTML = '<table><tr><th>'+t('common.time')+'</th><th>'+t('common.action')+'</th><th>'+t('common.user')+'</th><th>'+t('common.details')+'</th></tr>' + r.data.events.map(function(e) { return '<tr><td>' + escapeHtml(e.occurred_at || '-') + '</td><td>' + escapeHtml(e.action) + '</td><td>' + escapeHtml(e.user_id || '-') + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(JSON.stringify(e.detail_json || {}).substring(0, 100)) + '</td></tr>'; }).join('') + '</table>';
   } else {
     document.getElementById('audit-list').innerHTML = emptyState('📋', t('audit.empty'), t('audit.emptyDesc'));
   }
@@ -1565,7 +1583,7 @@ async function renderRetrieval(el) {
   el.innerHTML = '<div class="page-header"><h2>'+t('retrieval.title')+'</h2><button class="btn btn-outline btn-sm" onclick="renderView()">'+t('common.refresh')+'</button></div><div class="card"><div id="retrieval-list">'+t('common.loading')+'</div></div>';
   const r = await api('/api/admin/retrieval-traces');
   if (r.ok && r.data.traces) {
-    document.getElementById('retrieval-list').innerHTML = '<table><tr><th>时间</th><th>查询</th><th>结果数</th><th>降级</th></tr>' + r.data.traces.map(function(t) { return '<tr><td>' + escapeHtml(t.created_at || '-') + '</td><td>' + escapeHtml((t.query_text || '').substring(0, 50)) + '</td><td>' + escapeHtml(String(t.items_count || 0)) + '</td><td>' + (t.degraded ? '<span class="badge badge-warning">'+t('retrieval.yes')+'</span>' : '<span class="badge badge-success">'+t('retrieval.no')+'</span>') + '</td></tr>'; }).join('') + '</table>';
+    document.getElementById('retrieval-list').innerHTML = '<table><tr><th>'+t('common.time')+'</th><th>'+t('common.search')+'</th><th>'+t('common.result')+'</th><th>Degraded</th></tr>' + r.data.traces.map(function(item) { return '<tr><td>' + escapeHtml(item.created_at || '-') + '</td><td>' + escapeHtml((item.query_text || '').substring(0, 50)) + '</td><td>' + escapeHtml(String(item.items_count || 0)) + '</td><td>' + (item.degraded ? '<span class="badge badge-warning">'+t('retrieval.yes')+'</span>' : '<span class="badge badge-success">'+t('retrieval.no')+'</span>') + '</td></tr>'; }).join('') + '</table>';
   } else {
     document.getElementById('retrieval-list').innerHTML = emptyState('🔍', t('retrieval.empty'), t('retrieval.emptyDesc'));
   }
@@ -1573,7 +1591,7 @@ async function renderRetrieval(el) {
 
 async function renderIdentities(el) {
   el.innerHTML = '<div class="page-header"><h2>'+t('identities.title')+'</h2><button class="btn btn-outline btn-sm" onclick="renderView()">'+t('common.refresh')+'</button></div>' +
-    '<div class="card"><p class="section-desc">t('identities.desc')</p></div>' +
+    '<div class="card"><p class="section-desc">'+t('identities.desc')+'</p></div>' +
     '<div class="card"><h3>'+t('identities.listTitle')+'</h3><div id="identity-list">'+t('common.loading')+'</div></div>';
   const r = await api('/api/channels/identity');
   if (r.ok && r.data.identities) {
@@ -1581,7 +1599,7 @@ async function renderIdentities(el) {
     if (identities.length === 0) {
       document.getElementById('identity-list').innerHTML = emptyState('🔑', t('identities.empty'), t('identities.emptyDesc'));
     } else {
-      document.getElementById('identity-list').innerHTML = '<table><tr><th>渠道</th><th>外部ID</th><th>状态</th><th>操作</th></tr>' + identities.map(function(i) { return '<tr><td>' + escapeHtml(i.channel_type) + '</td><td>' + escapeHtml(i.external_identity || '-') + '</td><td>' + statusBadge(i.binding_status) + '</td><td>' + (i.binding_status === 'pending' || i.binding_status === 'conflicted' ? '<button class="btn btn-sm btn-primary" onclick="rebindIdentity(\'' + escJsAttr(i.id) + '\')">绑定</button>' : '-') + '</td></tr>'; }).join('') + '</table>';
+      document.getElementById('identity-list').innerHTML = '<table><tr><th>'+t('common.channel')+'</th><th>'+t('common.externalId')+'</th><th>'+t('common.status')+'</th><th>'+t('common.action')+'</th></tr>' + identities.map(function(i) { return '<tr><td>' + escapeHtml(i.channel_type) + '</td><td>' + escapeHtml(i.external_identity || '-') + '</td><td>' + statusBadge(i.binding_status) + '</td><td>' + (i.binding_status === 'pending' || i.binding_status === 'conflicted' ? '<button class="btn btn-sm btn-primary" onclick="rebindIdentity(\'' + escJsAttr(i.id) + '\')">'+t('identities.bind')+'</button>' : '-') + '</td></tr>'; }).join('') + '</table>';
     }
   } else {
     document.getElementById('identity-list').innerHTML = emptyState('⚠️', t('identities.loadFailed'), t('identities.checkGateway'));
@@ -1601,7 +1619,7 @@ async function renderDbMaint(el) {
     const s = r.data.stats;
     document.getElementById('db-stats').innerHTML = '<p>'+t('resources.dbConnections')+': ' + escapeHtml(String(s.connections || '-')) + '</p><p>'+t('resources.dbSize')+': ' + escapeHtml(s.db_size || '-') + '</p><p>'+t('resources.quotaConfig')+': ' + escapeHtml(String(s.table_count || '-')) + '</p>';
   } else {
-    document.getElementById('db-stats').innerHTML = '<p style="color:var(--text2)">无法获取数据库统计</p>';
+    document.getElementById('db-stats').innerHTML = '<p style="color:var(--text2)">'+t('db.cannotLoad')+'</p>';
   }
 }
 
@@ -1624,11 +1642,11 @@ async function doLogout() {
 
 async function renderKnowledgeReview(el) {
   const statusFilter = currentStatusFilter || 'unconfirmed';
-  el.innerHTML = '<div class="page-header"><h2>知识审核台</h2>' +
+  el.innerHTML = '<div class="page-header"><h2>'+t('review.title')+'</h2>' +
     '<div style="display:flex;gap:8px;">' +
-    '<select id="status-filter" onchange="currentStatusFilter=this.value;renderView()"><option value="unconfirmed"' + (statusFilter === 'unconfirmed' ? ' selected' : '') + '>待审核</option><option value="active"' + (statusFilter === 'active' ? ' selected' : '') + '>已批准</option><option value="rejected"' + (statusFilter === 'rejected' ? ' selected' : '') + '>已拒绝</option></select>' +
+    '<select id="status-filter" onchange="currentStatusFilter=this.value;renderView()"><option value="unconfirmed"' + (statusFilter === 'unconfirmed' ? ' selected' : '') + '>'+t('review.statusUnconfirmed')+'</option><option value="active"' + (statusFilter === 'active' ? ' selected' : '') + '>'+t('review.statusActive')+'</option><option value="rejected"' + (statusFilter === 'rejected' ? ' selected' : '') + '>'+t('review.statusRejected')+'</option></select>' +
     '<button class="btn btn-outline btn-sm" onclick="renderView()">'+t('common.refresh')+'</button></div></div>' +
-    '<div class="card"><div id="review-item-list">加载中...</div></div>';
+    '<div class="card"><div id="review-item-list">'+t('common.loading')+'</div></div>';
 
   await loadReviewItems(statusFilter);
 }
@@ -1636,22 +1654,23 @@ async function renderKnowledgeReview(el) {
 async function loadReviewItems(status) {
   const list = document.getElementById('review-item-list');
   if (!list) return;
+  const statusLabel = status === 'unconfirmed' ? t('review.statusUnconfirmed') : status === 'active' ? t('review.statusActive') : t('review.statusRejected');
 
   try {
     const orgId = currentSession ? (currentSession.org_id || '') : '';
     const r = await api('/api/knowledge/review?org_id=' + encodeURIComponent(orgId) + '&status=' + encodeURIComponent(status) + '&limit=50');
     if (!r.ok || !r.data || !r.data.items) {
-      list.innerHTML = emptyState('📚', '暂无' + (status === 'unconfirmed' ? '待审核' : status === 'active' ? '已批准' : '已拒绝') + '的知识条目', '');
+      list.innerHTML = emptyState('📚', t('review.emptyPrefix') + statusLabel + t('review.emptySuffix'), '');
       return;
     }
 
     const items = r.data.items;
     if (items.length === 0) {
-      list.innerHTML = emptyState('📚', '暂无' + (status === 'unconfirmed' ? '待审核' : status === 'active' ? '已批准' : '已拒绝') + '的知识条目', '');
+      list.innerHTML = emptyState('📚', t('review.emptyPrefix') + statusLabel + t('review.emptySuffix'), '');
       return;
     }
 
-    list.innerHTML = '<table><tr><th>编号</th><th>内容摘要</th><th>来源</th><th>提交时间</th><th>操作</th></tr>' +
+    list.innerHTML = '<table><tr><th>'+t('review.id')+'</th><th>'+t('review.summary')+'</th><th>'+t('common.source')+'</th><th>'+t('common.submittedAt')+'</th><th>'+t('common.action')+'</th></tr>' +
       items.map(function(item) {
         let preview = (item.object_value || '').substring(0, 80) + ((item.object_value || '').length > 80 ? '...' : '');
         const sourceLabel = item.source === 'user_submitted' ? t('review.userSubmitted') : (item.source || t('review.system'));
@@ -1661,18 +1680,18 @@ async function loadReviewItems(status) {
           '<td style="font-size:13px">' + escapeHtml(String(item.created_at || '')) + '</td>' +
           '<td>' + (status === 'unconfirmed'
             ? '<button class="btn btn-sm btn-success" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'approve\')">'+t('common.approve')+'</button> ' +
-              '<button class="btn btn-sm btn-primary" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'approve_shared\')">共享</button> ' +
-              '<button class="btn btn-sm btn-warning" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'return\')">退回</button> ' +
-              '<button class="btn btn-sm btn-danger" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'reject\')">拒绝</button>'
+              '<button class="btn btn-sm btn-primary" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'approve_shared\')">'+t('review.approveShared')+'</button> ' +
+              '<button class="btn btn-sm btn-warning" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'return\')">'+t('review.return')+'</button> ' +
+              '<button class="btn btn-sm btn-danger" onclick="reviewAction(\'' + escJsAttr(String(item.fact_id)) + '\',\'reject\')">'+t('common.reject')+'</button>'
             : '<span class="badge ' + (status === 'active' ? 'badge-success' : 'badge-danger') + '">' + status + '</span>') +
           '</td></tr>';
       }).join('') + '</table>';
 
     if (r.data.total > 50) {
-      list.innerHTML += '<p class="hint-text">共 ' + r.data.total + ' 条，显示前 50 条</p>';
+      list.innerHTML += '<p class="hint-text">' + t('review.totalPrefix') + r.data.total + t('review.totalSuffix') + '</p>';
     }
   } catch {
-    list.innerHTML = emptyState('⚠️', '加载失败', '请检查知识检索服务状态');
+    list.innerHTML = emptyState('⚠️', t('review.loadFailed'), t('review.checkService'));
   }
 }
 
@@ -1721,16 +1740,16 @@ async function loadContainerStats() {
   const r = await api('/api/admin/container-stats');
   if (r.ok && r.data.docker_available && r.data.containers && r.data.containers.length > 0) {
     const containers = r.data.containers;
-    el.innerHTML = '<table><tr><th>容器名</th><th>镜像</th><th>状态</th><th>CPU</th><th>内存</th><th>内存用量</th><th>网络I/O</th><th>磁盘I/O</th></tr>' +
+    el.innerHTML = '<table><tr><th>'+t('resources.containerName')+'</th><th>'+t('resources.image')+'</th><th>'+t('common.status')+'</th><th>CPU</th><th>'+t('resources.memory')+'</th><th>'+t('resources.memoryUsage')+'</th><th>'+t('resources.networkIo')+'</th><th>'+t('resources.diskIo')+'</th></tr>' +
       containers.map(function(c) {
         const statusClass = c.status && c.status.includes('Up') ? 'badge-success' : 'badge-danger';
         return '<tr><td>' + escapeHtml(c.name) + '</td><td style="font-size:13px;color:var(--text2)">' + escapeHtml(c.image || '-') + '</td><td><span class="badge ' + statusClass + '">' + escapeHtml(c.status || '-') + '</span></td><td>' + escapeHtml(c.cpu_percent) + '</td><td>' + escapeHtml(c.memory_percent) + '</td><td style="font-size:13px">' + escapeHtml(c.memory_usage) + '</td><td style="font-size:13px">' + escapeHtml(c.net_io) + '</td><td style="font-size:13px">' + escapeHtml(c.block_io) + '</td></tr>';
       }).join('') + '</table>';
     if (timeEl) timeEl.textContent = t('resources.updated') + new Date().toLocaleTimeString();
   } else if (r.ok && !r.data.docker_available) {
-    el.innerHTML = '<p style="color:var(--text2)">t('resources.noDocker')</p>';
+    el.innerHTML = '<p style="color:var(--text2)">'+t('resources.noDocker')+'</p>';
   } else {
-    el.innerHTML = '<p style="color:var(--text2)">无法获取容器监控数据</p>';
+    el.innerHTML = '<p style="color:var(--text2)">'+t('resources.noContainerData')+'</p>';
   }
 }
 
@@ -1751,16 +1770,16 @@ async function loadDockerStats() {
   if (r.ok && r.data.stats) {
     const s = r.data.stats;
     el.innerHTML = '<div class="stat-grid">' +
-      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.active_workflows || 0)) + '</div><div class="stat-label">活跃工作流</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.active_users || 0)) + '</div><div class="stat-label">活跃用户</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.total_documents || 0)) + '</div><div class="stat-label">文档总数</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.total_skills || 0)) + '</div><div class="stat-label">技能总数</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + escapeHtml(s.db_size || '-') + '</div><div class="stat-label">数据库大小</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.db_connections || 0)) + '</div><div class="stat-label">数据库连接数</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.active_workflows || 0)) + '</div><div class="stat-label">'+t('resources.activeWorkflows')+'</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.active_users || 0)) + '</div><div class="stat-label">'+t('resources.activeUsers')+'</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.total_documents || 0)) + '</div><div class="stat-label">'+t('resources.totalDocs')+'</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.total_skills || 0)) + '</div><div class="stat-label">'+t('resources.totalSkills')+'</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + escapeHtml(s.db_size || '-') + '</div><div class="stat-label">'+t('resources.dbSize')+'</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + escapeHtml(String(s.db_connections || 0)) + '</div><div class="stat-label">'+t('resources.dbConnections')+'</div></div>' +
       '</div>';
     if (timeEl) timeEl.textContent = t('resources.updated') + new Date().toLocaleTimeString();
   } else {
-    el.innerHTML = '<p style="color:var(--text2)">无法获取Docker资源数据，请确保数据库服务正常运行</p>';
+    el.innerHTML = '<p style="color:var(--text2)">'+t('resources.noDockerData')+'</p>';
   }
 }
 
@@ -1780,7 +1799,7 @@ async function loadQuotaStats() {
 
   const r = await api('/api/admin/quotas');
   if (!r.ok || !r.data) {
-    grid.innerHTML = '<div class="stat-card"><div class="stat-value">⚠</div><div class="stat-label">无法加载配额数据</div></div>';
+    grid.innerHTML = '<div class="stat-card"><div class="stat-value">⚠</div><div class="stat-label">'+t('resources.noQuota')+'</div></div>';
     return;
   }
   const quotas = r.data.quotas || r.data || {};
@@ -1801,18 +1820,18 @@ async function loadInspectionReport() {
 
   const r = await api('/api/admin/quotas/report');
   if (!r.ok || !r.data || !r.data.report) {
-    report.innerHTML = '<p style="color:var(--text2)">暂无巡检报告，点击"触发巡检"生成</p>';
+    report.innerHTML = '<p style="color:var(--text2)">'+t('resources.noInspection')+'</p>';
     return;
   }
   const data = r.data.report;
   const results = data.results || data.services || [];
   const inspectedAt = data.inspected_at || data.timestamp || data.finished_at || data.started_at || '';
   if (results.length === 0) {
-    report.innerHTML = '<p style="color:var(--text2)">暂无巡检数据</p>';
+    report.innerHTML = '<p style="color:var(--text2)">'+t('resources.noInspectionData')+'</p>';
     return;
   }
-  report.innerHTML = '<p class="hint-text" style="margin-bottom:8px">巡检时间: ' + escapeHtml(String(inspectedAt)) + '</p>' +
-    '<table><tr><th>服务</th><th>健康状态</th><th>延迟(ms)</th><th>详情</th></tr>' +
+  report.innerHTML = '<p class="hint-text" style="margin-bottom:8px">'+t('resources.inspectionTime') + escapeHtml(String(inspectedAt)) + '</p>' +
+    '<table><tr><th>'+t('workflows.service')+'</th><th>'+t('resources.health')+'</th><th>'+t('resources.latencyMs')+'</th><th>'+t('common.details')+'</th></tr>' +
     results.map(function(s) {
       const statusClass = s.healthy || s.status === 'healthy' ? 'badge-success' : 'badge-danger';
       const statusText = s.healthy || s.status === 'healthy' ? 'healthy' : (s.status || 'unhealthy');
@@ -1826,7 +1845,7 @@ async function loadQuotaConfig() {
 
   const r = await api('/api/admin/quotas');
   if (!r.ok) {
-    config.innerHTML = '<p style="color:var(--text2)">无法加载配额配置</p>';
+    config.innerHTML = '<p style="color:var(--text2)">'+t('resources.loadFailed')+'</p>';
     return;
   }
   const quotas = r.data.quotas || r.data || {};
@@ -1841,8 +1860,8 @@ async function loadQuotaConfig() {
   config.innerHTML = dimensions.map(function(d) {
     const q = quotas[d.key] || {};
     const val = q.limit || q.max || '';
-    return '<div class="form-group"><label>' + d.label + '</label><input type="number" id="quota-' + d.key + '" value="' + escapeHtml(String(val)) + '" placeholder="留空则不限制"></div>';
-  }).join('') + '<button class="btn btn-primary" onclick="saveQuotaConfig()">保存配额配置</button>';
+    return '<div class="form-group"><label>' + d.label + '</label><input type="number" id="quota-' + d.key + '" value="' + escapeHtml(String(val)) + '" placeholder="'+t('common.noneLimit')+'"></div>';
+  }).join('') + '<button class="btn btn-primary" onclick="saveQuotaConfig()">'+t('config.save')+'</button>';
 }
 
 async function saveQuotaConfig() {
@@ -1873,12 +1892,12 @@ async function triggerInspection() {
 // ============================================================
 
 async function renderDreamMemory(el) {
-  el.innerHTML = '<div class="page-header"><h2>💤 记忆分析 - 梦境模式</h2></div>' +
-    '<div class="card"><h3>召回与业务结果归因</h3><div id="dream-attribution-list">加载中...</div></div>' +
-    '<div class="card"><h3>记忆分析运行记录</h3><div id="dream-runs-list">加载中...</div></div>' +
-    '<div class="card"><h3>组织级记忆汇总 <span style="font-size:12px;color:var(--text2)">(管理员可见)</span></h3><div id="dream-summary-list">加载中...</div></div>' +
-    '<div class="card"><h3>记忆压缩日志</h3><div id="dream-compression-list">加载中...</div></div>' +
-    '<div class="card"><h3>记忆访问日志</h3><div id="dream-access-list">加载中...</div></div>';
+  el.innerHTML = '<div class="page-header"><h2>💤 '+t('dream.memoryTitle')+'</h2></div>' +
+    '<div class="card"><h3>'+t('dream.attributionTitle')+'</h3><div id="dream-attribution-list">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('dream.runsTitle')+'</h3><div id="dream-runs-list">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('dream.summaryTitle')+' <span style="font-size:12px;color:var(--text2)">'+t('dream.adminOnly')+'</span></h3><div id="dream-summary-list">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('dream.compressionTitle')+'</h3><div id="dream-compression-list">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('dream.accessTitle')+'</h3><div id="dream-access-list">'+t('common.loading')+'</div></div>';
   await loadDreamAttribution();
   await loadDreamRuns();
   await loadDreamSummaries();
@@ -1895,19 +1914,19 @@ async function loadDreamAttribution() {
     const knowledge = r.data.knowledge || [];
     const outcomes = r.data.outcomes || [];
     const outcomeSummary = outcomes.length === 0 ? t('dream.noOutcome') : outcomes.map(function(o) {
-      return escapeHtml(o.outcome_status || '-') + ': ' + (o.count || 0) + ' / 均分 ' + (o.avg_business_score || '-');
+      return escapeHtml(o.outcome_status || '-') + ': ' + (o.count || 0) + ' / ' + t('dream.avgScore') + (o.avg_business_score || '-');
     }).join('　');
     const skillHtml = skills.length === 0 ? emptyState('🔧', t('dream.noAttributionSkill'), t('dream.noAttributionSkillDesc')) :
-      '<table><tr><th>技能</th><th>召回</th><th>注入</th><th>成功</th><th>业务均分</th></tr>' +
+      '<table><tr><th>'+t('dream.skill')+'</th><th>'+t('dream.recall')+'</th><th>'+t('dream.injected')+'</th><th>'+t('dream.success')+'</th><th>'+t('dream.businessAvg')+'</th></tr>' +
       skills.slice(0, 8).map(function(s) {
         return '<tr><td><strong>' + escapeHtml(s.skill_name || s.skill_id || '') + '</strong></td><td>' + (s.recall_count || 0) + '</td><td>' + (s.injected_count || 0) + '</td><td>' + (s.succeeded_count || 0) + '</td><td>' + (s.avg_business_score || '-') + '</td></tr>';
       }).join('') + '</table>';
     const knowledgeHtml = knowledge.length === 0 ? emptyState('🧠', t('dream.noAttributionKnowledge'), t('dream.noAttributionKnowledgeDesc')) :
-      '<table><tr><th>来源</th><th>条目</th><th>召回</th><th>注入</th><th>成功</th><th>业务均分</th></tr>' +
+      '<table><tr><th>'+t('dream.knowledgeSource')+'</th><th>'+t('dream.item')+'</th><th>'+t('dream.recall')+'</th><th>'+t('dream.injected')+'</th><th>'+t('dream.success')+'</th><th>'+t('dream.businessAvg')+'</th></tr>' +
       knowledge.slice(0, 8).map(function(k) {
         return '<tr><td>' + escapeHtml(k.recall_source || '') + '</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(k.item_ref || '') + '</td><td>' + (k.recall_count || 0) + '</td><td>' + (k.injected_count || 0) + '</td><td>' + (k.succeeded_count || 0) + '</td><td>' + (k.avg_business_score || '-') + '</td></tr>';
       }).join('') + '</table>';
-    el.innerHTML = '<p class="section-desc">' + outcomeSummary + '</p><h4>技能效果</h4>' + skillHtml + '<h4 style="margin-top:16px">知识效果</h4>' + knowledgeHtml;
+    el.innerHTML = '<p class="section-desc">' + outcomeSummary + '</p><h4>'+t('dream.skillEffect')+'</h4>' + skillHtml + '<h4 style="margin-top:16px">'+t('dream.knowledgeEffect')+'</h4>' + knowledgeHtml;
   } else {
     el.innerHTML = emptyState('⚠️', t('dream.cannotLoadAttribution'), t('dream.cannotLoadAttributionDesc'));
   }
@@ -1922,7 +1941,7 @@ async function loadDreamRuns() {
     if (runs.length === 0) {
       el.innerHTML = emptyState('💤', t('dream.noRuns'), t('dream.noRunsDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>时间</th><th>类型</th><th>状态</th><th>扫描项</th><th>压缩项</th><th>提取事实</th></tr>' +
+      el.innerHTML = '<table><tr><th>'+t('common.time')+'</th><th>'+t('common.type')+'</th><th>'+t('common.status')+'</th><th>'+t('dream.scannedItems')+'</th><th>'+t('dream.compressedItems')+'</th><th>'+t('dream.factsGenerated')+'</th></tr>' +
         runs.map(function(run) {
           return '<tr><td>' + escapeHtml((run.created_at || '').slice(0, 16)) + '</td><td>' + statusBadge(run.run_type) + '</td><td>' + statusBadge(run.status) + '</td><td>' + (run.items_scanned || 0) + '</td><td>' + (run.items_compressed || 0) + '</td><td>' + (run.facts_generated || 0) + '</td></tr>';
         }).join('') + '</table>';
@@ -1941,7 +1960,7 @@ async function loadDreamSummaries() {
     if (summaries.length === 0) {
       el.innerHTML = emptyState('📝', t('dream.noSummaries'), t('dream.noSummariesDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>标题</th><th>分类</th><th>内容</th><th>状态</th></tr>' +
+      el.innerHTML = '<table><tr><th>'+t('shared.titleLabel')+'</th><th>'+t('dream.category')+'</th><th>'+t('common.content')+'</th><th>'+t('common.status')+'</th></tr>' +
         summaries.map(function(s) {
           return '<tr><td><strong>' + escapeHtml(s.title || '') + '</strong></td><td>' + statusBadge(s.category) + '</td><td style="max-width:400px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml((s.content_text || '').substring(0, 150)) + '</td><td>' + statusBadge(s.status) + '</td></tr>';
         }).join('') + '</table>';
@@ -1959,7 +1978,7 @@ async function loadDreamCompressions() {
     if (logs.length === 0) {
       el.innerHTML = emptyState('📦', t('dream.noCompressions'), t('dream.noCompressionsDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>时间</th><th>原文字符</th><th>压缩后字符</th><th>压缩率</th><th>方法</th></tr>' +
+      el.innerHTML = '<table><tr><th>'+t('common.time')+'</th><th>'+t('dream.originalChars')+'</th><th>'+t('dream.compressedChars')+'</th><th>'+t('dream.compressionRatio')+'</th><th>'+t('dream.method')+'</th></tr>' +
         logs.map(function(l) {
           const ratio = l.original_char_count > 0 ? Math.round((1 - l.compressed_char_count / l.original_char_count) * 100) : 0;
           return '<tr><td>' + escapeHtml((l.created_at || '').slice(0, 16)) + '</td><td>' + (l.original_char_count || 0) + '</td><td>' + (l.compressed_char_count || 0) + '</td><td>' + ratio + '%</td><td>' + escapeHtml(l.compression_method || '') + '</td></tr>';
@@ -1978,9 +1997,9 @@ async function loadDreamAccessLog() {
     if (logs.length === 0) {
       el.innerHTML = emptyState('🔒', t('dream.noAccessLog'), t('dream.noAccessLogDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>时间</th><th>类型</th><th>访问</th><th>结果</th></tr>' +
+      el.innerHTML = '<table><tr><th>'+t('common.time')+'</th><th>'+t('common.type')+'</th><th>'+t('dream.access')+'</th><th>'+t('common.result')+'</th></tr>' +
         logs.map(function(l) {
-          return '<tr><td>' + escapeHtml((l.created_at || '').slice(0, 16)) + '</td><td>' + escapeHtml(l.target_type || '') + '</td><td>' + escapeHtml(l.access_type || '') + '</td><td>' + (l.access_result === 'granted' ? '<span class="badge badge-success">允许</span>' : '<span class="badge badge-danger">拒绝</span>') + '</td></tr>';
+          return '<tr><td>' + escapeHtml((l.created_at || '').slice(0, 16)) + '</td><td>' + escapeHtml(l.target_type || '') + '</td><td>' + escapeHtml(l.access_type || '') + '</td><td>' + (l.access_result === 'granted' ? '<span class="badge badge-success">'+t('dream.accessGranted')+'</span>' : '<span class="badge badge-danger">'+t('dream.accessDenied')+'</span>') + '</td></tr>';
         }).join('') + '</table>';
     }
   } else {
@@ -1989,11 +2008,11 @@ async function loadDreamAccessLog() {
 }
 
 async function renderDreamSkills(el) {
-  el.innerHTML = '<div class="page-header"><h2>🔬 技能发现与管理</h2></div>' +
-    '<div class="card"><h3>Workflow 定义候审</h3><div style="margin-bottom:12px"><button class="btn btn-primary btn-sm" onclick="nominateWorkflowDefinitions()">生成候审</button> <button class="btn btn-outline btn-sm" onclick="loadWorkflowDefinitionReviews()">刷新</button></div><div id="workflow-definition-review-list">加载中...</div></div>' +
-    '<div class="card"><h3>组织技能库</h3><div id="org-skills-list">加载中...</div></div>' +
-    '<div class="card"><h3>技能审核记录</h3><div id="skill-audit-list">加载中...</div></div>' +
-    '<div class="card"><h3>高价值场景识别</h3><div id="scene-assessment-list">加载中...</div></div>';
+  el.innerHTML = '<div class="page-header"><h2>🔬 '+t('dream.skillsTitle')+'</h2></div>' +
+    '<div class="card"><h3>'+t('dream.wfReviewTitle')+'</h3><div style="margin-bottom:12px"><button class="btn btn-primary btn-sm" onclick="nominateWorkflowDefinitions()">'+t('dream.nominate')+'</button> <button class="btn btn-outline btn-sm" onclick="loadWorkflowDefinitionReviews()">'+t('common.refresh')+'</button></div><div id="workflow-definition-review-list">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('dream.orgSkillsTitle')+'</h3><div id="org-skills-list">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('dream.skillAuditTitle')+'</h3><div id="skill-audit-list">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('dream.sceneTitle')+'</h3><div id="scene-assessment-list">'+t('common.loading')+'</div></div>';
   await loadWorkflowDefinitionReviews();
   await loadOrgSkills();
   await loadSkillAuditRecords();
@@ -2024,7 +2043,7 @@ async function loadWorkflowDefinitionReviews() {
     if (reviews.length === 0) {
       el.innerHTML = emptyState('⚙', t('dream.noReview'), t('dream.noReviewDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>名称</th><th>来源 Skill</th><th>召回</th><th>成功</th><th>业务均分</th><th>审核分</th><th>状态</th><th>操作</th></tr>' +
+      el.innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('dream.sourceSkill')+'</th><th>'+t('dream.recall')+'</th><th>'+t('dream.success')+'</th><th>'+t('dream.businessAvg')+'</th><th>'+t('dream.auditScore')+'</th><th>'+t('common.status')+'</th><th>'+t('common.action')+'</th></tr>' +
         reviews.map(function(rw) {
           return '<tr><td><strong>' + escapeHtml(rw.name || '') + '</strong><br><span class="hint-text">' + escapeHtml(rw.workflow_type || '') + ' / ' + escapeHtml(rw.risk_level || '') + '</span></td>' +
             '<td>' + escapeHtml(rw.skill_name || rw.source_skill_id || '') + '</td>' +
@@ -2048,7 +2067,7 @@ async function decideWorkflowDefinitionReview(reviewId, action) {
     body: JSON.stringify({ action: action, notes: notes })
   });
   if (r.ok) {
-    const suffix = r.data.workflow_definition_id ?  : '';
+    const suffix = r.data.workflow_definition_id ? ' (' + String(r.data.workflow_definition_id) + ')' : '';
     showToast(t('dream.decisionComplete') + suffix);
     loadWorkflowDefinitionReviews();
   } else {
@@ -2065,9 +2084,9 @@ async function loadOrgSkills() {
     if (skills.length === 0) {
       el.innerHTML = emptyState('🔧', t('dream.noOrgSkills'), t('dream.noOrgSkillsDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>技能名</th><th>类型</th><th>分类</th><th>安装数</th><th>评分</th><th>操作</th></tr>' +
+      el.innerHTML = '<table><tr><th>'+t('skills.nameLabel')+'</th><th>'+t('common.type')+'</th><th>'+t('dream.category')+'</th><th>'+t('dream.installCount')+'</th><th>'+t('dream.rating')+'</th><th>'+t('common.action')+'</th></tr>' +
         skills.map(function(s) {
-          return '<tr><td><strong>' + escapeHtml(s.skill_name || '') + '</strong></td><td>' + escapeHtml(s.skill_type || '') + '</td><td>' + escapeHtml(s.category || '') + '</td><td>' + (s.install_count || 0) + '</td><td>' + (s.rating_avg ? Number(s.rating_avg).toFixed(1) + ' (' + s.rating_count + ')' : '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="showSkillUsage(\'' + escJsAttr(s.skill_id) + '\')">统计</button></td></tr>';
+          return '<tr><td><strong>' + escapeHtml(s.skill_name || '') + '</strong></td><td>' + escapeHtml(s.skill_type || '') + '</td><td>' + escapeHtml(s.category || '') + '</td><td>' + (s.install_count || 0) + '</td><td>' + (s.rating_avg ? Number(s.rating_avg).toFixed(1) + ' (' + s.rating_count + ')' : '-') + '</td><td><button class="btn btn-sm btn-primary" onclick="showSkillUsage(\'' + escJsAttr(s.skill_id) + '\')">'+t('common.detail')+'</button></td></tr>';
         }).join('') + '</table>';
     }
   } else {
@@ -2079,7 +2098,7 @@ async function showSkillUsage(skillId) {
   const r = await api('/api/admin/dream/skill-usage?skill_id=' + encodeURIComponent(skillId) + '&days=30');
   if (r.ok && r.data.aggregate) {
     const agg = r.data.aggregate;
-    const msg = '近30天使用统计：\n调用次数: ' + (agg.total_invocations || 0) + '\n成功: ' + (agg.total_success || 0) + '\n失败: ' + (agg.total_failure || 0) + '\n最大日活: ' + (agg.max_users || 0);
+    const msg = t('dream.skillUsage') + '\n' + t('dream.skillUsageCalls') + (agg.total_invocations || 0) + '\n' + t('dream.skillUsageSuccess') + (agg.total_success || 0) + '\n' + t('dream.skillUsageFailure') + (agg.total_failure || 0) + '\n' + t('dream.skillUsageMaxUsers') + (agg.max_users || 0);
     showToast(msg);
   } else {
     showToast(t('common.loadFailed'), 'error');
@@ -2095,7 +2114,7 @@ async function loadSkillAuditRecords() {
     if (records.length === 0) {
       el.innerHTML = emptyState('📋', t('dream.noAuditRecords'), t('dream.noAuditRecordsDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>技能</th><th>类型</th><th>功能</th><th>安全</th><th>性能</th><th>适配</th><th>综合</th><th>结果</th></tr>' +
+      el.innerHTML = '<table><tr><th>'+t('dream.skill')+'</th><th>'+t('common.type')+'</th><th>'+t('dream.functionality')+'</th><th>'+t('dream.security')+'</th><th>'+t('dream.performance')+'</th><th>'+t('dream.orgFit')+'</th><th>'+t('dream.overall')+'</th><th>'+t('common.result')+'</th></tr>' +
         records.map(function(rec) {
           return '<tr><td>' + escapeHtml(rec.skill_name || rec.skill_id || '') + '</td><td>' + escapeHtml(rec.audit_type || '') + '</td><td>' + (rec.functionality_score || 0) + '</td><td>' + (rec.security_score || 0) + '</td><td>' + (rec.performance_score || 0) + '</td><td>' + (rec.org_fit_score || 0) + '</td><td><strong>' + (rec.overall_score || 0) + '</strong></td><td>' + statusBadge(rec.audit_result) + '</td></tr>';
         }).join('') + '</table>';
@@ -2114,7 +2133,7 @@ async function loadSceneAssessments() {
     if (assessments.length === 0) {
       el.innerHTML = emptyState('🎯', t('dream.noScenes'), t('dream.noScenesDesc'));
     } else {
-      el.innerHTML = '<table><tr><th>场景</th><th>使用</th><th>成功</th><th>价值分</th><th>状态</th></tr>' +
+      el.innerHTML = '<table><tr><th>'+t('dream.scene')+'</th><th>'+t('dream.usage')+'</th><th>'+t('dream.success')+'</th><th>'+t('dream.valueScore')+'</th><th>'+t('common.status')+'</th></tr>' +
         assessments.map(function(a) {
           return '<tr><td><strong>' + escapeHtml(a.scene_name || '') + '</strong></td><td>' + (a.usage_count || 0) + '</td><td>' + (a.success_count || 0) + '</td><td><strong>' + (a.value_score || 0) + '</strong></td><td>' + statusBadge(a.status) + '</td></tr>';
         }).join('') + '</table>';
@@ -2125,21 +2144,21 @@ async function loadSceneAssessments() {
 }
 
 async function renderDreamConfig(el) {
-  el.innerHTML = '<div class="page-header"><h2>⚙ 梦境模式配置</h2></div>' +
-    '<div class="card"><h3>梦境调度配置</h3><div id="dream-config-form">加载中...</div></div>';
+  el.innerHTML = '<div class="page-header"><h2>⚙ '+t('dream.configTitle')+'</h2></div>' +
+    '<div class="card"><h3>'+t('dream.scheduleConfig')+'</h3><div id="dream-config-form">'+t('common.loading')+'</div></div>';
   const orgId = currentSession && currentSession.org_id ? currentSession.org_id : '';
   const r = await api('/api/admin/dream/config?org_id=' + encodeURIComponent(orgId));
   const config = (r.ok && r.data.config) ? r.data.config : {};
 
   document.getElementById('dream-config-form').innerHTML =
-    '<div class="form-group"><label>'+t('dream.enabled')+'</label><select id="dc-enabled"><option value="true"' + (config.enabled !== false ? ' selected' : '') + '>Enabled</option><option value="false"' + (config.enabled === false ? ' selected' : '') + '>Disabled</option></select></div>' +
+    '<div class="form-group"><label>'+t('dream.enabled')+'</label><select id="dc-enabled"><option value="true"' + (config.enabled !== false ? ' selected' : '') + '>'+t('common.enabled')+'</option><option value="false"' + (config.enabled === false ? ' selected' : '') + '>'+t('common.disabled')+'</option></select></div>' +
     '<div class="form-group"><label>'+t('dream.trigger')+'</label><select id="dc-trigger"><option value="auto"' + (config.dream_user_trigger === 'auto' ? ' selected' : '') + '>'+t('dream.triggerAuto')+'</option><option value="scheduled"' + (config.dream_user_trigger === 'scheduled' ? ' selected' : '') + '>'+t('dream.triggerScheduled')+'</option></select></div>' +
     '<div class="form-group"><label>'+t('dream.hour')+'</label><input type="number" id="dc-hour" value="' + (config.dream_scheduled_hour || 3) + '" min="0" max="23"><span class="hint-text">'+t('dream.hourHint')+'</span></div>' +
     '<div class="form-group"><label>'+t('dream.cooling')+'</label><input type="number" id="dc-cooling" value="' + (config.cooling_window_minutes || 120) + '" min="30"><span class="hint-text">'+t('dream.coolingHint')+'</span></div>' +
     '<div class="form-group"><label>'+t('dream.threshold')+'</label><input type="number" id="dc-threshold" value="' + (config.compression_threshold_chars || 4000) + '" min="500"><span class="hint-text">'+t('dream.thresholdHint')+'</span></div>' +
     '<div class="form-group"><label>'+t('dream.maxCompress')+'</label><input type="number" id="dc-max-compress" value="' + (config.max_compressions_per_run || 100) + '" min="1" max="500"></div>' +
     '<hr>' +
-    '<div class="form-group"><label>'+t('dream.auditEnabled')+'</label><select id="dc-audit-enabled"><option value="true"' + (config.skill_audit_enabled !== false ? ' selected' : '') + '>Enabled</option><option value="false"' + (config.skill_audit_enabled === false ? ' selected' : '') + '>Disabled</option></select></div>' +
+    '<div class="form-group"><label>'+t('dream.auditEnabled')+'</label><select id="dc-audit-enabled"><option value="true"' + (config.skill_audit_enabled !== false ? ' selected' : '') + '>'+t('common.enabled')+'</option><option value="false"' + (config.skill_audit_enabled === false ? ' selected' : '') + '>'+t('common.disabled')+'</option></select></div>' +
     '<div class="form-group"><label>'+t('dream.auditHour')+'</label><input type="number" id="dc-audit-hour" value="' + (config.skill_audit_scheduled_hour || 5) + '" min="0" max="23"><span class="hint-text">'+t('dream.auditHourHint')+'</span></div>' +
     '<div class="form-group"><label>'+t('dream.autoPromote')+'</label><input type="number" id="dc-auto-promote" value="' + (config.auto_promote_threshold || 80) + '" min="0" max="100"><span class="hint-text">'+t('dream.autoPromoteHint')+'</span></div>' +
     '<div class="form-group"><label>'+t('dream.minUsage')+'</label><input type="number" id="dc-min-usage" value="' + (config.min_usage_for_scene_detection || 3) + '" min="1" max="100"><span class="hint-text">'+t('dream.minUsageHint')+'</span></div>' +
@@ -2190,7 +2209,7 @@ async function initApp() {
       renderApp();
     }
   } catch (e) {
-    document.getElementById('app').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>t('app.loadFailed')</h3><p>t('app.loadFailedDesc')</p><button class="btn btn-primary" onclick="location.reload()">t('app.refresh')</button></div>';
+    document.getElementById('app').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>'+t('app.loadFailed')+'</h3><p>'+t('app.loadFailedDesc')+'</p><button class="btn btn-primary" onclick="location.reload()">'+t('app.refresh')+'</button></div>';
   }
 }
 

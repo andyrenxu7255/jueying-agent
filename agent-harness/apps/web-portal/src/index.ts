@@ -20,6 +20,7 @@ const hermesUrl = process.env.HERMES_URL || '';
 const STATIC_DIR = resolve(__dirname, '../static');
 
 type SessionRole = 'admin' | 'user' | 'guest';
+type PortalLang = 'zh-CN' | 'en';
 
 interface Session {
   user_id: string;
@@ -41,6 +42,69 @@ interface ConfigSection {
     default?: string;
     sensitive?: boolean;
   }>;
+}
+
+function getRequestLang(req: IncomingMessage): PortalLang {
+  const header = req.headers['accept-language'];
+  const value = Array.isArray(header) ? header.join(',') : String(header || '');
+  return value.toLowerCase().includes('en') ? 'en' : 'zh-CN';
+}
+
+function getConfigSections(lang: PortalLang): ConfigSection[] {
+  const label = (key: string) => t(lang, key);
+  return [
+    {
+      key: 'feishu',
+      label: label('config.label.feishu'),
+      fields: [
+        { key: 'FEISHU_APP_ID', label: 'App ID', type: 'text' },
+        { key: 'FEISHU_APP_SECRET', label: 'App Secret', type: 'password', sensitive: true },
+        { key: 'FEISHU_SIGNING_SECRET', label: label('config.field.signing_secret'), type: 'password', sensitive: true },
+        { key: 'FEISHU_DOMAIN', label: label('config.field.domain'), type: 'select', options: ['feishu', 'lark'], default: 'feishu' },
+      ],
+    },
+    {
+      key: 'wecom',
+      label: label('config.label.wecom'),
+      fields: [
+        { key: 'WECOM_CORP_ID', label: label('config.field.corp_id'), type: 'text' },
+        { key: 'WECOM_TOKEN', label: label('config.field.callback_token'), type: 'password', sensitive: true },
+        { key: 'WECOM_ENCODING_AES_KEY', label: label('config.field.aes_key'), type: 'password', sensitive: true },
+        { key: 'WECOM_AGENT_ID', label: label('config.field.agent_id'), type: 'text' },
+        { key: 'WECOM_SECRET', label: label('config.field.app_secret'), type: 'password', sensitive: true },
+      ],
+    },
+    {
+      key: 'llm',
+      label: label('config.label.llm'),
+      fields: [
+        { key: 'LITELLM_URL', label: label('config.field.litellm_url'), type: 'text', default: 'http://localhost:4000' },
+        { key: 'LITELLM_MASTER_KEY', label: 'Master Key', type: 'password', sensitive: true },
+        { key: 'LITELLM_MODEL', label: label('config.field.default_model'), type: 'text', default: 'minimax-m2.7' },
+        { key: 'LITELLM_FALLBACK_MODELS', label: label('config.field.fallback_models'), type: 'text', default: '' },
+      ],
+    },
+    {
+      key: 'embedding',
+      label: label('config.label.embedding'),
+      fields: [
+        { key: 'EMBEDDING_MODE', label: label('config.field.mode'), type: 'select', options: ['deterministic', 'provider'], default: 'deterministic' },
+        { key: 'EMBEDDING_PROVIDER_URL', label: 'Provider URL', type: 'text' },
+        { key: 'EMBEDDING_PROVIDER_MODEL', label: 'Provider Model', type: 'text' },
+        { key: 'EMBEDDING_PROVIDER_API_KEY', label: 'API Key', type: 'password', sensitive: true },
+      ],
+    },
+    {
+      key: 'rerank',
+      label: label('config.label.rerank'),
+      fields: [
+        { key: 'RERANK_MODE', label: label('config.field.mode'), type: 'select', options: ['deterministic', 'provider'], default: 'deterministic' },
+        { key: 'RERANK_PROVIDER_URL', label: 'Provider URL', type: 'text' },
+        { key: 'RERANK_PROVIDER_MODEL', label: 'Provider Model', type: 'text' },
+        { key: 'RERANK_PROVIDER_API_KEY', label: 'API Key', type: 'password', sensitive: true },
+      ],
+    },
+  ];
 }
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
@@ -288,7 +352,7 @@ async function requireAdmin(req: IncomingMessage, res: ServerResponse): Promise<
   const session = await requireSession(req, res);
   if (!session) return null;
   if (session.role !== 'admin') {
-    sendJson(res, 403, { ok: false, error: 'forbidden', message: 'Admin access required' });
+    sendJson(res, 403, { ok: false, error: 'forbidden', message: t(getRequestLang(req), 'portal.admin.required') });
     return null;
   }
   return session;
@@ -310,7 +374,7 @@ function cleanupLoginAttempts(now: number = Date.now()): void {
   }
 }
 
-function checkLoginRateLimit(identifier: string): { blocked: boolean; retryAfterMs?: number; message?: string } {
+function checkLoginRateLimit(identifier: string, lang: PortalLang): { blocked: boolean; retryAfterMs?: number; message?: string } {
   const now = Date.now();
   if (loginAttempts.size > 50000) cleanupLoginAttempts(now);
 
@@ -322,14 +386,14 @@ function checkLoginRateLimit(identifier: string): { blocked: boolean; retryAfter
     return {
       blocked: true,
       retryAfterMs: entry.lockedUntil - now,
-      message: tf('zh-CN', 'portal.login.rate_limited', { remaining: String(remaining) })
+      message: tf(lang, 'portal.login.rate_limited', { remaining: String(remaining) })
     };
   }
 
   return { blocked: false };
 }
 
-function recordLoginFailure(identifier: string): { blocked: boolean; retryAfterMs?: number; message?: string } {
+function recordLoginFailure(identifier: string, lang: PortalLang): { blocked: boolean; retryAfterMs?: number; message?: string } {
   const now = Date.now();
   let entry = loginAttempts.get(identifier);
 
@@ -351,7 +415,7 @@ function recordLoginFailure(identifier: string): { blocked: boolean; retryAfterM
     return {
       blocked: true,
       retryAfterMs: lockoutMs,
-      message: tf('zh-CN', 'portal.login.rate_limited', { remaining: String(seconds) })
+      message: tf(lang, 'portal.login.rate_limited', { remaining: String(seconds) })
     };
   }
 
@@ -526,9 +590,9 @@ function saveEnvFile(env: Record<string, string>): void {
   writeFileSync(ENV_FILE_PATH, lines.join('\n') + '\n', 'utf8');
 }
 
-function validatePasswordStrength(password: string): { valid: boolean; score: number; message: string } {
+function validatePasswordStrength(password: string, lang: PortalLang): { valid: boolean; score: number; message: string } {
   if (!password || password.length < 8) {
-    return { valid: false, score: 0, message: t('zh-CN', 'portal.pwd.min_length') };
+    return { valid: false, score: 0, message: t(lang, 'portal.pwd.min_length') };
   }
   let score = 0;
   if (password.length >= 8) score += 1;
@@ -537,69 +601,16 @@ function validatePasswordStrength(password: string): { valid: boolean; score: nu
   if (/[A-Z]/.test(password)) score += 1;
   if (/[0-9]/.test(password)) score += 1;
   if (/[^a-zA-Z0-9]/.test(password)) score += 1;
-  if (score < 3) return { valid: false, score, message: t('zh-CN', 'portal.pwd.too_weak') };
-  if (score < 5) return { valid: true, score, message: t('zh-CN', 'portal.pwd.medium') };
-  return { valid: true, score, message: t('zh-CN', 'portal.pwd.good') };
+  if (score < 3) return { valid: false, score, message: t(lang, 'portal.pwd.too_weak') };
+  if (score < 5) return { valid: true, score, message: t(lang, 'portal.pwd.medium') };
+  return { valid: true, score, message: t(lang, 'portal.pwd.good') };
 }
-
-const CONFIG_SECTIONS: ConfigSection[] = [
-  {
-    key: 'feishu',
-    label: t('zh-CN', 'config.label.feishu'),
-    fields: [
-      { key: 'FEISHU_APP_ID', label: 'App ID', type: 'text' },
-      { key: 'FEISHU_APP_SECRET', label: 'App Secret', type: 'password', sensitive: true },
-      { key: 'FEISHU_SIGNING_SECRET', label: '签名密钥 (Signing Secret)', type: 'password', sensitive: true },
-      { key: 'FEISHU_DOMAIN', label: '域名', type: 'select', options: ['feishu', 'lark'], default: 'feishu' },
-    ],
-  },
-  {
-    key: 'wecom',
-    label: t('zh-CN', 'config.label.wecom'),
-    fields: [
-      { key: 'WECOM_CORP_ID', label: '企业ID (Corp ID)', type: 'text' },
-      { key: 'WECOM_TOKEN', label: '回调验证 Token', type: 'password', sensitive: true },
-      { key: 'WECOM_ENCODING_AES_KEY', label: '消息加密 AES Key', type: 'password', sensitive: true },
-      { key: 'WECOM_AGENT_ID', label: '应用ID (Agent ID)', type: 'text' },
-      { key: 'WECOM_SECRET', label: '应用Secret', type: 'password', sensitive: true },
-    ],
-  },
-  {
-    key: 'llm',
-    label: t('zh-CN', 'config.label.llm'),
-    fields: [
-      { key: 'LITELLM_URL', label: 'LiteLLM 地址', type: 'text', default: 'http://localhost:4000' },
-      { key: 'LITELLM_MASTER_KEY', label: 'Master Key', type: 'password', sensitive: true },
-      { key: 'LITELLM_MODEL', label: '默认模型', type: 'text', default: 'minimax-m2.7' },
-      { key: 'LITELLM_FALLBACK_MODELS', label: '备用模型 (逗号分隔)', type: 'text', default: '' },
-    ],
-  },
-  {
-    key: 'embedding',
-    label: t('zh-CN', 'config.label.embedding'),
-    fields: [
-      { key: 'EMBEDDING_MODE', label: '模式', type: 'select', options: ['deterministic', 'provider'], default: 'deterministic' },
-      { key: 'EMBEDDING_PROVIDER_URL', label: 'Provider URL', type: 'text' },
-      { key: 'EMBEDDING_PROVIDER_MODEL', label: 'Provider Model', type: 'text' },
-      { key: 'EMBEDDING_PROVIDER_API_KEY', label: 'API Key', type: 'password', sensitive: true },
-    ],
-  },
-  {
-    key: 'rerank',
-    label: t('zh-CN', 'config.label.rerank'),
-    fields: [
-      { key: 'RERANK_MODE', label: '模式', type: 'select', options: ['deterministic', 'provider'], default: 'deterministic' },
-      { key: 'RERANK_PROVIDER_URL', label: 'Provider URL', type: 'text' },
-      { key: 'RERANK_PROVIDER_MODEL', label: 'Provider Model', type: 'text' },
-      { key: 'RERANK_PROVIDER_API_KEY', label: 'API Key', type: 'password', sensitive: true },
-    ],
-  },
-];
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
   const method = req.method || 'GET';
+  const requestLang = getRequestLang(req);
 
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
@@ -617,7 +628,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     res.setHeader('Access-Control-Allow-Origin', origin || allowedOrigins[0]);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-session-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-session-id, Accept-Language');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Vary', 'Origin');
   if (method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
@@ -658,7 +669,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/auth/login' && method === 'POST') {
       const clientIp = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
       const rateLimitKey = `login:${clientIp}`;
-      const rateCheck = checkLoginRateLimit(rateLimitKey);
+      const rateCheck = checkLoginRateLimit(rateLimitKey, requestLang);
       if (rateCheck.blocked) {
         sendJson(res, 429, { ok: false, error: 'rate_limited', message: rateCheck.message, retry_after_ms: rateCheck.retryAfterMs });
         return;
@@ -668,12 +679,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const rawUsername = String(body.username || '').trim();
       const password = String(body.password || '');
       if (!rawUsername || !password) {
-        sendJson(res, 400, { ok: false, error: 'missing_credentials', message: t('zh-CN', 'portal.login.empty_credentials') });
+        sendJson(res, 400, { ok: false, error: 'missing_credentials', message: t(requestLang, 'portal.login.empty_credentials') });
         return;
       }
       const adminOverride = ADMIN_PASSWORD && password === ADMIN_PASSWORD;
       if (!adminOverride) {
-        const rateCheck = checkLoginRateLimit(rateLimitKey);
+        const rateCheck = checkLoginRateLimit(rateLimitKey, requestLang);
         if (rateCheck.blocked) {
           sendJson(res, 429, { ok: false, error: 'rate_limited', message: rateCheck.message, retry_after_ms: rateCheck.retryAfterMs });
           return;
@@ -709,11 +720,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           }
         } catch { /* ignore */ }
         if (!dbPasswordVerified) {
-          const failResult = recordLoginFailure(rateLimitKey);
+          const failResult = recordLoginFailure(rateLimitKey, requestLang);
           if (failResult.blocked) {
             sendJson(res, 429, { ok: false, error: 'rate_limited', message: failResult.message, retry_after_ms: failResult.retryAfterMs });
           } else {
-            sendJson(res, 401, { ok: false, error: 'invalid_credentials', message: t('zh-CN', 'portal.login.wrong_credentials') });
+            sendJson(res, 401, { ok: false, error: 'invalid_credentials', message: t(requestLang, 'portal.login.wrong_credentials') });
           }
           return;
         }
@@ -721,7 +732,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       clearLoginAttempts(rateLimitKey);
       await evictExpiredSessions();
       if (sessionStore.size >= MAX_SESSIONS) {
-        sendJson(res, 429, { ok: false, error: 'too_many_sessions', message: t('zh-CN', 'portal.login.max_sessions') });
+        sendJson(res, 429, { ok: false, error: 'too_many_sessions', message: t(requestLang, 'portal.login.max_sessions') });
         return;
       }
       const sessionId = randomUUID();
@@ -763,10 +774,10 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const oldPassword = String(body.old_password || '');
       const newPassword = String(body.new_password || '');
       if (!oldPassword || !newPassword) {
-        sendJson(res, 400, { ok: false, error: 'missing_fields', message: t('zh-CN', 'portal.pwd.empty_fields') });
+        sendJson(res, 400, { ok: false, error: 'missing_fields', message: t(requestLang, 'portal.pwd.empty_fields') });
         return;
       }
-      const strength = validatePasswordStrength(newPassword);
+      const strength = validatePasswordStrength(newPassword, requestLang);
       if (!strength.valid) {
         sendJson(res, 400, { ok: false, error: 'weak_password', message: strength.message, score: strength.score });
         return;
@@ -785,7 +796,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         const metadata = userResult.rows[0].metadata || {};
         const storedHash = metadata.password_hash || '';
         if (!verifyPassword(oldPassword, storedHash).valid && oldPassword !== ADMIN_PASSWORD) {
-          sendJson(res, 401, { ok: false, error: 'invalid_old_password', message: t('zh-CN', 'portal.pwd.wrong_old') });
+          sendJson(res, 401, { ok: false, error: 'invalid_old_password', message: t(requestLang, 'portal.pwd.wrong_old') });
           return;
         }
         const newHash = hashPassword(newPassword);
@@ -794,7 +805,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           [session.user_id, JSON.stringify(newHash)]
         );
         await auditWriter.write({ action: 'user.change_password', user_id: session.user_id, resource_type: 'user', resource_ref: session.user_id, resource_scope: 'system', result: 'success', detail_json: {} });
-        sendJson(res, 200, { ok: true, message: t('zh-CN', 'portal.pwd.changed') });
+        sendJson(res, 200, { ok: true, message: t(requestLang, 'portal.pwd.changed') });
       } catch (error) {
         sendJson(res, 500, { ok: false, error: 'db_error' });
       }
@@ -806,7 +817,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (sessionId) {
         await deleteSessionFromStore(sessionId);
       }
-      sendJson(res, 200, { ok: true, message: t('zh-CN', 'portal.logout.success') });
+      sendJson(res, 200, { ok: true, message: t(requestLang, 'portal.logout.success') });
       return;
     }
 
@@ -819,12 +830,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
     if (pathname === '/api/setup/status' && method === 'GET') {
       const steps = [
-        { key: 'database', label: '数据库连接', done: false },
-        { key: 'organization', label: '组织创建', done: false },
-        { key: 'admin', label: '管理员创建', done: false },
-        { key: 'channel', label: '消息渠道', done: false },
-        { key: 'llm', label: 'LLM模型', done: false },
-        { key: 'embedding', label: '向量模型', done: false },
+        { key: 'database', label: t(requestLang, 'portal.setup.step.database'), done: false },
+        { key: 'organization', label: t(requestLang, 'portal.setup.step.organization'), done: false },
+        { key: 'admin', label: t(requestLang, 'portal.setup.step.admin'), done: false },
+        { key: 'channel', label: t(requestLang, 'portal.setup.step.channel'), done: false },
+        { key: 'llm', label: t(requestLang, 'portal.setup.step.llm'), done: false },
+        { key: 'embedding', label: t(requestLang, 'portal.setup.step.embedding'), done: false },
       ];
       const pool = await getDbPool();
       if (pool) {
@@ -857,21 +868,21 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const body = await readJson(req);
       if (!LOCAL_IPS.has(clientIp)) {
         if (!SETUP_TOKEN || body.setup_token !== SETUP_TOKEN) {
-          sendJson(res, 403, { ok: false, error: 'forbidden', message: t('zh-CN', 'portal.setup.local_only') });
+          sendJson(res, 403, { ok: false, error: 'forbidden', message: t(requestLang, 'portal.setup.local_only') });
           return;
         }
       }
       const step = String(body.step || '');
       const pool = await getDbPool();
       if (!pool) {
-        sendJson(res, 503, { ok: false, error: 'db_unavailable', message: t('zh-CN', 'portal.setup.db_unavailable') });
+        sendJson(res, 503, { ok: false, error: 'db_unavailable', message: t(requestLang, 'portal.setup.db_unavailable') });
         return;
       }
       const setupCheck = await pool.query(`SELECT COUNT(*) as cnt FROM organization WHERE status = 'active'`);
       if (Number(setupCheck.rows[0]?.cnt) > 0) {
         const adminCheck = await pool.query(`SELECT COUNT(*) as cnt FROM "user" WHERE role = 'admin' AND status = 'active'`);
         if (Number(adminCheck.rows[0]?.cnt) > 0) {
-          sendJson(res, 403, { ok: false, error: 'already_initialized', message: t('zh-CN', 'portal.setup.already_initialized') });
+          sendJson(res, 403, { ok: false, error: 'already_initialized', message: t(requestLang, 'portal.setup.already_initialized') });
           return;
         }
       }
@@ -888,7 +899,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         const username = String(body.username || 'admin').trim();
         const password = String(body.password || '').trim();
         if (!password) {
-          sendJson(res, 400, { ok: false, error: 'missing_password', message: t('zh-CN', 'portal.setup.admin_pass_required') });
+          sendJson(res, 400, { ok: false, error: 'missing_password', message: t(requestLang, 'portal.setup.admin_pass_required') });
           return;
         }
         const passwordHash = hashPassword(password);
@@ -1064,7 +1075,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const body = await readJson(req);
       const newPassword = String(body.password || '');
       if (newPassword) {
-        const strength = validatePasswordStrength(newPassword);
+        const strength = validatePasswordStrength(newPassword, requestLang);
         if (!strength.valid) {
           sendJson(res, 400, { ok: false, error: 'weak_password', message: strength.message });
           return;
@@ -1252,7 +1263,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const env = loadEnvFile();
       const config: Record<string, string> = {};
-      for (const section of CONFIG_SECTIONS) {
+      const sections = getConfigSections(getRequestLang(req));
+      for (const section of sections) {
         for (const field of section.fields) {
           const val = env[field.key] || process.env[field.key] || '';
           config[field.key] = field.sensitive
@@ -1267,7 +1279,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/admin/config-meta' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
-      sendJson(res, 200, { ok: true, sections: CONFIG_SECTIONS });
+      sendJson(res, 200, { ok: true, sections: getConfigSections(getRequestLang(req)) });
       return;
     }
 
@@ -1276,7 +1288,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const body = await readJson(req);
       const env = loadEnvFile();
-      for (const section of CONFIG_SECTIONS) {
+      const sections = getConfigSections(getRequestLang(req));
+      for (const section of sections) {
         for (const field of section.fields) {
           if (body[field.key] !== undefined) {
             if (field.sensitive && body[field.key] === '****') continue;
@@ -1956,7 +1969,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!session) return;
       const body = await readJson(req);
       const name = String(body.name || '').trim();
-      if (!name) { sendJson(res, 400, { ok: false, error: 'missing_name', message: t('zh-CN', 'portal.llm.name_required') }); return; }
+      if (!name) { sendJson(res, 400, { ok: false, error: 'missing_name', message: t(requestLang, 'portal.llm.name_required') }); return; }
       const env = loadEnvFile();
       let models: Array<Record<string, unknown>> = [];
       try { models = JSON.parse(env.LLM_MODELS || process.env.LLM_MODELS || '[]'); } catch { /* ignore */ }
@@ -2078,7 +2091,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       if (!skillId) { sendJson(res, 400, { ok: false, error: 'missing_skill_id' }); return; }
       const detailR = await fetchFromService(skillLibraryUrl + '/internal/skills/' + encodeURIComponent(skillId));
       if (detailR.status !== 200 || !(detailR.data as Record<string, unknown>).skill) {
-        sendJson(res, 404, { ok: false, error: 'skill_not_found', message: t('zh-CN', 'portal.skill.not_found') });
+        sendJson(res, 404, { ok: false, error: 'skill_not_found', message: t(requestLang, 'portal.skill.not_found') });
         return;
       }
       const sourceSkill = (detailR.data as Record<string, unknown>).skill as Record<string, unknown>;
