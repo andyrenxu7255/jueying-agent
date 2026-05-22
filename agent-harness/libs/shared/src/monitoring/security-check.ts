@@ -18,7 +18,7 @@ export function checkProductionSecurity(): void {
   check('MINIO_ROOT_PASSWORD', ['minioadmin', 'minioadmin_changeme'])
   check('CLICKHOUSE_PASSWORD', ['clickhouse', 'clickhouse_changeme'])
   check('LITELLM_MASTER_KEY', ['litellm-dev-key', ''])
-  check('ADMIN_PASSWORD', [''])
+  check('ADMIN_PASSWORD', ['', 'admin'])
 
   if (failures.length > 0) {
     logger.error('security.production.insecure', 'Production environment has insecure configuration', {

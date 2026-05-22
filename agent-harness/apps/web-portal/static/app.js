@@ -159,7 +159,7 @@ async function checkAuth() {
 
 function renderLogin() {
   window.__setupStatus = null;
-  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><div style="display:flex;justify-content:flex-end;margin-bottom:8px">'+langSwitchButton()+'</div><h1>JueYing</h1><p>'+t('login.subtitle')+'</p><div class="form-group"><label>'+t('login.username')+'</label><input type="text" id="login-user" placeholder="'+t('login.placeholder_user')+'" autofocus></div><div class="form-group"><label>'+t('login.password')+'</label><input type="password" id="login-pass" placeholder="'+t('login.placeholder_pass')+'"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">'+t('login.btn')+'</button></div></div>';
+  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><div style="display:flex;justify-content:flex-end;margin-bottom:8px">'+langSwitchButton()+'</div><h1>JueYing</h1><p>'+t('login.subtitle')+'</p><div class="form-group"><label>'+t('login.username')+'</label><input type="text" id="login-user" value="admin" placeholder="'+t('login.placeholder_user')+'" autofocus></div><div class="form-group"><label>'+t('login.password')+'</label><input type="password" id="login-pass" value="admin" placeholder="'+t('login.placeholder_pass')+'"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">'+t('login.btn')+'</button></div></div>';
   document.getElementById('login-user').addEventListener('keydown', function(e) { if (e.key === 'Enter') document.getElementById('login-pass').focus(); });
   document.getElementById('login-pass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
 }
@@ -244,7 +244,7 @@ function renderSetupStep(stepIndex, steps) {
     html += '<div class="form-group"><label>'+t('setup.displayName')+'</label><input type="text" id="setup-org-display" value="Default Organization" placeholder="'+t('setup.displayPlaceholder')+'"></div>';
   } else if (step.key === 'admin') {
     html += '<div class="form-group"><label>'+t('setup.adminUser')+'</label><input type="text" id="setup-admin-user" value="admin" placeholder="'+t('setup.adminUserPlaceholder')+'"></div>';
-    html += '<div class="form-group"><label>'+t('setup.adminPass')+'</label><input type="password" id="setup-admin-pass" placeholder="'+t('setup.adminPassPlaceholder')+'"></div>';
+    html += '<div class="form-group"><label>'+t('setup.adminPass')+'</label><input type="password" id="setup-admin-pass" value="admin" placeholder="'+t('setup.adminPassPlaceholder')+'"></div>';
   } else if (step.key === 'channel') {
     html += '<div class="form-group"><label>'+t('setup.feishuAppId')+'</label><input type="text" id="setup-feishu-app-id" placeholder="'+t('setup.feishuAppIdPlaceholder')+'"></div>';
     html += '<div class="form-group"><label>'+t('setup.feishuAppSecret')+'</label><input type="password" id="setup-feishu-app-secret" placeholder="'+t('setup.feishuAppSecretPlaceholder')+'"></div>';

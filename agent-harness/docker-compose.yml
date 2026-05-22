@@ -451,7 +451,7 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
       FEISHU_APP_ID: ${FEISHU_APP_ID:-}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-default_admin_changeme}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
     ports:
       - "3003:3000"
     volumes:

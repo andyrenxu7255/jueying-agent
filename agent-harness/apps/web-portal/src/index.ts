@@ -107,7 +107,10 @@ function getConfigSections(lang: PortalLang): ConfigSection[] {
   ];
 }
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const DEFAULT_ADMIN_USERNAME = 'admin';
+const DEFAULT_ADMIN_PASSWORD = 'admin';
+const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_SESSIONS = 10000;
 const MAX_AUDIT_ROWS = 500;
@@ -163,6 +166,38 @@ function verifyPassword(password: string, storedHash: string): { valid: boolean;
   } catch {
     return { valid: false, needsMigration: false };
   }
+}
+
+async function ensureDefaultAdmin(): Promise<void> {
+  const pool = await getDbPool();
+  if (!pool) return;
+
+  const metadata = {
+    password_hash: hashPassword(DEFAULT_ADMIN_PASSWORD),
+    source: 'default_admin',
+    must_change_password: true,
+  };
+
+  await pool.query(
+    `INSERT INTO organization (id, org_name, display_name, status, settings, metadata)
+     VALUES ($1::uuid, 'default', 'Default Organization', 'active', '{}'::jsonb, '{"source":"default_admin","auto_created":true}'::jsonb)
+     ON CONFLICT (id) DO NOTHING`,
+    [DEFAULT_ORG_ID]
+  );
+
+  await pool.query(
+    `INSERT INTO "user" (org_id, username, display_name, role, status, metadata)
+     VALUES ($1::uuid, $2, 'Default Admin', 'admin', 'active', $3::jsonb)
+     ON CONFLICT (org_id, username) DO UPDATE
+     SET role = 'admin',
+         status = 'active',
+         metadata = CASE
+           WHEN COALESCE("user".metadata->>'password_hash', '') = ''
+             THEN COALESCE("user".metadata, '{}'::jsonb) || $3::jsonb
+           ELSE COALESCE("user".metadata, '{}'::jsonb)
+         END`,
+    [DEFAULT_ORG_ID, DEFAULT_ADMIN_USERNAME, JSON.stringify(metadata)]
+  );
 }
 
 const sessionStore = new Map<string, Session>();
@@ -682,52 +717,46 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         sendJson(res, 400, { ok: false, error: 'missing_credentials', message: t(requestLang, 'portal.login.empty_credentials') });
         return;
       }
-      const adminOverride = ADMIN_PASSWORD && password === ADMIN_PASSWORD;
-      if (!adminOverride) {
-        const rateCheck = checkLoginRateLimit(rateLimitKey, requestLang);
-        if (rateCheck.blocked) {
-          sendJson(res, 429, { ok: false, error: 'rate_limited', message: rateCheck.message, retry_after_ms: rateCheck.retryAfterMs });
-          return;
-        }
-      }
-      if (!adminOverride) {
-        let dbPasswordVerified = false;
-        try {
-          const pool = await getDbPool();
-          if (pool) {
-            const userResult = await pool.query(
-              `SELECT id, username, role, org_id, metadata FROM "user" WHERE username = $1 LIMIT 1`,
-              [rawUsername]
-            );
-            if (userResult.rows.length > 0) {
-              const metadata = userResult.rows[0].metadata || {};
-              const storedHash = metadata.password_hash || '';
-              if (storedHash) {
-                const verified = verifyPassword(password, storedHash);
-                if (verified.valid) {
-                  dbPasswordVerified = true;
-                  if (verified.needsMigration && verified.newHash) {
-                    try {
-                      await pool.query(
-                        `UPDATE "user" SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{password_hash}', $2::jsonb) WHERE id = $1`,
-                        [userResult.rows[0].id, JSON.stringify(verified.newHash)]
-                      );
-                    } catch { /* migration failure is non-fatal */ }
-                  }
+      let dbPasswordVerified = false;
+      try {
+        const pool = await getDbPool();
+        if (pool) {
+          const userResult = await pool.query(
+            `SELECT id, username, role, org_id, metadata
+             FROM "user"
+             WHERE username = $1
+             ORDER BY (org_id = $2::uuid) DESC, created_at ASC
+             LIMIT 1`,
+            [rawUsername, DEFAULT_ORG_ID]
+          );
+          if (userResult.rows.length > 0) {
+            const metadata = userResult.rows[0].metadata || {};
+            const storedHash = metadata.password_hash || '';
+            if (storedHash) {
+              const verified = verifyPassword(password, storedHash);
+              if (verified.valid) {
+                dbPasswordVerified = true;
+                if (verified.needsMigration && verified.newHash) {
+                  try {
+                    await pool.query(
+                      `UPDATE "user" SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{password_hash}', $2::jsonb) WHERE id = $1`,
+                      [userResult.rows[0].id, JSON.stringify(verified.newHash)]
+                    );
+                  } catch { /* migration failure is non-fatal */ }
                 }
               }
             }
           }
-        } catch { /* ignore */ }
-        if (!dbPasswordVerified) {
-          const failResult = recordLoginFailure(rateLimitKey, requestLang);
-          if (failResult.blocked) {
-            sendJson(res, 429, { ok: false, error: 'rate_limited', message: failResult.message, retry_after_ms: failResult.retryAfterMs });
-          } else {
-            sendJson(res, 401, { ok: false, error: 'invalid_credentials', message: t(requestLang, 'portal.login.wrong_credentials') });
-          }
-          return;
         }
+      } catch { /* ignore */ }
+      if (!dbPasswordVerified) {
+        const failResult = recordLoginFailure(rateLimitKey, requestLang);
+        if (failResult.blocked) {
+          sendJson(res, 429, { ok: false, error: 'rate_limited', message: failResult.message, retry_after_ms: failResult.retryAfterMs });
+        } else {
+          sendJson(res, 401, { ok: false, error: 'invalid_credentials', message: t(requestLang, 'portal.login.wrong_credentials') });
+        }
+        return;
       }
       clearLoginAttempts(rateLimitKey);
       await evictExpiredSessions();
@@ -739,17 +768,24 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       let userId = rawUsername;
       let role: SessionRole = 'user';
       let orgId: string | null = null;
+      let defaultPasswordActive = false;
       try {
         const pool = await getDbPool();
         if (pool) {
           const userResult = await pool.query(
-            `SELECT id, role, org_id FROM "user" WHERE username = $1 LIMIT 1`,
-            [rawUsername]
+            `SELECT id, role, org_id, metadata
+             FROM "user"
+             WHERE username = $1
+             ORDER BY (org_id = $2::uuid) DESC, created_at ASC
+             LIMIT 1`,
+            [rawUsername, DEFAULT_ORG_ID]
           );
           if (userResult.rows.length > 0) {
             userId = String(userResult.rows[0].id);
             role = userResult.rows[0].role === 'admin' ? 'admin' : 'user';
             orgId = userResult.rows[0].org_id || null;
+            const metadata = userResult.rows[0].metadata || {};
+            defaultPasswordActive = metadata.must_change_password === true;
           }
         }
       } catch { /* ignore */ }
@@ -761,7 +797,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         created_at: Date.now(),
         context_workflows: {},
       });
-      const mustChangePassword = password === 'admin' || password === 'admin123' || password === rawUsername;
+      const mustChangePassword = defaultPasswordActive || password === DEFAULT_ADMIN_PASSWORD || password === 'admin123' || password === rawUsername;
       await auditWriter.write({ action: 'user.login', user_id: userId, resource_type: 'session', resource_ref: sessionId, resource_scope: 'system', result: 'success', detail_json: { username: rawUsername } });
       sendJson(res, 200, { ok: true, session_id: sessionId, role, org_id: orgId, must_change_password: mustChangePassword, username: rawUsername });
       return;
@@ -795,13 +831,19 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         }
         const metadata = userResult.rows[0].metadata || {};
         const storedHash = metadata.password_hash || '';
-        if (!verifyPassword(oldPassword, storedHash).valid && oldPassword !== ADMIN_PASSWORD) {
+        const defaultAdminOldPassword =
+          session.username === DEFAULT_ADMIN_USERNAME &&
+          metadata.must_change_password === true &&
+          oldPassword === ADMIN_PASSWORD;
+        if (!verifyPassword(oldPassword, storedHash).valid && !defaultAdminOldPassword) {
           sendJson(res, 401, { ok: false, error: 'invalid_old_password', message: t(requestLang, 'portal.pwd.wrong_old') });
           return;
         }
         const newHash = hashPassword(newPassword);
         await pool.query(
-          `UPDATE "user" SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{password_hash}', $2::jsonb) WHERE id = $1`,
+          `UPDATE "user"
+           SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb) - 'must_change_password', '{password_hash}', $2::jsonb)
+           WHERE id = $1`,
           [session.user_id, JSON.stringify(newHash)]
         );
         await auditWriter.write({ action: 'user.change_password', user_id: session.user_id, resource_type: 'user', resource_ref: session.user_id, resource_scope: 'system', result: 'success', detail_json: {} });
@@ -2290,6 +2332,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 async function startServer(): Promise<void> {
   await initRedisSessionStore();
   await checkProductionSecurity();
+  try {
+    await ensureDefaultAdmin();
+  } catch (error) {
+    logger.warn('default_admin.ensure_failed', 'Failed to ensure default admin account', { error: String(error) });
+  }
 
   const server = createServer((req, res) => {
     handleRequest(req, res).catch((error: unknown) => {

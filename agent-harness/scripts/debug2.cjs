@@ -21,7 +21,7 @@ function api(method, path, body, sid) {
 
 async function main() {
   // Login
-  const login = await api('POST', '/api/auth/login', { username: 'admin', password: '<ADMIN_PASSWORD>' });
+  const login = await api('POST', '/api/auth/login', { username: 'admin', password: 'admin' });
   console.log('[LOGIN]', JSON.stringify(login));
   
   // Test: create user directly via workflow service internal API (bypass web-portal)

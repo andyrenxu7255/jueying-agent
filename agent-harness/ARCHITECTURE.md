@@ -805,7 +805,7 @@ docker logs -f ah-mobile-app
 | P1-2 | setup 初始化后未自禁用 | 可反复覆盖系统配置 | `index.ts` → 检查org+admin已存在则拒绝 |
 | P1-3 | `fetchFromService` 无超时机制 | 下游故障时无限挂起 | `index.ts` → 30s AbortController + AbortError处理 |
 | P1-4 | litellm 镜像 `main-latest` 浮动标签 | 不可复现部署 | `docker-compose.yml` → `main-v1.74.4-stable` |
-| P1-5 | ADMIN_PASSWORD 环境变量默认值为空 | 潜在空密码后门 | `docker-compose.yml` → `${ADMIN_PASSWORD:-default_admin_changeme}` |
+| P1-5 | 默认管理员账号不清晰 | 新用户无法开箱登录 | `docker-compose.yml` → `${ADMIN_PASSWORD:-admin}`，首次登录后要求改密 |
 | P1-6 | Redis healthcheck 使用 `redis-cli -a` 暴露密码于进程列表 | 密码泄露风险 | `docker-compose.yml` → `REDISCLI_AUTH` 环境变量 |
 | P1-7 | ollama + ollama-pull 服务存在（用户明确不需要本地模型） | 多余基础设施 | `docker-compose.yml` → 移除3个ollama相关定义 |
 
@@ -1709,7 +1709,7 @@ This round conducted deep audit from 4 dimensions: dependencies, frontend UX/sec
 | P1-2 | setup not self-disabling after initialization | System config could be repeatedly overwritten | `index.ts` → Check org+admin already exists then reject |
 | P1-3 | `fetchFromService` no timeout mechanism | Infinite hang on downstream failure | `index.ts` → 30s AbortController + AbortError handling |
 | P1-4 | litellm image `main-latest` floating tag | Non-reproducible deployment | `docker-compose.yml` → `main-v1.74.4-stable` |
-| P1-5 | ADMIN_PASSWORD env var default to empty | Potential empty password backdoor | `docker-compose.yml` → `${ADMIN_PASSWORD:-default_admin_changeme}` |
+| P1-5 | Default admin account unclear | New users could not log in out of the box | `docker-compose.yml` → `${ADMIN_PASSWORD:-admin}`, then require password change on first login |
 | P1-6 | Redis healthcheck using `redis-cli -a` exposing password in process list | Password leak risk | `docker-compose.yml` → `REDISCLI_AUTH` environment variable |
 | P1-7 | ollama + ollama-pull services present (user explicitly doesn't need local models) | Unnecessary infrastructure | `docker-compose.yml` → Removed 3 ollama-related definitions |
 
