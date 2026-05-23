@@ -25,7 +25,7 @@
     "infra:bootstrap:llm": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap-infra.ps1 -WithLiteLLM",
     "infra:bootstrap:full": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap-infra.ps1 -WithLiteLLM -WithObservability",
     "health:core": "powershell -ExecutionPolicy Bypass -File scripts/health-check-core.ps1",
-    "context:audit": "python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M1_ingress_workflow && python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M2_retrieval_fact && python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M3_executor",
+    "context:audit": "python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M1_ingress_workflow && python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M2_retrieval_fact && python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile M3_executor && python ../development/context_guard.py --graph ../development/context-graph.json --workspace .. --task-profile portal_admin_quality --allow-l2 --max-docs 18",
     "smoke:channels": "node scripts/channel-webhook-smoke.mjs",
     "smoke:eval": "node scripts/smoke-eval.js",
     "smoke:workflow-observability": "node scripts/workflow-observability-smoke.mjs",
@@ -79,6 +79,6 @@
     "uuid": "^14.0.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   }
 }

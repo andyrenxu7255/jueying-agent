@@ -89,7 +89,7 @@ async function startMockProvider(port: number): Promise<{ url: string; cleanup: 
       containerName,
       '--network',
       'agent-harness_agent-harness-net',
-      'node:20-alpine',
+      'node:22-alpine',
       'node',
       '-e',
       script,
@@ -540,6 +540,14 @@ async function main(): Promise<void> {
     assert(String(update.slug) === 'meddic-b2b-sales-review', 'expected meddic slug');
     assert(typeof update.latest_version === 'string' && String(update.latest_version).length > 0, 'expected latest version');
     assert(typeof update.change_summary === 'string' && String(update.change_summary).length > 0, 'expected interpreted changelog summary');
+
+    const unsafeImport = await fetchJson(`${webPortalUrl}/api/admin/skills/import`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ source_url: 'https://clawhub.ai/andyrenxu7255/--help' }),
+    });
+    assert(unsafeImport.status === 400, `expected unsafe ClawHub slug rejected, got ${unsafeImport.status}: ${JSON.stringify(unsafeImport.body)}`);
+    assert(unsafeImport.body.error === 'invalid_clawhub_slug', 'expected invalid_clawhub_slug error');
   });
 
   await test('Shared knowledge remains an admin public-library path distinct from personal import', async () => {

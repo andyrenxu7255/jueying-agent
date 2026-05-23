@@ -5,7 +5,9 @@ import { EventEmitter } from 'node:events';
 
 import {
   readJson,
+  sendError,
   sendJson,
+  postJson,
   extractPathname,
   verifyInternalAuth,
   getInternalAuthHeaders,
@@ -115,6 +117,117 @@ describe('sendJson', () => {
   });
 });
 
+describe('sendError', () => {
+  it('wraps errors in the standard response shape', () => {
+    const res = createMockRes();
+    sendError(res, 418, 'TEAPOT', 'short and stout', { kettle: true });
+    expect(res.statusCode).toBe(418);
+    expect(JSON.parse(res._data)).toEqual({
+      ok: false,
+      error: { code: 'TEAPOT', message: 'short and stout', detail: { kettle: true } },
+    });
+  });
+
+  it('omits detail when no detail object is provided', () => {
+    const res = createMockRes();
+    sendError(res, 400, 'BAD_REQUEST', 'bad');
+
+    expect(JSON.parse(res._data)).toEqual({
+      ok: false,
+      error: { code: 'BAD_REQUEST', message: 'bad' },
+    });
+  });
+});
+
+describe('postJson', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('posts JSON and parses JSON responses', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 201,
+      text: async () => '{"ok":true}',
+    } as Response);
+
+    await expect(postJson('http://service/path', { hello: 'world' }, 100, { 'x-test': '1' })).resolves.toEqual({
+      ok: true,
+      status: 201,
+      body: { ok: true },
+    });
+    expect(global.fetch).toHaveBeenCalledWith('http://service/path', expect.objectContaining({
+      method: 'POST',
+      body: '{"hello":"world"}',
+    }));
+  });
+
+  it('uses the default timeout when none is provided', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '{}',
+    } as Response);
+
+    await expect(postJson('http://service/path', {})).resolves.toMatchObject({
+      ok: true,
+      status: 200,
+    });
+  });
+
+  it('returns null body for non-JSON responses', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: async () => 'bad gateway',
+    } as Response);
+
+    await expect(postJson('http://service/path', {}, 100)).resolves.toEqual({
+      ok: false,
+      status: 502,
+      body: null,
+    });
+  });
+
+  it('retries transient fetch failures when requested', async () => {
+    jest.spyOn(global, 'fetch')
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => '{}',
+      } as Response);
+
+    await expect(postJson('http://service/path', {}, 100, undefined, 1)).resolves.toEqual({
+      ok: true,
+      status: 200,
+      body: {},
+    });
+  });
+
+  it('returns status 0 for aborted requests', async () => {
+    const abort = new Error('aborted');
+    abort.name = 'AbortError';
+    jest.spyOn(global, 'fetch').mockRejectedValue(abort);
+
+    await expect(postJson('http://service/path', {}, 1)).resolves.toEqual({
+      ok: false,
+      status: 0,
+      body: null,
+    });
+  });
+
+  it('returns status 0 for fetch failures after retries are exhausted', async () => {
+    jest.spyOn(global, 'fetch').mockRejectedValue(new Error('network'));
+
+    await expect(postJson('http://service/path', {}, 100)).resolves.toEqual({
+      ok: false,
+      status: 0,
+      body: null,
+    });
+  });
+});
+
 describe('extractPathname', () => {
   it('should extract pathname from URL', () => {
     expect(extractPathname('/foo/bar')).toBe('/foo/bar');
@@ -150,6 +263,15 @@ describe('verifyInternalAuth', () => {
     expect(verifyInternalAuth(req)).toBe(true);
   });
 
+  it('should reject missing secret in production', () => {
+    delete (process.env as Record<string, string>).INTERNAL_AUTH_SECRET;
+    process.env.NODE_ENV = 'production';
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const req = createMockReq();
+    expect(verifyInternalAuth(req)).toBe(false);
+    expect(errorSpy).toHaveBeenCalledWith('[SECURITY] INTERNAL_AUTH_SECRET not set in production - rejecting internal request');
+  });
+
   it('should return false when header is missing but secret is set', () => {
     process.env.INTERNAL_AUTH_SECRET = 'test-secret';
     const req = createMockReq();
@@ -161,6 +283,16 @@ describe('verifyInternalAuth', () => {
     process.env.INTERNAL_AUTH_SECRET = 'test-secret';
     const req = createMockReq();
     req.headers = { 'x-internal-auth': 'bad' };
+    expect(verifyInternalAuth(req)).toBe(false);
+  });
+
+  it('should return false for invalid timestamp and signature length mismatch', () => {
+    process.env.INTERNAL_AUTH_SECRET = 'test-secret';
+    const req = createMockReq();
+    req.headers = { 'x-internal-auth': 'not-a-number:nonce:sig' };
+    expect(verifyInternalAuth(req)).toBe(false);
+
+    req.headers = { 'x-internal-auth': `${Date.now()}:nonce:short` };
     expect(verifyInternalAuth(req)).toBe(false);
   });
 

@@ -5,7 +5,7 @@
 > **企业级 AI Agent 编排与执行平台** — 多渠道接入、`workflow_definition` 优先复用、LLM 任务规划、多阶段工作流自动执行
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen)](https://nodejs.org/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
 
@@ -51,7 +51,7 @@ JueYing（绝影，内部代号 agent-harness）是一个**企业级 AI Agent �
 
 ### 技术栈
 
-- **语言**: TypeScript 5.9 + Node.js ≥20
+- **语言**: TypeScript 5.9 + Node.js ≥22
 - **数据库**: PostgreSQL 16 + pgvector + Apache AGE（图投影与门控）
 - **缓存**: Redis 7
 - **对象存储**: MinIO (S3 兼容)
@@ -65,7 +65,7 @@ JueYing（绝影，内部代号 agent-harness）是一个**企业级 AI Agent �
 
 ### 前置要求
 
-- **Node.js** ≥ 20.0.0
+- **Node.js** ≥ 22.0.0
 - **Docker** & **Docker Compose** v2+
 - **Git**
 
@@ -152,6 +152,19 @@ npm run docker:up -- --profile app
 ```bash
 npm run health:core
 ```
+
+### 8. 质量门禁
+
+```bash
+npm run lint
+npm run type-check
+npm test -- --coverage --runInBand
+npm run test:portal-static
+npm run test:portal-admin
+npm run context:audit
+```
+
+当前核心可执行模块的 Jest 覆盖率门禁为四项全局 95%：statements、branches、functions、lines。管理台回归还必须通过 `test:portal-admin`，覆盖飞书长连接配置、模型目录与测试、知识导入 TXT/DOCX、数据库运维、资源监控、ClawHub 技能维护、共享知识库与 MEDDIC demo 图谱。
 
 完成后访问：
 - **Web Portal**: http://localhost:3003 （登录后在"系统指南"页面查看完整架构说明和使用指南）
@@ -422,7 +435,7 @@ docker exec ah-postgres pg_dump -U agent_harness agent_harness > backup.sql
 > **Enterprise-grade AI Agent Orchestration and Execution Platform** — Multi-channel access, `workflow_definition` priority reuse, LLM task planning, multi-stage workflow auto-execution
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen)](https://nodejs.org/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
 
@@ -468,7 +481,7 @@ JueYing (绝影, internal codename agent-harness) is an **enterprise-grade AI Ag
 
 ### Tech Stack
 
-- **Language**: TypeScript 5.9 + Node.js ≥20
+- **Language**: TypeScript 5.9 + Node.js ≥22
 - **Database**: PostgreSQL 16 + pgvector + Apache AGE (graph projection and gating)
 - **Cache**: Redis 7
 - **Object Storage**: MinIO (S3 compatible)
@@ -482,7 +495,7 @@ JueYing (绝影, internal codename agent-harness) is an **enterprise-grade AI Ag
 
 ### Prerequisites
 
-- **Node.js** ≥ 20.0.0
+- **Node.js** ≥ 22.0.0
 - **Docker** & **Docker Compose** v2+
 - **Git**
 

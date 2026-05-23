@@ -1,6 +1,6 @@
 {
-  "version": "v2.10",
-  "description": "Agent Harness context dependency graph - Updated 2026-05-23: portal configuration hardening plus admin demo initialization covers Feishu long-connection secrets, hot reload/restart UX, model catalog/test flows, knowledge import, DB maintenance feedback, resource monitoring unit clarity, ClawHub admin skill maintenance, and MEDDIC demo knowledge/graph seeds.",
+  "version": "v2.11",
+  "description": "Agent Harness context dependency graph - Updated 2026-05-23: layered verification sync covers Node 22 runtime baseline, 95% global Jest coverage gates, portal-admin functional validation, Feishu long-connection secret boundaries, model catalog/test flows, TXT/DOCX knowledge import, DB maintenance feedback, optional Docker resource monitoring, ClawHub admin skill maintenance with slug allowlist, and MEDDIC demo knowledge/graph seeds.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -76,8 +76,13 @@
     "agent-harness/apps/gateway-adapter/src/index.ts": ["AH1-21-渠道接入与Session映射.md", "AH1-15-核心接口与事件契约.md", "AH1-16-权限Scope-Policy-Snapshot.md", "AH1-17-Workflow-DSL与Planner契约.md"],
     "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts": ["AH1-21-渠道接入与Session映射.md"],
     "agent-harness/apps/gateway-adapter/src/services/session-mapper.ts": ["AH1-21-渠道接入与Session映射.md"],
-    "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": ["AH1-22-Artifact-Object-Storage.md"],
+    "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": ["AH1-22-Artifact-Object-Storage.md", "AH1-34-安全架构增强.md"],
+    "agent-harness/apps/gateway-adapter/src/services/file-validator.test.ts": ["AH1-22-Artifact-Object-Storage.md", "AH1-30-验收标准与测试用例.md", "AH1-34-安全架构增强.md"],
     "agent-harness/services/workflow/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-19-Checkpoint-Resume-Replay.md", "AH1-23-审计日志指标与告警.md"],
+    "agent-harness/services/workflow/src/engine/workflow-machine.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-31-错误处理与降级策略.md"],
+    "agent-harness/services/workflow/src/engine/workflow-machine.test.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-30-验收标准与测试用例.md"],
+    "agent-harness/services/workflow/src/planner/plan-validator.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-15-核心接口与事件契约.md"],
+    "agent-harness/services/workflow/src/planner/plan-validator.test.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-30-验收标准与测试用例.md"],
     "agent-harness/services/workflow/src/persistence/db.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md", "AH1-14-数据库表设计与索引.md"],
     "agent-harness/services/fact-retrieval/src/index.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-23-审计日志指标与告警.md"],
     "agent-harness/services/fact-retrieval/src/service.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-14-数据库表设计与索引.md"],
@@ -90,15 +95,26 @@
     "agent-harness/services/executor-gateway/src/executor/generic-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-17-Workflow-DSL与Planner契约.md"],
     "agent-harness/services/executor-gateway/src/executor/code-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-31-错误处理与降级策略.md"],
     "agent-harness/libs/shared/src/rate-limit/limiter.ts": ["AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/rate-limit/limiter.test.ts": ["AH1-31-错误处理与降级策略.md", "AH1-30-验收标准与测试用例.md"],
+    "agent-harness/libs/shared/src/retry/strategy.ts": ["AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/retry/strategy.test.ts": ["AH1-31-错误处理与降级策略.md", "AH1-30-验收标准与测试用例.md"],
     "agent-harness/libs/shared/src/monitoring/security-check.ts": ["AH1-16-权限Scope-Policy-Snapshot.md", "AH1-34-安全架构增强.md"],
     "agent-harness/libs/shared/src/ai/embedding.ts": ["AH1-26-Provider选择与配置.md", "AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/ai/embedding.test.ts": ["AH1-26-Provider选择与配置.md", "AH1-30-验收标准与测试用例.md", "AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/ai/rerank.ts": ["AH1-26-Provider选择与配置.md", "AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/ai/rerank.test.ts": ["AH1-26-Provider选择与配置.md", "AH1-30-验收标准与测试用例.md", "AH1-31-错误处理与降级策略.md"],
+    "agent-harness/libs/shared/src/http/index.ts": ["AH1-15-核心接口与事件契约.md", "AH1-34-安全架构增强.md"],
+    "agent-harness/libs/shared/src/http/index.test.ts": ["AH1-15-核心接口与事件契约.md", "AH1-30-验收标准与测试用例.md", "AH1-34-安全架构增强.md"],
     "agent-harness/libs/shared/src/config/manager.ts": ["AH1-28-配置管理.md"],
     "agent-harness/apps/web-portal/static/app.js": ["AH1-21-渠道接入与Session映射.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md", "AH1-34-安全架构增强.md"],
     "agent-harness/apps/web-portal/static/localization.js": ["AH1-21-渠道接入与Session映射.md", "AH1-15-核心接口与事件契约.md"],
     "agent-harness/apps/web-portal/src/index.ts": ["AH1-15-核心接口与事件契约.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-20-检索编排与Fact-Write.md", "AH1-23-审计日志指标与告警.md", "AH1-26-Provider选择与配置.md", "AH1-27-部署与运维.md", "AH1-28-配置管理.md", "AH1-31-错误处理与降级策略.md", "AH1-34-安全架构增强.md"],
     "agent-harness/libs/shared/src/i18n.ts": ["AH1-15-核心接口与事件契约.md", "AH1-31-错误处理与降级策略.md"],
     "agent-harness/README.md": ["AH1-27-部署与运维.md", "AH1-26-Provider选择与配置.md", "AH1-28-配置管理.md"],
-    "agent-harness/OPS.md": ["AH1-27-部署与运维.md", "AH1-26-Provider选择与配置.md", "AH1-28-配置管理.md"],
+    "agent-harness/OPS.md": ["AH1-27-部署与运维.md", "AH1-26-Provider选择与配置.md", "AH1-28-配置管理.md", "AH1-30-验收标准与测试用例.md"],
+    "agent-harness/package.json": ["AH1-27-部署与运维.md", "AH1-30-验收标准与测试用例.md", "AH1-33-文档关系与一致性清单.md"],
+    "agent-harness/tests/setup/jest.config.cjs": ["AH1-30-验收标准与测试用例.md"],
+    "agent-harness/tests/integration/portal-admin-functional-test.ts": ["AH1-15-核心接口与事件契约.md", "AH1-21-渠道接入与Session映射.md", "AH1-22-Artifact-Object-Storage.md", "AH1-26-Provider选择与配置.md", "AH1-28-配置管理.md", "AH1-30-验收标准与测试用例.md", "AH1-34-安全架构增强.md"],
     "agent-harness/services/fact-retrieval/src/support.test.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-16-权限Scope-Policy-Snapshot.md"],
     "agent-harness/scripts/smoke-eval.js": ["AH1-23-审计日志指标与告警.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-27-部署与运维.md"],
     "agent-harness/docker-compose.yml": ["AH1-27-部署与运维.md", "AH1-23-审计日志指标与告警.md"],
@@ -158,6 +174,18 @@
       ],
       "optional": [
         "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-31-错误处理与降级策略.md"
+      ]
+    },
+    "provider_config": {
+      "authority": [
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-26-Provider选择与配置.md",
+        "AH1-28-配置管理.md"
+      ],
+      "execution": [],
+      "optional": [
+        "AH1-23-审计日志指标与告警.md",
         "AH1-31-错误处理与降级策略.md"
       ]
     },
@@ -231,6 +259,27 @@
         "AH1-20-检索编排与Fact-Write.md",
         "AH1-23-审计日志指标与告警.md"
       ]
+    },
+    "portal_admin_quality": {
+      "authority": [
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-21-渠道接入与Session映射.md",
+        "AH1-22-Artifact-Object-Storage.md",
+        "AH1-26-Provider选择与配置.md",
+        "AH1-28-配置管理.md"
+      ],
+      "loaded_docs": [
+        "AH1-27-部署与运维.md",
+        "AH1-30-验收标准与测试用例.md",
+        "AH1-33-文档关系与一致性清单.md",
+        "AH1-34-安全架构增强.md"
+      ],
+      "execution": [],
+      "optional": [
+        "development/DEV-18-B2B销售故事线与工作流可观测闭环.md",
+        "development/DEV-20-事实图门控与Workflow公共池.md",
+        "AH1-14-数据库表设计与索引.md"
+      ]
     }
   },
   "invalidation_triggers": [
@@ -270,8 +319,10 @@
     "2026-05-23-R17": "Portal configuration and operations hardening: Feishu long-connection no longer requires signing secret, config saves show hot reload plus restart targets, LLM/Embedding/Rerank catalog and test flows are surfaced, knowledge import handles manual and uploaded files, DB maintenance shows running/result feedback, resource monitoring displays storage bytes as human units and treats container monitoring as optional; README/OPS updated.",
     "2026-05-23-R18": "Portal admin functional coverage extended: added a repeatable integration test covering Feishu config UX, model catalog/test flows, knowledge import/upload, database maintenance, resource quota display, curated low-risk skills, and shared knowledge separation; temp data cleanup restores the admin config and removes created records.",
     "2026-05-23-R19": "Admin initialization and ClawHub maintenance: seeded MEDDIC demo documents/chunks/entities/relations plus ClawHub sales skills, added CLAWHUB_ADMIN_TOKEN config, URL/Markdown skill import, ClawHub update checks with changelog interpretation, and per-skill confirmed upgrade.",
-    "total_fixes": 72,
-    "files_modified": 70,
+    "2026-05-23-R20": "Layered verification and doc/graph sync: Node runtime baseline moved to Node 22, Docker app images rebuilt, Jest global coverage gates tightened to 95% for statements/branches/functions/lines, portal-admin functional validation covers 14 admin flows, and README/OPS/AH1 authority docs/context graph now reflect the code paths.",
+    "2026-05-23-R21": "Reverse audit hardening: context graph gained provider_config and portal_admin_quality profiles, context:audit now covers portal admin quality docs, ClawHub slug input is allowlisted before CLI/HTTP inspection, and portal-admin functional test rejects option-like ClawHub slugs.",
+    "total_fixes": 73,
+    "files_modified": 75,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
   }

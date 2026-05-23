@@ -1,6 +1,6 @@
 # JueYing (绝影) — 运维手册
 
-> 版本: 1.6.2 | 更新日期: 2026-05-22
+> 版本: 1.6.3 | 更新日期: 2026-05-23
 > 适用场景: 开发、测试，生产环境部署与维护
 
 ---
@@ -12,7 +12,7 @@
 **系统要求:**
 - Docker Engine 24.0+
 - Docker Compose v2
-- Node.js 20+
+- Node.js 22+
 - npm 10+
 - PowerShell (Windows) 或 Bash (Linux/macOS)
 
@@ -114,19 +114,33 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 # 预期输出: 18 个容器全部 running
 
 # 各服务健康检查
-curl http://localhost:3000/health     # Gateway Adapter
-curl http://localhost:3001/           # Workflow Service
-curl http://localhost:3002/health     # Executor Gateway
+curl http://localhost:3000/health/live # Gateway Adapter
+curl http://localhost:3001/health/live # Workflow Service
+curl http://localhost:3002/health/live # Executor Gateway
 curl http://localhost:3003/health/live # Web Portal
-curl http://localhost:3004/health     # Fact Retrieval
+curl http://localhost:3004/health/live # Fact Retrieval
 curl http://localhost:3005/health/live # Hermes Adapter
-curl http://localhost:3007/health     # Skill Library
-curl http://localhost:3008/health     # Resource Scheduler
-curl http://localhost:3009/health     # Mobile App
+curl http://localhost:3007/health/live # Skill Library
+curl http://localhost:3008/health/live # Resource Scheduler
+curl http://localhost:3009/health/live # Mobile App
 
 # 全链路回归审计
 node scripts/final-audit.cjs
 ```
+
+质量门禁:
+
+```bash
+npm run lint
+npm run type-check
+npm test -- --coverage --runInBand
+npm run test:portal-static
+npm run test:portal-admin
+npm run context:audit
+npm audit --audit-level=moderate
+```
+
+Jest 覆盖率门禁为 statements、branches、functions、lines 四项全局均不低于 95%。`test:portal-admin` 是管理台功能合理性回归，必须覆盖飞书配置、模型目录/测试、知识导入、DB 运维、资源监控、ClawHub 技能维护、共享知识库与 MEDDIC demo 图谱，不可只用服务启动冒烟替代。
 
 ---
 
@@ -136,16 +150,16 @@ node scripts/final-audit.cjs
 
 | 服务 | 容器名 | 端口 | 健康检查端点 |
 |------|--------|------|-------------|
-| Gateway Adapter | ah-gateway | 3000 | `/health` |
-| Workflow Service | ah-workflow | 3001 | `/` |
-| Executor Gateway | ah-executor | 3002 | `/health` |
+| Gateway Adapter | ah-gateway | 3000 | `/health/live` |
+| Workflow Service | ah-workflow | 3001 | `/health/live` |
+| Executor Gateway | ah-executor | 3002 | `/health/live` |
 | Web Portal | ah-web-portal | 3003 | `/health/live` |
-| Fact Retrieval | ah-fact-retrieval | 3004 | `/health` |
+| Fact Retrieval | ah-fact-retrieval | 3004 | `/health/live` |
 | Hermes Adapter | ah-hermes | 3005 | `/health/live` |
-| Feishu Longconn | ah-feishu-longconn | - | 内部健康服务 |
-| Skill Library | ah-skill-library | 3007 | `/health` |
-| Resource Scheduler | ah-resource-scheduler | 3008 | `/health` |
-| Mobile App | ah-mobile-app | 3009 | `/health` |
+| Feishu Longconn | ah-feishu-longconn | - | `:3006/health/live` |
+| Skill Library | ah-skill-library | 3007 | `/health/live` |
+| Resource Scheduler | ah-resource-scheduler | 3008 | `/health/live` |
+| Mobile App | ah-mobile-app | 3009 | `/health/live` |
 | PostgreSQL | ah-postgres | 5432 | pg_isready |
 | Redis | ah-redis | 6379 | PING |
 | MinIO | ah-minio | 9000/9001 | `/minio/health/live` |

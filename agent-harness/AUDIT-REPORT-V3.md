@@ -2,7 +2,9 @@
 
 **审计日期:** 2026-05-08
 **审计范围:** `agent-harness/` 全仓（APPs, Services, Libraries, Database, Deployment）
-**技术栈:** TypeScript 5.7, Node.js 20 LTS, Express 4.21, Drizzle ORM, PostgreSQL 16, Apache AGE, Redis, Casbin, Winston
+**技术栈:** TypeScript 5.7, Node.js 22 LTS, Express 4.21, Drizzle ORM, PostgreSQL 16, Apache AGE, Redis, Casbin, Winston
+
+> 2026-05-23 同步说明：运行时基线已升级到 Node.js 22；Dockerfile 示例、覆盖率门禁和运维文档以当前 README/OPS/AH1-27/AH1-30/context-graph v2.11 为准。本报告保留 2026-05-08 的审计发现结构，但技术栈口径已同步到当前主线。
 **参考标准:** OWASP Cheat Sheet Series, Express Security Best Practices, Node.js Security Best Practices
 
 ---
@@ -152,7 +154,7 @@
 - **证据:**
   ```dockerfile
   # Dockerfile 中未包含 USER 指令
-  FROM node:20-alpine
+  FROM node:22-alpine
   WORKDIR /app
   # ... COPY, RUN ...
   CMD ["node", "dist/index.js"]  # 以 root 运行

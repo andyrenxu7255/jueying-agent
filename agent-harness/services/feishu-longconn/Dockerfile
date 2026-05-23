@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json tsconfig.json ./
 COPY libs ./libs
@@ -9,7 +9,7 @@ RUN npm run build --workspace @agent-harness/shared
 RUN npm run build --workspace @agent-harness/feishu-longconn
 COPY config ./config
 
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules

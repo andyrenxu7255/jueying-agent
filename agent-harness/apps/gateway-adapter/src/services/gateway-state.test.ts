@@ -39,6 +39,39 @@ describe('GatewayState deduplication', () => {
     expect(state.dedupeCache.has('recent_event')).toBe(true)
   })
 
+  it('sweep is throttled by the sweep interval', () => {
+    state.dedupeLastSweepAt = Date.now()
+    state.dedupeCache.set('old_event', Date.now() - 20 * 60 * 1000)
+    state.sweepDedupeCache()
+    expect(state.dedupeCache.has('old_event')).toBe(true)
+  })
+
+  it('hasDedupe reflects TTL freshness', () => {
+    state.dedupeCache.set('recent_event', Date.now())
+    state.dedupeCache.set('old_event', Date.now() - 20 * 60 * 1000)
+    expect(state.hasDedupe('recent_event')).toBe(true)
+    expect(state.hasDedupe('old_event')).toBe(false)
+    expect(state.hasDedupe('missing')).toBe(false)
+  })
+
+  it('keeps accepting keys after reaching max size and sweeping', () => {
+    Object.defineProperty(state, 'dedupeMaxSize', { value: 1 })
+    state.dedupeCache.set('old_event', Date.now() - 20 * 60 * 1000)
+    expect(state.checkAndSetDedupe('new_event')).toBe(false)
+    expect(state.dedupeCache.has('new_event')).toBe(true)
+  })
+
+  it('runs an extra sweep when the cache reaches max size', () => {
+    const sweepSpy = jest.spyOn(state, 'sweepDedupeCache')
+    Object.defineProperty(state, 'dedupeMaxSize', { value: 1 })
+    state.dedupeCache.set('existing_event', Date.now())
+
+    expect(state.checkAndSetDedupe('new_event')).toBe(false)
+
+    expect(sweepSpy).toHaveBeenCalledTimes(2)
+    expect(state.dedupeCache.has('new_event')).toBe(true)
+  })
+
   it('has correct default config values', () => {
     expect(state.dedupeTtlMs).toBe(10 * 60 * 1000)
     expect(state.dedupeMaxSize).toBe(100000)

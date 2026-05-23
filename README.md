@@ -106,7 +106,7 @@ npm audit --audit-level=moderate
 | [development/DEV-21-梦境Hook与业务归因闭环.md](./development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回和 Outcome 归因实现说明。 |
 | [development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md](./development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md) | 梦境 Hook 归因专项审计。 |
 | [development/DEV-00-开发索引.md](./development/DEV-00-开发索引.md) | 开发计划索引和里程碑地图。 |
-| [development/context-graph.json](./development/context-graph.json) | 机器可读上下文图谱，当前 v2.10。 |
+| [development/context-graph.json](./development/context-graph.json) | 机器可读上下文图谱，当前 v2.11。 |
 | [development/context-routing.json](./development/context-routing.json) | 任务路由配置，和上下文图谱同步。 |
 
 ### AH1 权威文档
@@ -253,7 +253,7 @@ Results: lint, type checking, build, 8 Jest test suites / 82 cases, and M1/M2/M3
 | [development/DEV-21-梦境Hook与业务归因闭环.md](./development/DEV-21-梦境Hook与业务归因闭环.md) | Dream, Hook, recall, and Outcome attribution implementation notes. |
 | [development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md](./development/SYSTEM-AUDIT-2026-05-21-DREAM-HOOK.md) | Dream Hook attribution special audit. |
 | [development/DEV-00-开发索引.md](./development/DEV-00-开发索引.md) | Development plan index and milestone map. |
-| [development/context-graph.json](./development/context-graph.json) | Machine-readable context graph, current v2.10. |
+| [development/context-graph.json](./development/context-graph.json) | Machine-readable context graph, current v2.11. |
 | [development/context-routing.json](./development/context-routing.json) | Task routing configuration, synced with context graph. |
 
 ### AH1 Authoritative Documents

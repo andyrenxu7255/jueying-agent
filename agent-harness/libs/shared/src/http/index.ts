@@ -140,7 +140,5 @@ if (process.env.NODE_ENV === 'production') {
   const expBuf = Buffer.from(expectedSignature);
   if (sigBuf.length !== expBuf.length) return false;
 
-  return timingSafeEqual
-    ? timingSafeEqual(sigBuf, expBuf)
-    : sigBuf.toString('hex') === expBuf.toString('hex');
+  return timingSafeEqual(sigBuf, expBuf);
 }

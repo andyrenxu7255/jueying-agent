@@ -2,11 +2,23 @@ import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { createHash, randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { resolve, dirname, join } from 'node:path';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { Pool } from 'pg';
 import YAML from 'yaml';
 import { createLogger, configManager, checkProductionSecurity, t, tf } from '@agent-harness/shared';
 import { auditWriter } from '@agent-harness/audit';
+
+function execDocker(args: string[], timeout = 10000): Promise<string> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    execFile('docker', args, { timeout, windowsHide: true }, (error, stdout) => {
+      if (error) {
+        rejectPromise(error);
+        return;
+      }
+      resolvePromise(stdout);
+    });
+  });
+}
 
 const logger = createLogger('web-portal');
 const port = Number(process.env.PORT || configManager.getPath<number>('server.port') || 3000);
@@ -1417,13 +1429,17 @@ function normalizeKnowledgeSourceType(sourceType: string): string {
 function normalizeClawHubSlug(value: string): string {
   const raw = value.trim();
   if (!raw) return '';
+  let slug = '';
   try {
     const parsed = new URL(raw);
     const parts = parsed.pathname.split('/').map(part => part.trim()).filter(Boolean);
-    return parts[parts.length - 1] || raw;
+    slug = parts[parts.length - 1] || '';
   } catch {
-    return raw.split('/').map(part => part.trim()).filter(Boolean).pop() || raw;
+    slug = raw.split('/').map(part => part.trim()).filter(Boolean).pop() || raw;
   }
+  slug = slug.replace(/^@/, '').trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(slug) || slug.includes('..')) return '';
+  return slug;
 }
 
 function parseVersionParts(version: string): number[] {
@@ -1707,9 +1723,10 @@ function buildSkillDefinitionFromClawHub(meta: Record<string, unknown>, fileList
 }
 
 async function createSkillFromClawHub(session: Session, slugOrUrl: string, scopeType = 'private'): Promise<{ status: number; body: Record<string, unknown> }> {
+  const slug = normalizeClawHubSlug(slugOrUrl);
+  if (!slug) return { status: 400, body: { ok: false, error: 'invalid_clawhub_slug' } };
   const inspected = await runClawHubInspect(slugOrUrl, ['--files']);
   if (!inspected.ok || !inspected.data) return { status: 502, body: { ok: false, error: inspected.error || 'clawhub_unavailable', detail: inspected.text } };
-  const slug = normalizeClawHubSlug(slugOrUrl);
   const meta = normalizeClawHubInspect(inspected.data, slug);
   const version = (inspected.data.version || {}) as Record<string, unknown>;
   const files = Array.isArray(version.files) ? version.files as Array<Record<string, unknown>> : [];
@@ -3606,21 +3623,23 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const containerStats: Array<Record<string, unknown>> = [];
       let dockerAvailable = false;
       try {
-        const { execFileSync } = await import('node:child_process');
-        try { execFileSync('docker', ['info'], { timeout: 5000, stdio: 'pipe' }); dockerAvailable = true; } catch { /* docker not available */ }
+        try { await execDocker(['info'], 5000); dockerAvailable = true; } catch { /* docker not available */ }
 
         if (dockerAvailable) {
-          const psOutput = execFileSync('docker', ['ps', '--format', '{{.ID}}|{{.Names}}|{{.Status}}|{{.Image}}'], { timeout: 10000, encoding: 'utf8' });
+          const psOutput = await execDocker(['ps', '--format', '{{.ID}}|{{.Names}}|{{.Status}}|{{.Image}}'], 10000);
           const containers = psOutput.trim().split('\n').filter(Boolean);
+          const statsOutput = containers.length > 0
+            ? await execDocker(['stats', '--no-stream', '--format', '{{.ID}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}'], 15000).catch(() => '')
+            : '';
+          const statsById = new Map<string, string[]>();
+          for (const line of statsOutput.trim().split('\n').filter(Boolean)) {
+            const [id, cpuPct = '0', memPct = '0', memUsage = '-', netIo = '-', blockIo = '-'] = line.split('|');
+            if (id) statsById.set(id, [cpuPct.trim(), memPct.trim(), memUsage.trim(), netIo.trim(), blockIo.trim()]);
+          }
           for (const line of containers) {
             const [id, name, status, image] = line.split('|');
             if (!id || !name) continue;
-            let cpuPct = '0', memPct = '0', memUsage = '-', netIo = '-', blockIo = '-';
-            try {
-              const statsOutput = execFileSync('docker', ['stats', '--no-stream', '--format', '{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}', id], { timeout: 10000, encoding: 'utf8' });
-              const parts = statsOutput.trim().split('|');
-              if (parts.length >= 5) { cpuPct = parts[0].trim(); memPct = parts[1].trim(); memUsage = parts[2].trim(); netIo = parts[3].trim(); blockIo = parts[4].trim(); }
-            } catch { /* stats unavailable for this container */ }
+            const [cpuPct = '0', memPct = '0', memUsage = '-', netIo = '-', blockIo = '-'] = statsById.get(id) || [];
             containerStats.push({ id, name, status, image, cpu_percent: cpuPct, memory_percent: memPct, memory_usage: memUsage, net_io: netIo, block_io: blockIo });
           }
         }

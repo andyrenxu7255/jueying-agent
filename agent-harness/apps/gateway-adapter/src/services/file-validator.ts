@@ -57,7 +57,8 @@ export interface SafeFileName {
 export function sanitizeFileName(raw: string): SafeFileName {
   const normalized = raw.replace(/\\/g, '/');
 
-  const basename = normalized.split('/').pop() || normalized;
+  const pathParts = normalized.split('/').filter(Boolean);
+  const basename = pathParts[pathParts.length - 1] || '';
 
   const sanitized = basename
     .replace(/\.\./g, '')
@@ -78,16 +79,15 @@ export function sanitizeFileName(raw: string): SafeFileName {
 
 export function validateExtension(fileName: string): FileValidationResult {
   const { sanitized } = sanitizeFileName(fileName);
-  const ext = sanitized.split('.').pop()?.toLowerCase() || '';
+  if (!sanitized.includes('.')) {
+    if (ALLOWED_EXTENSIONS.has(sanitized.toLowerCase())) {
+      return { valid: true };
+    }
+    return { valid: false, reason: `missing_file_extension: ${sanitized.slice(0, 50)}` };
+  }
+  const ext = sanitized.split('.').pop()?.toLowerCase();
 
   if (!ext) {
-    const dotParts = sanitized.split('.');
-    if (dotParts.length > 1) {
-      const lastPart = dotParts[dotParts.length - 1]?.toLowerCase() || '';
-      if (lastPart && ALLOWED_EXTENSIONS.has(lastPart)) {
-        return { valid: true };
-      }
-    }
     return { valid: false, reason: `missing_file_extension: ${sanitized.slice(0, 50)}` };
   }
 
@@ -188,7 +188,7 @@ function validateMagicBytes(buffer: Buffer, fileName: string): FileValidationRes
   const magic = detectMagicBytes(buffer);
   if (!magic) return { valid: true };
 
-  const ext = (fileName.split('.').pop() || '').toLowerCase();
+  const ext = fileName.split('.').pop()?.toLowerCase();
 
   if (magic.startsWith('application/ole') && ext !== 'doc') {
     return { valid: false, reason: `magic_bytes_ole_rejected: .${ext} (legacy Office format not via .doc)` };

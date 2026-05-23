@@ -98,6 +98,7 @@ function humanBytes(value) {
   const text = String(value).trim();
   const match = text.match(/^([0-9]+(?:\.[0-9]+)?)\s*([kmgtp]?i?b|[kmgtp]b)?$/i);
   let raw = Number(text.replace(/[^\d.]/g, ''));
+  if (!match && !/[0-9]/.test(text)) return text;
   if (match) {
     const num = Number(match[1]);
     const unit = (match[2] || 'b').toUpperCase();
@@ -2659,4 +2660,19 @@ async function initApp() {
   }
 }
 
-initApp();
+if (typeof window !== 'undefined' && !window.__AH_DISABLE_AUTO_INIT__) {
+  initApp();
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    escapeHtml,
+    escapeAttr,
+    escJsAttr,
+    statusBadge,
+    humanBytes,
+    emptyState,
+    arrayBufferToBase64,
+    passwordStrengthHtml
+  };
+}
