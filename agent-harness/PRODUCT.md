@@ -1,6 +1,6 @@
 # JueYing (绝影) — 产品说明
 
-> 版本: 1.6.2 | 更新日期: 2026-05-22
+> 版本: 1.6.3 | 更新日期: 2026-05-23
 > 品牌名称: JueYing (绝影) | 内部代号: agent-harness
 
 ---
@@ -284,7 +284,7 @@ JueYing (Agent Harness) 本体采用 **MIT** 开源许可证。
 
 # JueYing (绝影) — Product Description
 
-> Version: 1.6.2 | Updated: 2026-05-22
+> Version: 1.6.3 | Updated: 2026-05-23
 > Brand Name: JueYing (绝影) | Internal Codename: agent-harness
 
 ---
