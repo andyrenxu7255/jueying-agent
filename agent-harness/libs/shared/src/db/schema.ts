@@ -593,9 +593,13 @@ export const orgTaskAssignments = pgTable('org_task_assignment', {
   orgId: uuid('org_id'),
   status: text('status').notNull(),
   workflowRef: text('workflow_ref'),
+  proactiveMissionId: uuid('proactive_mission_id'),
+  proactiveRunId: uuid('proactive_run_id'),
   notifiedAt: timestamp('notified_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   responseData: jsonb('response_data').notNull(),
+  feedbackSummary: text('feedback_summary').notNull().default(''),
+  evidenceRefs: jsonb('evidence_refs').notNull().default([]),
   metadata: jsonb('metadata').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -604,6 +608,120 @@ export const orgTaskAssignments = pgTable('org_task_assignment', {
   userStatusIdx: index('idx_org_task_assignment_user').on(table.userId, table.status),
   orgStatusIdx: index('idx_org_task_assignment_org').on(table.orgId, table.status),
   workflowIdx: index('idx_org_task_assignment_workflow').on(table.workflowRef),
+  proactiveIdx: index('idx_org_task_assignment_proactive').on(table.proactiveMissionId, table.proactiveRunId, table.status),
+}));
+
+export const proactiveRules = pgTable('proactive_rule', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  orgId: uuid('org_id'),
+  createdBy: uuid('created_by').notNull(),
+  ruleName: text('rule_name').notNull(),
+  description: text('description').notNull().default(''),
+  status: text('status').notNull(),
+  scheduleExpression: text('schedule_expression').notNull(),
+  triggerSource: text('trigger_source').notNull(),
+  targetScope: text('target_scope').notNull(),
+  approvalMode: text('approval_mode').notNull(),
+  scanWindowHours: integer('scan_window_hours').notNull().default(72),
+  priority: integer('priority').notNull().default(50),
+  evidencePolicy: jsonb('evidence_policy').notNull().default({}),
+  routingPolicy: jsonb('routing_policy').notNull().default({}),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  orgStatusIdx: index('idx_proactive_rule_org_status').on(table.orgId, table.status),
+  createdByIdx: index('idx_proactive_rule_created_by').on(table.createdBy),
+}));
+
+export const proactiveRuns = pgTable('proactive_run', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ruleId: uuid('rule_id').notNull(),
+  orgId: uuid('org_id'),
+  status: text('status').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  scannedFacts: integer('scanned_facts').notNull().default(0),
+  scannedSummaries: integer('scanned_summaries').notNull().default(0),
+  generatedInsights: integer('generated_insights').notNull().default(0),
+  generatedMissions: integer('generated_missions').notNull().default(0),
+  dispatchedAssignments: integer('dispatched_assignments').notNull().default(0),
+  reportRef: text('report_ref'),
+  errorMessage: text('error_message'),
+  runSummary: jsonb('run_summary').notNull().default({}),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  ruleStatusIdx: index('idx_proactive_run_rule_status').on(table.ruleId, table.status),
+  orgStatusIdx: index('idx_proactive_run_org_status').on(table.orgId, table.status),
+}));
+
+export const proactiveInsights = pgTable('proactive_insight', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  runId: uuid('run_id').notNull(),
+  ruleId: uuid('rule_id').notNull(),
+  orgId: uuid('org_id'),
+  insightTitle: text('insight_title').notNull(),
+  insightSummary: text('insight_summary').notNull(),
+  insightType: text('insight_type').notNull(),
+  confidence: real('confidence').notNull().default(0.5),
+  evidencePackHash: text('evidence_pack_hash'),
+  evidenceRefs: jsonb('evidence_refs').notNull().default([]),
+  reviewStatus: text('review_status').notNull(),
+  reviewNote: text('review_note'),
+  reviewerId: uuid('reviewer_id'),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  runStatusIdx: index('idx_proactive_insight_run_status').on(table.runId, table.reviewStatus),
+  orgStatusIdx: index('idx_proactive_insight_org_status').on(table.orgId, table.reviewStatus),
+}));
+
+export const proactiveMissions = pgTable('proactive_mission', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  runId: uuid('run_id').notNull(),
+  insightId: uuid('insight_id').notNull(),
+  orgId: uuid('org_id'),
+  missionTitle: text('mission_title').notNull(),
+  missionSummary: text('mission_summary').notNull(),
+  missionType: text('mission_type').notNull(),
+  status: text('status').notNull(),
+  priority: integer('priority').notNull().default(50),
+  targetUserId: uuid('target_user_id'),
+  workflowRef: text('workflow_ref'),
+  assignmentRef: uuid('assignment_ref'),
+  dueAt: timestamp('due_at', { withTimezone: true }),
+  evidenceRefs: jsonb('evidence_refs').notNull().default([]),
+  responseSchema: jsonb('response_schema').notNull().default({}),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  runStatusIdx: index('idx_proactive_mission_run_status').on(table.runId, table.status),
+  orgStatusIdx: index('idx_proactive_mission_org_status').on(table.orgId, table.status),
+  targetUserIdx: index('idx_proactive_mission_target_user').on(table.targetUserId, table.status),
+}));
+
+export const proactiveReports = pgTable('proactive_report', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  runId: uuid('run_id').notNull(),
+  orgId: uuid('org_id'),
+  reportTitle: text('report_title').notNull(),
+  reportSummary: text('report_summary').notNull(),
+  reportType: text('report_type').notNull(),
+  status: text('status').notNull(),
+  reportBody: jsonb('report_body').notNull().default({}),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  publisherId: uuid('publisher_id'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  orgStatusIdx: index('idx_proactive_report_org_status').on(table.orgId, table.status),
+  runIdx: index('idx_proactive_report_run').on(table.runId, table.status),
 }));
 
 export const hermesMemories = pgTable('hermes_memory', {
@@ -1039,3 +1157,8 @@ export type DbDocumentChunk = typeof documentChunks.$inferSelect;
 export type DbFact = typeof facts.$inferSelect;
 export type DbArtifactObject = typeof artifactObjects.$inferSelect;
 export type DbWorkflowDefinitionReview = typeof workflowDefinitionReviews.$inferSelect;
+export type DbProactiveRule = typeof proactiveRules.$inferSelect;
+export type DbProactiveRun = typeof proactiveRuns.$inferSelect;
+export type DbProactiveInsight = typeof proactiveInsights.$inferSelect;
+export type DbProactiveMission = typeof proactiveMissions.$inferSelect;
+export type DbProactiveReport = typeof proactiveReports.$inferSelect;

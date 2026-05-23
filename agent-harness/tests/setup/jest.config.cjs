@@ -36,6 +36,7 @@ module.exports = {
     'libs/shared/src/http/index.ts',
     'libs/shared/src/rate-limit/limiter.ts',
     'libs/shared/src/retry/strategy.ts',
+    'services/proactive-orchestrator/src/domain.ts',
     'services/fact-retrieval/src/support.ts',
     'services/workflow/src/engine/workflow-machine.ts',
     'services/workflow/src/planner/plan-validator.ts'

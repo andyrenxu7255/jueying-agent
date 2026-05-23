@@ -1,7 +1,7 @@
 # TeamClaw (agent-harness) 对象关系图谱
 
-> 版本: v2.2 | 生成日期: 2026-05-06
-> 基于: ARCHITECTURE.md + AH1-14/17 + DEV-08 + 源码分析 + docker-compose.yml + SYSTEM-AUDIT-2026-05-06
+> 版本: v2.3 | 生成日期: 2026-05-23
+> 基于: ARCHITECTURE.md + AH1-14/15/16/17 + DEV-08 + 源码分析 + docker-compose.yml + 主动运营编排实现
 > 目标: 单一文件承载全系统对象关系，减少 debug/优化场景的上下文加载量
 
 ---
@@ -45,6 +45,11 @@
     │  │ │     │ │     │ │exec │    │  │ :3000   │ │ :3000   │ │:3000   │
     │  │ └─────┘ └──┬──┘ └──┬──┘    │  └────┬────┘ └────┬────┘ └───┬────┘
     │  │      ┌─────┘       │       │       │          │          │
+    │  │      │             │       │  ┌────▼──────────────┐      │
+    │  │      │             │       │  │ proactive-        │      │
+    │  │      │             │       │  │ orchestrator:3000 │      │
+    │  │      │             │       │  │ 规则/洞察/派单/汇报│      │
+    │  │      │             │       │  └────┬──────────────┘      │
     │  │ ┌────▼────┐ ┌──────▼────┐  │       │          │          │
     │  │ │verify  │ │  repair-  │  │       │          │          │
     │  │ │exec    │ │  executor │  │       │          │          │
@@ -59,7 +64,7 @@
  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌───────────┐ │
  │  │ 业务表       │ │ 检索表       │ │ 图投影       │ │ 治理表    │ │
  │  │(用户/工作流/ │ │(事实/文档/   │ │(AGE vertex/  │ │(审计/配额/│ │
- │  │ 策略/技能)   │ │ 向量/记忆)   │ │ edge)        │ │ 技能评估) │ │
+ │  │ 策略/技能)   │ │ 向量/记忆)   │ │ edge)        │ │ 技能评估/主动运营) │
  │  └──────────────┘ └──────────────┘ └──────────────┘ └───────────┘ │
  └───────────────────────────────────────────────────────────────────┘
         │                   │                    │
@@ -71,7 +76,7 @@
 
 ---
 
-## 2. 核心领域对象 (12 个权威领域对象)
+## 2. 核心领域对象 (13 个权威领域对象)
 
 | ID | 领域对象 | 权威定义文档 | 核心结构 |
 |----|---------|-------------|---------|
@@ -87,6 +92,7 @@
 | DO-10 | **ConfigLayer** | `AH1-28` | .env → 环境变量 → 服务配置层级 |
 | DO-11 | **ErrorDegradePolicy** | `AH1-31` | 错误分类(Transient/Permanent/System) → 降级熔断 |
 | DO-12 | **ApiVersionLifecycle** | `AH1-32` | API 版本生命周期与兼容策略 |
+| DO-13 | **ProactiveOrchestration** | `AH1-14/15/16` | Rule → Run → Insight(review) → Mission(dispatch) → Report |
 
 ### 领域对象间约束关系
 
@@ -101,11 +107,14 @@ DO-04(ExecutionSession)  ──DEPENDS_ON──────► DO-05(CheckpointR
 DO-04(ExecutionSession)  ──DEPENDS_ON──────► DO-07(ArtifactStorage)
 DO-01(WorkflowLifecycle) ──DEPENDS_ON──────► DO-05(CheckpointResumeReplay)
 DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,DO-06,DO-07
+DO-13(ProactiveOrch.)    ──CONSTRAINED_BY──► DO-02(PolicySnapshot)
+DO-13(ProactiveOrch.)    ──DEPENDS_ON──────► DO-06(RetrievalFactWrite)
+DO-13(ProactiveOrch.)    ──OBSERVES────────► DO-01(WorkflowLifecycle)
 ```
 
 ---
 
-## 3. 数据库表 ER 图 (47 张表，按模块分组)
+## 3. 数据库表 ER 图 (52 张表，按模块分组)
 
 ### 3.1 身份与权限模块
 
@@ -547,6 +556,51 @@ DO-08(AuditLogMetrics)   ──OBSERVES────────► DO-01,DO-04,D
 └──────────────────────┘
 ```
 
+### 3.5d 主动运营编排模块
+
+```
+┌──────────────────────┐       ┌──────────────────────┐
+│   proactive_rule      │ 1──N  │   proactive_run      │
+│──────────────────────│◄──────│──────────────────────│
+│ id (PK)              │       │ id (PK)              │
+│ org_id (FK→org)      │       │ rule_id (FK→rule)    │
+│ created_by (FK→user) │       │ org_id (FK→org)      │
+│ rule_name             │       │ status               │
+│ schedule_expression   │       │ scanned_facts        │
+│ trigger_source        │       │ generated_insights   │
+│ approval_mode         │       │ generated_missions   │
+│ evidence_policy       │       │ run_summary (JSONB)  │
+│ routing_policy        │       └──────┬───────────────┘
+└──────────────────────┘              │ 1──N
+                                      ▼
+┌──────────────────────┐       ┌──────────────────────┐
+│ proactive_insight     │ 1──N  │ proactive_mission    │
+│──────────────────────│◄──────│──────────────────────│
+│ id (PK)              │       │ id (PK)              │
+│ run_id (FK→run)      │       │ run_id (FK→run)      │
+│ rule_id (FK→rule)    │       │ insight_id (FK)      │
+│ insight_type          │       │ mission_type         │
+│ confidence            │       │ status               │
+│ evidence_pack_hash    │       │ target_user_id (FK)  │
+│ evidence_refs (JSONB) │       │ assignment_ref (FK)  │──► org_task_assignment
+│ review_status         │       │ evidence_refs        │
+│ reviewer_id (FK)      │       └──────────────────────┘
+└──────────────────────┘
+
+┌──────────────────────┐
+│ proactive_report      │
+│──────────────────────│
+│ id (PK)              │
+│ run_id (FK→run)      │
+│ org_id (FK→org)      │
+│ status               │
+│ report_body (JSONB)  │
+│ publisher_id (FK)    │
+└──────────────────────┘
+```
+
+主动运营扩展 `org_task` / `org_task_assignment`，保留原组织任务看板入口；主动任务来源和类型写在 proactive 关联字段与 metadata 中。
+
 ### 3.6 AGE 图投影模块
 
 ```
@@ -979,11 +1033,17 @@ hermes-adapter   →  PostgreSQL         (直接 DB 读写)                     
 web-portal       →  workflow-service   (内部 API)                                 index.ts
 web-portal       →  skill-library      (技能 CRUD / 审核 / 注册)                   index.ts
 web-portal       →  resource-scheduler   (配额管理 / 使用统计)                    index.ts
+web-portal       →  proactive-orchestrator (主动运营规则/洞察/派单/汇报代理)       index.ts
 web-portal       →  PostgreSQL         (直接 DB 查询)                             index.ts
 
 skill-library    →  PostgreSQL         (直接 DB 读写)                             index.ts
 
 resource-scheduler→ PostgreSQL         (直接 DB 读写)                             index.ts
+
+proactive-orchestrator → fact-retrieval     POST /internal/retrieval/query        service.ts
+proactive-orchestrator → hermes-adapter     GET  /internal/memory/summary         service.ts
+proactive-orchestrator → gateway-adapter    POST /internal/tasks/notify           service.ts
+proactive-orchestrator → PostgreSQL         (proactive_* + org_task 读写)          service.ts
 
 mobile-app       →  PostgreSQL         (直接 DB 查询)                             index.ts
 mobile-app       →  gateway-adapter    (通知触发回调)                              index.ts
@@ -995,8 +1055,8 @@ feishu-longconn  →  飞书 API           WebSocket 长连接                  
 ### 6.2 服务→数据表读写矩阵
 
 ```
-表名                          gateway  workflow  executor  fact-ret  hermes   web      skill-lib  resource  mobile  feishu
-─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+表名                          gateway  workflow  executor  fact-ret  hermes   web      skill-lib  resource  mobile  feishu  proactive
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 channel_identity               R/W       -         -         R         -        R        -          -         -       R
 user                           R/W       R         R         R/W       R        R/W      R          R         R       -
 organization                   R         R         -         -         -        R/W      -          R         -       -
@@ -1051,6 +1111,11 @@ resource_usage                 -         R         -         -         -        
 audit_event                    W         W         W         W         W        R        W          W         W       -
 org_task / org_task_assignment -         -         -         -         -        R/W      -          -         -       -
 service_status_event           -         -         -         -         -        R        -          W         -       -
+proactive_rule                 -         -         -         -         -        R/W      -          -         -       -       R/W
+proactive_run                  -         -         -         -         -        R        -          -         -       -       R/W
+proactive_insight              -         -         -         -         -        R/W      -          -         -       -       R/W
+proactive_mission              -         -         -         -         -        R/W      -          -         -       -       R/W
+proactive_report               -         -         -         -         -        R/W      -          -         -       -       R/W
 ```
 
 > R=Read, W=Write, R/W=Read+Write
@@ -1197,10 +1262,15 @@ DreamSummarization → EvidenceRetrieval → ObjectExtraction
 | `services/hermes-adapter/src/index.ts` | 记忆管理 | memory/memory/recall/clear, context/compress |
 | `services/skill-library/src/index.ts` | 技能库管理 | 技能 CRUD, 审核, 搜索, 注册表 |
 | `services/resource-scheduler/src/index.ts` | 资源配额调度 | 配额管理, 使用统计, 巡检 |
+| `services/proactive-orchestrator/src/index.ts` | 主动运营 API | dashboard/rules/runs/insights/missions/reports |
+| `services/proactive-orchestrator/src/service.ts` | 主动运营编排 | 规则扫描、洞察去重、审核生成 mission、派单与汇报 |
+| `services/proactive-orchestrator/src/domain.ts` | 主动运营领域规则 | schema 校验、洞察生成、mission 摘要 |
 | `apps/mobile-app/src/index.ts` | 移动端通知服务 | 设备注册, 推送通知, 历史查询 |
 | `services/feishu-longconn/src/index.ts` | 飞书长连接网关 | WebSocket 事件转发 |
 | `apps/web-portal/src/index.ts` | Web 管理后台 | 全量管理 API |
-| `libs/shared/src/db/schema.ts` | 数据库 Schema (47表) | 所有 pgTable 定义 |
+| `libs/shared/src/db/schema.ts` | 数据库 Schema（含主动运营扩展） | 所有 pgTable 定义 |
+| `db/migrations/029_proactive_orchestration.sql` | 主动运营迁移 | proactive_* 表与 org_task proactive 字段 |
+| `tests/integration/proactive-orchestration-test.ts` | 主动运营功能验收 | 规则→扫描→洞察→审核→派单→汇报 |
 | `libs/shared/src/ai/embedding.ts` | 向量嵌入 | embedding 生成 |
 | `libs/policy/src/manager.ts` | 策略管理器 | `checkPermission` |
 | `libs/shared/src/config/manager.ts` | 配置管理器 | 环境变量加载 |
@@ -1224,6 +1294,7 @@ DreamSummarization → EvidenceRetrieval → ObjectExtraction
 | **压测收口** | AH1-24, AH1-23, AH1-27, AH1-31 | docker-compose, migrations | AH1-29, AH1-30 |
 | **技能管理** | AH1-17, AH1-16 | skill-library, web-portal | AH1-34, AH1-35 |
 | **Dream 梦境模式** | AH1-17, AH1-20 | web-portal (定时任务), fact-retrieval | AH1-23, AH1-31 |
+| **主动运营编排** | AH1-14, AH1-15, AH1-16, AH1-20, AH1-30 | proactive-orchestrator, web-portal, 029 migration, test:proactive | AH1-23, AH1-27, AH1-28 |
 
 ### 11.2 上下文防腐规则
 

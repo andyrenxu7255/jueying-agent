@@ -52,6 +52,10 @@ services:
     environment:
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
 
+  proactive-orchestrator:
+    environment:
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}
+
   mobile-app:
     environment:
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required for production}

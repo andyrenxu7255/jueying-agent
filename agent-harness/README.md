@@ -45,6 +45,7 @@ JueYing（绝影，内部代号 agent-harness）是一个**企业级 AI Agent �
 | 🧠 **记忆与技能** | 会话记忆存储/召回/压缩、技能模板注册与复用 |
 | 🌙 **梦境与业务归因** | 低峰记忆整理、hook 事件账本、知识/skill 召回追踪、workflow outcome 贡献归因 |
 | 🔁 **确认后复用** | 成功首跑会展示过程和结果，用户回复“确认工作流 wf_xxx”后激活私有 workflow 型 skill 模板；管理员可审核提升为组织模板，高效果路径再候审固化为 `workflow_definition` |
+| 🧭 **主动运营编排** | Admin 制定规则，智能体定期扫描事实、记忆、技能和任务状态，生成带证据洞察；默认先审后派，审核后复用 `org_task` 派给用户执行，并汇总给管理员 |
 | 📊 **可观测性** | OpenTelemetry + SigNoz 全链路追踪、审计日志、健康检查 |
 | 📁 **文件工作区** | 用户隔离存储、双后端(localFS/MinIO)、staging机制、三级scope共享 |
 | 🔐 **安全合规** | 用户/组织隔离、RBAC/ABAC 策略、密码 scrypt 哈希、SQL 参数化防护 |
@@ -223,6 +224,7 @@ agent-harness/
 │   ├── hermes-adapter/      # 记忆与技能管理
 │   ├── skill-library/       # 技能注册中心
 │   ├── resource-scheduler/  # 资源配额与健康巡检
+│   ├── proactive-orchestrator/ # 主动运营规则、洞察、派单与汇报
 │   ├── feishu-longconn/     # 飞书长连接 WebSocket
 │   └── ollama/              # 本地 LLM 运行时（可选）
 ├── libs/                    # 共享库
@@ -255,6 +257,13 @@ agent-harness/
                  └─────────┬───────────────┘
                            ↓
                       结果返回用户
+
+Admin 主动运营规则 → proactive-orchestrator
+  → 扫描 document/fact/org_memory_summary/skill/org_task_assignment
+  → 生成 evidence-backed insight
+  → Admin 审核 → proactive_mission
+  → 复用 org_task/org_task_assignment 派单
+  → 用户提交反馈 → 汇报给 Admin 看板
 ```
 
 ---
@@ -273,6 +282,7 @@ agent-harness/
 | skill-library | 3007 | ah-skill-library | 技能注册中心 |
 | resource-scheduler | 3008 | ah-resource-scheduler | 资源配额巡检 |
 | mobile-app | 3009 | ah-mobile-app | 移动推送 |
+| proactive-orchestrator | 3010 | ah-proactive-orchestrator | 主动运营规则、洞察、派单、汇报 |
 | PostgreSQL | 5432 | ah-postgres | 主数据库 |
 | Redis | 6379 | ah-redis | 缓存 |
 | MinIO | 9000/9001 | ah-minio | 对象存储 |
@@ -288,7 +298,7 @@ agent-harness/
 | [产品说明](./PRODUCT.md) | 功能特性矩阵、使用场景、角色定义、核心价值 |
 | [系统架构](./ARCHITECTURE.md) | 完整架构图、数据流、API 端点矩阵、状态机设计 |
 | [运维手册](./OPS.md) | 部署流程、健康检查、资源管理、日志与备份 |
-| [用户故事线](./用户故事线.md) | 21 条验收故事线 (AH-1 ~ AH-21)，含梦境模式和 B2B 销售可观测闭环 |
+| [用户故事线](./用户故事线.md) | 22 条验收故事线 (AH-1 ~ AH-22)，含梦境模式、B2B 销售可观测闭环和主动运营编排 |
 | [发布说明](../RELEASE_NOTES.md) | v1.6.3 管理后台初始化与 ClawHub 维护发布说明 |
 | [DEV-21 梦境Hook与业务归因闭环](../development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回、Outcome 归因实现说明 |
 | [修复报告](./FIX-REPORT.md) | 代码审计与修复记录 |
@@ -303,7 +313,7 @@ agent-harness/
 
 完整用户故事线请参阅 [用户故事线.md](./用户故事线.md)。
 
-**21 条故事线速览**：
+**22 条故事线速览**：
 
 | 编号 | 故事线 | 涉及服务 |
 |:---:|------|------|
@@ -328,6 +338,7 @@ agent-harness/
 | AH-19 | 移动端消息推送 | mobile-app |
 | AH-20 | 梦境模式：记忆分层管理+技能发现生态，并追踪知识/skill 业务归因 | hermes-adapter, skill-library, workflow-service, fact-retrieval, web-portal |
 | AH-21 | B2B 销售管理日常与工作流可观测闭环 | gateway-adapter, workflow-service, executor-gateway, fact-retrieval, web-portal |
+| AH-22 | 主动运营编排：Admin 规则驱动智能体洞察、派单、督促与汇报 | proactive-orchestrator, web-portal, fact-retrieval, hermes-adapter, gateway-adapter |
 
 ---
 
@@ -345,6 +356,7 @@ npm test             # 运行测试
 npm run lint         # 代码规范检查
 npm run smoke:workflow-observability  # workflow 复用、可观测和确认沉淀烟测
 npm run test:dream-mode  # 梦境模式与归因闭环集成测试
+npm run test:proactive   # 主动运营规则→洞察→审核→派单→汇报功能测试
 ```
 
 ### 开发模式

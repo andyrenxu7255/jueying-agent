@@ -28,6 +28,7 @@ const executorUrl = process.env.EXECUTOR_URL || '';
 const factRetrievalUrl = process.env.FACT_RETRIEVAL_URL || '';
 const skillLibraryUrl = process.env.SKILL_LIBRARY_URL || '';
 const resourceSchedulerUrl = process.env.RESOURCE_SCHEDULER_URL || 'http://resource-scheduler:3000';
+const proactiveOrchestratorUrl = process.env.PROACTIVE_ORCHESTRATOR_URL || 'http://proactive-orchestrator:3000';
 const mobileAppUrl = process.env.MOBILE_APP_URL || '';
 const hermesUrl = process.env.HERMES_URL || '';
 
@@ -730,6 +731,18 @@ function getResourceSchedulerUrl(): string {
     return raw;
   } catch {
     return 'http://resource-scheduler:3000';
+  }
+}
+
+function getProactiveOrchestratorUrl(): string {
+  const raw = (process.env.PROACTIVE_ORCHESTRATOR_URL || proactiveOrchestratorUrl || '').trim();
+  if (!raw) return 'http://proactive-orchestrator:3000';
+  try {
+    const parsed = new URL(raw);
+    if (['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)) return 'http://proactive-orchestrator:3000';
+    return raw;
+  } catch {
+    return 'http://proactive-orchestrator:3000';
   }
 }
 
@@ -3401,6 +3414,161 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const session = await requireAdmin(req, res);
       if (!session) return;
       const r = await fetchFromService(getResourceSchedulerUrl() + '/internal/inspections/start', { method: 'POST' });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/proactive/dashboard' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const orgId = url.searchParams.get('org_id') || session.org_id || '';
+      const targetUrl = getProactiveOrchestratorUrl() + '/internal/dashboard' + (orgId ? '?org_id=' + encodeURIComponent(orgId) : '');
+      const r = await fetchFromService(targetUrl);
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/proactive/rules' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const orgId = url.searchParams.get('org_id') || session.org_id || '';
+      const targetUrl = getProactiveOrchestratorUrl() + '/internal/rules' + (orgId ? '?org_id=' + encodeURIComponent(orgId) : '');
+      const r = await fetchFromService(targetUrl);
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/proactive/rules' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const body = await readJson(req);
+      const r = await fetchFromService(getProactiveOrchestratorUrl() + '/internal/rules', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...body,
+          org_id: body.org_id || session.org_id || undefined,
+          created_by: body.created_by || session.user_id,
+        })
+      });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname.startsWith('/api/admin/proactive/rules/') && method === 'PUT') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const ruleId = pathname.slice('/api/admin/proactive/rules/'.length);
+      const body = await readJson(req);
+      const r = await fetchFromService(getProactiveOrchestratorUrl() + '/internal/rules/' + encodeURIComponent(ruleId), {
+        method: 'PUT',
+        body: JSON.stringify(body)
+      });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname.startsWith('/api/admin/proactive/rules/') && pathname.endsWith('/archive') && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const ruleId = pathname.slice('/api/admin/proactive/rules/'.length, -'/archive'.length);
+      const r = await fetchFromService(getProactiveOrchestratorUrl() + '/internal/rules/' + encodeURIComponent(ruleId) + '/archive', { method: 'POST' });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/proactive/runs' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const orgId = url.searchParams.get('org_id') || session.org_id || '';
+      const targetUrl = getProactiveOrchestratorUrl() + '/internal/runs' + (orgId ? '?org_id=' + encodeURIComponent(orgId) : '');
+      const r = await fetchFromService(targetUrl);
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/proactive/runs' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const body = await readJson(req);
+      const r = await fetchFromService(getProactiveOrchestratorUrl() + '/internal/runs', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...body,
+          org_id: body.org_id || session.org_id || undefined,
+          triggered_by: session.user_id,
+        })
+      });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/proactive/insights' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const orgId = url.searchParams.get('org_id') || session.org_id || '';
+      const status = url.searchParams.get('review_status') || '';
+      let targetUrl = getProactiveOrchestratorUrl() + '/internal/insights?';
+      if (orgId) targetUrl += 'org_id=' + encodeURIComponent(orgId) + '&';
+      if (status) targetUrl += 'review_status=' + encodeURIComponent(status);
+      const r = await fetchFromService(targetUrl);
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname.startsWith('/api/admin/proactive/insights/') && pathname.endsWith('/review') && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const insightId = pathname.slice('/api/admin/proactive/insights/'.length, -'/review'.length);
+      const body = await readJson(req);
+      const r = await fetchFromService(getProactiveOrchestratorUrl() + '/internal/insights/' + encodeURIComponent(insightId) + '/review', {
+        method: 'POST',
+        body: JSON.stringify({ ...body, reviewer_id: session.user_id })
+      });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/proactive/missions' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const orgId = url.searchParams.get('org_id') || session.org_id || '';
+      const status = url.searchParams.get('status') || '';
+      let targetUrl = getProactiveOrchestratorUrl() + '/internal/missions?';
+      if (orgId) targetUrl += 'org_id=' + encodeURIComponent(orgId) + '&';
+      if (status) targetUrl += 'status=' + encodeURIComponent(status);
+      const r = await fetchFromService(targetUrl);
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname.startsWith('/api/admin/proactive/missions/') && pathname.endsWith('/dispatch') && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const missionId = pathname.slice('/api/admin/proactive/missions/'.length, -'/dispatch'.length);
+      const body = await readJson(req);
+      const r = await fetchFromService(getProactiveOrchestratorUrl() + '/internal/missions/' + encodeURIComponent(missionId) + '/dispatch', {
+        method: 'POST',
+        body: JSON.stringify(body)
+      });
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/proactive/reports' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const orgId = url.searchParams.get('org_id') || session.org_id || '';
+      const targetUrl = getProactiveOrchestratorUrl() + '/internal/reports' + (orgId ? '?org_id=' + encodeURIComponent(orgId) : '');
+      const r = await fetchFromService(targetUrl);
+      sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname.startsWith('/api/admin/proactive/reports/') && pathname.endsWith('/publish') && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const reportId = pathname.slice('/api/admin/proactive/reports/'.length, -'/publish'.length);
+      const r = await fetchFromService(getProactiveOrchestratorUrl() + '/internal/reports/' + encodeURIComponent(reportId) + '/publish', { method: 'POST' });
       sendJson(res, r.status, r.data);
       return;
     }

@@ -40,6 +40,7 @@
 | `system:retrieval` | 仅负责受 snapshot 约束的检索 |
 | `system:executor` | 仅负责阶段执行，不能绕开 snapshot |
 | `system:admin-console` | 仅在 admin 代理场景下执行治理动作 |
+| `system:proactive` | 仅按 Admin 规则扫描事实/记忆/技能/任务状态，生成洞察、等待审核并派发已批准 mission |
 
 说明：
 
@@ -67,6 +68,11 @@ Day 1 资源类型至少包括：
 - `skill_version`
 - `retrieval_trace`
 - `audit_event`
+- `proactive_rule`
+- `proactive_run`
+- `proactive_insight`
+- `proactive_mission`
+- `proactive_report`
 
 ## 16.5 操作类型
 
@@ -143,6 +149,8 @@ V1 只允许三类逻辑 scope：
 | skill / skill_version | 是 | 否 | 仅公共 skill | 是 | 是 |
 | retrieval_trace | 是，仅限本人任务 | 否 | 否 | 是 | 是 |
 | audit_event | 否，普通用户仅可看与本人任务相关的受限视图 | 否 | 否 | 是 | 是 |
+| proactive_rule / proactive_run / proactive_insight / proactive_report | 否 | 否 | 否 | 是 | 是 |
+| proactive_mission | 仅可看分配给自己的 mission 受限视图 | 否 | 否 | 是 | 是 |
 
 ## 16.8 Policy Snapshot 结构
 
@@ -230,6 +238,7 @@ admin 生成规则：
 
 - `system:retrieval` 可以在既有 `read` 能力内执行结构化/全文/向量/图查询。
 - `system:executor` 可以在既有 `execute` 能力内触发工具调用与 artifact 写回。
+- `system:proactive` 可以在 Admin 代理上下文内读取组织事实与任务状态，但默认只能创建待审洞察；只有 Admin 已审核或规则明确 `auto_when_safe` 且证据策略达标时，才可创建 mission 与 org_task assignment。
 
 ## 16.10 强制执行点
 
@@ -242,6 +251,7 @@ admin 生成规则：
 5. 写入 `fact`、`memory_item`、`skill`、`artifact_object` 前。
 6. 发布公共 workflow 或 skill 前。
 7. checkpoint 恢复前。
+8. 主动运营扫描、洞察审核、mission 派单与汇报发布前。
 
 ## 16.11 查询过滤规则
 
@@ -313,6 +323,17 @@ where true
 1. 来源对象已经过验收或治理。
 2. 由 admin 审批或 admin 直接执行发布。
 3. 写入时保留来源链、证据链与发布审计。
+
+### 16.12.3 主动运营写入
+
+主动运营是 Admin 治理能力，不是普通用户自动化入口：
+
+1. `proactive_rule` 只能由 Admin 创建、修改、归档。
+2. `proactive_run` 与 `proactive_insight` 由 `system:proactive` 在 Admin 代理上下文内写入，必须保留 `org_id`、`rule_id`、证据引用和扫描窗口。
+3. `proactive_insight.review_status = pending` 是默认状态；普通用户不可见。
+4. `proactive_mission` 只有在 Admin 审核通过或 `auto_when_safe` 达成证据策略时写入。
+5. 派单必须复用 `org_task` / `org_task_assignment`，普通用户只能看到分配给自己的任务入口和必要证据摘要。
+6. `proactive_report` 发布前只对 Admin 可见；发布后仍按组织边界过滤。
 
 ## 16.13 发布规则
 

@@ -1,6 +1,6 @@
 {
-  "version": "v2.11",
-  "description": "Agent Harness context dependency graph - Updated 2026-05-23: layered verification sync covers Node 22 runtime baseline, 95% global Jest coverage gates, portal-admin functional validation, Feishu long-connection secret boundaries, model catalog/test flows, TXT/DOCX knowledge import, DB maintenance feedback, optional Docker resource monitoring, ClawHub admin skill maintenance with slug allowlist, and MEDDIC demo knowledge/graph seeds.",
+  "version": "v2.13",
+  "description": "Agent Harness context dependency graph - Updated 2026-05-23: proactive orchestration R22 adds admin-defined rules, fact/memory/skill/task scans, evidence-backed insight review, mission dispatch through org_task, reports, Docker service 3010, TC-F007, hash-route portal regression tests, and full doc/graph sync on top of Node 22 and 95% Jest coverage gates.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -36,7 +36,17 @@
       "development/DEV-19-B2B故事线系统验收与UI冒烟.md",
       "development/DEV-20-事实图门控与Workflow公共池.md",
       "development/DEV-21-梦境Hook与业务归因闭环.md",
-      "AH1-13-仓库复用与改造边界.md"
+      "AH1-13-仓库复用与改造边界.md",
+      "agent-harness/apps/web-portal/src/index.ts",
+      "agent-harness/apps/web-portal/static/app.js",
+      "agent-harness/apps/web-portal/static/app.static.test.ts",
+      "agent-harness/apps/web-portal/static/index.html",
+      "agent-harness/db/migrations/029_proactive_orchestration.sql",
+      "agent-harness/services/proactive-orchestrator/src/index.ts",
+      "agent-harness/services/proactive-orchestrator/src/service.ts",
+      "agent-harness/services/proactive-orchestrator/src/domain.ts",
+      "agent-harness/tests/integration/proactive-orchestration-test.ts",
+      "agent-harness/用户故事线.md"
     ],
     "L2_governance": [
       "AH1-24-PoC压测执行方案.md",
@@ -49,7 +59,11 @@
       "AH1-35-版本管理规范.md",
       "AH1-36-生产级代码示例参考.md",
       "AH1-30-验收标准与测试用例.md",
-      "AH1-27-部署与运维.md"
+      "AH1-27-部署与运维.md",
+      "agent-harness/ARCHITECTURE.md",
+      "agent-harness/README.md",
+      "agent-harness/OPS.md",
+      "agent-harness/PRODUCT.md"
     ]
   },
   "authority_map": {
@@ -70,66 +84,309 @@
     "hook_outcome": "AH1-23-审计日志指标与告警.md",
     "resource": "AH1-26-Provider选择与配置.md",
     "dream": "AH1-23-审计日志指标与告警.md",
-    "file_storage": "AH1-22-Artifact-Object-Storage.md"
+    "file_storage": "AH1-22-Artifact-Object-Storage.md",
+    "proactive_orchestration": "AH1-15-核心接口与事件契约.md",
+    "proactive_data": "AH1-14-数据库表设计与索引.md",
+    "proactive_policy": "AH1-16-权限Scope-Policy-Snapshot.md"
   },
   "source_to_authority": {
-    "agent-harness/apps/gateway-adapter/src/index.ts": ["AH1-21-渠道接入与Session映射.md", "AH1-15-核心接口与事件契约.md", "AH1-16-权限Scope-Policy-Snapshot.md", "AH1-17-Workflow-DSL与Planner契约.md"],
-    "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts": ["AH1-21-渠道接入与Session映射.md"],
-    "agent-harness/apps/gateway-adapter/src/services/session-mapper.ts": ["AH1-21-渠道接入与Session映射.md"],
-    "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": ["AH1-22-Artifact-Object-Storage.md", "AH1-34-安全架构增强.md"],
-    "agent-harness/apps/gateway-adapter/src/services/file-validator.test.ts": ["AH1-22-Artifact-Object-Storage.md", "AH1-30-验收标准与测试用例.md", "AH1-34-安全架构增强.md"],
-    "agent-harness/services/workflow/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-19-Checkpoint-Resume-Replay.md", "AH1-23-审计日志指标与告警.md"],
-    "agent-harness/services/workflow/src/engine/workflow-machine.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-31-错误处理与降级策略.md"],
-    "agent-harness/services/workflow/src/engine/workflow-machine.test.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-30-验收标准与测试用例.md"],
-    "agent-harness/services/workflow/src/planner/plan-validator.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-15-核心接口与事件契约.md"],
-    "agent-harness/services/workflow/src/planner/plan-validator.test.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-30-验收标准与测试用例.md"],
-    "agent-harness/services/workflow/src/persistence/db.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md", "AH1-14-数据库表设计与索引.md"],
-    "agent-harness/services/fact-retrieval/src/index.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-23-审计日志指标与告警.md"],
-    "agent-harness/services/fact-retrieval/src/service.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-14-数据库表设计与索引.md"],
-    "agent-harness/services/hermes-adapter/src/index.ts": ["AH1-23-审计日志指标与告警.md", "AH1-20-检索编排与Fact-Write.md"],
-    "agent-harness/services/skill-library/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md"],
-    "agent-harness/db/migrations/027_workflow_definition_review.sql": ["AH1-14-数据库表设计与索引.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md"],
-    "agent-harness/db/migrations/028_seed_admin_demo_content.sql": ["AH1-14-数据库表设计与索引.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-20-检索编排与Fact-Write.md"],
-    "agent-harness/libs/shared/src/db/attribution.ts": ["AH1-23-审计日志指标与告警.md", "AH1-14-数据库表设计与索引.md"],
-    "agent-harness/db/migrations/026_recall_outcome_attribution.sql": ["AH1-14-数据库表设计与索引.md", "AH1-23-审计日志指标与告警.md"],
-    "agent-harness/services/executor-gateway/src/executor/generic-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-17-Workflow-DSL与Planner契约.md"],
-    "agent-harness/services/executor-gateway/src/executor/code-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-31-错误处理与降级策略.md"],
-    "agent-harness/libs/shared/src/rate-limit/limiter.ts": ["AH1-31-错误处理与降级策略.md"],
-    "agent-harness/libs/shared/src/rate-limit/limiter.test.ts": ["AH1-31-错误处理与降级策略.md", "AH1-30-验收标准与测试用例.md"],
-    "agent-harness/libs/shared/src/retry/strategy.ts": ["AH1-31-错误处理与降级策略.md"],
-    "agent-harness/libs/shared/src/retry/strategy.test.ts": ["AH1-31-错误处理与降级策略.md", "AH1-30-验收标准与测试用例.md"],
-    "agent-harness/libs/shared/src/monitoring/security-check.ts": ["AH1-16-权限Scope-Policy-Snapshot.md", "AH1-34-安全架构增强.md"],
-    "agent-harness/libs/shared/src/ai/embedding.ts": ["AH1-26-Provider选择与配置.md", "AH1-31-错误处理与降级策略.md"],
-    "agent-harness/libs/shared/src/ai/embedding.test.ts": ["AH1-26-Provider选择与配置.md", "AH1-30-验收标准与测试用例.md", "AH1-31-错误处理与降级策略.md"],
-    "agent-harness/libs/shared/src/ai/rerank.ts": ["AH1-26-Provider选择与配置.md", "AH1-31-错误处理与降级策略.md"],
-    "agent-harness/libs/shared/src/ai/rerank.test.ts": ["AH1-26-Provider选择与配置.md", "AH1-30-验收标准与测试用例.md", "AH1-31-错误处理与降级策略.md"],
-    "agent-harness/libs/shared/src/http/index.ts": ["AH1-15-核心接口与事件契约.md", "AH1-34-安全架构增强.md"],
-    "agent-harness/libs/shared/src/http/index.test.ts": ["AH1-15-核心接口与事件契约.md", "AH1-30-验收标准与测试用例.md", "AH1-34-安全架构增强.md"],
-    "agent-harness/libs/shared/src/config/manager.ts": ["AH1-28-配置管理.md"],
-    "agent-harness/apps/web-portal/static/app.js": ["AH1-21-渠道接入与Session映射.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md", "AH1-34-安全架构增强.md"],
-    "agent-harness/apps/web-portal/static/localization.js": ["AH1-21-渠道接入与Session映射.md", "AH1-15-核心接口与事件契约.md"],
-    "agent-harness/apps/web-portal/src/index.ts": ["AH1-15-核心接口与事件契约.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-20-检索编排与Fact-Write.md", "AH1-23-审计日志指标与告警.md", "AH1-26-Provider选择与配置.md", "AH1-27-部署与运维.md", "AH1-28-配置管理.md", "AH1-31-错误处理与降级策略.md", "AH1-34-安全架构增强.md"],
-    "agent-harness/libs/shared/src/i18n.ts": ["AH1-15-核心接口与事件契约.md", "AH1-31-错误处理与降级策略.md"],
-    "agent-harness/README.md": ["AH1-27-部署与运维.md", "AH1-26-Provider选择与配置.md", "AH1-28-配置管理.md"],
-    "agent-harness/OPS.md": ["AH1-27-部署与运维.md", "AH1-26-Provider选择与配置.md", "AH1-28-配置管理.md", "AH1-30-验收标准与测试用例.md"],
-    "agent-harness/package.json": ["AH1-27-部署与运维.md", "AH1-30-验收标准与测试用例.md", "AH1-33-文档关系与一致性清单.md"],
-    "agent-harness/tests/setup/jest.config.cjs": ["AH1-30-验收标准与测试用例.md"],
-    "agent-harness/tests/integration/portal-admin-functional-test.ts": ["AH1-15-核心接口与事件契约.md", "AH1-21-渠道接入与Session映射.md", "AH1-22-Artifact-Object-Storage.md", "AH1-26-Provider选择与配置.md", "AH1-28-配置管理.md", "AH1-30-验收标准与测试用例.md", "AH1-34-安全架构增强.md"],
-    "agent-harness/services/fact-retrieval/src/support.test.ts": ["AH1-20-检索编排与Fact-Write.md", "AH1-16-权限Scope-Policy-Snapshot.md"],
-    "agent-harness/scripts/smoke-eval.js": ["AH1-23-审计日志指标与告警.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-27-部署与运维.md"],
-    "agent-harness/docker-compose.yml": ["AH1-27-部署与运维.md", "AH1-23-审计日志指标与告警.md"],
-    "agent-harness/docker/otel-collector-config.yaml": ["AH1-23-审计日志指标与告警.md", "AH1-27-部署与运维.md"],
-    "agent-harness/services/feishu-longconn/src/index.ts": ["AH1-21-渠道接入与Session映射.md", "AH1-27-部署与运维.md"],
-    "agent-harness/apps/web-portal/Dockerfile": ["AH1-27-部署与运维.md"],
-    "agent-harness/apps/mobile-app/Dockerfile": ["AH1-27-部署与运维.md"],
-    "agent-harness/apps/gateway-adapter/Dockerfile": ["AH1-27-部署与运维.md"],
-    "agent-harness/services/workflow/Dockerfile": ["AH1-27-部署与运维.md"],
-    "agent-harness/services/executor-gateway/Dockerfile": ["AH1-27-部署与运维.md"],
-    "agent-harness/services/fact-retrieval/Dockerfile": ["AH1-27-部署与运维.md"],
-    "agent-harness/services/feishu-longconn/Dockerfile": ["AH1-27-部署与运维.md"],
-    "agent-harness/services/hermes-adapter/Dockerfile": ["AH1-27-部署与运维.md"],
-    "agent-harness/services/resource-scheduler/Dockerfile": ["AH1-27-部署与运维.md"],
-    "agent-harness/services/skill-library/Dockerfile": ["AH1-27-部署与运维.md"]
+    "agent-harness/apps/gateway-adapter/src/index.ts": [
+      "AH1-21-渠道接入与Session映射.md",
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md",
+      "AH1-17-Workflow-DSL与Planner契约.md"
+    ],
+    "agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts": [
+      "AH1-21-渠道接入与Session映射.md"
+    ],
+    "agent-harness/apps/gateway-adapter/src/services/session-mapper.ts": [
+      "AH1-21-渠道接入与Session映射.md"
+    ],
+    "agent-harness/apps/gateway-adapter/src/services/file-validator.ts": [
+      "AH1-22-Artifact-Object-Storage.md",
+      "AH1-34-安全架构增强.md"
+    ],
+    "agent-harness/apps/gateway-adapter/src/services/file-validator.test.ts": [
+      "AH1-22-Artifact-Object-Storage.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-34-安全架构增强.md"
+    ],
+    "agent-harness/services/workflow/src/index.ts": [
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-19-Checkpoint-Resume-Replay.md",
+      "AH1-23-审计日志指标与告警.md"
+    ],
+    "agent-harness/services/workflow/src/engine/workflow-machine.ts": [
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-31-错误处理与降级策略.md"
+    ],
+    "agent-harness/services/workflow/src/engine/workflow-machine.test.ts": [
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/services/workflow/src/planner/plan-validator.ts": [
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-15-核心接口与事件契约.md"
+    ],
+    "agent-harness/services/workflow/src/planner/plan-validator.test.ts": [
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/services/workflow/src/persistence/db.ts": [
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-23-审计日志指标与告警.md",
+      "AH1-14-数据库表设计与索引.md"
+    ],
+    "agent-harness/services/fact-retrieval/src/index.ts": [
+      "AH1-20-检索编排与Fact-Write.md",
+      "AH1-23-审计日志指标与告警.md"
+    ],
+    "agent-harness/services/fact-retrieval/src/service.ts": [
+      "AH1-20-检索编排与Fact-Write.md",
+      "AH1-14-数据库表设计与索引.md"
+    ],
+    "agent-harness/services/hermes-adapter/src/index.ts": [
+      "AH1-23-审计日志指标与告警.md",
+      "AH1-20-检索编排与Fact-Write.md"
+    ],
+    "agent-harness/services/skill-library/src/index.ts": [
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-23-审计日志指标与告警.md"
+    ],
+    "agent-harness/db/migrations/027_workflow_definition_review.sql": [
+      "AH1-14-数据库表设计与索引.md",
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-23-审计日志指标与告警.md"
+    ],
+    "agent-harness/db/migrations/028_seed_admin_demo_content.sql": [
+      "AH1-14-数据库表设计与索引.md",
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-20-检索编排与Fact-Write.md"
+    ],
+    "agent-harness/libs/shared/src/db/attribution.ts": [
+      "AH1-23-审计日志指标与告警.md",
+      "AH1-14-数据库表设计与索引.md"
+    ],
+    "agent-harness/db/migrations/026_recall_outcome_attribution.sql": [
+      "AH1-14-数据库表设计与索引.md",
+      "AH1-23-审计日志指标与告警.md"
+    ],
+    "agent-harness/services/executor-gateway/src/executor/generic-executor.ts": [
+      "AH1-18-Code-Executor与执行会话.md",
+      "AH1-17-Workflow-DSL与Planner契约.md"
+    ],
+    "agent-harness/services/executor-gateway/src/executor/code-executor.ts": [
+      "AH1-18-Code-Executor与执行会话.md",
+      "AH1-31-错误处理与降级策略.md"
+    ],
+    "agent-harness/libs/shared/src/rate-limit/limiter.ts": [
+      "AH1-31-错误处理与降级策略.md"
+    ],
+    "agent-harness/libs/shared/src/rate-limit/limiter.test.ts": [
+      "AH1-31-错误处理与降级策略.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/libs/shared/src/retry/strategy.ts": [
+      "AH1-31-错误处理与降级策略.md"
+    ],
+    "agent-harness/libs/shared/src/retry/strategy.test.ts": [
+      "AH1-31-错误处理与降级策略.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/libs/shared/src/monitoring/security-check.ts": [
+      "AH1-16-权限Scope-Policy-Snapshot.md",
+      "AH1-34-安全架构增强.md"
+    ],
+    "agent-harness/libs/shared/src/ai/embedding.ts": [
+      "AH1-26-Provider选择与配置.md",
+      "AH1-31-错误处理与降级策略.md"
+    ],
+    "agent-harness/libs/shared/src/ai/embedding.test.ts": [
+      "AH1-26-Provider选择与配置.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-31-错误处理与降级策略.md"
+    ],
+    "agent-harness/libs/shared/src/ai/rerank.ts": [
+      "AH1-26-Provider选择与配置.md",
+      "AH1-31-错误处理与降级策略.md"
+    ],
+    "agent-harness/libs/shared/src/ai/rerank.test.ts": [
+      "AH1-26-Provider选择与配置.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-31-错误处理与降级策略.md"
+    ],
+    "agent-harness/libs/shared/src/http/index.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-34-安全架构增强.md"
+    ],
+    "agent-harness/libs/shared/src/http/index.test.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-34-安全架构增强.md"
+    ],
+    "agent-harness/libs/shared/src/config/manager.ts": [
+      "AH1-28-配置管理.md"
+    ],
+    "agent-harness/apps/web-portal/static/app.js": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-20-检索编排与Fact-Write.md",
+      "AH1-21-渠道接入与Session映射.md",
+      "AH1-23-审计日志指标与告警.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-34-安全架构增强.md"
+    ],
+    "agent-harness/apps/web-portal/static/app.static.test.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-34-安全架构增强.md"
+    ],
+    "agent-harness/apps/web-portal/static/localization.js": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-21-渠道接入与Session映射.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/apps/web-portal/src/index.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md",
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-20-检索编排与Fact-Write.md",
+      "AH1-23-审计日志指标与告警.md",
+      "AH1-26-Provider选择与配置.md",
+      "AH1-27-部署与运维.md",
+      "AH1-28-配置管理.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-31-错误处理与降级策略.md",
+      "AH1-34-安全架构增强.md"
+    ],
+    "agent-harness/libs/shared/src/i18n.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-31-错误处理与降级策略.md"
+    ],
+    "agent-harness/README.md": [
+      "AH1-27-部署与运维.md",
+      "AH1-26-Provider选择与配置.md",
+      "AH1-28-配置管理.md"
+    ],
+    "agent-harness/OPS.md": [
+      "AH1-27-部署与运维.md",
+      "AH1-26-Provider选择与配置.md",
+      "AH1-28-配置管理.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/package.json": [
+      "AH1-27-部署与运维.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-33-文档关系与一致性清单.md"
+    ],
+    "agent-harness/tests/setup/jest.config.cjs": [
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/tests/integration/portal-admin-functional-test.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-21-渠道接入与Session映射.md",
+      "AH1-22-Artifact-Object-Storage.md",
+      "AH1-26-Provider选择与配置.md",
+      "AH1-28-配置管理.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-34-安全架构增强.md"
+    ],
+    "agent-harness/services/fact-retrieval/src/support.test.ts": [
+      "AH1-20-检索编排与Fact-Write.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md"
+    ],
+    "agent-harness/scripts/smoke-eval.js": [
+      "AH1-23-审计日志指标与告警.md",
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/docker-compose.yml": [
+      "AH1-27-部署与运维.md",
+      "AH1-23-审计日志指标与告警.md"
+    ],
+    "agent-harness/docker/otel-collector-config.yaml": [
+      "AH1-23-审计日志指标与告警.md",
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/feishu-longconn/src/index.ts": [
+      "AH1-21-渠道接入与Session映射.md",
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/apps/web-portal/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/apps/mobile-app/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/apps/gateway-adapter/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/workflow/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/executor-gateway/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/fact-retrieval/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/feishu-longconn/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/hermes-adapter/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/resource-scheduler/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/skill-library/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/proactive-orchestrator/src/index.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md",
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/services/proactive-orchestrator/src/service.ts": [
+      "AH1-14-数据库表设计与索引.md",
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md",
+      "AH1-20-检索编排与Fact-Write.md",
+      "AH1-23-审计日志指标与告警.md"
+    ],
+    "agent-harness/services/proactive-orchestrator/src/domain.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/services/proactive-orchestrator/src/service.test.ts": [
+      "AH1-14-数据库表设计与索引.md",
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/services/proactive-orchestrator/src/domain.test.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/services/proactive-orchestrator/Dockerfile": [
+      "AH1-27-部署与运维.md"
+    ],
+    "agent-harness/db/migrations/029_proactive_orchestration.sql": [
+      "AH1-14-数据库表设计与索引.md",
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md"
+    ],
+    "agent-harness/tests/integration/proactive-orchestration-test.ts": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md",
+      "AH1-27-部署与运维.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
+    "agent-harness/apps/web-portal/static/index.html": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-30-验收标准与测试用例.md",
+      "AH1-34-安全架构增强.md"
+    ]
   },
   "task_profiles": {
     "M1_ingress_workflow": {
@@ -280,6 +537,43 @@
         "development/DEV-20-事实图门控与Workflow公共池.md",
         "AH1-14-数据库表设计与索引.md"
       ]
+    },
+    "proactive_orchestration": {
+      "authority": [
+        "AH1-14-数据库表设计与索引.md",
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-20-检索编排与Fact-Write.md"
+      ],
+      "loaded_docs": [
+        "AH1-23-审计日志指标与告警.md",
+        "AH1-27-部署与运维.md",
+        "AH1-28-配置管理.md",
+        "AH1-30-验收标准与测试用例.md",
+        "AH1-33-文档关系与一致性清单.md",
+        "agent-harness/ARCHITECTURE.md",
+        "agent-harness/README.md",
+        "agent-harness/OPS.md",
+        "agent-harness/PRODUCT.md",
+        "agent-harness/用户故事线.md"
+      ],
+      "execution": [
+        "agent-harness/services/proactive-orchestrator/src/index.ts",
+        "agent-harness/services/proactive-orchestrator/src/service.ts",
+        "agent-harness/services/proactive-orchestrator/src/domain.ts",
+        "agent-harness/apps/web-portal/src/index.ts",
+        "agent-harness/apps/web-portal/static/app.js",
+        "agent-harness/apps/web-portal/static/app.static.test.ts",
+        "agent-harness/apps/web-portal/static/index.html",
+        "agent-harness/db/migrations/029_proactive_orchestration.sql",
+        "agent-harness/tests/integration/proactive-orchestration-test.ts"
+      ],
+      "optional": [
+        "agent-harness/docker-compose.yml",
+        "agent-harness/docker-compose.prod.yml",
+        "agent-harness/.env.example",
+        "agent-harness/package.json"
+      ]
     }
   },
   "invalidation_triggers": [
@@ -321,9 +615,10 @@
     "2026-05-23-R19": "Admin initialization and ClawHub maintenance: seeded MEDDIC demo documents/chunks/entities/relations plus ClawHub sales skills, added CLAWHUB_ADMIN_TOKEN config, URL/Markdown skill import, ClawHub update checks with changelog interpretation, and per-skill confirmed upgrade.",
     "2026-05-23-R20": "Layered verification and doc/graph sync: Node runtime baseline moved to Node 22, Docker app images rebuilt, Jest global coverage gates tightened to 95% for statements/branches/functions/lines, portal-admin functional validation covers 14 admin flows, and README/OPS/AH1 authority docs/context graph now reflect the code paths.",
     "2026-05-23-R21": "Reverse audit hardening: context graph gained provider_config and portal_admin_quality profiles, context:audit now covers portal admin quality docs, ClawHub slug input is allowlisted before CLI/HTTP inspection, and portal-admin functional test rejects option-like ClawHub slugs.",
-    "total_fixes": 73,
-    "files_modified": 75,
+    "total_fixes": 74,
+    "files_modified": 95,
     "ts_check": "pass (exit 0, 0 errors)",
-    "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
+    "diagnostics_check": "pass (all 18 files 0 errors/warnings)",
+    "2026-05-23-R22": "Proactive orchestration loop: added proactive-orchestrator service, migration 029 proactive tables and org_task links, Web Portal proactive page/API proxies, TC-F007 and test:proactive covering rule scan, evidence insights, review mission, org_task dispatch, duplicate-scan dedupe, reports, Docker 3010, and doc/graph sync."
   }
 }

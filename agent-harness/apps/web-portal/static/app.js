@@ -165,6 +165,50 @@ async function refreshLocaleView() {
   }
 }
 
+function getVisibleViewKeys(navItems) {
+  const keys = {};
+  navItems.forEach(function(group) {
+    group.items.forEach(function(item) {
+      keys[item.key] = true;
+    });
+  });
+  return keys;
+}
+
+function parseHashView() {
+  if (typeof window === 'undefined') return '';
+  const hash = (window.location.hash || '').replace(/^#\/?/, '');
+  try {
+    const view = decodeURIComponent(hash).split(/[/?&]/)[0];
+    return view.trim();
+  } catch {
+    return '';
+  }
+}
+
+function syncCurrentViewFromHash(navItems) {
+  const visibleViewKeys = getVisibleViewKeys(navItems);
+  const hashView = parseHashView();
+  if (hashView && visibleViewKeys[hashView]) {
+    currentView = hashView;
+  }
+  if (!visibleViewKeys[currentView]) {
+    currentView = 'dashboard';
+  }
+  return visibleViewKeys;
+}
+
+function setCurrentView(view, updateHash) {
+  currentView = view || 'dashboard';
+  document.querySelectorAll('.sidebar-nav a[data-view]').forEach(function(a) {
+    a.classList.toggle('active', a.dataset.view === currentView);
+  });
+  if (updateHash && typeof window !== 'undefined' && window.location && window.location.hash !== '#' + currentView) {
+    window.location.hash = currentView;
+  }
+  renderView();
+}
+
 /**
  * 显示模态对话框
  * WARNING: bodyHtml 参数不会被转义，调用者必须确保传入的是安全的硬编码 HTML
@@ -366,7 +410,7 @@ function renderApp() {
   ];
   if (currentSession && currentSession.role === 'admin') {
     navItems.push({ section: t('nav.section.sharing'), items: [{ key: 'shared-knowledge', label: t('nav.sharedKnowledge'), icon: '&#x1F4E2;' }] });
-    navItems.push({ section: t('nav.section.dispatch'), items: [{ key: 'org-tasks', label: t('nav.orgTasks'), icon: '&#x1F4CB;' }] });
+    navItems.push({ section: t('nav.section.dispatch'), items: [{ key: 'org-tasks', label: t('nav.orgTasks'), icon: '&#x1F4CB;' }, { key: 'proactive', label: t('nav.proactive'), icon: '&#x1F9ED;' }] });
     navItems.push({ section: t('nav.section.dream'), items: [
       { key: 'dream-memory', label: t('nav.dreamMemory'), icon: '&#x1F4A4;' },
       { key: 'dream-skills', label: t('nav.dreamSkills'), icon: '&#x1F52C;' },
@@ -376,6 +420,7 @@ function renderApp() {
   if (currentSession) {
     navItems.push({ section: t('nav.section.my'), items: [{ key: 'my-tasks', label: t('nav.myTasks'), icon: '&#x270D;&#xFE0F;' }] });
   }
+  const visibleViewKeys = syncCurrentViewFromHash(navItems);
 
   const sessionData = currentSession || {};
   const username = sessionData.username || localStorage.getItem('ah_username') || 'User';
@@ -384,10 +429,10 @@ function renderApp() {
   const initial = username.charAt(0).toUpperCase();
 
   document.getElementById('app').innerHTML = '<div class="app-container"><div class="sidebar"><div class="sidebar-brand" style="display:flex;justify-content:space-between;align-items:center"><span>JueYing</span>'+langSwitchButton()+'</div><nav class="sidebar-nav">' +
-    navItems.map(function(g) { return '<div class="nav-section">' + g.section + '</div>' + g.items.map(function(i) { return '<a href="#" data-view="' + i.key + '" class="' + (currentView === i.key ? 'active' : '') + '">' + i.icon + ' ' + i.label + '</a>'; }).join(''); }).join('') +
+    navItems.map(function(g) { return '<div class="nav-section">' + g.section + '</div>' + g.items.map(function(i) { return '<a href="#' + i.key + '" data-view="' + i.key + '" class="' + (currentView === i.key ? 'active' : '') + '">' + i.icon + ' ' + i.label + '</a>'; }).join(''); }).join('') +
     '</nav><div class="sidebar-footer"><div class="user-info"><div class="user-avatar">' + escapeHtml(initial) + '</div><div class="user-details"><div class="user-name">' + escapeHtml(username) + '</div><div class="user-role">' + escapeHtml(role) + '</div></div><div class="user-menu"><button class="btn btn-sm btn-outline" onclick="toggleUserMenu()">&#x25B2;</button><div class="user-menu-dropdown" id="user-menu-dropdown"><a href="#" onclick="showChangePasswordModal(false);return false;">' + t('chpwd.menu') + '</a><a href="#" onclick="doLogout();return false;" style="color:var(--danger)">' + t('chpwd.logout') + '</a></div></div></div></div></div><div class="main-content" id="main-content"></div></div>';
   document.querySelectorAll('.sidebar-nav a[data-view]').forEach(function(a) {
-    a.addEventListener('click', function(e) { e.preventDefault(); currentView = a.dataset.view; document.querySelectorAll('.sidebar-nav a').forEach(function(x) { x.classList.remove('active'); }); a.classList.add('active'); renderView(); });
+    a.addEventListener('click', function(e) { e.preventDefault(); if (visibleViewKeys[a.dataset.view]) setCurrentView(a.dataset.view, true); });
   });
   renderView();
 }
@@ -402,10 +447,18 @@ document.addEventListener('click', function(e) {
   if (dd && !e.target.closest('.user-menu')) dd.classList.remove('show');
 });
 
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('hashchange', function() {
+    if (!currentSession || !document.getElementById('main-content')) return;
+    renderApp();
+  });
+}
+
 function renderView() {
   let el = document.getElementById('main-content');
+  if (!el) return;
   stopAllIntervals();
-  const renderers = { dashboard: renderDashboard, guide: renderGuide, workflows: renderWorkflows, 'task-input': renderTaskInput, approvals: renderApprovals, config: renderConfig, users: renderUsers, organizations: renderOrganizations, skills: renderSkills, knowledge: renderKnowledge, audit: renderAudit, retrieval: renderRetrieval, identities: renderIdentities, 'db-maint': renderDbMaint, 'shared-knowledge': renderSharedKnowledge, 'org-tasks': renderOrgTasks, 'my-tasks': renderMyTasks, resources: renderResources, 'knowledge-review': renderKnowledgeReview, 'dream-memory': renderDreamMemory, 'dream-skills': renderDreamSkills, 'dream-config': renderDreamConfig };
+  const renderers = { dashboard: renderDashboard, guide: renderGuide, workflows: renderWorkflows, 'task-input': renderTaskInput, approvals: renderApprovals, config: renderConfig, users: renderUsers, organizations: renderOrganizations, skills: renderSkills, knowledge: renderKnowledge, audit: renderAudit, retrieval: renderRetrieval, identities: renderIdentities, 'db-maint': renderDbMaint, 'shared-knowledge': renderSharedKnowledge, 'org-tasks': renderOrgTasks, proactive: renderProactiveOps, 'my-tasks': renderMyTasks, resources: renderResources, 'knowledge-review': renderKnowledgeReview, 'dream-memory': renderDreamMemory, 'dream-skills': renderDreamSkills, 'dream-config': renderDreamConfig };
   const renderer = renderers[currentView];
   if (renderer) renderer(el); else el.innerHTML = '<p>'+t('common.viewNotImplemented')+'</p>';
 }
@@ -1696,6 +1749,162 @@ async function submitTaskResponse(assignmentId) {
   else showToast((r.data && r.data.error) || t('myTasks.submitFailed'), 'error');
 }
 
+async function renderProactiveOps(el) {
+  el.innerHTML = '<div class="page-header"><div><h2>'+t('proactive.title')+'</h2><span style="color:var(--text2);font-size:14px">'+t('proactive.subtitle')+'</span></div><div><button class="btn btn-outline btn-sm" onclick="runProactiveScan()">'+t('proactive.triggerScan')+'</button> <button class="btn btn-primary btn-sm" onclick="showProactiveRuleForm()">'+t('proactive.newRule')+'</button></div></div>' +
+    '<div class="stat-grid" id="proactive-stats"><div class="stat-card"><div class="stat-value">-</div><div class="stat-label">'+t('common.loading')+'</div></div></div>' +
+    '<div class="card" id="proactive-rule-form" style="display:none"><h3>'+t('proactive.newRule')+'</h3>' +
+    '<div class="form-grid"><div class="form-group"><label>'+t('proactive.ruleName')+'</label><input type="text" id="po-rule-name" value="MEDDIC 销售复盘与客户跟进"></div>' +
+    '<div class="form-group"><label>'+t('proactive.schedule')+'</label><input type="text" id="po-schedule" value="0 8 * * *"></div>' +
+    '<div class="form-group"><label>'+t('proactive.approval')+'</label><select id="po-approval"><option value="review_first">review_first</option><option value="auto_when_safe">auto_when_safe</option><option value="manual_only">manual_only</option></select></div>' +
+    '<div class="form-group"><label>'+t('proactive.window')+'</label><input type="number" id="po-window" value="168" min="1" max="8760"></div></div>' +
+    '<div class="form-group"><label>'+t('common.description')+'</label><textarea id="po-desc" style="min-height:88px">基于 MEDDIC demo 资料与 ClawHub 销售技能，扫描事实层、记忆层和组织笔记，生成待审核洞察与派单任务。</textarea></div>' +
+    '<div class="form-grid"><div class="form-group"><label>'+t('proactive.evidencePolicy')+'</label><textarea id="po-evidence" style="min-height:92px">{"require_evidence":true,"min_confidence":0.72,"dedupe_key":"title+source"}</textarea></div>' +
+    '<div class="form-group"><label>'+t('proactive.routingPolicy')+'</label><textarea id="po-routing" style="min-height:92px">{"preferred_channels":["org_task"],"default_mission_type":"user_task","escalation_role":"admin"}</textarea></div></div>' +
+    '<button class="btn btn-primary" onclick="createProactiveRule()">'+t('proactive.createRule')+'</button> <button class="btn btn-outline" onclick="document.getElementById(\'proactive-rule-form\').style.display=\'none\'">'+t('common.cancel')+'</button></div>' +
+    '<div class="card"><h3>'+t('proactive.rules')+'</h3><div id="proactive-rules">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('proactive.insights')+'</h3><div id="proactive-insights">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('proactive.missions')+'</h3><div id="proactive-missions">'+t('common.loading')+'</div></div>' +
+    '<div class="card"><h3>'+t('proactive.reports')+'</h3><div id="proactive-reports">'+t('common.loading')+'</div></div>';
+  await loadProactiveDashboard();
+}
+
+function showProactiveRuleForm() {
+  const el = document.getElementById('proactive-rule-form');
+  if (el) el.style.display = 'block';
+}
+
+function parseJsonInput(id, fallback) {
+  const el = document.getElementById(id);
+  if (!el) return fallback || {};
+  const text = el.value.trim();
+  if (!text) return fallback || {};
+  try { return JSON.parse(text); } catch { showToast(t('common.errorPrefix') + id, 'error'); return fallback || {}; }
+}
+
+async function createProactiveRule() {
+  const name = document.getElementById('po-rule-name').value.trim();
+  if (!name) { showToast(t('proactive.enterRuleName'), 'error'); return; }
+  const body = {
+    rule_name: name,
+    description: document.getElementById('po-desc').value || '',
+    schedule_expression: document.getElementById('po-schedule').value || '0 8 * * *',
+    approval_mode: document.getElementById('po-approval').value || 'review_first',
+    scan_window_hours: Number(document.getElementById('po-window').value || 168),
+    priority: 90,
+    trigger_source: 'hybrid',
+    target_scope: 'org',
+    evidence_policy: parseJsonInput('po-evidence', {}),
+    routing_policy: parseJsonInput('po-routing', {}),
+    metadata: { source: 'portal_admin', scenario: 'meddic_sales_ops' }
+  };
+  const r = await api('/api/admin/proactive/rules', { method: 'POST', body: JSON.stringify(body) });
+  if (r.ok) {
+    showToast(t('proactive.ruleCreated'));
+    document.getElementById('proactive-rule-form').style.display = 'none';
+    await loadProactiveDashboard();
+  } else {
+    showToast((r.data && r.data.error) || t('common.createFailed'), 'error');
+  }
+}
+
+async function loadProactiveDashboard() {
+  const r = await api('/api/admin/proactive/dashboard');
+  if (!r.ok) {
+    ['proactive-rules','proactive-insights','proactive-missions','proactive-reports'].forEach(function(id) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = emptyState('⚠', t('proactive.loadFailed'), t('users.checkService'));
+    });
+    return;
+  }
+  const summary = r.data.summary || {};
+  document.getElementById('proactive-stats').innerHTML =
+    '<div class="stat-card"><div class="stat-value">'+(summary.active_rules || 0)+'</div><div class="stat-label">'+t('proactive.activeRules')+'</div></div>' +
+    '<div class="stat-card"><div class="stat-value">'+(summary.pending_insights || 0)+'</div><div class="stat-label">'+t('proactive.pendingInsights')+'</div></div>' +
+    '<div class="stat-card"><div class="stat-value">'+(summary.open_missions || 0)+'</div><div class="stat-label">'+t('proactive.openMissions')+'</div></div>' +
+    '<div class="stat-card"><div class="stat-value">'+(summary.completed_missions || 0)+'</div><div class="stat-label">'+t('proactive.completedMissions')+'</div></div>';
+  renderProactiveRules(r.data.rules || []);
+  renderProactiveInsights(r.data.insights || []);
+  renderProactiveMissions(r.data.missions || []);
+  renderProactiveReports(r.data.reports || []);
+}
+
+function renderProactiveRules(rules) {
+  const el = document.getElementById('proactive-rules');
+  if (!el) return;
+  if (!rules.length) {
+    el.innerHTML = emptyState('🧭', t('proactive.noRules'), t('proactive.subtitle'), '<button class="btn btn-primary" onclick="showProactiveRuleForm()">'+t('proactive.newRule')+'</button>');
+    return;
+  }
+  el.innerHTML = '<table><tr><th>'+t('proactive.ruleName')+'</th><th>'+t('proactive.schedule')+'</th><th>'+t('proactive.approval')+'</th><th>'+t('common.status')+'</th><th>'+t('common.action')+'</th></tr>' +
+    rules.map(function(rule) {
+      return '<tr><td><strong>'+escapeHtml(rule.rule_name)+'</strong><div class="hint-text">'+escapeHtml((rule.description || '').slice(0, 100))+'</div></td><td>'+escapeHtml(rule.schedule_expression || '-')+'</td><td>'+escapeHtml(rule.approval_mode || '-')+'</td><td>'+statusBadge(rule.status || 'active')+'</td><td><button class="btn btn-sm btn-outline" onclick="runProactiveScan(\''+escJsAttr(String(rule.id))+'\')">'+t('proactive.runRule')+'</button> <button class="btn btn-sm btn-danger" onclick="archiveProactiveRule(\''+escJsAttr(String(rule.id))+'\')">'+t('common.archive')+'</button></td></tr>';
+    }).join('') + '</table>';
+}
+
+function renderProactiveInsights(insights) {
+  const el = document.getElementById('proactive-insights');
+  if (!el) return;
+  if (!insights.length) { el.innerHTML = emptyState('💡', t('proactive.noInsights'), t('proactive.subtitle')); return; }
+  el.innerHTML = '<div class="panel-list">' + insights.map(function(insight) {
+    const refs = Array.isArray(insight.evidence_refs) ? insight.evidence_refs : [];
+    const actions = insight.review_status === 'pending'
+      ? '<button class="btn btn-sm btn-primary" onclick="reviewProactiveInsight(\''+escJsAttr(String(insight.id))+'\',\'approve\')">'+t('proactive.approve')+'</button> <button class="btn btn-sm btn-danger" onclick="reviewProactiveInsight(\''+escJsAttr(String(insight.id))+'\',\'reject\')">'+t('proactive.reject')+'</button>'
+      : '<span class="hint-text">'+escapeHtml(insight.review_status || '')+'</span>';
+    return '<div class="panel-item"><div class="panel-row"><div><h4>'+escapeHtml(insight.insight_title || '')+' '+statusBadge(insight.review_status || 'pending')+'</h4><p style="color:var(--text2);margin:4px 0">'+escapeHtml(insight.insight_summary || '')+'</p><div class="hint-text">'+escapeHtml(insight.insight_type || '-')+' · '+Math.round(Number(insight.confidence || 0) * 100)+'% · '+refs.length+' '+t('common.reference')+'</div></div><div class="panel-actions">'+actions+'</div></div></div>';
+  }).join('') + '</div>';
+}
+
+function renderProactiveMissions(missions) {
+  const el = document.getElementById('proactive-missions');
+  if (!el) return;
+  if (!missions.length) { el.innerHTML = emptyState('📋', t('proactive.noMissions'), t('proactive.subtitle')); return; }
+  el.innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('common.type')+'</th><th>'+t('common.status')+'</th><th>'+t('common.priority')+'</th><th>'+t('common.action')+'</th></tr>' +
+    missions.map(function(m) {
+      const action = (m.status === 'draft' || m.status === 'queued') ? '<button class="btn btn-sm btn-primary" onclick="dispatchProactiveMission(\''+escJsAttr(String(m.id))+'\')">'+t('proactive.dispatch')+'</button>' : '<span class="hint-text">'+escapeHtml(m.assignment_ref || '')+'</span>';
+      return '<tr><td><strong>'+escapeHtml(m.mission_title || '')+'</strong><div class="hint-text">'+escapeHtml((m.mission_summary || '').slice(0, 120))+'</div></td><td>'+escapeHtml(m.mission_type || '-')+'</td><td>'+statusBadge(m.status || 'draft')+'</td><td>'+escapeHtml(String(m.priority || '-'))+'</td><td>'+action+'</td></tr>';
+    }).join('') + '</table>';
+}
+
+function renderProactiveReports(reports) {
+  const el = document.getElementById('proactive-reports');
+  if (!el) return;
+  if (!reports.length) { el.innerHTML = emptyState('📄', t('proactive.noReports'), t('proactive.subtitle')); return; }
+  el.innerHTML = '<div class="panel-list">' + reports.map(function(report) {
+    const action = report.status !== 'published' ? '<button class="btn btn-sm btn-primary" onclick="publishProactiveReport(\''+escJsAttr(String(report.id))+'\')">'+t('proactive.publish')+'</button>' : statusBadge('published');
+    return '<div class="panel-item"><div class="panel-row"><div><h4>'+escapeHtml(report.report_title || '')+'</h4><p style="color:var(--text2)">'+escapeHtml(report.report_summary || '')+'</p><div class="hint-text">'+escapeHtml((report.created_at && report.created_at.slice(0, 16)) || '')+'</div></div><div class="panel-actions">'+action+'</div></div></div>';
+  }).join('') + '</div>';
+}
+
+async function runProactiveScan(ruleId) {
+  const r = await api('/api/admin/proactive/runs', { method: 'POST', body: JSON.stringify(ruleId ? { rule_id: ruleId } : {}) });
+  if (r.ok) { showToast(t('proactive.scanStarted')); await loadProactiveDashboard(); }
+  else showToast((r.data && r.data.error) || t('proactive.scanFailed'), 'error');
+}
+
+async function archiveProactiveRule(ruleId) {
+  const r = await api('/api/admin/proactive/rules/' + encodeURIComponent(ruleId) + '/archive', { method: 'POST' });
+  if (r.ok) { showToast(t('tasks.archived')); await loadProactiveDashboard(); }
+  else showToast((r.data && r.data.error) || t('tasks.archiveFailed'), 'error');
+}
+
+async function reviewProactiveInsight(insightId, action) {
+  const r = await api('/api/admin/proactive/insights/' + encodeURIComponent(insightId) + '/review', { method: 'POST', body: JSON.stringify({ action }) });
+  if (r.ok) { showToast(t('proactive.reviewed')); await loadProactiveDashboard(); }
+  else showToast((r.data && r.data.error) || t('common.processFailed'), 'error');
+}
+
+async function dispatchProactiveMission(missionId) {
+  const r = await api('/api/admin/proactive/missions/' + encodeURIComponent(missionId) + '/dispatch', { method: 'POST', body: JSON.stringify({ force: true }) });
+  if (r.ok) { showToast(t('proactive.dispatched')); await loadProactiveDashboard(); }
+  else showToast((r.data && r.data.error) || t('tasks.dispatchFailed'), 'error');
+}
+
+async function publishProactiveReport(reportId) {
+  const r = await api('/api/admin/proactive/reports/' + encodeURIComponent(reportId) + '/publish', { method: 'POST' });
+  if (r.ok) { showToast(t('proactive.published')); await loadProactiveDashboard(); }
+  else showToast((r.data && r.data.error) || t('common.processFailed'), 'error');
+}
+
 async function renderSkills(el) {
   el.innerHTML = '<div class="page-header"><h2>'+t('skills.title')+'</h2><div><button class="btn btn-outline btn-sm" onclick="showSearchSkill()">'+t('skills.searchMirror')+'</button> <button class="btn btn-outline btn-sm" onclick="showImportSkill()">'+t('skills.import')+'</button> <button class="btn btn-outline btn-sm" onclick="checkAllSkillUpdates()">'+t('skills.checkUpdates')+'</button> <button class="btn btn-outline btn-sm" onclick="loadRecommendedSkills()">'+t('skills.recommended')+'</button> <button class="btn btn-primary btn-sm" onclick="showAddSkill()">'+t('skills.create')+'</button></div></div><div class="card"><p class="section-desc">'+t('skills.desc')+'</p><div id="clawhub-maintenance" class="muted">'+t('common.loading')+'</div><div id="skill-update-results" style="margin-top:12px"></div><div id="skill-list" style="margin-top:12px">'+t('common.loading')+'</div></div><div class="card"><h3>'+t('skills.recommendedTitle')+'</h3><div id="recommended-skill-list">'+t('common.loading')+'</div></div>';
   loadClawHubStatus();
@@ -2673,6 +2882,11 @@ if (typeof module !== 'undefined' && module.exports) {
     humanBytes,
     emptyState,
     arrayBufferToBase64,
-    passwordStrengthHtml
+    passwordStrengthHtml,
+    parseHashView,
+    syncCurrentViewFromHash,
+    setCurrentView,
+    __getCurrentView: function() { return currentView; },
+    __setCurrentView: function(view) { currentView = view; }
   };
 }

@@ -123,6 +123,7 @@ curl http://localhost:3005/health/live # Hermes Adapter
 curl http://localhost:3007/health/live # Skill Library
 curl http://localhost:3008/health/live # Resource Scheduler
 curl http://localhost:3009/health/live # Mobile App
+curl http://localhost:3010/health/live # Proactive Orchestrator
 
 # 全链路回归审计
 node scripts/final-audit.cjs
@@ -136,11 +137,12 @@ npm run type-check
 npm test -- --coverage --runInBand
 npm run test:portal-static
 npm run test:portal-admin
+npm run test:proactive
 npm run context:audit
 npm audit --audit-level=moderate
 ```
 
-Jest 覆盖率门禁为 statements、branches、functions、lines 四项全局均不低于 95%。`test:portal-admin` 是管理台功能合理性回归，必须覆盖飞书配置、模型目录/测试、知识导入、DB 运维、资源监控、ClawHub 技能维护、共享知识库与 MEDDIC demo 图谱，不可只用服务启动冒烟替代。
+Jest 覆盖率门禁为 statements、branches、functions、lines 四项全局均不低于 95%。`test:portal-admin` 是管理台功能合理性回归，必须覆盖飞书配置、模型目录/测试、知识导入、DB 运维、资源监控、ClawHub 技能维护、共享知识库与 MEDDIC demo 图谱，不可只用服务启动冒烟替代。`test:proactive` 覆盖主动运营从规则创建、扫描、证据洞察、审核生成 mission、复用组织任务派单到汇报发布的完整链路，并断言重复扫描不会堆叠重复待审洞察。
 
 ---
 
@@ -160,6 +162,7 @@ Jest 覆盖率门禁为 statements、branches、functions、lines 四项全局�
 | Skill Library | ah-skill-library | 3007 | `/health/live` |
 | Resource Scheduler | ah-resource-scheduler | 3008 | `/health/live` |
 | Mobile App | ah-mobile-app | 3009 | `/health/live` |
+| Proactive Orchestrator | ah-proactive-orchestrator | 3010 | `/health/live` |
 | PostgreSQL | ah-postgres | 5432 | pg_isready |
 | Redis | ah-redis | 6379 | PING |
 | MinIO | ah-minio | 9000/9001 | `/minio/health/live` |
@@ -176,11 +179,13 @@ Jest 覆盖率门禁为 statements、branches、functions、lines 四项全局�
 docker logs -f ah-gateway          # Gateway 实时日志
 docker logs ah-workflow --tail 100 # Workflow 最近 100 行
 docker logs ah-feishu-longconn --since 5m --tail 200  # 飞书最近 5 分钟
+docker logs ah-proactive-orchestrator --tail 100 # 主动运营最近 100 行
 
 # 重启单个服务
 docker compose --profile app restart gateway-adapter
 docker compose --profile app restart workflow-service
 docker compose --profile app restart feishu-longconn
+docker compose --profile app restart proactive-orchestrator
 
 # 停止所有服务
 docker compose --profile app down
@@ -204,6 +209,7 @@ docker compose --profile app down -v
 | web-portal | 0.30 vCPU | 300 MB |
 | skill-library | 0.20 vCPU | 350 MB |
 | resource-scheduler | 0.20 vCPU | 350 MB |
+| proactive-orchestrator | 0.25 vCPU | 350 MB |
 | mobile-app | 0.15 vCPU | 250 MB |
 | postgres | 1.25 vCPU | 3 GB |
 | redis | 0.20 vCPU | 450 MB |
@@ -221,6 +227,14 @@ Web Portal 的资源监控会优先展示 Docker 容器状态；如果系统以�
 - Embedding/Rerank 支持从目录选择模型并测试。Embedding 测试会返回实际维度，Rerank 测试会返回排序结果数量。模型页还支持手动新增、调整优先级、查看上下文窗口、最大输出和思考设置。
 - 配置保存后页面会显示可选重启目标；大部分字段先热加载，独立服务如 `fact-retrieval`、`gateway-adapter`、`feishu-longconn` 可按按钮或命令重启。
 - 知识导入分为手动输入和文件上传两条入口，来源字段仅作说明，不再选择“文档/对话”；上传支持 TXT、Markdown、PDF、Word、Excel、CSV、JSON。
+
+主动运营:
+
+- `proactive-orchestrator` 监听 3010，容器内为 3000；Web Portal 通过 `PROACTIVE_ORCHESTRATOR_URL` 代理管理接口。
+- Admin 在 Web Portal「主动运营」创建规则；规则默认 `review_first`，即智能体只生成带证据洞察，必须管理员审核后才生成 mission。
+- 定时扫描间隔由 `PROACTIVE_SCAN_INTERVAL_MS` 控制，最低 60 秒；扫描源包括文档、事实、组织记忆、ClawHub 来源技能、组织任务和派单反馈。
+- 派单复用既有 `org_task` / `org_task_assignment`，主动任务类型保存在 metadata 的 `proactive_mission_type`，避免和既有 `org_task.task_type` 约束冲突。
+- 重复扫描按 rule、insight type 和 evidence hash 去重；同一未关闭洞察只更新 last_seen 元数据，不会无限堆积管理员待审列表。
 
 ---
 

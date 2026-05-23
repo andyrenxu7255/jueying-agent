@@ -1,6 +1,6 @@
 # agent-harness 系统架构文档
 
-> 版本: 2026-05-21 (第二十一轮：workflow_definition 审批桥落地)
+> 版本: 2026-05-23 (第二十二轮：主动运营编排闭环落地)
 > 当前状态: **全链路验证通过，当前文档已同步真实运行口径**
 
 ---
@@ -16,6 +16,7 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
 - **多种执行器**: generic-executor、code-executor、retrieval-aware-executor、verification-executor、repair-executor、approval-executor
 - **记忆系统**: 基于 Hermes 的会话记忆，支持压缩上下文召回
 - **梦境模式**: 记忆分层管理 + 技能发现生态，每日自动分析
+- **主动运营编排**: Admin 制定规则，智能体定期扫描事实/记忆/技能/任务状态，生成可审计洞察、审核后派单并汇报
 - **策略控制**: 基于 user_goal + policy 的细粒度权限检查
 - **事实检索**: 宽口候选先用向量/like 找对象与字段，图层严格门控，图内再做二次召回，PG 保持唯一事实源
 - **可观测性**: SigNoz（OpenTelemetry）全链路追踪
@@ -88,6 +89,7 @@ agent-harness（品牌名 JueYing / 绝影）是一个 AI Agent 编排与执行�
 | **skill-library** | `services/skill-library/` | ah-skill-library | 3007 | 技能库管理：Skill 注册/版本管理/候选生成/标签检索/复用统计 |
 | **resource-scheduler** | `services/resource-scheduler/` | ah-resource-scheduler | 3008 | 资源配额与巡检：组织限额检查/资源回收/健康巡检/定时调度 |
 | **mobile-app** | `apps/mobile-app/` | ah-mobile-app | 3009 | 移动推送服务：FCM/APNs 推送/设备注册/通知模板/任务完成提醒 |
+| **proactive-orchestrator** | `services/proactive-orchestrator/` | ah-proactive-orchestrator | 3010 | 主动运营：规则扫描、证据洞察、审核 mission、复用 org_task 派单、管理员汇报 |
 
 > 注：所有服务容器内部均监听 3000 端口，docker-compose 通过 ports 映射到不同主机端口。服务间通信使用 `http://<容器名>:3000`。
 
@@ -211,6 +213,27 @@ JueYing 的默认体验基准以 B2B 销售管理为样板：老板在 IM 中给
          → 超时/失败: 自动降级到 chat 路径
        d. sendFeishuTextReply → 用户收到结果
 ```
+
+### 4.6 主动运营编排流程
+
+```
+Admin 在 Web Portal 创建主动运营规则
+  → web-portal 代理到 proactive-orchestrator /internal/rules
+  → 定时器或 Admin 手动触发 /internal/runs
+  → proactive-orchestrator 按 rule 扫描:
+       a. fact-retrieval /internal/retrieval/query 读取事实层证据
+       b. hermes-adapter /internal/memory/summary 读取组织级记忆摘要
+       c. skill-library/ClawHub 元数据作为技能升级信号
+       d. org_task / org_task_assignment 作为执行阻塞信号
+  → 生成 proactive_insight（含 evidence_refs、confidence、evidence_pack_hash）
+  → 默认 review_first: Admin 审核洞察
+  → 审核通过后生成 proactive_mission
+  → 派单时复用 org_task / org_task_assignment，并调用 gateway /internal/tasks/notify
+  → 用户提交或任务完成后回写 mission 状态
+  → proactive_report 汇总给 Admin 发布
+```
+
+主动运营层只负责编排和治理，不替代事实层、记忆层、技能库和组织任务。重复扫描按 `rule_id + insight_type + evidence_pack_hash` 更新既有未关闭洞察，避免堆积重复待审项。
 
 ---
 
@@ -380,10 +403,20 @@ draft → planned → running → verifying → reporting → succeeded → arch
 
 | 表名 | 用途 |
 |------|------|
-| `org_task` | 组织任务 (task_type, schedule_type, cron_expression, status, prompt_message) |
-| `org_task_assignment` | 任务分配 (task_id, user_id, status, workflow_ref, notified_at) |
+| `org_task` | 组织任务 (task_type, schedule_type, cron_expression, status, prompt_message)，主动运营派单时追加 proactive_* 关联、source_type、review_status、evidence_refs |
+| `org_task_assignment` | 任务分配 (task_id, user_id, status, workflow_ref, notified_at)，主动运营回写 proactive_mission_id、feedback_summary、evidence_refs |
 
-### 6.9 梦境模式
+### 6.9 主动运营编排
+
+| 表名 | 用途 |
+|------|------|
+| `proactive_rule` | Admin 规则（组织、调度、触发源、审批模式、证据策略、路由策略） |
+| `proactive_run` | 规则扫描运行记录（状态、扫描计数、生成洞察/任务数、汇总） |
+| `proactive_insight` | 带证据洞察（类型、置信度、证据引用、审核状态、去重哈希） |
+| `proactive_mission` | 审核后任务（目标用户、优先级、assignment_ref、workflow_ref、完成状态） |
+| `proactive_report` | 管理员汇报（运行摘要、发布状态、发布人、报告正文） |
+
+### 6.10 梦境模式
 
 | 表名 | 用途 |
 |------|------|
@@ -447,6 +480,9 @@ GATEWAY_URL=http://gateway-adapter:3000
 SKILL_LIBRARY_URL=http://skill-library:3000
 RESOURCE_SCHEDULER_URL=http://resource-scheduler:3000
 MOBILE_APP_URL=http://mobile-app:3000
+PROACTIVE_ORCHESTRATOR_URL=http://proactive-orchestrator:3000
+PROACTIVE_OWNER_USER_ID=u_proactive_orchestrator
+PROACTIVE_SCAN_INTERVAL_MS=900000
 ```
 
 ---
@@ -475,6 +511,7 @@ docker logs -f ah-executor
 docker logs -f ah-skill-library
 docker logs -f ah-resource-scheduler
 docker logs -f ah-mobile-app
+docker logs -f ah-proactive-orchestrator
 ```
 
 ---
@@ -573,6 +610,27 @@ docker logs -f ah-mobile-app
 | GET | `/internal/skills/usage-stats` | 梦境模式：技能使用统计 |
 | GET | `/internal/skills/scene-assessments` | 梦境模式：场景价值评估 |
 
+### proactive-orchestrator (主机端口 3010)
+| 方法 | 路径 | 用途 |
+|------|------|------|
+| GET | `/internal/dashboard` | 主动运营总览（规则、运行、洞察、任务、汇报与汇总指标） |
+| GET | `/internal/rules` | 列出主动运营规则 |
+| POST | `/internal/rules` | 创建主动运营规则 |
+| GET | `/internal/rules/:id` | 获取规则详情 |
+| PUT | `/internal/rules/:id` | 更新规则 |
+| POST | `/internal/rules/:id/archive` | 归档规则 |
+| DELETE | `/internal/rules/:id` | 删除规则 |
+| GET | `/internal/runs` | 列出扫描运行记录 |
+| POST | `/internal/runs` | 手动触发规则扫描 |
+| POST | `/internal/runs/:id/scan` | 对已有运行执行扫描补偿 |
+| GET | `/internal/insights` | 列出洞察（支持 org/status 过滤） |
+| POST | `/internal/insights/:id/review` | 审核洞察，批准时生成 mission |
+| GET | `/internal/missions` | 列出 mission |
+| POST | `/internal/missions/:id/dispatch` | 派单，复用 org_task/org_task_assignment |
+| POST | `/internal/missions/:assignment_id/complete` | 回写用户提交/完成结果 |
+| GET | `/internal/reports` | 列出汇报 |
+| POST | `/internal/reports/:id/publish` | 发布汇报 |
+
 ### web-portal (主机端口 3003)
 | 方法 | 路径 | 用途 |
 |------|------|------|
@@ -604,6 +662,17 @@ docker logs -f ah-mobile-app
 | POST | `/api/admin/skills/:id/upgrade` | 管理员确认后把技能升级到 ClawHub 最新版本 |
 | GET | `/api/admin/dream/config` | 梦境模式：读取配置 |
 | POST | `/api/admin/dream/config` | 梦境模式：保存配置 |
+| GET | `/api/admin/proactive/dashboard` | 主动运营总览代理 |
+| GET/POST | `/api/admin/proactive/rules` | 主动运营规则列表/创建代理 |
+| PUT | `/api/admin/proactive/rules/:id` | 主动运营规则更新代理 |
+| POST | `/api/admin/proactive/rules/:id/archive` | 主动运营规则归档代理 |
+| GET/POST | `/api/admin/proactive/runs` | 主动运营扫描运行列表/触发代理 |
+| GET | `/api/admin/proactive/insights` | 主动运营洞察列表代理 |
+| POST | `/api/admin/proactive/insights/:id/review` | 主动运营洞察审核代理 |
+| GET | `/api/admin/proactive/missions` | 主动运营 mission 列表代理 |
+| POST | `/api/admin/proactive/missions/:id/dispatch` | 主动运营派单代理 |
+| GET | `/api/admin/proactive/reports` | 主动运营汇报列表代理 |
+| POST | `/api/admin/proactive/reports/:id/publish` | 主动运营汇报发布代理 |
 
 ---
 
@@ -935,6 +1004,7 @@ Core capabilities:
 - **Multiple executors**: generic-executor, code-executor, retrieval-aware-executor, verification-executor, repair-executor, approval-executor
 - **Memory system**: Hermes-based session memory, supporting compressed context recall
 - **Dream Mode**: Hierarchical memory management + skill discovery ecosystem, daily auto-analysis
+- **Proactive orchestration**: Admin-defined rules let agents scan facts/memory/skills/tasks, produce evidence-backed insights, dispatch approved missions, and report back
 - **Policy control**: Fine-grained permission checks based on user_goal + policy
 - **Fact retrieval**: Wide-candidate vector/like to find objects and fields, strict graph layer gating, in-graph secondary recall, PG as the single source of truth
 - **Observability**: SigNoz (OpenTelemetry) full-chain tracing
@@ -1007,6 +1077,7 @@ Core capabilities:
 | **skill-library** | `services/skill-library/` | ah-skill-library | 3007 | Skill library management: Skill registration/version management/candidate generation/tag retrieval/reuse statistics |
 | **resource-scheduler** | `services/resource-scheduler/` | ah-resource-scheduler | 3008 | Resource quota & inspection: org quota checks/resource reclamation/health inspection/scheduled dispatch |
 | **mobile-app** | `apps/mobile-app/` | ah-mobile-app | 3009 | Mobile push service: FCM/APNs push/device registration/notification templates/task completion reminders |
+| **proactive-orchestrator** | `services/proactive-orchestrator/` | ah-proactive-orchestrator | 3010 | Proactive ops: rule scans, evidence-backed insights, reviewed missions, org_task dispatch, admin reports |
 
 > Note: All service containers internally listen on port 3000; docker-compose maps to different host ports via ports. Inter-service communication uses `http://<container-name>:3000`.
 
@@ -1130,6 +1201,27 @@ User sends lookup message in Feishu ("/find xxx"/"查 xxx"/name query/contact qu
          → Timeout/Failure: auto-degrade to chat path
        d. sendFeishuTextReply → user receives result
 ```
+
+### 4.6 Proactive Orchestration Flow
+
+```
+Admin creates proactive rule in Web Portal
+  → web-portal proxies to proactive-orchestrator /internal/rules
+  → timer or Admin triggers /internal/runs
+  → proactive-orchestrator scans:
+       a. fact-retrieval /internal/retrieval/query for evidence
+       b. hermes-adapter /internal/memory/summary for org memory signals
+       c. skill-library/ClawHub metadata for skill-update signals
+       d. org_task / org_task_assignment for execution blockers
+  → creates proactive_insight with evidence_refs, confidence, evidence_pack_hash
+  → review_first by default: Admin reviews insights
+  → approved insight creates proactive_mission
+  → dispatch reuses org_task / org_task_assignment and calls gateway /internal/tasks/notify
+  → user submission or completion updates mission status
+  → proactive_report summarizes the run for Admin publication
+```
+
+The proactive layer only orchestrates governance. Facts, memory, skills, and organization tasks remain the authoritative modules. Repeated scans update the same open insight by `rule_id + insight_type + evidence_pack_hash` instead of piling duplicate pending insights.
 
 ---
 
@@ -1299,10 +1391,20 @@ User sends file (Feishu/WeCom/Web)
 
 | Table | Purpose |
 |-------|---------|
-| `org_task` | Organization task (task_type, schedule_type, cron_expression, status, prompt_message) |
-| `org_task_assignment` | Task assignment (task_id, user_id, status, workflow_ref, notified_at) |
+| `org_task` | Organization task (task_type, schedule_type, cron_expression, status, prompt_message), with proactive_* links, source_type, review_status, evidence_refs when dispatched by proactive orchestration |
+| `org_task_assignment` | Task assignment (task_id, user_id, status, workflow_ref, notified_at), with proactive_mission_id, feedback_summary, evidence_refs for proactive follow-up |
 
-### 6.9 Dream Mode
+### 6.9 Proactive Orchestration
+
+| Table | Purpose |
+|-------|---------|
+| `proactive_rule` | Admin rule (org, schedule, trigger source, approval mode, evidence policy, routing policy) |
+| `proactive_run` | Rule scan run (status, scanned counts, generated insights/missions, summary) |
+| `proactive_insight` | Evidence-backed insight (type, confidence, evidence refs, review status, dedupe hash) |
+| `proactive_mission` | Approved mission (target user, priority, assignment_ref, workflow_ref, completion status) |
+| `proactive_report` | Admin report (run summary, publication status, publisher, report body) |
+
+### 6.10 Dream Mode
 
 | Table | Purpose |
 |-------|---------|
@@ -1366,6 +1468,9 @@ GATEWAY_URL=http://gateway-adapter:3000
 SKILL_LIBRARY_URL=http://skill-library:3000
 RESOURCE_SCHEDULER_URL=http://resource-scheduler:3000
 MOBILE_APP_URL=http://mobile-app:3000
+PROACTIVE_ORCHESTRATOR_URL=http://proactive-orchestrator:3000
+PROACTIVE_OWNER_USER_ID=u_proactive_orchestrator
+PROACTIVE_SCAN_INTERVAL_MS=900000
 ```
 
 ---
@@ -1394,6 +1499,7 @@ docker logs -f ah-executor
 docker logs -f ah-skill-library
 docker logs -f ah-resource-scheduler
 docker logs -f ah-mobile-app
+docker logs -f ah-proactive-orchestrator
 ```
 
 ---
@@ -1492,6 +1598,27 @@ docker logs -f ah-mobile-app
 | GET | `/internal/skills/usage-stats` | Dream Mode: skill usage statistics |
 | GET | `/internal/skills/scene-assessments` | Dream Mode: scene value assessment |
 
+### proactive-orchestrator (Host Port 3010)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/internal/dashboard` | Proactive dashboard (rules, runs, insights, missions, reports, metrics) |
+| GET | `/internal/rules` | List proactive rules |
+| POST | `/internal/rules` | Create proactive rule |
+| GET | `/internal/rules/:id` | Get rule detail |
+| PUT | `/internal/rules/:id` | Update rule |
+| POST | `/internal/rules/:id/archive` | Archive rule |
+| DELETE | `/internal/rules/:id` | Delete rule |
+| GET | `/internal/runs` | List scan runs |
+| POST | `/internal/runs` | Manually trigger rule scan |
+| POST | `/internal/runs/:id/scan` | Retry/continue a scan run |
+| GET | `/internal/insights` | List insights (org/status filters) |
+| POST | `/internal/insights/:id/review` | Review insight and create mission on approval |
+| GET | `/internal/missions` | List missions |
+| POST | `/internal/missions/:id/dispatch` | Dispatch via org_task/org_task_assignment |
+| POST | `/internal/missions/:assignment_id/complete` | Write user completion/submission result |
+| GET | `/internal/reports` | List reports |
+| POST | `/internal/reports/:id/publish` | Publish report |
+
 ### web-portal (Host Port 3003)
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -1519,6 +1646,17 @@ docker logs -f ah-mobile-app
 | POST | `/api/admin/skills/:id/promote-to-org` | Dream Mode: promote skill to org level |
 | GET | `/api/admin/dream/config` | Dream Mode: read configuration |
 | POST | `/api/admin/dream/config` | Dream Mode: save configuration |
+| GET | `/api/admin/proactive/dashboard` | Proactive dashboard proxy |
+| GET/POST | `/api/admin/proactive/rules` | Proactive rule list/create proxy |
+| PUT | `/api/admin/proactive/rules/:id` | Proactive rule update proxy |
+| POST | `/api/admin/proactive/rules/:id/archive` | Proactive rule archive proxy |
+| GET/POST | `/api/admin/proactive/runs` | Proactive scan list/trigger proxy |
+| GET | `/api/admin/proactive/insights` | Proactive insight list proxy |
+| POST | `/api/admin/proactive/insights/:id/review` | Proactive insight review proxy |
+| GET | `/api/admin/proactive/missions` | Proactive mission list proxy |
+| POST | `/api/admin/proactive/missions/:id/dispatch` | Proactive dispatch proxy |
+| GET | `/api/admin/proactive/reports` | Proactive report list proxy |
+| POST | `/api/admin/proactive/reports/:id/publish` | Proactive report publish proxy |
 
 ---
 

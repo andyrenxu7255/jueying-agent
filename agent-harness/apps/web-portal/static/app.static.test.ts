@@ -11,28 +11,51 @@ type StaticAppExports = {
   emptyState: (icon: string, title: string, desc: string, actionHtml?: string) => string;
   arrayBufferToBase64: (buffer: ArrayBuffer) => string;
   passwordStrengthHtml: (score: number) => string;
+  parseHashView: () => string;
+  syncCurrentViewFromHash: (navItems: Array<{ section: string; items: Array<{ key: string }> }>) => Record<string, boolean>;
+  setCurrentView: (view: string, updateHash: boolean) => void;
+  __getCurrentView: () => string;
+  __setCurrentView: (view: string) => void;
 };
 
-function loadStaticApp(): StaticAppExports {
+type LoadedStaticApp = {
+  app: StaticAppExports;
+  windowMock: { location: { hash: string }; addEventListener: jest.Mock };
+  documentMock: {
+    getElementById: jest.Mock;
+    querySelectorAll: jest.Mock;
+    addEventListener: jest.Mock;
+    removeEventListener: jest.Mock;
+  };
+};
+
+function loadStaticApp(): LoadedStaticApp {
   const appPath = join(process.cwd(), 'apps', 'web-portal', 'static', 'app.js');
   const source = readFileSync(appPath, 'utf8');
+  const windowMock = {
+    __AH_DISABLE_AUTO_INIT__: true,
+    location: { hash: '' },
+    addEventListener: jest.fn(),
+  };
+  const documentMock = {
+    getElementById: jest.fn(() => null),
+    querySelectorAll: jest.fn(() => []),
+    createElement: () => ({
+      appendChild: jest.fn(),
+      remove: jest.fn(),
+      addEventListener: jest.fn(),
+      querySelector: () => null,
+    }),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    body: { appendChild: jest.fn() },
+    documentElement: {},
+  };
   const context = createContext({
     module: { exports: {} },
     exports: {},
-    window: { __AH_DISABLE_AUTO_INIT__: true },
-    document: {
-      getElementById: () => null,
-      createElement: () => ({
-        appendChild: jest.fn(),
-        remove: jest.fn(),
-        addEventListener: jest.fn(),
-        querySelector: () => null,
-      }),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      body: { appendChild: jest.fn() },
-      documentElement: {},
-    },
+    window: windowMock,
+    document: documentMock,
     localStorage: {
       getItem: jest.fn(() => null),
       setItem: jest.fn(),
@@ -55,11 +78,15 @@ function loadStaticApp(): StaticAppExports {
   });
 
   new Script(source, { filename: appPath }).runInContext(context);
-  return (context.module as { exports: StaticAppExports }).exports;
+  return {
+    app: (context.module as { exports: StaticAppExports }).exports,
+    windowMock,
+    documentMock,
+  };
 }
 
 describe('web portal static helpers', () => {
-  const app = loadStaticApp();
+  const { app } = loadStaticApp();
 
   it('escapes HTML text and attributes consistently', () => {
     expect(app.escapeHtml('<script>"x"&\'y</script>')).toBe('&lt;script&gt;&quot;x&quot;&amp;&#39;y&lt;/script&gt;');
@@ -104,5 +131,48 @@ describe('web portal static helpers', () => {
     expect(app.passwordStrengthHtml(1)).toContain('var(--danger)');
     expect(app.passwordStrengthHtml(6)).toContain('width:100%');
     expect(app.passwordStrengthHtml(6)).toContain('var(--success)');
+  });
+});
+
+describe('web portal hash navigation', () => {
+  it('opens a permitted hash view directly after login/render', () => {
+    const { app, windowMock } = loadStaticApp();
+    windowMock.location.hash = '#proactive';
+
+    const visible = app.syncCurrentViewFromHash([
+      { section: 'overview', items: [{ key: 'dashboard' }] },
+      { section: 'dispatch', items: [{ key: 'org-tasks' }, { key: 'proactive' }] },
+    ]);
+
+    expect(visible.proactive).toBe(true);
+    expect(app.__getCurrentView()).toBe('proactive');
+  });
+
+  it('falls back to dashboard when hash is not visible to the role', () => {
+    const { app, windowMock } = loadStaticApp();
+    app.__setCurrentView('proactive');
+    windowMock.location.hash = '#dream-config';
+
+    app.syncCurrentViewFromHash([
+      { section: 'overview', items: [{ key: 'dashboard' }] },
+      { section: 'my', items: [{ key: 'my-tasks' }] },
+    ]);
+
+    expect(app.__getCurrentView()).toBe('dashboard');
+  });
+
+  it('keeps navigation highlight and address hash in sync on clicks', () => {
+    const { app, windowMock, documentMock } = loadStaticApp();
+    const proactiveLink = { dataset: { view: 'proactive' }, classList: { toggle: jest.fn() } };
+    const dashboardLink = { dataset: { view: 'dashboard' }, classList: { toggle: jest.fn() } };
+    const mainContent = { innerHTML: '' };
+    documentMock.querySelectorAll.mockReturnValue([proactiveLink, dashboardLink]);
+    documentMock.getElementById.mockImplementation((id: string) => (id === 'main-content' ? mainContent : null));
+
+    app.setCurrentView('proactive', true);
+
+    expect(windowMock.location.hash).toBe('proactive');
+    expect(proactiveLink.classList.toggle).toHaveBeenCalledWith('active', true);
+    expect(dashboardLink.classList.toggle).toHaveBeenCalledWith('active', false);
   });
 });
