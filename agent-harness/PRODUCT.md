@@ -1,6 +1,6 @@
 # JueYing (绝影) — 产品说明
 
-> 版本: 1.6.3 | 更新日期: 2026-05-23
+> 版本: 1.7.0 | 更新日期: 2026-05-23
 > 品牌名称: JueYing (绝影) | 内部代号: agent-harness
 
 ---
@@ -292,7 +292,7 @@ JueYing (Agent Harness) 本体采用 **MIT** 开源许可证。
 
 # JueYing (绝影) — Product Description
 
-> Version: 1.6.3 | Updated: 2026-05-23
+> Version: 1.7.0 | Updated: 2026-05-23
 > Brand Name: JueYing (绝影) | Internal Codename: agent-harness
 
 ---
@@ -312,6 +312,7 @@ An AI work assistant for enterprise office scenarios, enabling employees to invo
 | **Zero Learning Cost** | Chat directly through Feishu/WeCom, using AI as naturally as talking to a colleague |
 | **Task Automation** | Complex tasks are automatically decomposed into executable stage chains; after a successful first run, they can be solidified as reusable workflow-type skill templates |
 | **Business Closed Loop** | Centered on B2B sales management, supporting boss decision-making, manager process tracking, salesperson execution, and exception escalation |
+| **Proactive Execution Follow-up** | After admins define rules, agents periodically inspect fact and task state, produce evidence-backed insights, wait for review, dispatch user missions, and report back |
 | **Unified Multi-Channel** | Feishu, WeCom, Web Portal unified access with automatic identity binding |
 | **Contextual Memory** | Multi-turn conversation memory — the AI remembers previous exchanges |
 | **Enterprise Security** | Organization isolation, RBAC permissions, policy control, audit logging |
@@ -355,6 +356,12 @@ Intent Clarification → Evidence Retrieval → Decision Reasoning → Result Re
 ### 2.2.1 B2B Sales Management Blueprint Scenario
 
 JueYing's daily management blueprint is benchmarked on B2B sales teams: the boss only inputs business goals and constraints, and the Agent decomposes them into sales manager morning briefings, frontline salesperson daily eight-visit reminders, stuck-deal rescue, discount approvals, collection tracking, and weekly reviews. The system organizes red/yellow/green customer status, stage dwell time, promised actions, evidence gaps, and items requiring boss decisions into a briefing, so that management time is spent on exceptions and decisions rather than scrolling through CRM pipelines.
+
+### 2.2.2 Proactive Orchestration
+
+Proactive orchestration turns the agent into an auditable execution follow-up layer. Admins create rules in the Web Portal, such as "scan MEDDIC sales materials, customer follow-up facts, ClawHub sales skill updates, and blocked assignments every morning." `proactive-orchestrator` scans fact-layer data and creates `proactive_insight` records with evidence references, confidence, and dedupe hashes. By default, the system does not interrupt regular users directly; insights enter the admin review queue first.
+
+After an admin approves an insight, the system creates a `proactive_mission` and reuses existing `org_task` / `org_task_assignment` records for dispatch. Users submit feedback through their task flow or IM channel, the mission status is updated, and an admin report can be generated and published. The chain is: Admin rule → agent scan → evidence-backed insight → admin review → mission dispatch → user execution → admin report.
 
 ### 2.3 Knowledge Management
 
@@ -402,9 +409,9 @@ A daily auto-running system for hierarchical memory management, skill discovery,
 
 ### 2.5 Skill System
 
-Install pre-built skills via the ClawHub China mirror site (mirror-cn.clawhub.com) to extend Agent capabilities. All 14 skills require no API Key.
+Install pre-built skills via ClawHub to extend Agent capabilities. Admins can configure `CLAWHUB_ADMIN_TOKEN` in the Web Portal for download, upload, and upgrade maintenance; the token is only stored in local environment configuration and is never committed to GitHub.
 
-**Pre-built Skills (14 items, all free, no API Key required):**
+**Pre-built Skills (16 items, all free, no API Key required unless noted by the skill itself):**
 - **Document Pro**: Full-format reading and parsing of PDF/Word/PPT/Excel/CSV/Markdown
 - **Document Generator**: AI-driven auto-generation of Word/PPT/Excel reports
 - **PDF Converter**: PDF ↔ Word/Excel format conversion, merge/split/compress
@@ -419,6 +426,10 @@ Install pre-built skills via the ClawHub China mirror site (mirror-cn.clawhub.co
 - **Memory Compress**: Conversational object-oriented memory storage, automatic object relationship graph construction
 - **Skill Vetter**: Pre-install permission and risk review for skills
 - **self-improving-agent**: Experience recording, continuous self-optimization
+- **MEDDIC B2B Sales Review**: MEDDIC sales review, pipeline review, visit recap, and coaching
+- **Customer Research**: Customer and competitor research for account planning and sales preparation
+
+The skill maintenance page provides a ClawHub entry point, URL import, `SKILL.md` upload, batch upgrade checks, single-skill change summaries, and admin confirmation before upgrade.
 
 ### 2.6 Organization & User Management
 
@@ -455,6 +466,8 @@ Each user has a fully isolated personal file workspace.
 | User Management | Create/manage users, assign organizations, view binding status |
 | Organization Management | Create/manage organizations, member invitations |
 | Skill Management | Mirror site search & install, manual creation, version management, source identification |
+| Skill Maintenance | ClawHub admin token, URL/file import, upgrade checks, change summaries, confirmed upgrades |
+| Proactive Operations | Admin rules, manual scans, insight review, task dispatch, report publishing |
 | Dream Skill Discovery | View org skills, audit records, scenario value, and workflow_definition review/approval |
 | Knowledge Import | Manual input + file upload (TXT/MD/PDF/DOCX etc.), permission control |
 | Knowledge Review | Review user-submitted knowledge items (approve/share/return/reject) |
