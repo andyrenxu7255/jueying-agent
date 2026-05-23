@@ -1,6 +1,6 @@
 # JueYing (绝影) — 运维手册
 
-> 版本: 1.6.2 | 更新日期: 2026-05-22
+> 版本: 1.7.0 | 更新日期: 2026-05-23
 > 适用场景: 开发、测试，生产环境部署与维护
 
 ---
@@ -12,7 +12,7 @@
 **系统要求:**
 - Docker Engine 24.0+
 - Docker Compose v2
-- Node.js 20+
+- Node.js 22+
 - npm 10+
 - PowerShell (Windows) 或 Bash (Linux/macOS)
 
@@ -58,6 +58,7 @@ cp .env.example .env
 | `LITELLM_MASTER_KEY` | 是 | - | LiteLLM 代理主密钥 |
 | `FEISHU_APP_ID` | 否 | - | 飞书应用 ID |
 | `FEISHU_APP_SECRET` | 否 | - | 飞书应用密钥 |
+| `FEISHU_SIGNING_SECRET` | 否 | - | 仅 webhook 回调验签需要；飞书长连接模式可留空 |
 | `WECOM_CORP_ID` | 否 | - | 企业微信 CorpID |
 | `WECOM_CORP_SECRET` | 否 | - | 企业微信应用密钥 |
 | `WECOM_TOKEN` | 否 | - | 企业微信回调 Token |
@@ -113,19 +114,35 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 # 预期输出: 18 个容器全部 running
 
 # 各服务健康检查
-curl http://localhost:3000/health     # Gateway Adapter
-curl http://localhost:3001/           # Workflow Service
-curl http://localhost:3002/health     # Executor Gateway
+curl http://localhost:3000/health/live # Gateway Adapter
+curl http://localhost:3001/health/live # Workflow Service
+curl http://localhost:3002/health/live # Executor Gateway
 curl http://localhost:3003/health/live # Web Portal
-curl http://localhost:3004/health     # Fact Retrieval
+curl http://localhost:3004/health/live # Fact Retrieval
 curl http://localhost:3005/health/live # Hermes Adapter
-curl http://localhost:3007/health     # Skill Library
-curl http://localhost:3008/health     # Resource Scheduler
-curl http://localhost:3009/health     # Mobile App
+curl http://localhost:3007/health/live # Skill Library
+curl http://localhost:3008/health/live # Resource Scheduler
+curl http://localhost:3009/health/live # Mobile App
+curl http://localhost:3010/health/live # Proactive Orchestrator
 
 # 全链路回归审计
 node scripts/final-audit.cjs
 ```
+
+质量门禁:
+
+```bash
+npm run lint
+npm run type-check
+npm test -- --coverage --runInBand
+npm run test:portal-static
+npm run test:portal-admin
+npm run test:proactive
+npm run context:audit
+npm audit --audit-level=moderate
+```
+
+Jest 覆盖率门禁为 statements、branches、functions、lines 四项全局均不低于 95%。`test:portal-admin` 是管理台功能合理性回归，必须覆盖飞书配置、模型目录/测试、知识导入、DB 运维、资源监控、ClawHub 技能维护、共享知识库与 MEDDIC demo 图谱，不可只用服务启动冒烟替代。`test:proactive` 覆盖主动运营从规则创建、扫描、证据洞察、审核生成 mission、复用组织任务派单到汇报发布的完整链路，并断言重复扫描不会堆叠重复待审洞察。
 
 ---
 
@@ -135,16 +152,17 @@ node scripts/final-audit.cjs
 
 | 服务 | 容器名 | 端口 | 健康检查端点 |
 |------|--------|------|-------------|
-| Gateway Adapter | ah-gateway | 3000 | `/health` |
-| Workflow Service | ah-workflow | 3001 | `/` |
-| Executor Gateway | ah-executor | 3002 | `/health` |
+| Gateway Adapter | ah-gateway | 3000 | `/health/live` |
+| Workflow Service | ah-workflow | 3001 | `/health/live` |
+| Executor Gateway | ah-executor | 3002 | `/health/live` |
 | Web Portal | ah-web-portal | 3003 | `/health/live` |
-| Fact Retrieval | ah-fact-retrieval | 3004 | `/health` |
+| Fact Retrieval | ah-fact-retrieval | 3004 | `/health/live` |
 | Hermes Adapter | ah-hermes | 3005 | `/health/live` |
-| Feishu Longconn | ah-feishu-longconn | - | 内部健康服务 |
-| Skill Library | ah-skill-library | 3007 | `/health` |
-| Resource Scheduler | ah-resource-scheduler | 3008 | `/health` |
-| Mobile App | ah-mobile-app | 3009 | `/health` |
+| Feishu Longconn | ah-feishu-longconn | - | `:3006/health/live` |
+| Skill Library | ah-skill-library | 3007 | `/health/live` |
+| Resource Scheduler | ah-resource-scheduler | 3008 | `/health/live` |
+| Mobile App | ah-mobile-app | 3009 | `/health/live` |
+| Proactive Orchestrator | ah-proactive-orchestrator | 3010 | `/health/live` |
 | PostgreSQL | ah-postgres | 5432 | pg_isready |
 | Redis | ah-redis | 6379 | PING |
 | MinIO | ah-minio | 9000/9001 | `/minio/health/live` |
@@ -161,10 +179,13 @@ node scripts/final-audit.cjs
 docker logs -f ah-gateway          # Gateway 实时日志
 docker logs ah-workflow --tail 100 # Workflow 最近 100 行
 docker logs ah-feishu-longconn --since 5m --tail 200  # 飞书最近 5 分钟
+docker logs ah-proactive-orchestrator --tail 100 # 主动运营最近 100 行
 
 # 重启单个服务
 docker compose --profile app restart gateway-adapter
 docker compose --profile app restart workflow-service
+docker compose --profile app restart feishu-longconn
+docker compose --profile app restart proactive-orchestrator
 
 # 停止所有服务
 docker compose --profile app down
@@ -188,6 +209,7 @@ docker compose --profile app down -v
 | web-portal | 0.30 vCPU | 300 MB |
 | skill-library | 0.20 vCPU | 350 MB |
 | resource-scheduler | 0.20 vCPU | 350 MB |
+| proactive-orchestrator | 0.25 vCPU | 350 MB |
 | mobile-app | 0.15 vCPU | 250 MB |
 | postgres | 1.25 vCPU | 3 GB |
 | redis | 0.20 vCPU | 450 MB |
@@ -195,6 +217,24 @@ docker compose --profile app down -v
 | clickhouse | 1.00 vCPU | 2 GB |
 
 可根据实际负载调整，或在 docker-compose.yml 中移除 `deploy.resources.limits` 使用无限制模式。
+
+Web Portal 的资源监控会优先展示 Docker 容器状态；如果系统以本机进程、systemd 或其他方式运行，容器监控会降级为“未检测到容器运行时”，系统资源、数据库统计和配额巡检仍可使用。存储配额 `storage_bytes` 以字节保存，界面会自动换算为 B/KB/MB/GB，避免把字节值误读成 MB。
+
+模型配置与测试:
+
+- LLM 模型列表保存在 `LLM_MODELS`，同时同步 `LITELLM_MODEL` 与 `LITELLM_FALLBACK_MODELS`，列表顺序即优先级。
+- “同步模型目录/从模型目录选择”会访问 OpenAI 兼容 `/v1/models`，再合并本地 `config/litellm_config.yaml` 元数据。
+- Embedding/Rerank 支持从目录选择模型并测试。Embedding 测试会返回实际维度，Rerank 测试会返回排序结果数量。模型页还支持手动新增、调整优先级、查看上下文窗口、最大输出和思考设置。
+- 配置保存后页面会显示可选重启目标；大部分字段先热加载，独立服务如 `fact-retrieval`、`gateway-adapter`、`feishu-longconn` 可按按钮或命令重启。
+- 知识导入分为手动输入和文件上传两条入口，来源字段仅作说明，不再选择“文档/对话”；上传支持 TXT、Markdown、PDF、Word、Excel、CSV、JSON。
+
+主动运营:
+
+- `proactive-orchestrator` 监听 3010，容器内为 3000；Web Portal 通过 `PROACTIVE_ORCHESTRATOR_URL` 代理管理接口。
+- Admin 在 Web Portal「主动运营」创建规则；规则默认 `review_first`，即智能体只生成带证据洞察，必须管理员审核后才生成 mission。
+- 定时扫描间隔由 `PROACTIVE_SCAN_INTERVAL_MS` 控制，最低 60 秒；扫描源包括文档、事实、组织记忆、ClawHub 来源技能、组织任务和派单反馈。
+- 派单复用既有 `org_task` / `org_task_assignment`，主动任务类型保存在 metadata 的 `proactive_mission_type`，避免和既有 `org_task.task_type` 约束冲突。
+- 重复扫描按 rule、insight type 和 evidence hash 去重；同一未关闭洞察只更新 last_seen 元数据，不会无限堆积管理员待审列表。
 
 ---
 
@@ -318,8 +358,10 @@ docker compose --profile app up -d <服务名>
 
 1. 检查 feishu-longconn 日志: `docker logs ah-feishu-longconn --tail 50`
 2. 确认 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET` 正确配置
-3. 确认飞书应用已发布并配置了事件订阅 URL
-4. 通过 Web Portal 检查身份绑定: http://localhost:3003 → 用户管理
+3. 长连接模式不需要 `FEISHU_SIGNING_SECRET`；只有 webhook 回调验签才需要 signing secret
+4. 确认飞书应用已发布并启用事件订阅
+5. Web Portal 保存飞书配置后，可在页面内点击 `feishu-longconn` / `gateway-adapter` 重启按钮
+6. 通过 Web Portal 检查身份绑定: http://localhost:3003 → 用户管理
 
 #### LLM 调用超时
 

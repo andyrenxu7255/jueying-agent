@@ -1,0 +1,18 @@
+{
+  "name": "@agent-harness/proactive-orchestrator",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit",
+    "test": "jest --config ../../tests/setup/jest.config.cjs --runInBand services/proactive-orchestrator/src/*.test.ts"
+  },
+  "dependencies": {
+    "@agent-harness/shared": "file:../../libs/shared",
+    "pg": "^8.20.0",
+    "zod": "^3.25.76"
+  }
+}

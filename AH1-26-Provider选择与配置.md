@@ -84,6 +84,8 @@
 
 ## 26.4 Embedding Provider
 
+Web Portal 必须同时支持手动配置和模型目录配置。目录来源优先使用 OpenAI 兼容 `/v1/models`，并合并本地 `config/litellm_config.yaml` 中的维度、上下文窗口和模型类型元数据。Embedding 测试按钮必须实际调用 provider，并返回维度、模型版本、耗时或可解释错误。
+
 ### 26.4.1 Day 1 主供应商
 
 | 用途 | 主供应商 | 维度 | 说明 |
@@ -128,6 +130,8 @@
 3. **版本标识**：每次写入 embedding 时记录 `embedding_model_version`。
 
 ## 26.5 Rerank Provider
+
+Rerank Provider 与 Embedding 一样支持目录选择和测试按钮。测试结果至少返回 `result_count`、provider、耗时或可解释错误；provider 不可用时，运行时必须降级到 deterministic/local 排序路径并记录 degraded 原因。
 
 ### 26.5.1 Day 1 主供应商
 
@@ -382,3 +386,5 @@ ANTHROPIC_API_BASE=https://api.anthropic.com
 4. 主供应商失败时自动切换到备选。
 5. 预算超限时正确拒绝请求。
 6. 凭证从环境变量正确读取。
+7. 管理台模型列表新增第二个模型后立即可见，且优先级、上下文窗口、最大输出、思考开关与思考强度被持久化。
+8. Chat/Embedding/Rerank 三类模型目录与测试接口均返回可操作结果，不允许只保存配置而无法验证。

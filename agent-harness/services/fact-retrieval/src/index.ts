@@ -12,7 +12,7 @@ const port = Number(process.env.PORT || process.env.SERVER_PORT || configManager
 async function readJson(req: import('node:http').IncomingMessage): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
   let totalSize = 0;
-  const MAX_BODY_SIZE = 3 * 1024 * 1024;
+  const MAX_BODY_SIZE = 12 * 1024 * 1024;
   for await (const chunk of req) {
     totalSize += chunk.length;
     if (totalSize > MAX_BODY_SIZE) {
@@ -38,6 +38,15 @@ function sendJson(res: import('node:http').ServerResponse, statusCode: number, b
 const MAX_CONTENT_TEXT_SIZE = 2 * 1024 * 1024;
 
 const OWNER_USER_ID_PATTERN = /^u_[a-z0-9][a-z0-9_-]{0,62}$/;
+const REVIEW_STATUS_ALIASES: Record<string, string> = {
+  unconfirmed: 'candidate',
+  returned: 'candidate'
+};
+
+function normalizeReviewStatus(status: string): string {
+  const normalized = String(status || '').trim().toLowerCase();
+  return REVIEW_STATUS_ALIASES[normalized] || normalized || 'candidate';
+}
 
 function validateOwnerUserId(ownerUserId: string, res: import('node:http').ServerResponse): boolean {
   if (!ownerUserId || !OWNER_USER_ID_PATTERN.test(ownerUserId)) {
@@ -332,11 +341,11 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // 知识审核台: 查询 unconfirmed 知识列表
+    // 知识审核台: 查询 candidate 知识列表
     if (pathname === '/internal/fact/review' && req.method === 'GET') {
       const url = new URL(req.url || '/', 'http://localhost');
       const orgId = url.searchParams.get('org_id') || '';
-      const status = url.searchParams.get('status') || 'unconfirmed';
+      const status = normalizeReviewStatus(url.searchParams.get('status') || 'candidate');
       const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200);
       const offset = Math.max(Number(url.searchParams.get('offset') || 0), 0);
       const result = await factRetrievalService.listFactsForReview({

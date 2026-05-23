@@ -1,4 +1,16 @@
-import { userRefToDbId, buildAllowedScopes, splitIntoChunks, sha256Prefixed, sha256Buffer, randomRef } from './support'
+import {
+  userRefToDbId,
+  buildAllowedScopes,
+  splitIntoChunks,
+  sha256Prefixed,
+  sha256Buffer,
+  randomRef,
+  tokenize,
+  tokenCount,
+  lexicalScore,
+  sourceScope,
+  sha256Hex,
+} from './support'
 
 describe('userRefToDbId', () => {
   it('returns lowercase uuid unchanged when input is already valid uuid', () => {
@@ -79,9 +91,37 @@ describe('splitIntoChunks', () => {
     const chunks = splitIntoChunks('   ')
     expect(chunks.length).toBe(0)
   })
+
+  it('splits multiple paragraphs when max size is exceeded', () => {
+    const chunks = splitIntoChunks('alpha paragraph\n\nbeta paragraph\n\ngamma paragraph', 20)
+    expect(chunks).toEqual(['alpha paragraph', 'beta paragraph', 'gamma paragraph'])
+  })
+})
+
+describe('token helpers', () => {
+  it('tokenizes English and Chinese text and counts tokens', () => {
+    expect(tokenize('Hello, MEDDIC 客户!')).toEqual(['hello', 'meddic', '客户'])
+    expect(tokenCount('Hello, MEDDIC 客户!')).toBe(3)
+  })
+
+  it('scores lexical overlap with containment bonus and empty input handling', () => {
+    expect(lexicalScore('', 'anything')).toBe(0)
+    expect(lexicalScore('MEDDIC', '')).toBe(0)
+    expect(lexicalScore('MEDDIC buyer', 'MEDDIC buyer checklist')).toBe(1)
+    expect(lexicalScore('MEDDIC buyer', 'MEDDIC only')).toBe(0.5)
+  })
+
+  it('maps source scopes by visibility', () => {
+    expect(sourceScope('public', 'u_demo')).toBe('public:workflow')
+    expect(sourceScope('private', 'u_demo')).toBe('private:u_demo')
+  })
 })
 
 describe('sha256Prefixed', () => {
+  it('returns raw sha256 hex digest', () => {
+    expect(sha256Hex('hello')).toMatch(/^[0-9a-f]{64}$/)
+  })
+
   it('returns sha256: prefixed hex digest', () => {
     const result = sha256Prefixed('hello')
     expect(result).toMatch(/^sha256:[0-9a-f]{64}$/)

@@ -259,7 +259,7 @@ services:
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
-      timeout: 5s
+      timeout: 15s
       retries: 10
       start_period: 10s
     deploy:
@@ -309,7 +309,7 @@ services:
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
       interval: 15s
-      timeout: 5s
+      timeout: 15s
       retries: 10
       start_period: 10s
     deploy:
@@ -444,6 +444,7 @@ services:
       FACT_RETRIEVAL_URL: http://fact-retrieval:3000
       SKILL_LIBRARY_URL: http://skill-library:3000
       RESOURCE_SCHEDULER_URL: http://resource-scheduler:3000
+      PROACTIVE_ORCHESTRATOR_URL: http://proactive-orchestrator:3000
       MOBILE_APP_URL: http://mobile-app:3000
       LITELLM_URL: http://litellm:4000
       SIGNOZ_QUERY_URL: http://signoz-query-service:8080
@@ -451,11 +452,32 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
       FEISHU_APP_ID: ${FEISHU_APP_ID:-}
       FEISHU_APP_SECRET: ${FEISHU_APP_SECRET:-}
+      FEISHU_SIGNING_SECRET: ${FEISHU_SIGNING_SECRET:-}
+      FEISHU_DOMAIN: ${FEISHU_DOMAIN:-feishu}
+      WECOM_TOKEN: ${WECOM_TOKEN:-dev-wecom-token}
+      WECOM_CORP_ID: ${WECOM_CORP_ID:-}
+      WECOM_SECRET: ${WECOM_SECRET:-}
+      WECOM_AGENT_ID: ${WECOM_AGENT_ID:-}
+      WECOM_ENCODING_AES_KEY: ${WECOM_ENCODING_AES_KEY:-}
+      EMBEDDING_MODE: ${EMBEDDING_MODE:-deterministic}
+      EMBEDDING_PROVIDER_URL: ${EMBEDDING_PROVIDER_URL:-}
+      EMBEDDING_PROVIDER_MODEL: ${EMBEDDING_PROVIDER_MODEL:-}
+      EMBEDDING_PROVIDER_API_KEY: ${EMBEDDING_PROVIDER_API_KEY:-}
+      EMBEDDING_PROVIDER_DIMENSIONS: ${EMBEDDING_PROVIDER_DIMENSIONS:-}
+      EMBEDDING_PROVIDER_TIMEOUT_MS: ${EMBEDDING_PROVIDER_TIMEOUT_MS:-15000}
+      RERANK_MODE: ${RERANK_MODE:-deterministic}
+      RERANK_PROVIDER_URL: ${RERANK_PROVIDER_URL:-}
+      RERANK_PROVIDER_MODEL: ${RERANK_PROVIDER_MODEL:-}
+      RERANK_PROVIDER_API_KEY: ${RERANK_PROVIDER_API_KEY:-}
+      RERANK_PROVIDER_TIMEOUT_MS: ${RERANK_PROVIDER_TIMEOUT_MS:-15000}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      PORTAL_ENV_FILE: /workspace/.env
+      PORTAL_HOST_ENV_FILE: /workspace/.env
     ports:
       - "3003:3000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./.env:/workspace/.env
     group_add:
       - "0"
     depends_on:
@@ -467,12 +489,14 @@ services:
         condition: service_started
       workflow-service:
         condition: service_started
+      proactive-orchestrator:
+        condition: service_started
     networks:
       - agent-harness-net
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/health/live"]
       interval: 15s
-      timeout: 5s
+      timeout: 15s
       retries: 10
       start_period: 10s
     deploy:
@@ -629,6 +653,53 @@ services:
       resources:
         limits:
           cpus: '0.2'
+          memory: 350M
+    restart: unless-stopped
+
+  # Proactive Orchestrator - 主动运营规则、洞察、派单与汇报服务
+  proactive-orchestrator:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: ./services/proactive-orchestrator/Dockerfile
+    container_name: ah-proactive-orchestrator
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-agent_harness}:${POSTGRES_PASSWORD:-dev_password_changeme}@postgres:5432/agent_harness
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_changeme}@redis:6379
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-dev_internal_token}
+      FACT_RETRIEVAL_URL: http://fact-retrieval:3000
+      HERMES_URL: http://hermes-adapter:3000
+      SKILL_LIBRARY_URL: http://skill-library:3000
+      GATEWAY_URL: http://gateway-adapter:3000
+      PROACTIVE_OWNER_USER_ID: ${PROACTIVE_OWNER_USER_ID:-u_proactive_orchestrator}
+      PROACTIVE_SCAN_INTERVAL_MS: ${PROACTIVE_SCAN_INTERVAL_MS:-900000}
+    ports:
+      - "3010:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fact-retrieval:
+        condition: service_started
+      hermes-adapter:
+        condition: service_started
+      skill-library:
+        condition: service_started
+      gateway-adapter:
+        condition: service_started
+    networks:
+      - agent-harness-net
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health/live',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>process.exit(r.statusCode===200?0:1))}).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
           memory: 350M
     restart: unless-stopped
 

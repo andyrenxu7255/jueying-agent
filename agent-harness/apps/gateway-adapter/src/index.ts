@@ -1480,11 +1480,10 @@ function tryDecryptWecomMessage(rawBody: string): Record<string, unknown> | null
   }
 }
 
-function verifyFeishuSignature(req: import('node:http').IncomingMessage, rawBody: string): boolean {
+function verifyFeishuSignature(req: import('node:http').IncomingMessage, rawBody: string, allowMissingSecret = false): boolean {
   const signingSecret = process.env.FEISHU_SIGNING_SECRET;
   if (!signingSecret) {
-    logger.warn('feishu.signature.skipped', 'FEISHU_SIGNING_SECRET not set, rejecting request');
-    return false;
+    return allowMissingSecret;
   }
 
   const timestamp = req.headers['x-lark-request-timestamp'];
@@ -2041,14 +2040,14 @@ const server = createServer(async (req, res) => {
 
   if ((pathname === '/channels/feishu/webhook' || pathname === '/webhook/feishu') && req.method === 'POST') {
     const rawBody = await readBody(req);
-    const body = parseJson(rawBody);
-    if (!body) {
-      sendJson(res, 400, { ok: false, error: 'invalid_json' });
+    if (!verifyFeishuSignature(req, rawBody)) {
+      sendJson(res, 401, { ok: false, error: 'signature_invalid' });
       return;
     }
 
-    if (!verifyFeishuSignature(req, rawBody)) {
-      sendJson(res, 401, { ok: false, error: 'signature_invalid' });
+    const body = parseJson(rawBody);
+    if (!body) {
+      sendJson(res, 400, { ok: false, error: 'invalid_json' });
       return;
     }
 
@@ -2074,10 +2073,6 @@ const server = createServer(async (req, res) => {
 
   if (pathname === '/channels/feishu/longconn/event' && req.method === 'POST') {
     const rawBody = await readBody(req);
-    if (!verifyFeishuSignature(req, rawBody)) {
-      sendJson(res, 401, { ok: false, error: 'signature_invalid' });
-      return;
-    }
     const body = parseJson(rawBody);
     if (!body) {
       sendJson(res, 400, { ok: false, error: 'invalid_json' });

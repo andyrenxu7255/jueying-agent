@@ -1,11 +1,11 @@
 # JueYing (绝影) — Agent Harness
 
-> 版本: 1.6.2 | 更新日期: 2026-05-22
+> 版本: 1.7.0 | 更新日期: 2026-05-23
 
 > **企业级 AI Agent 编排与执行平台** — 多渠道接入、`workflow_definition` 优先复用、LLM 任务规划、多阶段工作流自动执行
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen)](https://nodejs.org/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
 
@@ -45,13 +45,14 @@ JueYing（绝影，内部代号 agent-harness）是一个**企业级 AI Agent �
 | 🧠 **记忆与技能** | 会话记忆存储/召回/压缩、技能模板注册与复用 |
 | 🌙 **梦境与业务归因** | 低峰记忆整理、hook 事件账本、知识/skill 召回追踪、workflow outcome 贡献归因 |
 | 🔁 **确认后复用** | 成功首跑会展示过程和结果，用户回复“确认工作流 wf_xxx”后激活私有 workflow 型 skill 模板；管理员可审核提升为组织模板，高效果路径再候审固化为 `workflow_definition` |
+| 🧭 **主动运营编排** | Admin 制定规则，智能体定期扫描事实、记忆、技能和任务状态，生成带证据洞察；默认先审后派，审核后复用 `org_task` 派给用户执行，并汇总给管理员 |
 | 📊 **可观测性** | OpenTelemetry + SigNoz 全链路追踪、审计日志、健康检查 |
 | 📁 **文件工作区** | 用户隔离存储、双后端(localFS/MinIO)、staging机制、三级scope共享 |
 | 🔐 **安全合规** | 用户/组织隔离、RBAC/ABAC 策略、密码 scrypt 哈希、SQL 参数化防护 |
 
 ### 技术栈
 
-- **语言**: TypeScript 5.9 + Node.js ≥20
+- **语言**: TypeScript 5.9 + Node.js ≥22
 - **数据库**: PostgreSQL 16 + pgvector + Apache AGE（图投影与门控）
 - **缓存**: Redis 7
 - **对象存储**: MinIO (S3 兼容)
@@ -65,7 +66,7 @@ JueYing（绝影，内部代号 agent-harness）是一个**企业级 AI Agent �
 
 ### 前置要求
 
-- **Node.js** ≥ 20.0.0
+- **Node.js** ≥ 22.0.0
 - **Docker** & **Docker Compose** v2+
 - **Git**
 
@@ -99,12 +100,28 @@ LITELLM_MASTER_KEY=your-master-key
 # 飞书渠道（可选）
 FEISHU_APP_ID=cli_xxxxxxxxxxxx
 FEISHU_APP_SECRET=xxxxxxxxxxxxxxxx
-FEISHU_SIGNING_SECRET=xxxxxxxxxxxxxxxx
+# 长连接模式只需要 App ID 和 App Secret。
+# FEISHU_SIGNING_SECRET 仅 webhook 回调验签需要，可留空。
+FEISHU_SIGNING_SECRET=
 
 # 企微渠道（可选）
 WECOM_TOKEN=xxxxxxxxxxxx
 WECOM_CORP_ID=xxxxxxxxxxxx
+
+# ClawHub 管理（可选）
+# 用于 Web Portal 管理员导入、下载、升级和后续发布 skills。
+# Token 只放本地环境，不提交 GitHub；页面会掩码显示。
+CLAWHUB_SITE=https://clawhub.ai
+CLAWHUB_ADMIN_TOKEN=
 ```
+
+Web Portal 的系统配置页支持热加载多数运行时配置。飞书、模型、Embedding、Rerank 等会影响独立进程的配置保存后，会在页面内显示可选重启按钮；长连接飞书通常重启 `feishu-longconn`，消息收发网关配置通常重启 `gateway-adapter`。
+
+模型配置页可以从 LiteLLM/OpenAI 兼容 `/v1/models` 获取模型目录，也支持维护模型优先级、上下文窗口、最大输出、思考模式与思考强度。Embedding/Rerank 同样提供目录选择和测试按钮；测试结果会显示延迟、维度或排序返回数。
+
+技能管理页面向管理员维护：系统会预置低风险办公/搜索/销售技能，包括 ClawHub 上的 `meddic-b2b-sales-review` 和 `customer-research`；管理员可配置 `CLAWHUB_ADMIN_TOKEN` 后从 ClawHub URL 导入技能、上传 `SKILL.md`、检查已安装 ClawHub 技能的新版本，并在查看变更摘要与安全扫描结果后逐个确认升级。
+
+数据库迁移会预置一组可演示的销售管理知识：`MEDDIC销售六步法总览`、`销售六步法Gates检查清单`、`Champion识别标准`、`Discovery探索阶段五道门`、`Business Case商业论证框架`。这些内容作为 public 文档、chunk、实体和关系进入知识层，便于新环境马上测试共享知识检索和图谱投影。
 
 ### 4. 启动基础设施
 
@@ -136,6 +153,19 @@ npm run docker:up -- --profile app
 ```bash
 npm run health:core
 ```
+
+### 8. 质量门禁
+
+```bash
+npm run lint
+npm run type-check
+npm test -- --coverage --runInBand
+npm run test:portal-static
+npm run test:portal-admin
+npm run context:audit
+```
+
+当前核心可执行模块的 Jest 覆盖率门禁为四项全局 95%：statements、branches、functions、lines。管理台回归还必须通过 `test:portal-admin`，覆盖飞书长连接配置、模型目录与测试、知识导入 TXT/DOCX、数据库运维、资源监控、ClawHub 技能维护、共享知识库与 MEDDIC demo 图谱。
 
 完成后访问：
 - **Web Portal**: http://localhost:3003 （登录后在"系统指南"页面查看完整架构说明和使用指南）
@@ -194,6 +224,7 @@ agent-harness/
 │   ├── hermes-adapter/      # 记忆与技能管理
 │   ├── skill-library/       # 技能注册中心
 │   ├── resource-scheduler/  # 资源配额与健康巡检
+│   ├── proactive-orchestrator/ # 主动运营规则、洞察、派单与汇报
 │   ├── feishu-longconn/     # 飞书长连接 WebSocket
 │   └── ollama/              # 本地 LLM 运行时（可选）
 ├── libs/                    # 共享库
@@ -226,6 +257,13 @@ agent-harness/
                  └─────────┬───────────────┘
                            ↓
                       结果返回用户
+
+Admin 主动运营规则 → proactive-orchestrator
+  → 扫描 document/fact/org_memory_summary/skill/org_task_assignment
+  → 生成 evidence-backed insight
+  → Admin 审核 → proactive_mission
+  → 复用 org_task/org_task_assignment 派单
+  → 用户提交反馈 → 汇报给 Admin 看板
 ```
 
 ---
@@ -244,6 +282,7 @@ agent-harness/
 | skill-library | 3007 | ah-skill-library | 技能注册中心 |
 | resource-scheduler | 3008 | ah-resource-scheduler | 资源配额巡检 |
 | mobile-app | 3009 | ah-mobile-app | 移动推送 |
+| proactive-orchestrator | 3010 | ah-proactive-orchestrator | 主动运营规则、洞察、派单、汇报 |
 | PostgreSQL | 5432 | ah-postgres | 主数据库 |
 | Redis | 6379 | ah-redis | 缓存 |
 | MinIO | 9000/9001 | ah-minio | 对象存储 |
@@ -259,8 +298,8 @@ agent-harness/
 | [产品说明](./PRODUCT.md) | 功能特性矩阵、使用场景、角色定义、核心价值 |
 | [系统架构](./ARCHITECTURE.md) | 完整架构图、数据流、API 端点矩阵、状态机设计 |
 | [运维手册](./OPS.md) | 部署流程、健康检查、资源管理、日志与备份 |
-| [用户故事线](./用户故事线.md) | 21 条验收故事线 (AH-1 ~ AH-21)，含梦境模式和 B2B 销售可观测闭环 |
-| [发布说明](../RELEASE_NOTES.md) | v1.6.2 双语体验与审计硬化发布说明 |
+| [用户故事线](./用户故事线.md) | 22 条验收故事线 (AH-1 ~ AH-22)，含梦境模式、B2B 销售可观测闭环和主动运营编排 |
+| [发布说明](../RELEASE_NOTES.md) | v1.7.0 主动运营编排闭环发布说明 |
 | [DEV-21 梦境Hook与业务归因闭环](../development/DEV-21-梦境Hook与业务归因闭环.md) | 梦境、Hook、召回、Outcome 归因实现说明 |
 | [修复报告](./FIX-REPORT.md) | 代码审计与修复记录 |
 | [前端修改记录](./FRONTEND-AUDIT-CHANGELOG.md) | 前端页面审计修改记录（含15项初始化+梦境模式） |
@@ -274,7 +313,7 @@ agent-harness/
 
 完整用户故事线请参阅 [用户故事线.md](./用户故事线.md)。
 
-**21 条故事线速览**：
+**22 条故事线速览**：
 
 | 编号 | 故事线 | 涉及服务 |
 |:---:|------|------|
@@ -299,6 +338,7 @@ agent-harness/
 | AH-19 | 移动端消息推送 | mobile-app |
 | AH-20 | 梦境模式：记忆分层管理+技能发现生态，并追踪知识/skill 业务归因 | hermes-adapter, skill-library, workflow-service, fact-retrieval, web-portal |
 | AH-21 | B2B 销售管理日常与工作流可观测闭环 | gateway-adapter, workflow-service, executor-gateway, fact-retrieval, web-portal |
+| AH-22 | 主动运营编排：Admin 规则驱动智能体洞察、派单、督促与汇报 | proactive-orchestrator, web-portal, fact-retrieval, hermes-adapter, gateway-adapter |
 
 ---
 
@@ -316,6 +356,7 @@ npm test             # 运行测试
 npm run lint         # 代码规范检查
 npm run smoke:workflow-observability  # workflow 复用、可观测和确认沉淀烟测
 npm run test:dream-mode  # 梦境模式与归因闭环集成测试
+npm run test:proactive   # 主动运营规则→洞察→审核→派单→汇报功能测试
 ```
 
 ### 开发模式
@@ -401,12 +442,12 @@ docker exec ah-postgres pg_dump -U agent_harness agent_harness > backup.sql
 
 # JueYing (绝影) — Agent Harness
 
-> Version: 1.6.2 | Updated: 2026-05-22
+> Version: 1.7.0 | Updated: 2026-05-23
 
 > **Enterprise-grade AI Agent Orchestration and Execution Platform** — Multi-channel access, `workflow_definition` priority reuse, LLM task planning, multi-stage workflow auto-execution
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen)](https://nodejs.org/)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker)](https://docs.docker.com/compose/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
 
@@ -452,7 +493,7 @@ JueYing (绝影, internal codename agent-harness) is an **enterprise-grade AI Ag
 
 ### Tech Stack
 
-- **Language**: TypeScript 5.9 + Node.js ≥20
+- **Language**: TypeScript 5.9 + Node.js ≥22
 - **Database**: PostgreSQL 16 + pgvector + Apache AGE (graph projection and gating)
 - **Cache**: Redis 7
 - **Object Storage**: MinIO (S3 compatible)
@@ -466,7 +507,7 @@ JueYing (绝影, internal codename agent-harness) is an **enterprise-grade AI Ag
 
 ### Prerequisites
 
-- **Node.js** ≥ 20.0.0
+- **Node.js** ≥ 22.0.0
 - **Docker** & **Docker Compose** v2+
 - **Git**
 
@@ -500,12 +541,20 @@ LITELLM_MASTER_KEY=your-master-key
 # Feishu channel (optional)
 FEISHU_APP_ID=cli_xxxxxxxxxxxx
 FEISHU_APP_SECRET=xxxxxxxxxxxxxxxx
-FEISHU_SIGNING_SECRET=xxxxxxxxxxxxxxxx
+# Long-connection mode only needs App ID and App Secret.
+# FEISHU_SIGNING_SECRET is only needed for webhook signature verification.
+FEISHU_SIGNING_SECRET=
 
 # WeCom channel (optional)
 WECOM_TOKEN=xxxxxxxxxxxx
 WECOM_CORP_ID=xxxxxxxxxxxx
 ```
+
+The Web Portal system configuration page hot-reloads most runtime settings. When a change affects an independent process, such as Feishu, LLM, Embedding, or Rerank, the page shows optional restart buttons. Feishu long connection usually restarts `feishu-longconn`; message gateway changes usually restart `gateway-adapter`.
+
+The model configuration page can fetch model catalogs from LiteLLM/OpenAI-compatible `/v1/models`, and supports model priority, context window, max output, thinking mode, and thinking strength. You can add a model manually, select a catalog item, test a single model, or test the chat/embedding/rerank provider path. Embedding/Rerank also support catalog selection and test buttons; tests show latency, dimensions, or rerank result count.
+
+Knowledge import now treats manual text and uploaded files as two entry paths into the same ingestion flow: the source field is descriptive rather than a confusing manual/document/chat selector, and TXT, Markdown, PDF, DOCX, XLSX, CSV, JSON uploads are parsed into the review pipeline.
 
 ### 4. Start Infrastructure
 
@@ -595,6 +644,7 @@ agent-harness/
 │   ├── hermes-adapter/      # Memory & skill management
 │   ├── skill-library/       # Skill registry
 │   ├── resource-scheduler/  # Resource quota & health inspection
+│   ├── proactive-orchestrator/ # Proactive rules, insights, missions, and reports
 │   ├── feishu-longconn/     # Feishu long-connection WebSocket
 │   └── ollama/              # Local LLM runtime (optional)
 ├── libs/                    # Shared libraries
@@ -628,6 +678,13 @@ User → [Feishu/WeCom/Web] → gateway-adapter
                    └─────────┬───────────────┘
                              ↓
                       Result returned to user
+
+Admin proactive rule → proactive-orchestrator
+  → Scan documents/facts/org memory/skills/task assignments
+  → Create evidence-backed proactive_insight
+  → Admin review → proactive_mission
+  → Reuse org_task/org_task_assignment for user execution
+  → User feedback → Admin report dashboard
 ```
 
 ---
@@ -646,6 +703,7 @@ User → [Feishu/WeCom/Web] → gateway-adapter
 | skill-library | 3007 | ah-skill-library | Skill registry |
 | resource-scheduler | 3008 | ah-resource-scheduler | Resource quota inspection |
 | mobile-app | 3009 | ah-mobile-app | Mobile push |
+| proactive-orchestrator | 3010 | ah-proactive-orchestrator | Proactive rules, insights, missions, reports |
 | PostgreSQL | 5432 | ah-postgres | Primary database |
 | Redis | 6379 | ah-redis | Cache |
 | MinIO | 9000/9001 | ah-minio | Object storage |
@@ -661,8 +719,8 @@ User → [Feishu/WeCom/Web] → gateway-adapter
 | [Product Description](./PRODUCT.md) | Feature matrix, use cases, role definitions, core value |
 | [System Architecture](./ARCHITECTURE.md) | Complete architecture diagram, data flows, API endpoint matrix, state machine design |
 | [Operations Manual](./OPS.md) | Deployment process, health checks, resource management, logging & backup |
-| [User Storylines](./用户故事线.md) | 21 acceptance storylines (AH-1 ~ AH-21), including Dream Mode and B2B sales observability closed loop |
-| [Release Notes](../RELEASE_NOTES.md) | v1.6.2 bilingual UX and audit hardening release notes |
+| [User Storylines](./用户故事线.md) | 22 acceptance storylines (AH-1 ~ AH-22), including Dream Mode, B2B sales observability, and proactive orchestration |
+| [Release Notes](../RELEASE_NOTES.md) | v1.7.0 proactive orchestration release notes |
 | [DEV-21 Dream Hooks & Business Attribution Closed Loop](../development/DEV-21-梦境Hook与业务归因闭环.md) | Dream, Hook, recall, and Outcome attribution implementation notes |
 | [Fix Report](./FIX-REPORT.md) | Code audit and fix records |
 | [Frontend Audit Changelog](./FRONTEND-AUDIT-CHANGELOG.md) | Frontend page audit modification records (including 15 initialization items + Dream Mode) |
@@ -676,7 +734,7 @@ User → [Feishu/WeCom/Web] → gateway-adapter
 
 See [用户故事线.md](./用户故事线.md) for the complete user storylines.
 
-**21 Storylines at a Glance**:
+**22 Storylines at a Glance**:
 
 | # | Storyline | Services Involved |
 |:---:|------|------|
@@ -701,6 +759,7 @@ See [用户故事线.md](./用户故事线.md) for the complete user storylines.
 | AH-19 | Mobile push notifications | mobile-app |
 | AH-20 | Dream Mode: hierarchical memory management + skill discovery ecosystem, with knowledge/skill business attribution tracking | hermes-adapter, skill-library, workflow-service, fact-retrieval, web-portal |
 | AH-21 | B2B sales management daily routine & workflow observability closed loop | gateway-adapter, workflow-service, executor-gateway, fact-retrieval, web-portal |
+| AH-22 | Proactive orchestration: Admin rules drive agent insight, dispatch, follow-up, and reporting | proactive-orchestrator, web-portal, fact-retrieval, hermes-adapter, gateway-adapter |
 
 ---
 
@@ -718,6 +777,7 @@ npm test             # Run tests
 npm run lint         # Code style checks
 npm run smoke:workflow-observability  # Workflow reuse, observability, and confirm-to-solidify smoke test
 npm run test:dream-mode  # Dream Mode and attribution closed-loop integration tests
+npm run test:proactive   # Proactive rule→insight→review→dispatch→report functional test
 ```
 
 ### Development Mode

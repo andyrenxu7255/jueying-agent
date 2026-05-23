@@ -62,7 +62,7 @@ export class RateLimiter {
   check(key: string, config: RateLimitConfig): RateLimitResult {
     this.ensureCleanupTimer();
     const now = Date.now();
-    const bucket = this.getBucket(key, config);
+    const bucket = this.getBucket(key, config, now);
     
     const result = bucket.consume(1, now);
     
@@ -75,10 +75,10 @@ export class RateLimiter {
     };
   }
 
-  private getBucket(key: string, config: RateLimitConfig): TokenBucket {
+  private getBucket(key: string, config: RateLimitConfig, now: number): TokenBucket {
     const existing = this.buckets.get(key);
     if (existing) {
-      existing.last_access_ms = Date.now();
+      existing.last_access_ms = now;
       return existing.bucket;
     }
 
@@ -86,8 +86,8 @@ export class RateLimiter {
       this.evictOldest();
     }
 
-    const bucket = new TokenBucket(config.requests_per_second, config.burst_size);
-    this.buckets.set(key, { bucket, last_access_ms: Date.now() });
+    const bucket = new TokenBucket(config.requests_per_second, config.burst_size, now);
+    this.buckets.set(key, { bucket, last_access_ms: now });
     return bucket;
   }
 
@@ -128,10 +128,11 @@ class TokenBucket {
 
   constructor(
     private rate: number,
-    private capacity: number
+    private capacity: number,
+    initialTimeMs: number = Date.now()
   ) {
     this.tokens = capacity;
-    this.last_update = Date.now();
+    this.last_update = initialTimeMs;
   }
 
   consume(amount: number, now: number): { allowed: boolean; remaining: number; reset_at: number; retry_after_ms?: number } {

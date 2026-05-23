@@ -137,6 +137,15 @@ Day 1 推荐规则：
 
 ## 21.7 渠道差异处理
 
+### 21.7.0 飞书长连接配置边界
+
+飞书长连接模式只需要飞书开放平台的 `App ID` 与 `App Secret` 建立 WebSocket 长连接。`FEISHU_SIGNING_SECRET` 只用于传统 webhook 回调验签，长连接模式可留空。管理台保存飞书配置后应返回 `hot_loaded=true`，并给出可选重启目标：
+
+- `feishu-longconn`：重新建立飞书长连接。
+- `gateway-adapter`：刷新消息网关对飞书/企微等渠道配置的读取。
+
+页面不得把 Signing Secret 标为长连接必填项，也不得仅提示“需要重启”而不给出操作入口。
+
 ### 21.7.1 企业微信
 
 #### 接入协议

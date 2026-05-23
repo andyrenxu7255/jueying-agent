@@ -11,6 +11,9 @@
   "dependencies": {
     "@agent-harness/audit": "*",
     "@agent-harness/shared": "*",
+    "mammoth": "^1.8.0",
+    "officeparser": "^6.1.0",
+    "pdfjs-dist": "^4.10.38",
     "pg": "^8.20.0"
   },
   "optionalDependencies": {

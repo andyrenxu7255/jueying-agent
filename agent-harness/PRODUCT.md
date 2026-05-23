@@ -1,6 +1,6 @@
 # JueYing (绝影) — 产品说明
 
-> 版本: 1.6.2 | 更新日期: 2026-05-22
+> 版本: 1.7.0 | 更新日期: 2026-05-23
 > 品牌名称: JueYing (绝影) | 内部代号: agent-harness
 
 ---
@@ -20,6 +20,7 @@ JueYing (绝影) 是一个**企业级 AI Agent 编排与执行平台**。用户�
 | **零学习成本** | 通过飞书/企微直接对话，像和同事聊天一样使用 AI |
 | **任务自动化** | 复杂任务自动拆解为可执行的阶段链，首跑成功后可沉淀为可复用 workflow 型 skill 模板 |
 | **经营闭环** | 以 B2B 销售管理为代表，支持老板决策、经理盯过程、销售执行和异常升级 |
+| **主动督促执行** | Admin 制定规则后，Agent 定期检查事实层与任务状态，发现风险或机会后先给管理员审核，再派单给用户执行并回报 |
 | **多渠道统一** | 飞书、企业微信、Web Portal 统一接入，身份自动绑定 |
 | **上下文记忆** | 支持多轮对话记忆，AI 能记住之前的交流内容 |
 | **企业级安全** | 组织隔离、RBAC 权限、策略控制、审计日志 |
@@ -63,6 +64,12 @@ JueYing (绝影) 是一个**企业级 AI Agent 编排与执行平台**。用户�
 ### 2.2.1 B2B 销售管理样板场景
 
 JueYing 的日常管理样板以 B2B 销售团队为基准：老板只输入经营目标和约束，Agent 拆解为销售经理晨会动作、一线销售每日八访提醒、卡单救援、折扣审批、回款追踪和周复盘。系统会把红黄绿客户状态、阶段停留时间、承诺动作、证据缺口和需老板拍板的事项整理成简报，让管理者把时间用在异常和决策上，而不是翻 CRM 流水。
+
+### 2.2.2 主动运营编排
+
+主动运营让智能体从“被动响应任务”前进一步，成为可审计的执行督促层。管理员在 Web Portal 设置规则，例如“每天扫描 MEDDIC 销售资料、ClawHub 销售技能、组织记忆和待办派单，发现客户跟进缺口后生成洞察”。`proactive-orchestrator` 定期扫描事实层数据，生成带证据引用、置信度和去重哈希的洞察；默认不直接打扰普通用户，而是进入 Admin 审核队列。
+
+管理员点击通过后，系统生成 `proactive_mission`，再复用已有 `org_task` / `org_task_assignment` 派给具体用户。普通用户在“我的任务”或 IM 通知中提交反馈，系统把反馈同步回 proactive mission，并生成可发布的管理员汇报。这样一条链路形成：Admin 设规则 → Agent 找事实 → Agent 产洞察 → Admin 审核 → Agent 派单 → 用户执行 → Agent 回报。
 
 ### 2.3 知识管理 (Knowledge)
 
@@ -110,7 +117,7 @@ JueYing 的日常管理样板以 B2B 销售团队为基准：老板只输入经�
 
 ### 2.5 技能系统
 
-通过 ClawHub 国内镜像站（mirror-cn.clawhub.com）安装预制技能，扩展 Agent 能力。全部 14 项技能无需 API Key。
+通过 ClawHub 技能市场安装预制技能，扩展 Agent 能力。管理员可在 Web Portal 统一配置 `CLAWHUB_ADMIN_TOKEN`，用于下载、上传和升级技能；Token 只保存在本地环境配置，不明文回显，也不进入 GitHub。
 
 **已预制技能（14 项，全部免费无需 API Key）:**
 - **Document Pro**: PDF/Word/PPT/Excel/CSV/Markdown 全格式读取解析
@@ -127,6 +134,10 @@ JueYing 的日常管理样板以 B2B 销售团队为基准：老板只输入经�
 - **Memory Compress 记忆归档**: 对话对象化存储，自动构建对象关系图谱
 - **Skill Vetter 安全审查**: 技能安装前权限与风险审查
 - **self-improving-agent**: 经验记录留存，自我持续优化
+- **MEDDIC B2B Sales Review**: MEDDIC 销售复盘、Pipeline Review、拜访复盘和销售辅导，无 API Key
+- **Customer Research**: 客户调研与竞品情报，生成调研报告和场景破冰 PPT；需要公共网络搜索但不需要 API Key
+
+管理员技能维护页提供 ClawHub 入口、URL 导入、页面上传 `SKILL.md`、批量升级检查、单技能变更解读和逐个确认升级。升级检查会识别来源为 `clawhub.ai` 的技能，展示当前版本、上游最新版本、变更摘要、下载量和安全扫描状态。
 
 ### 2.6 组织与用户管理
 
@@ -163,8 +174,11 @@ JueYing 的日常管理样板以 B2B 销售团队为基准：老板只输入经�
 | 用户管理 | 创建/管理用户、分配组织、查看绑定状态 |
 | 组织管理 | 创建/管理组织、成员邀请 |
 | 技能管理 | 镜像站搜索安装、手动创建、版本管理、来源标识 |
+| 技能维护 | ClawHub Admin Token 配置、URL/文件导入、升级检查、变更解读、确认升级 |
+| 主动运营 | Admin 维护规则，触发扫描，审核洞察，派发任务，发布汇报 |
 | 梦境技能发现 | 查看组织技能、审核记录、场景价值，以及 workflow_definition 候审/审批 |
 | 知识导入 | 手动输入+文件上传（TXT/MD/PDF/DOCX等）、权限控制 |
+| Demo 初始化 | 预置 MEDDIC 销售知识、共享文档、知识分块和基础销售图谱，方便新环境立即体验检索与图谱能力 |
 | 知识审核 | 审核用户提交的知识条目（批准/共享/退回/拒绝） |
 | 系统配置 | 渠道配置（飞书/企微）、LLM多模型管理（优先级+fallback）、Embedding/Rerank配置 |
 | 资源监控 | Docker容器级指标（CPU/内存/网络/磁盘）、系统资源、配额管理、巡检报告 |
@@ -278,7 +292,7 @@ JueYing (Agent Harness) 本体采用 **MIT** 开源许可证。
 
 # JueYing (绝影) — Product Description
 
-> Version: 1.6.2 | Updated: 2026-05-22
+> Version: 1.7.0 | Updated: 2026-05-23
 > Brand Name: JueYing (绝影) | Internal Codename: agent-harness
 
 ---
@@ -298,6 +312,7 @@ An AI work assistant for enterprise office scenarios, enabling employees to invo
 | **Zero Learning Cost** | Chat directly through Feishu/WeCom, using AI as naturally as talking to a colleague |
 | **Task Automation** | Complex tasks are automatically decomposed into executable stage chains; after a successful first run, they can be solidified as reusable workflow-type skill templates |
 | **Business Closed Loop** | Centered on B2B sales management, supporting boss decision-making, manager process tracking, salesperson execution, and exception escalation |
+| **Proactive Execution Follow-up** | After admins define rules, agents periodically inspect fact and task state, produce evidence-backed insights, wait for review, dispatch user missions, and report back |
 | **Unified Multi-Channel** | Feishu, WeCom, Web Portal unified access with automatic identity binding |
 | **Contextual Memory** | Multi-turn conversation memory — the AI remembers previous exchanges |
 | **Enterprise Security** | Organization isolation, RBAC permissions, policy control, audit logging |
@@ -341,6 +356,12 @@ Intent Clarification → Evidence Retrieval → Decision Reasoning → Result Re
 ### 2.2.1 B2B Sales Management Blueprint Scenario
 
 JueYing's daily management blueprint is benchmarked on B2B sales teams: the boss only inputs business goals and constraints, and the Agent decomposes them into sales manager morning briefings, frontline salesperson daily eight-visit reminders, stuck-deal rescue, discount approvals, collection tracking, and weekly reviews. The system organizes red/yellow/green customer status, stage dwell time, promised actions, evidence gaps, and items requiring boss decisions into a briefing, so that management time is spent on exceptions and decisions rather than scrolling through CRM pipelines.
+
+### 2.2.2 Proactive Orchestration
+
+Proactive orchestration turns the agent into an auditable execution follow-up layer. Admins create rules in the Web Portal, such as "scan MEDDIC sales materials, customer follow-up facts, ClawHub sales skill updates, and blocked assignments every morning." `proactive-orchestrator` scans fact-layer data and creates `proactive_insight` records with evidence references, confidence, and dedupe hashes. By default, the system does not interrupt regular users directly; insights enter the admin review queue first.
+
+After an admin approves an insight, the system creates a `proactive_mission` and reuses existing `org_task` / `org_task_assignment` records for dispatch. Users submit feedback through their task flow or IM channel, the mission status is updated, and an admin report can be generated and published. The chain is: Admin rule → agent scan → evidence-backed insight → admin review → mission dispatch → user execution → admin report.
 
 ### 2.3 Knowledge Management
 
@@ -388,9 +409,9 @@ A daily auto-running system for hierarchical memory management, skill discovery,
 
 ### 2.5 Skill System
 
-Install pre-built skills via the ClawHub China mirror site (mirror-cn.clawhub.com) to extend Agent capabilities. All 14 skills require no API Key.
+Install pre-built skills via ClawHub to extend Agent capabilities. Admins can configure `CLAWHUB_ADMIN_TOKEN` in the Web Portal for download, upload, and upgrade maintenance; the token is only stored in local environment configuration and is never committed to GitHub.
 
-**Pre-built Skills (14 items, all free, no API Key required):**
+**Pre-built Skills (16 items, all free, no API Key required unless noted by the skill itself):**
 - **Document Pro**: Full-format reading and parsing of PDF/Word/PPT/Excel/CSV/Markdown
 - **Document Generator**: AI-driven auto-generation of Word/PPT/Excel reports
 - **PDF Converter**: PDF ↔ Word/Excel format conversion, merge/split/compress
@@ -405,6 +426,10 @@ Install pre-built skills via the ClawHub China mirror site (mirror-cn.clawhub.co
 - **Memory Compress**: Conversational object-oriented memory storage, automatic object relationship graph construction
 - **Skill Vetter**: Pre-install permission and risk review for skills
 - **self-improving-agent**: Experience recording, continuous self-optimization
+- **MEDDIC B2B Sales Review**: MEDDIC sales review, pipeline review, visit recap, and coaching
+- **Customer Research**: Customer and competitor research for account planning and sales preparation
+
+The skill maintenance page provides a ClawHub entry point, URL import, `SKILL.md` upload, batch upgrade checks, single-skill change summaries, and admin confirmation before upgrade.
 
 ### 2.6 Organization & User Management
 
@@ -441,6 +466,8 @@ Each user has a fully isolated personal file workspace.
 | User Management | Create/manage users, assign organizations, view binding status |
 | Organization Management | Create/manage organizations, member invitations |
 | Skill Management | Mirror site search & install, manual creation, version management, source identification |
+| Skill Maintenance | ClawHub admin token, URL/file import, upgrade checks, change summaries, confirmed upgrades |
+| Proactive Operations | Admin rules, manual scans, insight review, task dispatch, report publishing |
 | Dream Skill Discovery | View org skills, audit records, scenario value, and workflow_definition review/approval |
 | Knowledge Import | Manual input + file upload (TXT/MD/PDF/DOCX etc.), permission control |
 | Knowledge Review | Review user-submitted knowledge items (approve/share/return/reject) |

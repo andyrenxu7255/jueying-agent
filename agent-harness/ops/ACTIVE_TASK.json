@@ -1,0 +1,31 @@
+{
+  "status": "done",
+  "task_name": "主动运营编排闭环端到端交付",
+  "started_at": "2026-05-23T19:05:00+08:00",
+  "last_progress_report_at": "2026-05-23T22:56:47+08:00",
+  "max_silence_minutes": 20,
+  "current_stage": "validated_deployed_ready_to_push",
+  "current_focus": "主动运营编排闭环已实现、测试通过、Docker 本地部署健康，准备提交并推送 GitHub",
+  "latest_user_visible_target": "完整设计、开发、链条、测试、部署，并上传 GitHub；确保不和已有模块冲突，尽量复用现有组件。",
+  "last_auto_progress_report_at": "2026-05-23T22:56:47+08:00",
+  "verification_plan": [
+    "V1: 主动运营数据模型迁移可重复执行",
+    "V2: 规则扫描、洞察生成、审核派单、用户提交、汇报链路通过功能测试",
+    "V3: Admin/User 权限隔离与自动派单治理通过测试",
+    "V4: 前端管理员看板和用户任务入口可用",
+    "V5: lint、type-check、build、db:migrate、coverage、专项集成测试通过",
+    "V6: Docker 本地部署健康，门户可访问，GitHub 推送完成"
+  ],
+  "orchestration_method": "主线程端到端实现，必要时用并行只读检查；每个阶段以测试或运行验证收口",
+  "notes": [
+    "用户要求完整设计、开发、链条、测试、部署、上传。",
+    "主动运营层必须复用 fact-retrieval、dream/org_memory_summary、workflow、org_task、gateway notification、web-portal 权限，不要重造已有模块。",
+    "治理原则：默认洞察先审后派；自动派单必须由规则明确允许并带证据、置信度、去重和权限边界。",
+    "当前分支：codex/proactive-orchestration。",
+    "已通过 npm run test:portal-static、npm run test:proactive、npm test -- --coverage --runInBand、npm run type-check、npm run lint、npm run build、npm run context:audit、npm audit --audit-level=moderate。",
+    "覆盖率：Statements 98.74%，Branches 95.49%，Functions 96.21%，Lines 99.24%；204 个 Jest 测试通过。",
+    "Docker 本地部署：ah-web-portal 与 ah-proactive-orchestrator healthy；门户 http://localhost:3003，主动运营健康接口 http://localhost:3010/health/ready。",
+    "Playwright CLI 验证：直达 http://127.0.0.1:3003/#proactive 后主动运营导航 active。"
+  ],
+  "local_url": "http://localhost:3003"
+}

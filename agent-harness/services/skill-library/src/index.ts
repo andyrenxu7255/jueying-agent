@@ -141,6 +141,9 @@ interface UpdateSkillInput {
   description?: string;
   skill_type?: string;
   scope_type?: 'private' | 'org' | 'public';
+  source_uri?: string;
+  source_type?: string;
+  source_metadata?: Record<string, unknown>;
 }
 
 /** Markdown 导入技能的请求体结构 */
@@ -400,6 +403,7 @@ async function searchSkills(query?: string, scopeType?: string, skillType?: stri
       version: Number(row.version || 1),
       definition_json: typeof row.definition_json === 'string' ? JSON.parse(row.definition_json) : (row.definition_json || {}),
       content_hash: String(row.content_hash || ''),
+      metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {}),
       match_score: Number(row.match_score || 0),
       created_at: String(row.created_at),
       updated_at: String(row.updated_at)
@@ -907,7 +911,15 @@ async function updateSkill(skillId: string, input: UpdateSkillInput): Promise<{ 
       await pool.query(
         `INSERT INTO skill_source (id, skill_version_id, source_type, source_uri, content_text, metadata, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [sourceId, versionId, 'manual', prevUri, null, JSON.stringify({ previous_version: row.current_version }), now]
+        [
+          sourceId,
+          versionId,
+          input.source_type || 'manual',
+          input.source_uri || prevUri,
+          null,
+          JSON.stringify({ previous_version: row.current_version, ...(input.source_metadata || {}) }),
+          now
+        ]
       );
 
       logger.info('skill.version_created', 'New skill version created', {
@@ -1234,7 +1246,7 @@ async function listSkills(options: {
 
     const sql = `
       SELECT s.id, s.owner_user_id, s.org_id, s.scope_type, s.skill_name, s.description, s.skill_type, s.status,
-             s.created_at, s.updated_at,
+             s.metadata, s.created_at, s.updated_at,
              COALESCE(sv.version, 1) as version,
              COALESCE(sv.content_hash, '') as content_hash
       FROM skill s
@@ -1259,6 +1271,7 @@ async function listSkills(options: {
       status: String(row.status),
       version: Number(row.version || 1),
       content_hash: String(row.content_hash || ''),
+      metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {}),
       created_at: String(row.created_at),
       updated_at: String(row.updated_at)
     }));
@@ -1451,7 +1464,10 @@ const server = createServer(async (req, res) => {
         definition_json: body.definition_json as Record<string, unknown>,
         description: body.description as string | undefined,
         skill_type: body.skill_type as string | undefined,
-        scope_type: body.scope_type as 'private' | 'org' | 'public' | undefined
+        scope_type: body.scope_type as 'private' | 'org' | 'public' | undefined,
+        source_uri: body.source_uri as string | undefined,
+        source_type: body.source_type as string | undefined,
+        source_metadata: body.source_metadata as Record<string, unknown> | undefined
       });
 
       sendJson(res, result.status, result.body);

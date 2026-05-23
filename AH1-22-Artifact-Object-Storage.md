@@ -90,6 +90,8 @@ org/default/wf/wf_123/st/st_40/patch/art_789
 
 - 渠道原始附件统一先写成 `raw_attachment` artifact。
 - 只有进入长期检索或抽取链路时，才提升为 `document`。
+- Web Portal 知识导入的文件上传必须先经过文件名、扩展名、MIME、大小与 magic bytes 校验。TXT、Markdown、PDF、DOCX、XLSX、CSV、JSON 等允许类型进入解析；旧版 `.doc/.ppt` 与宏文件 `.xlsm/.docm/.pptm` 必须拒绝。
+- 文件上传和手动输入是同一知识导入管线的两个入口。上传成功后必须同时返回 stored file 元数据、document id、indexed chunk 数量和 review fact 结果，不能只显示 toast 成功。
 
 ## 22.7 读取流程
 
@@ -150,3 +152,4 @@ org/default/wf/wf_123/st/st_40/patch/art_789
 2. 大日志不会整段进入模型上下文，而是通过摘要或切片读取。
 3. 普通用户无法读取其他用户私有 artifact。
 4. checkpoint payload 丢失时，恢复流程能给出明确错误而不是静默失败。
+5. TXT 与 DOCX 上传可被解析并写入 `document_chunk`；非法扩展、空文件、超限文件和 legacy Office magic bytes 被拒绝并返回可解释错误。
