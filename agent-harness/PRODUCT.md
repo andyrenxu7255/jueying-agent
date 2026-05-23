@@ -110,7 +110,7 @@ JueYing 的日常管理样板以 B2B 销售团队为基准：老板只输入经�
 
 ### 2.5 技能系统
 
-通过 ClawHub 国内镜像站（mirror-cn.clawhub.com）安装预制技能，扩展 Agent 能力。全部 14 项技能无需 API Key。
+通过 ClawHub 技能市场安装预制技能，扩展 Agent 能力。管理员可在 Web Portal 统一配置 `CLAWHUB_ADMIN_TOKEN`，用于下载、上传和升级技能；Token 只保存在本地环境配置，不明文回显，也不进入 GitHub。
 
 **已预制技能（14 项，全部免费无需 API Key）:**
 - **Document Pro**: PDF/Word/PPT/Excel/CSV/Markdown 全格式读取解析
@@ -127,6 +127,10 @@ JueYing 的日常管理样板以 B2B 销售团队为基准：老板只输入经�
 - **Memory Compress 记忆归档**: 对话对象化存储，自动构建对象关系图谱
 - **Skill Vetter 安全审查**: 技能安装前权限与风险审查
 - **self-improving-agent**: 经验记录留存，自我持续优化
+- **MEDDIC B2B Sales Review**: MEDDIC 销售复盘、Pipeline Review、拜访复盘和销售辅导，无 API Key
+- **Customer Research**: 客户调研与竞品情报，生成调研报告和场景破冰 PPT；需要公共网络搜索但不需要 API Key
+
+管理员技能维护页提供 ClawHub 入口、URL 导入、页面上传 `SKILL.md`、批量升级检查、单技能变更解读和逐个确认升级。升级检查会识别来源为 `clawhub.ai` 的技能，展示当前版本、上游最新版本、变更摘要、下载量和安全扫描状态。
 
 ### 2.6 组织与用户管理
 
@@ -163,8 +167,10 @@ JueYing 的日常管理样板以 B2B 销售团队为基准：老板只输入经�
 | 用户管理 | 创建/管理用户、分配组织、查看绑定状态 |
 | 组织管理 | 创建/管理组织、成员邀请 |
 | 技能管理 | 镜像站搜索安装、手动创建、版本管理、来源标识 |
+| 技能维护 | ClawHub Admin Token 配置、URL/文件导入、升级检查、变更解读、确认升级 |
 | 梦境技能发现 | 查看组织技能、审核记录、场景价值，以及 workflow_definition 候审/审批 |
 | 知识导入 | 手动输入+文件上传（TXT/MD/PDF/DOCX等）、权限控制 |
+| Demo 初始化 | 预置 MEDDIC 销售知识、共享文档、知识分块和基础销售图谱，方便新环境立即体验检索与图谱能力 |
 | 知识审核 | 审核用户提交的知识条目（批准/共享/退回/拒绝） |
 | 系统配置 | 渠道配置（飞书/企微）、LLM多模型管理（优先级+fallback）、Embedding/Rerank配置 |
 | 资源监控 | Docker容器级指标（CPU/内存/网络/磁盘）、系统资源、配额管理、巡检报告 |

@@ -110,6 +110,15 @@ function getConfigSections(lang: PortalLang): ConfigSection[] {
         { key: 'RERANK_PROVIDER_TIMEOUT_MS', label: label('config.field.timeout_ms'), type: 'number', hint: label('config.field.timeout_ms_hint') },
       ],
     },
+    {
+      key: 'clawhub',
+      label: label('config.label.clawhub'),
+      fields: [
+        { key: 'CLAWHUB_SITE', label: label('config.field.clawhub_site'), type: 'text', default: 'https://clawhub.ai' },
+        { key: 'CLAWHUB_REGISTRY', label: label('config.field.clawhub_registry'), type: 'text' },
+        { key: 'CLAWHUB_ADMIN_TOKEN', label: label('config.field.clawhub_admin_token'), type: 'password', sensitive: true, hint: label('config.field.clawhub_admin_token_hint') },
+      ],
+    },
   ];
 }
 
@@ -251,6 +260,38 @@ const CURATED_CLAWHUB_SKILLS: Array<{
       tools: ['permission_scanner', 'code_auditor'],
       capabilities: ['scan_permissions', 'check_reputation', 'identify_risks', 'approve_or_block'],
       risk_profile: { api_key_required: false, external_network: false, overlaps_memory: false }
+    }
+  },
+  {
+    name: 'MEDDIC B2B Sales Review',
+    type: 'workflow',
+    category: 'sales',
+    rating: 4.9,
+    installCount: 468,
+    risk: 'low',
+    description: 'B2B销售机会复盘、Pipeline Review、拜访复盘和销售辅导技能，以MEDDIC和销售六步法为核心。No API key required.',
+    source: 'https://clawhub.ai/andyrenxu7255/meddic-b2b-sales-review',
+    definition: {
+      tools: [],
+      capabilities: ['deal_review', 'pipeline_review', 'visit_debrief', 'forecast_calibration', 'next_best_action'],
+      clawhub_slug: 'meddic-b2b-sales-review',
+      risk_profile: { api_key_required: false, external_network: false, overlaps_memory: false }
+    }
+  },
+  {
+    name: 'Customer Research',
+    type: 'search',
+    category: 'sales',
+    rating: 4.8,
+    installCount: 645,
+    risk: 'medium',
+    description: '客户调研与竞品情报技能，生成调研报告和场景破冰PPT。Uses public web search; no API key required.',
+    source: 'https://clawhub.ai/andyrenxu7255/customer-research',
+    definition: {
+      tools: ['web_search', 'web_fetch', 'document_writer', 'presentation_builder'],
+      capabilities: ['customer_research', 'competitor_intel', 'procurement_record_search', 'scenario_ppt'],
+      clawhub_slug: 'customer-research',
+      risk_profile: { api_key_required: false, external_network: true, overlaps_memory: false }
     }
   }
 ];
@@ -653,9 +694,9 @@ function redactConfigValue(key: string, value: unknown, fieldType?: string): unk
   for (const indicator of ['secret', 'key', 'token', 'password', 'aes_key']) {
     if (lowerKey.includes(indicator)) return maskSensitive(value, 'password');
   }
-  if (lowerKey.includes('_url') || lowerKey.includes('database')) {
-    return maskUrlPassword(value);
-  }
+    if ((lowerKey.includes('_url') || lowerKey.includes('database') || lowerKey.includes('registry') || lowerKey.includes('site')) && String(value).includes('://')) {
+      return maskUrlPassword(value);
+    }
   if (fieldType === 'password') return maskSensitive(value, 'password');
   return value;
 }
@@ -723,7 +764,7 @@ function getWorkflowGoal(workflow: Record<string, unknown>): string {
 function getConfigRoot(): string {
   if (process.env.AGENT_HARNESS_CONFIG_ROOT) return resolve(process.env.AGENT_HARNESS_CONFIG_ROOT);
   let current = resolve(process.cwd());
-  while (true) {
+  for (;;) {
     if (existsSync(resolve(current, 'config/default.yaml'))) return current;
     const parent = dirname(current);
     if (parent === current) return resolve(process.cwd());
@@ -1306,42 +1347,6 @@ function getRestartTargetsForConfigKeys(keys: string[]): string[] {
   return Array.from(services);
 }
 
-function formatBytesToMb(value: string | number | null | undefined): string {
-  const raw = typeof value === 'number' ? value : Number(String(value || '').replace(/[^\d.]/g, ''));
-  if (!Number.isFinite(raw) || raw < 0) return '-';
-  if (raw > 1024 * 1024 * 1024) return `${(raw / (1024 * 1024 * 1024)).toFixed(raw % (1024 * 1024 * 1024) === 0 ? 0 : 1)} GB`;
-  if (raw > 1024 * 1024) return `${(raw / (1024 * 1024)).toFixed(raw % (1024 * 1024) === 0 ? 0 : 1)} MB`;
-  if (raw > 1024) return `${(raw / 1024).toFixed(raw % 1024 === 0 ? 0 : 1)} KB`;
-  return `${Math.round(raw)} B`;
-}
-
-function parseMemoryUsage(raw: string): { currentBytes: number; limitBytes: number; display: string } {
-  const [currentPart, limitPart] = raw.split('/').map(part => part.trim());
-  const parseUnit = (part: string): number => {
-    const match = part.match(/^([0-9.]+)\s*([kKmMgGtTpP]?i?B)?$/);
-    if (!match) return Number(part.replace(/[^\d.]/g, '')) || 0;
-    const num = Number(match[1]);
-    const unit = (match[2] || 'B').toUpperCase();
-    const scale: Record<string, number> = {
-      B: 1,
-      KB: 1024,
-      KIB: 1024,
-      MB: 1024 * 1024,
-      MIB: 1024 * 1024,
-      GB: 1024 * 1024 * 1024,
-      GIB: 1024 * 1024 * 1024,
-      TB: 1024 * 1024 * 1024 * 1024,
-      TIB: 1024 * 1024 * 1024 * 1024,
-      PB: 1024 * 1024 * 1024 * 1024 * 1024,
-      PIB: 1024 * 1024 * 1024 * 1024 * 1024,
-    };
-    return Math.round(num * (scale[unit] || 1));
-  };
-  const currentBytes = parseUnit(currentPart || '');
-  const limitBytes = parseUnit(limitPart || '');
-  return { currentBytes, limitBytes, display: `${formatBytesToMb(currentBytes)} / ${formatBytesToMb(limitBytes)}` };
-}
-
 async function parseKnowledgeFileContent(buffer: Buffer, fileName: string, mimeType: string): Promise<string> {
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
   if (['txt', 'md', 'csv', 'json', 'yaml', 'yml', 'xml', 'html', 'htm', 'css', 'js', 'ts', 'py', 'java', 'go', 'rs', 'sql', 'sh', 'log', 'conf', 'ini', 'env'].includes(ext)) {
@@ -1407,6 +1412,341 @@ function normalizeKnowledgeSourceType(sourceType: string): string {
   if (['conversation', 'chat', 'message'].includes(normalized)) return 'channel';
   if (['template', 'guide', 'reference', 'url', 'web'].includes(normalized)) return 'external';
   return 'manual';
+}
+
+function normalizeClawHubSlug(value: string): string {
+  const raw = value.trim();
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    const parts = parsed.pathname.split('/').map(part => part.trim()).filter(Boolean);
+    return parts[parts.length - 1] || raw;
+  } catch {
+    return raw.split('/').map(part => part.trim()).filter(Boolean).pop() || raw;
+  }
+}
+
+function parseVersionParts(version: string): number[] {
+  return version.split(/[^\d]+/).filter(Boolean).map(part => Number(part)).filter(num => Number.isFinite(num));
+}
+
+function compareVersions(a: string, b: string): number {
+  const pa = parseVersionParts(a);
+  const pb = parseVersionParts(b);
+  const max = Math.max(pa.length, pb.length);
+  for (let i = 0; i < max; i += 1) {
+    const av = pa[i] || 0;
+    const bv = pb[i] || 0;
+    if (av > bv) return 1;
+    if (av < bv) return -1;
+  }
+  return a.localeCompare(b);
+}
+
+function summarizeClawHubChangelog(changelog: string, currentVersion: string, latestVersion: string): string {
+  const text = changelog.trim();
+  if (!text) return currentVersion === latestVersion ? '当前版本已是最新。' : '发现新版本，但上游未提供明确变更说明，请在升级前查看详情。';
+  const lower = text.toLowerCase();
+  if (lower.includes('no feature') || lower.includes('no functional') || lower.includes('no changes to code') || lower.includes('only metadata')) {
+    return '主要是文档或版本元数据同步，未声明功能或安全逻辑变化。';
+  }
+  if (text.includes('竞品') || lower.includes('competitor')) return '新增或调整竞品情报、采购记录和客户调研路由能力。';
+  if (text.includes('SOUL') || lower.includes('removed all') || lower.includes('security') || lower.includes('dangerous')) {
+    return '包含安全清理或高风险内容移除，建议优先查看并升级。';
+  }
+  if (text.includes('visit') || text.includes('拜访')) return '增强拜访复盘、销售流程评估或行动建议相关能力。';
+  return text.split(/\r?\n/).map(line => line.replace(/^[-*\s]+/, '').trim()).filter(Boolean).slice(0, 2).join('；').slice(0, 240);
+}
+
+function buildClawHubEnv(env: Record<string, string>): NodeJS.ProcessEnv {
+  const token = env.CLAWHUB_ADMIN_TOKEN || process.env.CLAWHUB_ADMIN_TOKEN || '';
+  const site = env.CLAWHUB_SITE || process.env.CLAWHUB_SITE || 'https://clawhub.ai';
+  const registry = env.CLAWHUB_REGISTRY || process.env.CLAWHUB_REGISTRY || '';
+  return {
+    ...process.env,
+    ...(token ? { CLAWHUB_TOKEN: token, CLAWHUB_ADMIN_TOKEN: token, CLAWDHUB_TOKEN: token } : {}),
+    ...(site ? { CLAWHUB_SITE: site } : {}),
+    ...(registry ? { CLAWHUB_REGISTRY: registry } : {})
+  };
+}
+
+function getClawHubApiBase(env: Record<string, string>): string {
+  return (env.CLAWHUB_REGISTRY || process.env.CLAWHUB_REGISTRY || env.CLAWHUB_SITE || process.env.CLAWHUB_SITE || 'https://clawhub.ai').replace(/\/+$/, '');
+}
+
+function getClawHubToken(env: Record<string, string>): string {
+  return env.CLAWHUB_ADMIN_TOKEN || process.env.CLAWHUB_ADMIN_TOKEN || process.env.CLAWHUB_TOKEN || process.env.CLAWDHUB_TOKEN || '';
+}
+
+function getClawHubOptionValue(options: string[], key: string, fallback: string): string {
+  const index = options.indexOf(key);
+  if (index >= 0 && options[index + 1]) return options[index + 1];
+  return fallback;
+}
+
+async function fetchClawHubJson(apiBase: string, path: string, token: string): Promise<Record<string, unknown>> {
+  const response = await fetch(`${apiBase}${path}`, {
+    headers: {
+      accept: 'application/json',
+      'user-agent': 'agent-harness-web-portal',
+      ...(token ? { authorization: `Bearer ${token}` } : {})
+    },
+    signal: AbortSignal.timeout(30000)
+  });
+  const text = await response.text();
+  let body: Record<string, unknown> = {};
+  try {
+    body = text ? JSON.parse(text) as Record<string, unknown> : {};
+  } catch {
+    body = { raw: text };
+  }
+  if (!response.ok) {
+    throw new Error(`clawhub_http_${response.status}: ${text.slice(0, 300)}`);
+  }
+  return body;
+}
+
+function buildCachedClawHubInspect(slug: string, options: string[], detail: string): { ok: boolean; data?: Record<string, unknown>; text?: string; error?: string } | null {
+  const cached = CURATED_CLAWHUB_SKILLS.find((skill) => normalizeClawHubSlug(skill.source) === slug || skill.name === slug);
+  if (!cached) return null;
+  const definition = cached.definition || {};
+  const maintenance = (definition.maintenance || {}) as Record<string, unknown>;
+  const latestVersion = String(maintenance.latest_checked_version || '');
+  if (!latestVersion) return null;
+  const latestChangelog = String(maintenance.latest_changelog || '');
+  const owner = String(cached.source).split('/').filter(Boolean).slice(-2, -1)[0] || 'skills';
+  const baseData: Record<string, unknown> = {
+    skill: {
+      slug,
+      displayName: cached.name,
+      summary: cached.description,
+      tags: { latest: latestVersion },
+      stats: {
+        comments: 0,
+        downloads: cached.installCount,
+        installsAllTime: cached.installCount,
+        installsCurrent: cached.installCount,
+        stars: Math.round(cached.rating),
+        versions: 1
+      },
+      createdAt: null,
+      updatedAt: null
+    },
+    latestVersion: {
+      version: latestVersion,
+      createdAt: null,
+      changelog: latestChangelog,
+      license: 'MIT-0'
+    },
+    owner: { handle: owner, displayName: owner, image: null },
+    moderation: {
+      isSuspicious: false,
+      isMalwareBlocked: false,
+      verdict: 'clean',
+      reasonCodes: [],
+      updatedAt: null,
+      engineVersion: null,
+      summary: 'Using curated built-in metadata because live ClawHub inspection is unavailable.'
+    },
+    version: null,
+    versions: null,
+    file: null,
+    offline_cache: true,
+    offline_detail: detail
+  };
+  if (options.includes('--versions')) {
+    baseData.versions = [{ version: latestVersion, createdAt: null, changelog: latestChangelog, changelogSource: 'cache' }];
+  }
+  if (options.includes('--files')) {
+    baseData.version = {
+      version: latestVersion,
+      createdAt: null,
+      changelog: latestChangelog,
+      changelogSource: 'cache',
+      license: 'MIT-0',
+      files: []
+    };
+  }
+  return { ok: true, data: baseData, text: detail };
+}
+
+async function runClawHubInspectHttp(slug: string, options: string[], cliError: string): Promise<{ ok: boolean; data?: Record<string, unknown>; text?: string; error?: string }> {
+  const env = loadEnvFile();
+  const apiBase = getClawHubApiBase(env);
+  const token = getClawHubToken(env);
+  try {
+    const detail = await fetchClawHubJson(apiBase, `/api/v1/skills/${encodeURIComponent(slug)}`, token);
+    const result: Record<string, unknown> = {
+      skill: detail.skill || null,
+      latestVersion: detail.latestVersion || null,
+      owner: detail.owner || null,
+      moderation: detail.moderation || null,
+      version: null,
+      versions: null,
+      file: null
+    };
+    if (options.includes('--versions')) {
+      const limit = encodeURIComponent(getClawHubOptionValue(options, '--limit', '25'));
+      const versions = await fetchClawHubJson(apiBase, `/api/v1/skills/${encodeURIComponent(slug)}/versions?limit=${limit}`, token);
+      result.versions = Array.isArray(versions.items) ? versions.items : [];
+    }
+    if (options.includes('--files')) {
+      const latestVersion = String(((detail.latestVersion || {}) as Record<string, unknown>).version || ((detail.skill as Record<string, unknown> | undefined)?.tags as Record<string, unknown> | undefined)?.latest || '');
+      if (latestVersion) {
+        const versionDetail = await fetchClawHubJson(apiBase, `/api/v1/skills/${encodeURIComponent(slug)}/versions/${encodeURIComponent(latestVersion)}`, token);
+        result.version = versionDetail.version || null;
+      }
+    }
+    return { ok: true, data: result, text: cliError ? `cli_fallback: ${cliError}` : 'http' };
+  } catch (error) {
+    const detail = `${cliError ? `${cliError}; ` : ''}${String(error)}`.slice(0, 800);
+    const cached = buildCachedClawHubInspect(slug, options, detail);
+    if (cached) return cached;
+    return { ok: false, error: 'clawhub_inspect_failed', text: detail };
+  }
+}
+
+async function runClawHubInspect(slugOrUrl: string, options: string[] = []): Promise<{ ok: boolean; data?: Record<string, unknown>; text?: string; error?: string }> {
+  const slug = normalizeClawHubSlug(slugOrUrl);
+  if (!slug) return { ok: false, error: 'missing_clawhub_slug' };
+  const env = loadEnvFile();
+  try {
+    const output = execFileSync('clawhub', ['inspect', slug, '--json', ...options], {
+      timeout: 90000,
+      encoding: 'utf8',
+      env: buildClawHubEnv(env),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const jsonStart = output.indexOf('{');
+    const jsonEnd = output.lastIndexOf('}');
+    if (jsonStart >= 0 && jsonEnd >= jsonStart) {
+      return { ok: true, data: JSON.parse(output.slice(jsonStart, jsonEnd + 1)) as Record<string, unknown>, text: output };
+    }
+    return { ok: false, error: 'invalid_clawhub_json', text: output.slice(0, 500) };
+  } catch (error) {
+    return runClawHubInspectHttp(slug, options, String(error).slice(0, 800));
+  }
+}
+
+function normalizeClawHubInspect(data: Record<string, unknown>, slugFallback: string): Record<string, unknown> {
+  const skill = (data.skill || {}) as Record<string, unknown>;
+  const latest = ((data.latestVersion || data.version || {}) as Record<string, unknown>);
+  const moderation = (data.moderation || {}) as Record<string, unknown>;
+  const owner = (data.owner || {}) as Record<string, unknown>;
+  const stats = (skill.stats || {}) as Record<string, unknown>;
+  const slug = String(skill.slug || slugFallback);
+  const latestVersion = String(latest.version || (skill.tags as Record<string, unknown> | undefined)?.latest || '');
+  const changelog = String(latest.changelog || '');
+  return {
+    slug,
+    display_name: String(skill.displayName || slug),
+    summary: String(skill.summary || ''),
+    owner: String(owner.handle || ''),
+    latest_version: latestVersion,
+    latest_changelog: changelog,
+    changelog_summary: summarizeClawHubChangelog(changelog, '', latestVersion),
+    license: String(latest.license || ''),
+    updated_at: skill.updatedAt || latest.createdAt || null,
+    downloads: Number(stats.downloads || 0),
+    stars: Number(stats.stars || 0),
+    versions: Number(stats.versions || 0),
+    moderation: {
+      verdict: String(moderation.verdict || ''),
+      summary: String(moderation.summary || ''),
+      is_suspicious: Boolean(moderation.isSuspicious),
+      is_malware_blocked: Boolean(moderation.isMalwareBlocked)
+    },
+    source_uri: `https://clawhub.ai/${owner.handle || 'skills'}/${slug}`
+  };
+}
+
+function extractInstalledClawHubInfo(skill: Record<string, unknown>): { slug: string; sourceUri: string; currentVersion: string } {
+  const metadata = (skill.metadata || {}) as Record<string, unknown>;
+  const definition = (skill.definition_json || {}) as Record<string, unknown>;
+  const maintenance = (definition.maintenance || {}) as Record<string, unknown>;
+  const sourceUri = String(metadata.source || metadata.source_uri || metadata.clawhub_url || '');
+  const slug = String(metadata.clawhub_slug || definition.clawhub_slug || normalizeClawHubSlug(sourceUri));
+  const currentVersion = String(metadata.clawhub_version || maintenance.latest_checked_version || '');
+  return { slug, sourceUri, currentVersion };
+}
+
+function inferClawHubSkillType(meta: Record<string, unknown>, fallback = 'workflow'): string {
+  const text = `${meta.slug || ''} ${meta.summary || ''}`.toLowerCase();
+  if (text.includes('research') || text.includes('search') || text.includes('调研') || text.includes('竞品')) return 'search';
+  if (text.includes('document') || text.includes('word') || text.includes('ppt') || text.includes('报告')) return 'document';
+  if (text.includes('security') || text.includes('vet')) return 'security';
+  if (text.includes('weather')) return 'utility';
+  return fallback;
+}
+
+function buildSkillDefinitionFromClawHub(meta: Record<string, unknown>, fileList: Array<Record<string, unknown>> = []): Record<string, unknown> {
+  const moderation = (meta.moderation || {}) as Record<string, unknown>;
+  return {
+    source_type: 'clawhub',
+    clawhub_slug: meta.slug,
+    entrypoint: 'SKILL.md',
+    capabilities: [],
+    files: fileList.map(file => ({
+      path: file.path,
+      size: file.size,
+      sha256: file.sha256,
+      content_type: file.contentType
+    })),
+    risk_profile: {
+      api_key_required: false,
+      external_network: false,
+      overlaps_memory: false
+    },
+    maintenance: {
+      latest_checked_version: meta.latest_version,
+      latest_changelog: meta.latest_changelog,
+      changelog_summary: meta.changelog_summary,
+      moderation
+    }
+  };
+}
+
+async function createSkillFromClawHub(session: Session, slugOrUrl: string, scopeType = 'private'): Promise<{ status: number; body: Record<string, unknown> }> {
+  const inspected = await runClawHubInspect(slugOrUrl, ['--files']);
+  if (!inspected.ok || !inspected.data) return { status: 502, body: { ok: false, error: inspected.error || 'clawhub_unavailable', detail: inspected.text } };
+  const slug = normalizeClawHubSlug(slugOrUrl);
+  const meta = normalizeClawHubInspect(inspected.data, slug);
+  const version = (inspected.data.version || {}) as Record<string, unknown>;
+  const files = Array.isArray(version.files) ? version.files as Array<Record<string, unknown>> : [];
+  const definition = buildSkillDefinitionFromClawHub(meta, files);
+  const risk = ((meta.moderation as Record<string, unknown>).is_suspicious || (meta.moderation as Record<string, unknown>).is_malware_blocked) ? 'high' : 'medium';
+      const body = {
+    owner_user_id: session.user_id,
+    org_id: session.org_id || undefined,
+    scope_type: scopeType,
+    skill_name: String(meta.slug || slug),
+    description: String(meta.summary || meta.display_name || slug),
+    skill_type: inferClawHubSkillType(meta),
+    definition_json: definition,
+    metadata: {
+      source: meta.source_uri,
+      installed_from: 'clawhub.ai',
+      clawhub_slug: meta.slug,
+      clawhub_owner: meta.owner,
+      clawhub_version: meta.latest_version,
+      clawhub_updated_at: meta.updated_at,
+      risk,
+      rating: Number(meta.stars || 0),
+      downloads: Number(meta.downloads || 0),
+      admin_managed: true
+    },
+    source_uri: meta.source_uri
+  };
+  const r = await fetchFromService(skillLibraryUrl + '/internal/skills/create', { method: 'POST', body: JSON.stringify(body) });
+  if (r.status >= 200 && r.status < 300 && (r.data as Record<string, unknown>)?.skill) {
+    const created = ((r.data as Record<string, unknown>).skill || {}) as Record<string, unknown>;
+    const pool = await getDbPool();
+    if (pool && created.id) {
+      const mergedMeta = { ...body.metadata, created_from_clawhub_at: new Date().toISOString() };
+      await pool.query(`UPDATE skill SET metadata = $2::jsonb, updated_at = now() WHERE id = $1`, [String(created.id), JSON.stringify(mergedMeta)]).catch(() => undefined);
+    }
+  }
+  return { status: r.status, body: (r.data || {}) as Record<string, unknown> };
 }
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -2064,6 +2404,190 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
 
+    if (pathname === '/api/admin/skills/import' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const body = await readJson(req);
+      const sourceUrl = String(body.source_url || body.source_uri || '').trim();
+      const markdownContent = String(body.markdown_content || body.content || '').trim();
+      const scopeType = String(body.scope_type || 'private');
+      if (sourceUrl && sourceUrl.includes('clawhub.ai')) {
+        const result = await createSkillFromClawHub(session, sourceUrl, scopeType);
+        sendJson(res, result.status, result.body);
+        return;
+      }
+      if (markdownContent) {
+        const r = await fetchFromService(skillLibraryUrl + '/internal/skills/import', {
+          method: 'POST',
+          body: JSON.stringify({
+            owner_user_id: session.user_id,
+            org_id: session.org_id || undefined,
+            scope_type: scopeType,
+            markdown_content: markdownContent,
+            source_uri: sourceUrl || body.file_name || 'admin_upload',
+            metadata: { admin_uploaded: true, source_url: sourceUrl || undefined }
+          })
+        });
+        sendJson(res, r.status, r.data);
+        return;
+      }
+      sendJson(res, 400, { ok: false, error: 'missing_import_content' });
+      return;
+    }
+
+    if (pathname === '/api/admin/skills/check-updates' && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const body = await readJson(req);
+      const skillId = String(body.skill_id || '').trim();
+      const slugOrUrl = String(body.slug || body.source_url || body.source_uri || '').trim();
+      const targets: Array<Record<string, unknown>> = [];
+      if (skillId) {
+        const detail = await fetchFromService(skillLibraryUrl + '/internal/skills/' + encodeURIComponent(skillId));
+        if (detail.status !== 200 || !(detail.data as Record<string, unknown>)?.skill) {
+          sendJson(res, detail.status, detail.data);
+          return;
+        }
+        targets.push((detail.data as Record<string, unknown>).skill as Record<string, unknown>);
+      } else if (slugOrUrl) {
+        targets.push({ id: '', skill_name: normalizeClawHubSlug(slugOrUrl), metadata: { source: slugOrUrl, clawhub_slug: normalizeClawHubSlug(slugOrUrl) }, definition_json: {} });
+      } else {
+        const listed = await fetchFromService(skillLibraryUrl + '/internal/skills?limit=200');
+        if (listed.status !== 200 || !Array.isArray((listed.data as Record<string, unknown>)?.skills)) {
+          sendJson(res, listed.status, listed.data);
+          return;
+        }
+        for (const skill of (listed.data as Record<string, unknown>).skills as Array<Record<string, unknown>>) {
+          const info = extractInstalledClawHubInfo(skill);
+          if (info.slug || info.sourceUri.includes('clawhub.ai')) targets.push(skill);
+        }
+      }
+
+      const updates: Array<Record<string, unknown>> = [];
+      for (const target of targets) {
+        const installed = extractInstalledClawHubInfo(target);
+        const slug = installed.slug || normalizeClawHubSlug(slugOrUrl);
+        if (!slug) continue;
+        const versionsResult = await runClawHubInspect(slug, ['--versions', '--limit', '10']);
+        if (!versionsResult.ok || !versionsResult.data) {
+          updates.push({ skill_id: target.id, skill_name: target.skill_name, slug, ok: false, error: versionsResult.error || 'clawhub_unavailable', detail: versionsResult.text });
+          continue;
+        }
+        const meta = normalizeClawHubInspect(versionsResult.data, slug);
+        const latestVersion = String(meta.latest_version || '');
+        const currentVersion = installed.currentVersion || latestVersion;
+        const hasUpdate = latestVersion ? compareVersions(latestVersion, currentVersion) > 0 : false;
+        const versions = Array.isArray(versionsResult.data.versions) ? versionsResult.data.versions as Array<Record<string, unknown>> : [];
+        const relevantChanges = versions
+          .filter(version => {
+            const versionName = String(version.version || '');
+            return !currentVersion || compareVersions(versionName, currentVersion) > 0;
+          })
+          .map(version => ({
+            version: String(version.version || ''),
+            changelog: String(version.changelog || ''),
+            summary: summarizeClawHubChangelog(String(version.changelog || ''), currentVersion, String(version.version || ''))
+          }));
+        updates.push({
+          skill_id: target.id,
+          skill_name: target.skill_name || meta.display_name,
+          slug,
+          source_uri: installed.sourceUri || meta.source_uri,
+          current_version: currentVersion,
+          latest_version: latestVersion,
+          has_update: hasUpdate,
+          changelog: String(meta.latest_changelog || ''),
+          change_summary: summarizeClawHubChangelog(String(meta.latest_changelog || ''), currentVersion, latestVersion),
+          relevant_changes: relevantChanges,
+          moderation: meta.moderation,
+          downloads: meta.downloads,
+          stars: meta.stars,
+          updated_at: meta.updated_at
+        });
+      }
+      sendJson(res, 200, { ok: true, updates, checked_at: new Date().toISOString() });
+      return;
+    }
+
+    if (pathname.startsWith('/api/admin/skills/') && pathname.endsWith('/upgrade') && method === 'POST') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const skillId = pathname.slice('/api/admin/skills/'.length, -'/upgrade'.length);
+      if (!skillId) { sendJson(res, 400, { ok: false, error: 'missing_skill_id' }); return; }
+      const detail = await fetchFromService(skillLibraryUrl + '/internal/skills/' + encodeURIComponent(skillId));
+      if (detail.status !== 200 || !(detail.data as Record<string, unknown>)?.skill) {
+        sendJson(res, detail.status, detail.data);
+        return;
+      }
+      const skill = (detail.data as Record<string, unknown>).skill as Record<string, unknown>;
+      const installed = extractInstalledClawHubInfo(skill);
+      if (!installed.slug) {
+        sendJson(res, 400, { ok: false, error: 'skill_not_from_clawhub' });
+        return;
+      }
+      const inspected = await runClawHubInspect(installed.slug, ['--files']);
+      if (!inspected.ok || !inspected.data) {
+        sendJson(res, 502, { ok: false, error: inspected.error || 'clawhub_unavailable', detail: inspected.text });
+        return;
+      }
+      const meta = normalizeClawHubInspect(inspected.data, installed.slug);
+      const version = (inspected.data.version || {}) as Record<string, unknown>;
+      const files = Array.isArray(version.files) ? version.files as Array<Record<string, unknown>> : [];
+      const existingDefinition = (skill.definition_json || {}) as Record<string, unknown>;
+      const definition = {
+        ...existingDefinition,
+        ...buildSkillDefinitionFromClawHub(meta, files),
+        risk_profile: (existingDefinition.risk_profile || buildSkillDefinitionFromClawHub(meta, files).risk_profile) as Record<string, unknown>
+      };
+      const updateBody = {
+        definition_json: definition,
+        description: String(meta.summary || skill.description || ''),
+        skill_type: inferClawHubSkillType(meta, String(skill.skill_type || 'workflow')),
+        scope_type: skill.scope_type,
+        source_uri: meta.source_uri,
+        source_type: 'manual',
+        source_metadata: {
+          registry: 'clawhub.ai',
+          clawhub_slug: meta.slug,
+          upstream_version: meta.latest_version,
+          changelog_summary: summarizeClawHubChangelog(String(meta.latest_changelog || ''), installed.currentVersion, String(meta.latest_version || ''))
+        }
+      };
+      const r = await fetchFromService(skillLibraryUrl + '/internal/skills/' + encodeURIComponent(skillId) + '/update', {
+        method: 'POST',
+        body: JSON.stringify(updateBody)
+      });
+      if (r.status >= 200 && r.status < 300) {
+        const pool = await getDbPool();
+        if (pool) {
+          const existingMeta = (skill.metadata || {}) as Record<string, unknown>;
+          const mergedMeta = {
+            ...existingMeta,
+            source: existingMeta.source || meta.source_uri,
+            installed_from: 'clawhub.ai',
+            clawhub_slug: meta.slug,
+            clawhub_owner: meta.owner || existingMeta.clawhub_owner,
+            clawhub_version: meta.latest_version,
+            clawhub_updated_at: meta.updated_at,
+            last_upgrade_checked_at: new Date().toISOString(),
+            last_upgrade_summary: summarizeClawHubChangelog(String(meta.latest_changelog || ''), installed.currentVersion, String(meta.latest_version || ''))
+          };
+          await pool.query(`UPDATE skill SET metadata = $2::jsonb, updated_at = now() WHERE id = $1`, [skillId, JSON.stringify(mergedMeta)]).catch(() => undefined);
+        }
+      }
+      sendJson(res, r.status, {
+        ...((r.data || {}) as Record<string, unknown>),
+        clawhub: {
+          slug: meta.slug,
+          previous_version: installed.currentVersion,
+          latest_version: meta.latest_version,
+          change_summary: summarizeClawHubChangelog(String(meta.latest_changelog || ''), installed.currentVersion, String(meta.latest_version || '')),
+          moderation: meta.moderation
+        }
+      });
+      return;
+    }
+
     if (pathname.startsWith('/api/admin/skills/') && !pathname.includes('/mirror-') && pathname !== '/api/admin/skills/recommended' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
@@ -2080,6 +2604,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const body = await readJson(req);
       const r = await fetchFromService(skillLibraryUrl + '/internal/skills/' + encodeURIComponent(skillId), { method: 'PUT', body: JSON.stringify(body) });
       sendJson(res, r.status, r.data);
+      return;
+    }
+
+    if (pathname === '/api/admin/clawhub/status' && method === 'GET') {
+      const session = await requireAdmin(req, res);
+      if (!session) return;
+      const env = loadEnvFile();
+      const site = env.CLAWHUB_SITE || process.env.CLAWHUB_SITE || 'https://clawhub.ai';
+      const registry = env.CLAWHUB_REGISTRY || process.env.CLAWHUB_REGISTRY || '';
+      const hasToken = Boolean(env.CLAWHUB_ADMIN_TOKEN || process.env.CLAWHUB_ADMIN_TOKEN);
+      sendJson(res, 200, { ok: true, site, registry, token_configured: hasToken, token_preview: hasToken ? '********' : '' });
       return;
     }
 
@@ -2125,7 +2660,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           }
         }
       }
-      const persistedEnv = persistConfigEnv(env);
+      persistConfigEnv(env);
       const hostEnvSync = syncHostEnvFile();
       const restart_targets = getRestartTargetsForConfigKeys(changedKeys);
       sendJson(res, 200, {
@@ -3140,7 +3675,25 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/admin/skills/recommended' && method === 'GET') {
       const session = await requireAdmin(req, res);
       if (!session) return;
-      sendJson(res, 200, { ok: true, skills: CURATED_CLAWHUB_SKILLS });
+      const pool = await getDbPool();
+      let seededSlugs: string[] = [];
+      if (pool) {
+        try {
+          const result = await pool.query(
+            `SELECT metadata->>'clawhub_slug' AS slug
+               FROM skill
+              WHERE status <> 'deleted'
+                AND (metadata->>'installed_from' = 'clawhub.ai' OR metadata->>'source' LIKE 'https://clawhub.ai/%')
+              LIMIT 500`
+          );
+          seededSlugs = result.rows.map(row => String(row.slug || '')).filter(Boolean);
+        } catch { /* recommended list can still render without DB enrichment */ }
+      }
+      const seededRecommended = CURATED_CLAWHUB_SKILLS.map(skill => ({
+        ...skill,
+        installed: seededSlugs.includes(normalizeClawHubSlug(skill.source))
+      }));
+      sendJson(res, 200, { ok: true, skills: seededRecommended });
       return;
     }
 
@@ -3164,7 +3717,18 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
           description: skill.description,
           skill_type: skill.type,
           definition_json: skill.definition,
-          metadata: { curated: true, source: skill.source, risk: skill.risk, install_count: skill.installCount, rating: skill.rating, category: skill.category }
+          source_uri: skill.source,
+          metadata: {
+            curated: true,
+            source: skill.source,
+            installed_from: 'clawhub.ai',
+            clawhub_slug: normalizeClawHubSlug(skill.source),
+            risk: skill.risk,
+            install_count: skill.installCount,
+            rating: skill.rating,
+            category: skill.category,
+            admin_managed: true
+          }
         })
       });
       sendJson(res, r.status, r.data);

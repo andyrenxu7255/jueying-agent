@@ -1,6 +1,6 @@
 {
   "version": "v2.10",
-  "description": "Agent Harness context dependency graph - Updated 2026-05-23: portal configuration hardening covers Feishu long-connection secrets, hot reload/restart UX, model catalog/test flows, knowledge import, DB maintenance feedback, and resource monitoring unit clarity.",
+  "description": "Agent Harness context dependency graph - Updated 2026-05-23: portal configuration hardening plus admin demo initialization covers Feishu long-connection secrets, hot reload/restart UX, model catalog/test flows, knowledge import, DB maintenance feedback, resource monitoring unit clarity, ClawHub admin skill maintenance, and MEDDIC demo knowledge/graph seeds.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -84,6 +84,7 @@
     "agent-harness/services/hermes-adapter/src/index.ts": ["AH1-23-审计日志指标与告警.md", "AH1-20-检索编排与Fact-Write.md"],
     "agent-harness/services/skill-library/src/index.ts": ["AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md"],
     "agent-harness/db/migrations/027_workflow_definition_review.sql": ["AH1-14-数据库表设计与索引.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-23-审计日志指标与告警.md"],
+    "agent-harness/db/migrations/028_seed_admin_demo_content.sql": ["AH1-14-数据库表设计与索引.md", "AH1-17-Workflow-DSL与Planner契约.md", "AH1-20-检索编排与Fact-Write.md"],
     "agent-harness/libs/shared/src/db/attribution.ts": ["AH1-23-审计日志指标与告警.md", "AH1-14-数据库表设计与索引.md"],
     "agent-harness/db/migrations/026_recall_outcome_attribution.sql": ["AH1-14-数据库表设计与索引.md", "AH1-23-审计日志指标与告警.md"],
     "agent-harness/services/executor-gateway/src/executor/generic-executor.ts": ["AH1-18-Code-Executor与执行会话.md", "AH1-17-Workflow-DSL与Planner契约.md"],
@@ -268,8 +269,9 @@
     "2026-05-22-R16": "Bilingual release hardening: web portal static localization and shared backend i18n mapped into graph; frontend dynamic attributes escaped; dynamic path parameters encoded; npm audit fixed brace-expansion/ws moderate advisories; .gitignore now covers local secrets.",
     "2026-05-23-R17": "Portal configuration and operations hardening: Feishu long-connection no longer requires signing secret, config saves show hot reload plus restart targets, LLM/Embedding/Rerank catalog and test flows are surfaced, knowledge import handles manual and uploaded files, DB maintenance shows running/result feedback, resource monitoring displays storage bytes as human units and treats container monitoring as optional; README/OPS updated.",
     "2026-05-23-R18": "Portal admin functional coverage extended: added a repeatable integration test covering Feishu config UX, model catalog/test flows, knowledge import/upload, database maintenance, resource quota display, curated low-risk skills, and shared knowledge separation; temp data cleanup restores the admin config and removes created records.",
-    "total_fixes": 71,
-    "files_modified": 64,
+    "2026-05-23-R19": "Admin initialization and ClawHub maintenance: seeded MEDDIC demo documents/chunks/entities/relations plus ClawHub sales skills, added CLAWHUB_ADMIN_TOKEN config, URL/Markdown skill import, ClawHub update checks with changelog interpretation, and per-skill confirmed upgrade.",
+    "total_fixes": 72,
+    "files_modified": 70,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)"
   }

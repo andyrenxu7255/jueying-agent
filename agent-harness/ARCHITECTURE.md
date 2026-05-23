@@ -598,12 +598,27 @@ docker logs -f ah-mobile-app
 | GET | `/api/admin/dream/skill-usage` | 梦境模式：技能使用统计 |
 | GET | `/api/admin/dream/scenes` | 梦境模式：场景价值评估 |
 | POST | `/api/admin/skills/:id/promote-to-org` | 梦境模式：技能提升为组织级 |
+| GET | `/api/admin/clawhub/status` | ClawHub 管理状态，返回入口地址与 token 是否已配置（不回显明文） |
+| POST | `/api/admin/skills/import` | 管理员从 ClawHub URL 或 Markdown/SKILL.md 内容导入技能 |
+| POST | `/api/admin/skills/check-updates` | 检查 ClawHub 来源技能的新版本并返回变更摘要 |
+| POST | `/api/admin/skills/:id/upgrade` | 管理员确认后把技能升级到 ClawHub 最新版本 |
 | GET | `/api/admin/dream/config` | 梦境模式：读取配置 |
 | POST | `/api/admin/dream/config` | 梦境模式：保存配置 |
 
 ---
 
-## 十、第三轮修复内容（2026-05-01）
+## 十、Admin 初始化与维护种子（2026-05-23）
+
+数据库迁移 `028_seed_admin_demo_content.sql` 预置两类可直接演示的数据：
+
+| 类型 | 内容 | 说明 |
+|------|------|------|
+| Demo 知识 | MEDDIC 销售六步法、阶段 Gates、Champion、Discovery、Business Case | 作为 public document、document_chunk、entity、relation 入库，便于验证共享知识检索和图谱投影 |
+| ClawHub 技能 | `meddic-b2b-sales-review`、`customer-research` | 保存公开元数据、来源 URL、上游版本、风险说明和基础定义，不保存任何 token/key |
+
+ClawHub 管理 token 通过 `CLAWHUB_ADMIN_TOKEN` 配置，仅在服务端调用 `clawhub inspect/install/update/publish` 类操作时使用。Web Portal 只显示是否已配置，敏感值统一掩码。技能升级不会自动静默执行：管理员先看当前版本、上游版本、变更摘要和安全扫描结果，再逐个点击确认升级。
+
+## 十一、第三轮修复内容（2026-05-01）
 
 本轮针对飞书实际使用中发现的问题：
 

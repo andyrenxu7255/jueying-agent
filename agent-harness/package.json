@@ -12,6 +12,7 @@
     "build": "npm run build --workspaces --if-present",
     "type-check": "npm run type-check --workspaces --if-present",
     "test": "jest --config tests/setup/jest.config.cjs --passWithNoTests",
+    "test:portal-static": "node --check apps/web-portal/static/localization.js && node --check apps/web-portal/static/app.js",
     "lint": "eslint . --ext .ts",
     "db:migrate": "node scripts/apply-sql-migrations.js",
     "db:migrate:drizzle": "drizzle-kit migrate",

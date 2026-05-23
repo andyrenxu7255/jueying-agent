@@ -212,7 +212,8 @@ async function checkAuth() {
 
 function renderLogin() {
   window.__setupStatus = null;
-  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><div style="display:flex;justify-content:flex-end;margin-bottom:8px">'+langSwitchButton()+'</div><h1>JueYing</h1><p>'+t('login.subtitle')+'</p><div class="form-group"><label>'+t('login.username')+'</label><input type="text" id="login-user" value="admin" placeholder="'+t('login.placeholder_user')+'" autofocus></div><div class="form-group"><label>'+t('login.password')+'</label><input type="password" id="login-pass" value="admin" placeholder="'+t('login.placeholder_pass')+'"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">'+t('login.btn')+'</button></div></div>';
+  const lastUsername = localStorage.getItem('ah_username') || 'admin';
+  document.getElementById('app').innerHTML = '<div class="login-container"><div class="login-card"><div style="display:flex;justify-content:flex-end;margin-bottom:8px">'+langSwitchButton()+'</div><h1>JueYing</h1><p>'+t('login.subtitle')+'</p><div class="form-group"><label>'+t('login.username')+'</label><input type="text" id="login-user" value="'+escapeAttr(lastUsername)+'" placeholder="'+t('login.placeholder_user')+'" autofocus></div><div class="form-group"><label>'+t('login.password')+'</label><input type="password" id="login-pass" value="" placeholder="'+t('login.placeholder_pass')+'"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">'+t('login.btn')+'</button></div></div>';
   document.getElementById('login-user').addEventListener('keydown', function(e) { if (e.key === 'Enter') document.getElementById('login-pass').focus(); });
   document.getElementById('login-pass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
 }
@@ -1048,7 +1049,8 @@ function renderConfigSection(sectionKey, sections, config) {
     wecom: t('config.desc.wecom'),
     llm: t('config.desc.llm'),
     embedding: t('config.desc.embedding'),
-    rerank: t('config.desc.rerank')
+    rerank: t('config.desc.rerank'),
+    clawhub: t('config.desc.clawhub')
   };
 
   if (sectionKey === 'llm') {
@@ -1694,7 +1696,8 @@ async function submitTaskResponse(assignmentId) {
 }
 
 async function renderSkills(el) {
-  el.innerHTML = '<div class="page-header"><h2>'+t('skills.title')+'</h2><div><button class="btn btn-outline btn-sm" onclick="showSearchSkill()">'+t('skills.searchMirror')+'</button> <button class="btn btn-outline btn-sm" onclick="loadRecommendedSkills()">'+t('skills.recommended')+'</button> <button class="btn btn-primary btn-sm" onclick="showAddSkill()">'+t('skills.create')+'</button></div></div><div class="card"><p class="section-desc">'+t('skills.desc')+'</p><div id="skill-list">'+t('common.loading')+'</div></div><div class="card"><h3>'+t('skills.recommendedTitle')+'</h3><div id="recommended-skill-list">'+t('common.loading')+'</div></div>';
+  el.innerHTML = '<div class="page-header"><h2>'+t('skills.title')+'</h2><div><button class="btn btn-outline btn-sm" onclick="showSearchSkill()">'+t('skills.searchMirror')+'</button> <button class="btn btn-outline btn-sm" onclick="showImportSkill()">'+t('skills.import')+'</button> <button class="btn btn-outline btn-sm" onclick="checkAllSkillUpdates()">'+t('skills.checkUpdates')+'</button> <button class="btn btn-outline btn-sm" onclick="loadRecommendedSkills()">'+t('skills.recommended')+'</button> <button class="btn btn-primary btn-sm" onclick="showAddSkill()">'+t('skills.create')+'</button></div></div><div class="card"><p class="section-desc">'+t('skills.desc')+'</p><div id="clawhub-maintenance" class="muted">'+t('common.loading')+'</div><div id="skill-update-results" style="margin-top:12px"></div><div id="skill-list" style="margin-top:12px">'+t('common.loading')+'</div></div><div class="card"><h3>'+t('skills.recommendedTitle')+'</h3><div id="recommended-skill-list">'+t('common.loading')+'</div></div>';
+  loadClawHubStatus();
   const r = await api('/api/admin/skills');
   if (r.ok && r.data.skills) {
     const skills = r.data.skills;
@@ -1703,14 +1706,29 @@ async function renderSkills(el) {
     } else {
       document.getElementById('skill-list').innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('common.type')+'</th><th>'+t('common.version')+'</th><th>'+t('common.status')+'</th><th>'+t('common.source')+'</th><th>'+t('common.action')+'</th></tr>' + skills.map(function(s) {
         const meta = s.metadata || {};
-        const source = meta.installed_from ? '<span class="badge badge-info">'+t('skills.mirror')+'</span>' : '<span class="badge badge-warning">'+t('skills.manual')+'</span>';
-        return '<tr><td><button class="btn btn-link" style="padding:0" onclick="showSkillSummary(\'' + escJsAttr(String(s.id)) + '\')">' + escapeHtml(s.skill_name) + '</button></td><td>' + escapeHtml(s.skill_type || '-') + '</td><td>v' + escapeHtml(String(s.version || 1)) + '</td><td>' + statusBadge(s.status || 'active') + '</td><td>' + source + '</td><td><button class="btn btn-sm btn-outline" onclick="showSkillVersions(\'' + escJsAttr(String(s.id)) + '\')">'+t('skills.version')+'</button> <button class="btn btn-sm btn-danger" onclick="archiveSkill(\'' + escJsAttr(String(s.id)) + '\',\'' + escJsAttr(s.skill_name) + '\')">'+t('common.archive')+'</button></td></tr>';
+        const isClawHub = meta.installed_from === 'clawhub.ai' || String(meta.source || '').indexOf('clawhub.ai') >= 0 || meta.clawhub_slug;
+        const source = isClawHub ? '<span class="badge badge-info">ClawHub</span>' : (meta.installed_from ? '<span class="badge badge-info">'+t('skills.mirror')+'</span>' : '<span class="badge badge-warning">'+t('skills.manual')+'</span>');
+        const version = isClawHub && meta.clawhub_version ? 'v' + escapeHtml(String(meta.clawhub_version)) : 'v' + escapeHtml(String(s.version || 1));
+        const updateBtn = isClawHub ? ' <button class="btn btn-sm btn-outline" onclick="checkSkillUpdate(\'' + escJsAttr(String(s.id)) + '\')">'+t('skills.checkUpdate')+'</button>' : '';
+        return '<tr><td><button class="btn btn-link" style="padding:0" onclick="showSkillSummary(\'' + escJsAttr(String(s.id)) + '\')">' + escapeHtml(s.skill_name) + '</button></td><td>' + escapeHtml(s.skill_type || '-') + '</td><td>' + version + '</td><td>' + statusBadge(s.status || 'active') + '</td><td>' + source + '</td><td><button class="btn btn-sm btn-outline" onclick="showSkillVersions(\'' + escJsAttr(String(s.id)) + '\')">'+t('skills.version')+'</button>' + updateBtn + ' <button class="btn btn-sm btn-danger" onclick="archiveSkill(\'' + escJsAttr(String(s.id)) + '\',\'' + escJsAttr(s.skill_name) + '\')">'+t('common.archive')+'</button></td></tr>';
       }).join('') + '</table>';
     }
     loadRecommendedSkills();
   } else {
     document.getElementById('skill-list').innerHTML = emptyState('⚠️', t('skills.loadFailed'), t('skills.loadFailed'));
   }
+}
+
+async function loadClawHubStatus() {
+  const el = document.getElementById('clawhub-maintenance');
+  if (!el) return;
+  const r = await api('/api/admin/clawhub/status');
+  if (!r.ok || !r.data) {
+    el.innerHTML = '<span class="badge badge-warning">'+t('skills.clawhubUnavailable')+'</span>';
+    return;
+  }
+  const token = r.data.token_configured ? '<span class="badge badge-success">'+t('skills.tokenConfigured')+'</span>' : '<span class="badge badge-warning">'+t('skills.tokenMissing')+'</span>';
+  el.innerHTML = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="badge badge-info">ClawHub</span>' + token + '<span>'+escapeHtml(r.data.site || 'https://clawhub.ai')+'</span><button class="btn btn-sm btn-outline" onclick="currentView=&quot;config&quot;;renderView()">'+t('skills.configureToken')+'</button><a class="btn btn-sm btn-outline" href="https://clawhub.ai" target="_blank" rel="noreferrer">'+t('skills.openClawHub')+'</a></div>';
 }
 
 async function archiveSkill(skillId, skillName) {
@@ -1725,6 +1743,38 @@ function showSearchSkill() {
     '<button class="btn btn-primary" onclick="doSearchSkillMirror()">'+t('skills.searchMirror')+'</button> <button class="btn btn-outline" onclick="closeModal()">'+t('common.cancel')+'</button>' +
     '<div id="skill-search-results" style="margin-top:16px"></div>';
   showModal(t('skills.searchTitle'), body);
+}
+
+function showImportSkill() {
+  const body = '<div class="form-group"><label>'+t('skills.sourceUrl')+'</label><input type="text" id="skill-import-url" placeholder="https://clawhub.ai/owner/skill-name"></div>' +
+    '<div class="form-group"><label>'+t('skills.uploadFile')+'</label><input type="file" id="skill-import-file" accept=".md,.markdown,.txt,.json,.yaml,.yml" style="padding:8px"></div>' +
+    '<div class="form-group"><label>'+t('skills.markdownContent')+'</label><textarea id="skill-import-content" style="min-height:180px" placeholder="'+t('skills.markdownPlaceholder')+'"></textarea></div>' +
+    '<button class="btn btn-primary" onclick="doImportSkill()">'+t('skills.import')+'</button> <button class="btn btn-outline" onclick="closeModal()">'+t('common.cancel')+'</button>';
+  showModal(t('skills.importTitle'), body);
+  const fileEl = document.getElementById('skill-import-file');
+  if (fileEl) {
+    fileEl.addEventListener('change', function() {
+      const file = fileEl.files && fileEl.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function() {
+        document.getElementById('skill-import-content').value = String(reader.result || '');
+      };
+      reader.onerror = function() { showToast(t('common.fileReadFailed'), 'error'); };
+      reader.readAsText(file);
+    });
+  }
+}
+
+async function doImportSkill() {
+  const sourceUrl = document.getElementById('skill-import-url').value.trim();
+  const content = document.getElementById('skill-import-content').value.trim();
+  const fileEl = document.getElementById('skill-import-file');
+  const fileName = fileEl && fileEl.files && fileEl.files[0] ? fileEl.files[0].name : '';
+  if (!sourceUrl && !content) { showToast(t('skills.enterImport'), 'error'); return; }
+  const r = await api('/api/admin/skills/import', { method: 'POST', body: JSON.stringify({ source_url: sourceUrl, markdown_content: content, file_name: fileName, scope_type: 'private' }) });
+  if (r.ok) { showToast(t('skills.imported')); closeModal(); renderView(); }
+  else { showToast((r.data && (r.data.message || r.data.error)) || t('common.importFailed'), 'error'); }
 }
 
 async function doSearchSkillMirror() {
@@ -1764,6 +1814,51 @@ async function showSkillVersions(skillId) {
   showModal(t('skills.versionTitle') + ' - ' + skill.skill_name, body);
 }
 
+function renderSkillUpdateResults(updates, containerId) {
+  const el = document.getElementById(containerId || 'skill-update-results');
+  if (!el) return;
+  if (!updates || updates.length === 0) {
+    el.innerHTML = '<p class="hint-text">'+t('skills.noClawHubSkills')+'</p>';
+    return;
+  }
+  el.innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('skills.currentVersion')+'</th><th>'+t('skills.latestVersion')+'</th><th>'+t('common.summary')+'</th><th>'+t('common.action')+'</th></tr>' + updates.map(function(u) {
+    const status = u.ok === false ? '<span class="badge badge-danger">'+escapeHtml(u.error || 'error')+'</span>' : (u.has_update ? '<span class="badge badge-warning">'+t('skills.updateAvailable')+'</span>' : '<span class="badge badge-success">'+t('skills.upToDate')+'</span>');
+    const action = u.has_update && u.skill_id ? '<button class="btn btn-sm btn-primary" onclick="upgradeSkill(&quot;' + escJsAttr(String(u.skill_id)) + '&quot;)">'+t('skills.upgrade')+'</button>' : '';
+    return '<tr><td>' + escapeHtml(u.skill_name || u.slug || '-') + '<br>' + status + '</td><td>' + escapeHtml(u.current_version || '-') + '</td><td>' + escapeHtml(u.latest_version || '-') + '</td><td style="max-width:360px;white-space:normal">' + escapeHtml(u.change_summary || u.detail || '') + '</td><td>' + action + '</td></tr>';
+  }).join('') + '</table>';
+}
+
+async function checkAllSkillUpdates() {
+  const el = document.getElementById('skill-update-results');
+  if (el) el.innerHTML = '<p class="hint-text">'+t('skills.checkingUpdates')+'</p>';
+  const r = await api('/api/admin/skills/check-updates', { method: 'POST', body: JSON.stringify({}) });
+  if (!r.ok) { showToast((r.data && r.data.error) || t('skills.updateCheckFailed'), 'error'); return; }
+  renderSkillUpdateResults(r.data.updates || [], 'skill-update-results');
+}
+
+async function checkSkillUpdate(skillId) {
+  const r = await api('/api/admin/skills/check-updates', { method: 'POST', body: JSON.stringify({ skill_id: skillId }) });
+  if (!r.ok) { showToast((r.data && r.data.error) || t('skills.updateCheckFailed'), 'error'); return; }
+  const updates = r.data.updates || [];
+  const holder = 'skill-update-modal-results';
+  const body = '<div id="'+holder+'">'+t('common.loading')+'</div><div style="margin-top:12px"><button class="btn btn-outline" onclick="closeModal()">'+t('common.close')+'</button></div>';
+  showModal(t('skills.updateCheckTitle'), body);
+  renderSkillUpdateResults(updates, holder);
+}
+
+async function upgradeSkill(skillId) {
+  if (!confirm(t('skills.upgradeConfirm'))) return;
+  const r = await api('/api/admin/skills/' + encodeURIComponent(skillId) + '/upgrade', { method: 'POST', body: JSON.stringify({}) });
+  if (r.ok) {
+    const summary = r.data && r.data.clawhub ? r.data.clawhub.change_summary : '';
+    showToast(summary || t('skills.upgraded'));
+    closeModal();
+    renderView();
+  } else {
+    showToast((r.data && r.data.error) || t('skills.upgradeFailed'), 'error');
+  }
+}
+
 async function showSkillSummary(skillId) {
   const r = await api('/api/admin/skills/' + encodeURIComponent(skillId));
   if (!r.ok || !r.data.skill) { showToast(t('skills.loadFailed'), 'error'); return; }
@@ -1773,9 +1868,10 @@ async function showSkillSummary(skillId) {
   const body = '<p><strong>'+escapeHtml(skill.skill_name)+'</strong></p>' +
     '<p>'+escapeHtml(skill.description || '')+'</p>' +
     '<p><span class="badge badge-info">'+escapeHtml(skill.skill_type || '-')+'</span> <span class="badge badge-warning">'+escapeHtml(skill.scope_type || '-')+'</span> <span class="badge badge-info">'+escapeHtml(String(skill.version || 1))+'</span></p>' +
+    (meta.clawhub_slug || String(meta.source || '').indexOf('clawhub.ai') >= 0 ? '<p><span class="badge badge-info">ClawHub</span> ' + escapeHtml(meta.clawhub_slug || '') + ' ' + (meta.clawhub_version ? '<span class="badge badge-success">v' + escapeHtml(meta.clawhub_version) + '</span>' : '') + '</p>' : '') +
     '<h4>'+t('skills.defLabel')+'</h4><pre style="white-space:pre-wrap;background:var(--surface2);padding:12px;border-radius:6px;max-height:280px;overflow:auto">'+escapeHtml(JSON.stringify(definition, null, 2))+'</pre>' +
     '<h4>'+t('common.details')+'</h4><pre style="white-space:pre-wrap;background:var(--surface2);padding:12px;border-radius:6px;max-height:200px;overflow:auto">'+escapeHtml(JSON.stringify(meta, null, 2))+'</pre>' +
-    '<div style="margin-top:12px;display:flex;gap:8px"><button class="btn btn-primary" onclick="installSkillFromSummary(\'' + escJsAttr(String(skill.id)) + '\',\'' + escJsAttr(skill.skill_name) + '\')">'+t('common.install')+'</button><button class="btn btn-outline" onclick="closeModal()">'+t('common.close')+'</button></div>';
+    '<div style="margin-top:12px;display:flex;gap:8px"><button class="btn btn-outline" onclick="checkSkillUpdate(&quot;' + escJsAttr(String(skill.id)) + '&quot;)">'+t('skills.checkUpdate')+'</button><button class="btn btn-primary" onclick="installSkillFromSummary(&quot;' + escJsAttr(String(skill.id)) + '&quot;,&quot;' + escJsAttr(skill.skill_name) + '&quot;)">'+t('common.install')+'</button><button class="btn btn-outline" onclick="closeModal()">'+t('common.close')+'</button></div>';
   showModal(t('skills.skillLabel') + skill.skill_name, body);
 }
 
@@ -1818,7 +1914,8 @@ async function loadRecommendedSkills() {
     return;
   }
   el.innerHTML = '<table><tr><th>'+t('common.name')+'</th><th>'+t('common.type')+'</th><th>'+t('common.description')+'</th><th>'+t('common.action')+'</th></tr>' + skills.map(function(s) {
-    return '<tr><td><button class="btn btn-link" style="padding:0" onclick="showRecommendedSkill(\'' + escJsAttr(s.name) + '\')">' + escapeHtml(s.name) + '</button></td><td>' + escapeHtml(s.type) + '</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(s.description || '') + '</td><td><button class="btn btn-sm btn-primary" onclick="installRecommendedSkill(\'' + escJsAttr(s.name) + '\')">'+t('common.install')+'</button></td></tr>';
+    const installed = s.installed ? '<span class="badge badge-success">'+t('skills.installedBadge')+'</span>' : '';
+    return '<tr><td><button class="btn btn-link" style="padding:0" onclick="showRecommendedSkill(\'' + escJsAttr(s.name) + '\')">' + escapeHtml(s.name) + '</button> ' + installed + '</td><td>' + escapeHtml(s.type) + '</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(s.description || '') + '</td><td><button class="btn btn-sm btn-primary" onclick="installRecommendedSkill(\'' + escJsAttr(s.name) + '\')">'+t('common.install')+'</button></td></tr>';
   }).join('') + '</table>';
 }
 
@@ -1835,6 +1932,12 @@ function showRecommendedSkill(name) {
 }
 
 async function installRecommendedSkill(name) {
+  const list = await api('/api/admin/skills/recommended');
+  const skill = list.ok && list.data.skills ? list.data.skills.find(function(s) { return s.name === name; }) : null;
+  if (skill && skill.source && String(skill.source).indexOf('clawhub.ai') >= 0) {
+    const imported = await api('/api/admin/skills/import', { method: 'POST', body: JSON.stringify({ source_url: skill.source, scope_type: 'private' }) });
+    if (imported.ok) { showToast(t('skills.installed')); closeModal(); renderView(); return; }
+  }
   const r = await api('/api/admin/skills/recommended', { method: 'POST', body: JSON.stringify({ name: name }) });
   if (r.ok) { showToast(t('skills.installed')); closeModal(); renderView(); }
   else { showToast((r.data && r.data.error) || t('skills.installFailed'), 'error'); }

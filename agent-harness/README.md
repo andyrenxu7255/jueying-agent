@@ -106,11 +106,21 @@ FEISHU_SIGNING_SECRET=
 # 企微渠道（可选）
 WECOM_TOKEN=xxxxxxxxxxxx
 WECOM_CORP_ID=xxxxxxxxxxxx
+
+# ClawHub 管理（可选）
+# 用于 Web Portal 管理员导入、下载、升级和后续发布 skills。
+# Token 只放本地环境，不提交 GitHub；页面会掩码显示。
+CLAWHUB_SITE=https://clawhub.ai
+CLAWHUB_ADMIN_TOKEN=
 ```
 
 Web Portal 的系统配置页支持热加载多数运行时配置。飞书、模型、Embedding、Rerank 等会影响独立进程的配置保存后，会在页面内显示可选重启按钮；长连接飞书通常重启 `feishu-longconn`，消息收发网关配置通常重启 `gateway-adapter`。
 
 模型配置页可以从 LiteLLM/OpenAI 兼容 `/v1/models` 获取模型目录，也支持维护模型优先级、上下文窗口、最大输出、思考模式与思考强度。Embedding/Rerank 同样提供目录选择和测试按钮；测试结果会显示延迟、维度或排序返回数。
+
+技能管理页面向管理员维护：系统会预置低风险办公/搜索/销售技能，包括 ClawHub 上的 `meddic-b2b-sales-review` 和 `customer-research`；管理员可配置 `CLAWHUB_ADMIN_TOKEN` 后从 ClawHub URL 导入技能、上传 `SKILL.md`、检查已安装 ClawHub 技能的新版本，并在查看变更摘要与安全扫描结果后逐个确认升级。
+
+数据库迁移会预置一组可演示的销售管理知识：`MEDDIC销售六步法总览`、`销售六步法Gates检查清单`、`Champion识别标准`、`Discovery探索阶段五道门`、`Business Case商业论证框架`。这些内容作为 public 文档、chunk、实体和关系进入知识层，便于新环境马上测试共享知识检索和图谱投影。
 
 ### 4. 启动基础设施
 
