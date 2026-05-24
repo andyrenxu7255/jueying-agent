@@ -1,6 +1,6 @@
 {
-  "version": "v2.13",
-  "description": "Agent Harness context dependency graph - Updated 2026-05-23: proactive orchestration R22 adds admin-defined rules, fact/memory/skill/task scans, evidence-backed insight review, mission dispatch through org_task, reports, Docker service 3010, TC-F007, hash-route portal regression tests, and full doc/graph sync on top of Node 22 and 95% Jest coverage gates.",
+  "version": "v2.14",
+  "description": "Agent Harness context dependency graph - Updated 2026-05-24: DEV-22 adds user-view full journey UAT coverage across seven roles and fourteen journeys, with user_journey_uat graph routing and coverage audit script on top of proactive orchestration v1.7.0.",
   "layers": {
     "L0_authority": [
       "AH1-14-数据库表设计与索引.md",
@@ -36,6 +36,7 @@
       "development/DEV-19-B2B故事线系统验收与UI冒烟.md",
       "development/DEV-20-事实图门控与Workflow公共池.md",
       "development/DEV-21-梦境Hook与业务归因闭环.md",
+      "development/DEV-22-用户视角全链路测试设计.md",
       "AH1-13-仓库复用与改造边界.md",
       "agent-harness/apps/web-portal/src/index.ts",
       "agent-harness/apps/web-portal/static/app.js",
@@ -46,6 +47,10 @@
       "agent-harness/services/proactive-orchestrator/src/service.ts",
       "agent-harness/services/proactive-orchestrator/src/domain.ts",
       "agent-harness/tests/integration/proactive-orchestration-test.ts",
+      "agent-harness/tests/integration/portal-admin-functional-test.ts",
+      "agent-harness/tests/integration/task-dispatch-lui-test.ts",
+      "agent-harness/tests/integration/dream-mode-test.ts",
+      "agent-harness/scripts/user-journey-coverage-audit.mjs",
       "agent-harness/用户故事线.md"
     ],
     "L2_governance": [
@@ -382,6 +387,13 @@
       "AH1-27-部署与运维.md",
       "AH1-30-验收标准与测试用例.md"
     ],
+    "agent-harness/scripts/user-journey-coverage-audit.mjs": [
+      "AH1-15-核心接口与事件契约.md",
+      "AH1-16-权限Scope-Policy-Snapshot.md",
+      "AH1-17-Workflow-DSL与Planner契约.md",
+      "AH1-21-渠道接入与Session映射.md",
+      "AH1-30-验收标准与测试用例.md"
+    ],
     "agent-harness/apps/web-portal/static/index.html": [
       "AH1-15-核心接口与事件契约.md",
       "AH1-30-验收标准与测试用例.md",
@@ -574,6 +586,39 @@
         "agent-harness/.env.example",
         "agent-harness/package.json"
       ]
+    },
+    "user_journey_uat": {
+      "authority": [
+        "AH1-15-核心接口与事件契约.md",
+        "AH1-16-权限Scope-Policy-Snapshot.md",
+        "AH1-17-Workflow-DSL与Planner契约.md",
+        "AH1-21-渠道接入与Session映射.md",
+        "AH1-20-检索编排与Fact-Write.md",
+        "AH1-23-审计日志指标与告警.md"
+      ],
+      "loaded_docs": [
+        "AH1-30-验收标准与测试用例.md",
+        "agent-harness/用户故事线.md",
+        "agent-harness/PRODUCT.md",
+        "agent-harness/README.md"
+      ],
+      "execution": [
+        "development/DEV-22-用户视角全链路测试设计.md",
+        "development/DEV-18-B2B销售故事线与工作流可观测闭环.md",
+        "development/DEV-21-梦境Hook与业务归因闭环.md",
+        "agent-harness/scripts/user-journey-coverage-audit.mjs",
+        "agent-harness/tests/integration/portal-admin-functional-test.ts",
+        "agent-harness/tests/integration/task-dispatch-lui-test.ts",
+        "agent-harness/tests/integration/dream-mode-test.ts",
+        "agent-harness/tests/integration/proactive-orchestration-test.ts"
+      ],
+      "optional": [
+        "agent-harness/scripts/channel-webhook-smoke.mjs",
+        "agent-harness/scripts/smoke-eval.js",
+        "agent-harness/scripts/workflow-observability-smoke.mjs",
+        "agent-harness/apps/web-portal/static/app.static.test.ts",
+        "agent-harness/package.json"
+      ]
     }
   },
   "invalidation_triggers": [
@@ -619,6 +664,7 @@
     "files_modified": 95,
     "ts_check": "pass (exit 0, 0 errors)",
     "diagnostics_check": "pass (all 18 files 0 errors/warnings)",
-    "2026-05-23-R22": "Proactive orchestration loop: added proactive-orchestrator service, migration 029 proactive tables and org_task links, Web Portal proactive page/API proxies, TC-F007 and test:proactive covering rule scan, evidence insights, review mission, org_task dispatch, duplicate-scan dedupe, reports, Docker 3010, and doc/graph sync."
+    "2026-05-23-R22": "Proactive orchestration loop: added proactive-orchestrator service, migration 029 proactive tables and org_task links, Web Portal proactive page/API proxies, TC-F007 and test:proactive covering rule scan, evidence insights, review mission, org_task dispatch, duplicate-scan dedupe, reports, Docker 3010, and doc/graph sync.",
+    "2026-05-24-R23": "User journey UAT coverage: added DEV-22 with seven-role/fourteen-journey full-chain test matrix, test:user-journey-coverage audit script, user_journey_uat context profile, and AH1-30 TC-F008 mapping."
   }
 }

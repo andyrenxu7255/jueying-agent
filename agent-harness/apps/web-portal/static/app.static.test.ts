@@ -132,6 +132,14 @@ describe('web portal static helpers', () => {
     expect(app.passwordStrengthHtml(6)).toContain('width:100%');
     expect(app.passwordStrengthHtml(6)).toContain('var(--success)');
   });
+
+  it('does not expose default password hints on the login screen', () => {
+    const localization = readFileSync(join(process.cwd(), 'apps', 'web-portal', 'static', 'localization.js'), 'utf8');
+
+    expect(localization).not.toContain('admin/admin');
+    expect(localization).not.toContain('默认用户名/密码');
+    expect(localization).not.toContain('Default username/password');
+  });
 });
 
 describe('web portal hash navigation', () => {

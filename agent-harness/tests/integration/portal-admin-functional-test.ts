@@ -132,7 +132,7 @@ function getCleanupConnectionString(): string {
   const env = { ...loadRepoEnv(), ...process.env as Record<string, string> };
   if (env.DATABASE_URL) return env.DATABASE_URL;
   const user = env.POSTGRES_USER || 'agent_harness';
-  const password = env.POSTGRES_PASSWORD || 'change_me_123';
+  const password = env.POSTGRES_PASSWORD || 'dev_password_changeme';
   const db = env.POSTGRES_DB || 'agent_harness';
   const host = env.POSTGRES_HOST || '127.0.0.1';
   const port = env.POSTGRES_PORT || '5432';
@@ -251,6 +251,13 @@ async function main(): Promise<void> {
     assert(typeof body.session_id === 'string' && body.session_id.length > 0, 'expected session_id');
     assert(body.must_change_password !== true, 'default password change prompt should not be active');
     headers['x-session-id'] = String(body.session_id);
+  });
+
+  await test('My tasks page proxies the logged-in session user_id', async () => {
+    const { status, body } = await fetchJson(`${webPortalUrl}/api/tasks`, { headers });
+    assert(status === 200, `expected 200, got ${status}: ${JSON.stringify(body)}`);
+    assert(body.ok === true, 'expected ok=true');
+    assert(Array.isArray(body.assignments), 'expected assignments array');
   });
 
   await test('Feishu config makes signing secret optional and exposes restart targets', async () => {

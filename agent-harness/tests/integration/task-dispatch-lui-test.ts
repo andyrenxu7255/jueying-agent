@@ -19,8 +19,13 @@ function assert(condition: boolean, message: string): void {
 }
 
 async function fetchJson(url: string, options?: RequestInit): Promise<{ status: number; body: Record<string, unknown> }> {
+  const internalToken = process.env.INTERNAL_TOKEN || 'dev_internal_token';
   const response = await fetch(url, {
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      'x-internal-token': internalToken,
+      ...(options?.headers || {}),
+    },
     ...options,
   });
   const text = await response.text();

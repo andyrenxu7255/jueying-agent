@@ -72,7 +72,7 @@ function getDatabaseUrl(): string {
   const env = { ...loadRepoEnv(), ...process.env as Record<string, string> };
   if (env.DATABASE_URL) return env.DATABASE_URL;
   const user = env.POSTGRES_USER || 'agent_harness';
-  const password = env.POSTGRES_PASSWORD || 'change_me_123';
+  const password = env.POSTGRES_PASSWORD || 'dev_password_changeme';
   const db = env.POSTGRES_DB || 'agent_harness';
   const host = env.POSTGRES_HOST || '127.0.0.1';
   const port = env.POSTGRES_PORT || '5432';

@@ -3335,7 +3335,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (pathname === '/api/tasks' && method === 'GET') {
       const session = await requireSession(req, res);
       if (!session) return;
-      const r = await fetchFromService(gatewayUrl + '/tasks');
+      const r = await fetchFromService(gatewayUrl + '/tasks?user_id=' + encodeURIComponent(session.user_id));
       sendJson(res, r.status, r.data);
       return;
     }
