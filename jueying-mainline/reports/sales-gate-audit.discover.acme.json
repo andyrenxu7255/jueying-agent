@@ -1,0 +1,281 @@
+{
+  "stage": "discover",
+  "opportunity_id": "opp_acme_001",
+  "checks": [
+    {
+      "id": "sgc_opp_acme_001_d_g1",
+      "opportunity_id": "opp_acme_001",
+      "stage": "discover",
+      "gate_id": "D-G1",
+      "status": "missing",
+      "evidence_ids": [],
+      "information_gap_ids": [
+        "gap_opp_acme_001_d_g1"
+      ],
+      "recommended_activity_ids": [
+        "act_d_g1_1",
+        "act_d_g1_2",
+        "act_d_g1_3"
+      ],
+      "owner_id": "user_sales_andy",
+      "updated_at": "2026-05-26T00:00:00+08:00"
+    },
+    {
+      "id": "sgc_opp_acme_001_d_g2",
+      "opportunity_id": "opp_acme_001",
+      "stage": "discover",
+      "gate_id": "D-G2",
+      "status": "missing",
+      "evidence_ids": [],
+      "information_gap_ids": [
+        "gap_opp_acme_001_d_g2"
+      ],
+      "recommended_activity_ids": [
+        "act_d_g2_1",
+        "act_d_g2_2"
+      ],
+      "owner_id": "user_sales_andy",
+      "updated_at": "2026-05-26T00:00:00+08:00"
+    },
+    {
+      "id": "sgc_opp_acme_001_d_g3",
+      "opportunity_id": "opp_acme_001",
+      "stage": "discover",
+      "gate_id": "D-G3",
+      "status": "missing",
+      "evidence_ids": [],
+      "information_gap_ids": [
+        "gap_opp_acme_001_d_g3"
+      ],
+      "recommended_activity_ids": [
+        "act_d_g3_1",
+        "act_d_g3_2"
+      ],
+      "owner_id": "user_sales_andy",
+      "updated_at": "2026-05-26T00:00:00+08:00"
+    },
+    {
+      "id": "sgc_opp_acme_001_d_g4",
+      "opportunity_id": "opp_acme_001",
+      "stage": "discover",
+      "gate_id": "D-G4",
+      "status": "missing",
+      "evidence_ids": [],
+      "information_gap_ids": [
+        "gap_opp_acme_001_d_g4"
+      ],
+      "recommended_activity_ids": [
+        "act_d_g4_1",
+        "act_d_g4_2"
+      ],
+      "owner_id": "user_sales_andy",
+      "updated_at": "2026-05-26T00:00:00+08:00"
+    },
+    {
+      "id": "sgc_opp_acme_001_d_g5",
+      "opportunity_id": "opp_acme_001",
+      "stage": "discover",
+      "gate_id": "D-G5",
+      "status": "missing",
+      "evidence_ids": [],
+      "information_gap_ids": [
+        "gap_opp_acme_001_d_g5"
+      ],
+      "recommended_activity_ids": [
+        "act_d_g5_1",
+        "act_d_g5_2",
+        "act_d_g5_3"
+      ],
+      "owner_id": "user_sales_andy",
+      "updated_at": "2026-05-26T00:00:00+08:00"
+    },
+    {
+      "id": "sgc_opp_acme_001_d_g6",
+      "opportunity_id": "opp_acme_001",
+      "stage": "discover",
+      "gate_id": "D-G6",
+      "status": "missing",
+      "evidence_ids": [],
+      "information_gap_ids": [
+        "gap_opp_acme_001_d_g6"
+      ],
+      "recommended_activity_ids": [
+        "act_d_g6_1",
+        "act_d_g6_2"
+      ],
+      "owner_id": "user_sales_andy",
+      "updated_at": "2026-05-26T00:00:00+08:00"
+    },
+    {
+      "id": "sgc_opp_acme_001_d_g7",
+      "opportunity_id": "opp_acme_001",
+      "stage": "discover",
+      "gate_id": "D-G7",
+      "status": "evidence_submitted",
+      "evidence_ids": [
+        "ev_next_meeting_calendar"
+      ],
+      "information_gap_ids": [],
+      "recommended_activity_ids": [],
+      "owner_id": "user_sales_andy",
+      "updated_at": "2026-05-26T00:00:00+08:00"
+    }
+  ],
+  "information_gaps": [
+    {
+      "id": "gap_opp_acme_001_d_g1",
+      "task_id": "task_opp_acme_001_d_g1",
+      "status": "open",
+      "question": "Is there a champion or target champion?",
+      "reason": "D-G1 cannot be confirmed without evidence: meeting_summary, customer_quote, sales_note",
+      "collector_actor_id": "user_sales_andy",
+      "required_schema": {
+        "questions": [
+          "Is there a champion or target champion?",
+          "Who interacted most, asked questions, commented, or listened carefully during the discussion?"
+        ],
+        "recommended_activities": [
+          "Collect meeting participants and behavior signals",
+          "Map candidate champion influence and department",
+          "Ask sales to distinguish coach from champion"
+        ]
+      },
+      "expected_evidence_types": [
+        "meeting_summary",
+        "customer_quote",
+        "sales_note"
+      ],
+      "priority": "high",
+      "created_at": "2026-05-26T00:00:00+08:00",
+      "closed_by_evidence_ids": []
+    },
+    {
+      "id": "gap_opp_acme_001_d_g2",
+      "task_id": "task_opp_acme_001_d_g2",
+      "status": "open",
+      "question": "What concerns did the customer mention today?",
+      "reason": "D-G2 cannot be confirmed without evidence: customer_quote, meeting_summary",
+      "collector_actor_id": "user_sales_andy",
+      "required_schema": {
+        "questions": [
+          "What concerns did the customer mention today?"
+        ],
+        "recommended_activities": [
+          "Collect customer quotes",
+          "Summarize repeated concerns"
+        ]
+      },
+      "expected_evidence_types": [
+        "customer_quote",
+        "meeting_summary"
+      ],
+      "priority": "medium",
+      "created_at": "2026-05-26T00:00:00+08:00",
+      "closed_by_evidence_ids": []
+    },
+    {
+      "id": "gap_opp_acme_001_d_g3",
+      "task_id": "task_opp_acme_001_d_g3",
+      "status": "open",
+      "question": "Which department is the champion in?",
+      "reason": "D-G3 cannot be confirmed without evidence: stakeholder_map, sales_note, meeting_summary",
+      "collector_actor_id": "user_sales_andy",
+      "required_schema": {
+        "questions": [
+          "Which department is the champion in?",
+          "Was any organization structure or division of responsibility discussed?"
+        ],
+        "recommended_activities": [
+          "Build stakeholder map",
+          "Collect organization chart or role map"
+        ]
+      },
+      "expected_evidence_types": [
+        "stakeholder_map",
+        "sales_note",
+        "meeting_summary"
+      ],
+      "priority": "medium",
+      "created_at": "2026-05-26T00:00:00+08:00",
+      "closed_by_evidence_ids": []
+    },
+    {
+      "id": "gap_opp_acme_001_d_g4",
+      "task_id": "task_opp_acme_001_d_g4",
+      "status": "open",
+      "question": "Who may be involved in decisions?",
+      "reason": "D-G4 cannot be confirmed without evidence: stakeholder_map, customer_quote, sales_note",
+      "collector_actor_id": "user_sales_andy",
+      "required_schema": {
+        "questions": [
+          "Who may be involved in decisions?",
+          "What decision actions are expected?",
+          "Who is likely the Economic Buyer?"
+        ],
+        "recommended_activities": [
+          "Map EB hypothesis",
+          "Ask champion candidate about decision process"
+        ]
+      },
+      "expected_evidence_types": [
+        "stakeholder_map",
+        "customer_quote",
+        "sales_note"
+      ],
+      "priority": "high",
+      "created_at": "2026-05-26T00:00:00+08:00",
+      "closed_by_evidence_ids": []
+    },
+    {
+      "id": "gap_opp_acme_001_d_g5",
+      "task_id": "task_opp_acme_001_d_g5",
+      "status": "open",
+      "question": "What pain points and current state may relate to our project opportunity?",
+      "reason": "D-G5 cannot be confirmed without evidence: customer_quote, meeting_summary, process_note",
+      "collector_actor_id": "user_sales_andy",
+      "required_schema": {
+        "questions": [
+          "What pain points and current state may relate to our project opportunity?"
+        ],
+        "recommended_activities": [
+          "Document addressable pain",
+          "Quantify implication and business value",
+          "Collect current IT and business process"
+        ]
+      },
+      "expected_evidence_types": [
+        "customer_quote",
+        "meeting_summary",
+        "process_note"
+      ],
+      "priority": "medium",
+      "created_at": "2026-05-26T00:00:00+08:00",
+      "closed_by_evidence_ids": []
+    },
+    {
+      "id": "gap_opp_acme_001_d_g6",
+      "task_id": "task_opp_acme_001_d_g6",
+      "status": "open",
+      "question": "Were competitors, existing vendors, partners, or alternatives mentioned?",
+      "reason": "D-G6 cannot be confirmed without evidence: customer_quote, sales_note, external_research",
+      "collector_actor_id": "user_sales_andy",
+      "required_schema": {
+        "questions": [
+          "Were competitors, existing vendors, partners, or alternatives mentioned?"
+        ],
+        "recommended_activities": [
+          "Collect competitor names",
+          "Research procurement history and partners"
+        ]
+      },
+      "expected_evidence_types": [
+        "customer_quote",
+        "sales_note",
+        "external_research"
+      ],
+      "priority": "medium",
+      "created_at": "2026-05-26T00:00:00+08:00",
+      "closed_by_evidence_ids": []
+    }
+  ]
+}

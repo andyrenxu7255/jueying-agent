@@ -1,0 +1,26 @@
+{
+  "name": "jueying-agent-harness-mainline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Executable contracts and validation assets for the JueYing enterprise Agent Harness mainline.",
+  "type": "module",
+  "scripts": {
+    "check:docs": "node scripts/check-docs.mjs",
+    "check:contracts": "node scripts/check-contracts.mjs",
+    "schemas:export": "node scripts/export-schemas.mjs",
+    "audit:sales-gates": "node scripts/run-sales-gate-audit.mjs",
+    "view-models:build": "node scripts/build-view-models.mjs",
+    "storylines:check": "node scripts/run-storyline-acceptance.mjs",
+    "integration:check": "node scripts/check-legacy-integration.mjs",
+    "legacy:smoke": "node scripts/smoke-legacy.mjs",
+    "legacy:live-smoke": "node scripts/live-legacy-bridge-smoke.mjs",
+    "app:start": "node apps/ops-console/server.mjs",
+    "app:smoke": "node scripts/smoke-app.mjs",
+    "browser:smoke": "node scripts/browser-smoke.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "npm run schemas:export && npm run check:docs && npm run check:contracts && npm run audit:sales-gates && npm run view-models:build && npm run storylines:check && npm run integration:check && npm run legacy:smoke && npm test && npm run app:smoke && npm run browser:smoke"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

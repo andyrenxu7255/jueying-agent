@@ -1,0 +1,182 @@
+{
+  "operating_console": {
+    "run_id": "run_sales_acme_001",
+    "task_graph_id": "tg_sales_acme_001",
+    "task_graph_status": "active",
+    "task_counts": {
+      "needs_info": 1,
+      "accepted": 1
+    },
+    "gate_counts": {
+      "missing": 1,
+      "confirmed": 1
+    },
+    "stale_mirror_count": 0,
+    "pending_writeback_count": 0,
+    "primary_alerts": [
+      "1 task(s) need information",
+      "1 sales gate(s) missing evidence"
+    ]
+  },
+  "task_graph": {
+    "id": "tg_sales_acme_001",
+    "run_id": "run_sales_acme_001",
+    "version": 1,
+    "status": "active",
+    "tasks": [
+      {
+        "id": "task_discover_champion",
+        "title": "Confirm champion or target champion",
+        "status": "needs_info",
+        "owner": {
+          "type": "human_twin_agent",
+          "id": "twin_sales_andy"
+        },
+        "depends_on": [],
+        "evidence": [],
+        "information_gaps": [
+          {
+            "id": "gap_discover_champion",
+            "task_id": "task_discover_champion",
+            "status": "collecting",
+            "question": "Who interacted most, asked questions, commented, or listened carefully during the meeting?",
+            "reason": "D-G1 cannot be confirmed without a champion or target champion signal.",
+            "collector_actor_id": "twin_sales_andy",
+            "required_schema": {
+              "fields": [
+                "person_name",
+                "department",
+                "behavior_signal",
+                "influence_hypothesis",
+                "original_quote"
+              ]
+            },
+            "expected_evidence_types": [
+              "sales_note",
+              "meeting_summary",
+              "customer_quote"
+            ],
+            "priority": "high",
+            "due_at": "2026-05-27T18:00:00+08:00",
+            "created_at": "2026-05-26T09:00:00+08:00",
+            "closed_by_evidence_ids": []
+          }
+        ],
+        "acceptance_criteria": "A candidate champion is identified with behavior signal, department, and influence hypothesis.",
+        "due_at": "2026-05-27T18:00:00+08:00"
+      },
+      {
+        "id": "task_discover_next_action",
+        "title": "Confirm next customer action",
+        "status": "accepted",
+        "owner": {
+          "type": "human",
+          "id": "user_sales_andy"
+        },
+        "depends_on": [
+          "task_discover_champion"
+        ],
+        "evidence": [
+          {
+            "id": "ev_next_meeting_calendar",
+            "evidence_type": "calendar_event",
+            "source_type": "external",
+            "source_actor_id": "crm_hubspot_demo",
+            "capture_channel": "api",
+            "task_id": "task_discover_next_action",
+            "business_refs": {
+              "opportunity_id": "opp_acme_001",
+              "crm_external_id": "deal_10001"
+            },
+            "content_ref": {
+              "kind": "external_record",
+              "value": "hubspot://meeting/mtg_90001",
+              "summary": "Next meeting scheduled with ACME IT director on 2026-05-28."
+            },
+            "quality_score": 0.9,
+            "sensitivity": "internal",
+            "created_at": "2026-05-26T10:00:00+08:00"
+          }
+        ],
+        "information_gaps": [],
+        "acceptance_criteria": "Next action has objective, time, participants, and owner.",
+        "due_at": "2026-05-28T18:00:00+08:00"
+      }
+    ]
+  },
+  "information_gap_inbox": {
+    "open_count": 1,
+    "gaps": [
+      {
+        "id": "gap_discover_champion",
+        "status": "collecting",
+        "priority": "high",
+        "question": "Who interacted most, asked questions, commented, or listened carefully during the meeting?",
+        "reason": "D-G1 cannot be confirmed without a champion or target champion signal.",
+        "collector_actor_id": "twin_sales_andy",
+        "task": {
+          "id": "task_discover_champion",
+          "title": "Confirm champion or target champion"
+        },
+        "expected_evidence_types": [
+          "sales_note",
+          "meeting_summary",
+          "customer_quote"
+        ],
+        "due_at": "2026-05-27T18:00:00+08:00"
+      }
+    ]
+  },
+  "external_sync_console": {
+    "mirrors": [
+      {
+        "id": "mirror_crm_opp_acme_001",
+        "system_type": "crm",
+        "provider": "hubspot",
+        "object_type": "opportunity",
+        "external_id": "deal_10001",
+        "external_url": "https://crm.example.test/deals/10001",
+        "freshness": "fresh",
+        "mirrored_at": "2026-05-26T10:05:00+08:00"
+      },
+      {
+        "id": "mirror_pm_issue_acme_12",
+        "system_type": "project_management",
+        "provider": "jira",
+        "object_type": "issue",
+        "external_id": "ACME-12",
+        "external_url": "https://jira.example.test/browse/ACME-12",
+        "freshness": "fresh",
+        "mirrored_at": "2026-05-26T10:10:00+08:00"
+      }
+    ],
+    "writeback_queue": [
+      {
+        "id": "wbi_crm_note_acme_001",
+        "system_type": "crm",
+        "provider": "hubspot",
+        "operation": "create_note",
+        "target": {
+          "object_type": "opportunity",
+          "external_id": "deal_10001"
+        },
+        "risk_level": "low",
+        "policy_decision": "auto_execute",
+        "created_at": "2026-05-26T10:20:00+08:00"
+      },
+      {
+        "id": "wbi_pm_comment_acme_12",
+        "system_type": "project_management",
+        "provider": "jira",
+        "operation": "create_comment",
+        "target": {
+          "object_type": "issue",
+          "external_id": "ACME-12"
+        },
+        "risk_level": "low",
+        "policy_decision": "auto_execute",
+        "created_at": "2026-05-26T10:25:00+08:00"
+      }
+    ]
+  }
+}

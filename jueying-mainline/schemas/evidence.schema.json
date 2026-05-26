@@ -1,0 +1,133 @@
+{
+  "$id": "https://teamclaw.ai/schemas/evidence.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "evidence_type",
+    "source_type",
+    "source_actor_id",
+    "capture_channel",
+    "content_ref",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+    },
+    "evidence_type": {
+      "type": "string",
+      "enum": [
+        "meeting_summary",
+        "meeting_minutes",
+        "customer_quote",
+        "email",
+        "chat_screenshot",
+        "whiteboard_photo",
+        "sales_note",
+        "stakeholder_map",
+        "champion_confirmation",
+        "eb_confirmation",
+        "budget_note",
+        "calendar_event",
+        "customer_confirmation",
+        "evaluation_criteria",
+        "process_note",
+        "validation_plan",
+        "business_case",
+        "quote",
+        "pricing_model",
+        "approval_record",
+        "order_checklist",
+        "contract_document",
+        "sow",
+        "risk_note",
+        "negotiation_plan",
+        "contact_record",
+        "internal_review",
+        "external_research",
+        "crm_url",
+        "crm_snapshot",
+        "pm_url",
+        "pm_snapshot",
+        "delivery_confirmation",
+        "human_confirmation",
+        "system_event"
+      ]
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "human",
+        "agent",
+        "system",
+        "external"
+      ]
+    },
+    "source_actor_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capture_channel": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+    },
+    "gap_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+    },
+    "business_refs": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "content_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "text",
+            "file",
+            "url",
+            "external_record"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "quality_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?(?:Z|[+-]\\d{2}:\\d{2})$"
+    }
+  }
+}

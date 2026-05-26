@@ -1,0 +1,84 @@
+{
+  "$id": "https://teamclaw.ai/schemas/sales-gate-check.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "opportunity_id",
+    "stage",
+    "gate_id",
+    "status",
+    "evidence_ids",
+    "information_gap_ids",
+    "recommended_activity_ids",
+    "owner_id",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+    },
+    "opportunity_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "discover",
+        "scope",
+        "go_no_go",
+        "validate_solution",
+        "business_case",
+        "negotiate_close"
+      ]
+    },
+    "gate_id": {
+      "type": "string",
+      "pattern": "^[DSGVBN]-G\\d+$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "missing",
+        "collecting",
+        "evidence_submitted",
+        "confirmed",
+        "needs_supplement",
+        "rejected",
+        "waived"
+      ]
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+      }
+    },
+    "information_gap_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+      }
+    },
+    "recommended_activity_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+      }
+    },
+    "owner_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?(?:Z|[+-]\\d{2}:\\d{2})$"
+    }
+  }
+}

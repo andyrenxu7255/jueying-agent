@@ -1,0 +1,134 @@
+{
+  "$id": "https://teamclaw.ai/schemas/external-writeback-intent.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "connection_id",
+    "system_type",
+    "provider",
+    "target",
+    "operation",
+    "payload",
+    "source",
+    "risk_level",
+    "idempotency_key",
+    "policy_decision",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+    },
+    "connection_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+    },
+    "system_type": {
+      "type": "string",
+      "enum": [
+        "crm",
+        "project_management"
+      ]
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_type",
+        "external_id"
+      ],
+      "properties": {
+        "object_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "external_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "create_note",
+        "create_task",
+        "create_comment",
+        "add_link",
+        "update_field",
+        "update_status"
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "reason"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_:-]*$"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8
+    },
+    "policy_decision": {
+      "type": "string",
+      "enum": [
+        "auto_execute",
+        "needs_confirmation",
+        "reject",
+        "manual_only"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "confirmed_by": {
+      "type": "string"
+    },
+    "confirmed_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?(?:Z|[+-]\\d{2}:\\d{2})$"
+    }
+  }
+}

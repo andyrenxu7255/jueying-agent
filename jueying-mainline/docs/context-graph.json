@@ -1,0 +1,152 @@
+{
+  "version": "v0.1",
+  "updated_at": "2026-05-26",
+  "description": "Context graph for the JueYing mainline workspace under jueying-mainline/. JueYing is an enterprise Agent Harness for centralized management in small and mid-sized teams. The AI-native operating console is a built-in mainline module; historical v1 code under legacy/jueying-v1 is runtime compatibility and implementation reference.",
+  "layers": {
+    "L0_north_star": [
+      "README.md",
+      "docs/DEV-23-AI原生运营系统总纲.md"
+    ],
+    "L1_product_design": [
+      "docs/DEV-24-JueYing应用差距复盘与整合界面路线.md",
+      "docs/DEV-25-用户故事线与验收旅程.md",
+      "docs/DEV-28-场景故事库-销售与项目交付.md",
+      "docs/DEV-29-能力覆盖矩阵与研发补洞清单.md",
+      "docs/DEV-30-销售六步法Gate驱动运营设计.md",
+      "docs/DEV-32-CRM事实层对接与双向同步机制.md",
+      "docs/DEV-33-项目管理事实层对接与双向同步机制.md",
+      "docs/scenario-coverage.json",
+      "docs/sales-six-step-gates.json"
+    ],
+    "L2_architecture": [
+      "docs/DEV-26-对象依赖与系统图谱.md",
+      "docs/DEV-27-研发前决策清单与风险边界.md",
+      "docs/DEV-31-TaskGraph与信息缺口最小契约.md",
+      "docs/DEV-34-文档图谱一致性审计与修复记录.md",
+      "docs/DEV-35-核心代码实施路线与自检计划.md",
+      "docs/DEV-36-JueYing主版本能力整合实施记录.md",
+      "docs/DEV-37-角色故事线逐步验收回归记录.md",
+      "docs/role-storyline-acceptance.json"
+    ],
+    "L3_historical_runtime_reference": [
+      "legacy/jueying-v1/agent-harness/README.md",
+      "legacy/jueying-v1/agent-harness/PRODUCT.md",
+      "legacy/jueying-v1/agent-harness/ARCHITECTURE.md",
+      "legacy/jueying-v1/development/context-graph.json",
+      "legacy/jueying-v1/development/context-routing.json",
+      "legacy/jueying-v1/root-docs/README.jueying-v1.md"
+    ]
+  },
+  "authority_map": {
+    "product_philosophy": "docs/DEV-23-AI原生运营系统总纲.md",
+    "mainline_gap_review": "docs/DEV-24-JueYing应用差距复盘与整合界面路线.md",
+    "user_journeys": "docs/DEV-25-用户故事线与验收旅程.md",
+    "scenario_library": "docs/DEV-28-场景故事库-销售与项目交付.md",
+    "capability_coverage": "docs/DEV-29-能力覆盖矩阵与研发补洞清单.md",
+    "sales_six_step_gates": "docs/DEV-30-销售六步法Gate驱动运营设计.md",
+    "crm_fact_sync": "docs/DEV-32-CRM事实层对接与双向同步机制.md",
+    "project_management_fact_sync": "docs/DEV-33-项目管理事实层对接与双向同步机制.md",
+    "sales_six_step_gate_index": "docs/sales-six-step-gates.json",
+    "scenario_coverage_index": "docs/scenario-coverage.json",
+    "object_graph": "docs/DEV-26-对象依赖与系统图谱.md",
+    "minimum_contracts": "docs/DEV-31-TaskGraph与信息缺口最小契约.md",
+    "documentation_audit": "docs/DEV-34-文档图谱一致性审计与修复记录.md",
+    "implementation_roadmap": "docs/DEV-35-核心代码实施路线与自检计划.md",
+    "jueying_mainline_integration": "docs/DEV-36-JueYing主版本能力整合实施记录.md",
+    "role_storyline_acceptance": "docs/DEV-37-角色故事线逐步验收回归记录.md",
+    "role_storyline_acceptance_matrix": "docs/role-storyline-acceptance.json",
+    "pre_rnd_gate": "docs/DEV-27-研发前决策清单与风险边界.md",
+    "historical_v1_runtime": "legacy/jueying-v1/agent-harness/README.md"
+  },
+  "concepts": {
+    "TaskGraph": {
+      "authority": "docs/DEV-26-对象依赖与系统图谱.md",
+      "depends_on": ["Run", "Task", "Assignment", "Evidence", "Information Gap"]
+    },
+    "Human Twin Agent": {
+      "authority": "docs/DEV-23-AI原生运营系统总纲.md",
+      "depends_on": ["Person/User", "permissions", "channels", "skills"]
+    },
+    "Project Manager Agent": {
+      "authority": "docs/DEV-23-AI原生运营系统总纲.md",
+      "depends_on": ["Agent Template", "TaskGraph", "Skill", "Evidence"]
+    },
+    "Information Gap": {
+      "authority": "docs/DEV-26-对象依赖与系统图谱.md",
+      "depends_on": ["Task", "Human Twin Agent", "Evidence"]
+    },
+    "Sales Six-Step Lens": {
+      "authority": "docs/DEV-30-销售六步法Gate驱动运营设计.md",
+      "depends_on": ["TaskGraph", "Evidence", "Information Gap", "SalesGateCheck", "ChampionProfile", "EconomicBuyerProfile", "Opportunity", "Interaction"]
+    },
+    "Sales Six-Step Gate Engine": {
+      "authority": "docs/DEV-30-销售六步法Gate驱动运营设计.md",
+      "depends_on": ["SalesGateCheck", "Information Gap", "Evidence", "SalesActivityRecommendation"]
+    },
+    "SalesGateCheck": {
+      "authority": "docs/DEV-31-TaskGraph与信息缺口最小契约.md",
+      "depends_on": ["Opportunity", "Sales Six-Step Gate Engine", "Evidence", "Information Gap"]
+    },
+    "Delivery Control Lens": {
+      "authority": "docs/DEV-28-场景故事库-销售与项目交付.md",
+      "depends_on": ["TaskGraph", "Evidence", "Information Gap", "Contract", "Delivery Scope", "Change Request", "Risk", "PMRecordMirror", "PMWritebackIntent"]
+    },
+    "Business Object Adapter": {
+      "authority": "docs/DEV-29-能力覆盖矩阵与研发补洞清单.md",
+      "depends_on": ["Account", "Contact", "Opportunity", "Contract", "Delivery Scope", "Change Request", "Risk"]
+    },
+    "External Fact Sync": {
+      "authority": "docs/DEV-31-TaskGraph与信息缺口最小契约.md",
+      "depends_on": ["External Fact Mirror", "External Writeback Intent", "Writeback Policy", "Writeback Queue", "Audit Event"]
+    },
+    "CRM Fact Sync": {
+      "authority": "docs/DEV-32-CRM事实层对接与双向同步机制.md",
+      "depends_on": ["CRMConnection", "CRMRecordMirror", "CRMWritebackIntent", "CRMWritebackQueue", "CRMFieldMapping"]
+    },
+    "Project Management Fact Sync": {
+      "authority": "docs/DEV-33-项目管理事实层对接与双向同步机制.md",
+      "depends_on": ["PMConnection", "PMRecordMirror", "PMWritebackIntent", "PMWritebackQueue", "PMFieldMapping", "Jira", "禅道", "TAPD", "飞书项目", "自研项目管理系统"]
+    },
+    "Documentation Consistency Audit": {
+      "authority": "docs/DEV-34-文档图谱一致性审计与修复记录.md",
+      "depends_on": ["README.md", "docs/README.md", "context-graph.json", "context-routing.json", "scenario-coverage.json", "sales-six-step-gates.json"]
+    },
+    "JueYing Mainline Directory": {
+      "authority": "README.md",
+      "depends_on": ["apps", "docs", "fixtures", "legacy", "reports", "schemas", "scripts", "src", "tests", "package.json"]
+    },
+    "Executable Contract Core": {
+      "authority": "docs/DEV-35-核心代码实施路线与自检计划.md",
+      "depends_on": ["src/contracts", "schemas", "fixtures/p1-demo", "reports", "scripts/export-schemas.mjs", "scripts/check-docs.mjs", "scripts/check-contracts.mjs", "scripts/run-sales-gate-audit.mjs", "tests/contracts.test.mjs"]
+    },
+    "JueYing Runtime Substrate": {
+      "authority": "docs/DEV-24-JueYing应用差距复盘与整合界面路线.md",
+      "depends_on": ["legacy/jueying-v1/agent-harness"]
+    },
+    "JueYing Mainline Integration Adapter": {
+      "authority": "docs/DEV-36-JueYing主版本能力整合实施记录.md",
+      "depends_on": ["src/integrations/jueying-v1", "apps/ops-console", "reports/legacy-integration.jueying-v1.json", "legacy/jueying-v1/agent-harness"]
+    },
+    "Role Storyline Acceptance": {
+      "authority": "docs/DEV-37-角色故事线逐步验收回归记录.md",
+      "depends_on": ["docs/role-storyline-acceptance.json", "src/contracts/storyline-acceptance.mjs", "scripts/run-storyline-acceptance.mjs", "reports/storyline-acceptance.json", "apps/ops-console", "tests/contracts.test.mjs"]
+    }
+  },
+  "implementation_order": [
+    "docs/DEV-23-AI原生运营系统总纲.md",
+    "docs/DEV-25-用户故事线与验收旅程.md",
+    "docs/DEV-30-销售六步法Gate驱动运营设计.md",
+    "docs/DEV-28-场景故事库-销售与项目交付.md",
+    "docs/DEV-29-能力覆盖矩阵与研发补洞清单.md",
+    "docs/DEV-31-TaskGraph与信息缺口最小契约.md",
+    "docs/DEV-32-CRM事实层对接与双向同步机制.md",
+    "docs/DEV-33-项目管理事实层对接与双向同步机制.md",
+    "docs/DEV-34-文档图谱一致性审计与修复记录.md",
+    "docs/DEV-35-核心代码实施路线与自检计划.md",
+    "docs/DEV-36-JueYing主版本能力整合实施记录.md",
+    "docs/DEV-37-角色故事线逐步验收回归记录.md",
+    "docs/DEV-26-对象依赖与系统图谱.md",
+    "docs/DEV-27-研发前决策清单与风险边界.md",
+    "docs/DEV-24-JueYing应用差距复盘与整合界面路线.md"
+  ]
+}

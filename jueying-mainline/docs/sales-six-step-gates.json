@@ -1,0 +1,265 @@
+{
+  "version": "v0.1",
+  "updated_at": "2026-05-26",
+  "description": "Machine-readable sales six-step gate model. This is the authority for sales stage progression, gate checks, missing information, recommended activities, evidence, and UI/test routing.",
+  "authority_doc": "docs/DEV-30-销售六步法Gate驱动运营设计.md",
+  "stage_order": [
+    "discover",
+    "scope",
+    "go_no_go",
+    "validate_solution",
+    "business_case",
+    "negotiate_close"
+  ],
+  "gate_statuses": [
+    "unknown",
+    "missing",
+    "collecting",
+    "evidence_submitted",
+    "confirmed",
+    "needs_supplement",
+    "rejected",
+    "waived"
+  ],
+  "stages": {
+    "discover": {
+      "label": "Discover",
+      "goal": "Map customer power, pain, current state, competition, and next action before treating an opportunity as real pipeline.",
+      "gates": [
+        {
+          "id": "D-G1",
+          "label": "Champion or target champion identified",
+          "questions": [
+            "Is there a champion or target champion?",
+            "Who interacted most, asked questions, commented, or listened carefully during the discussion?"
+          ],
+          "recommended_activities": [
+            "Collect meeting participants and behavior signals",
+            "Map candidate champion influence and department",
+            "Ask sales to distinguish coach from champion"
+          ],
+          "evidence_types": ["meeting_summary", "customer_quote", "sales_note"]
+        },
+        {
+          "id": "D-G2",
+          "label": "Customer concerns identified",
+          "questions": ["What concerns did the customer mention today?"],
+          "recommended_activities": ["Collect customer quotes", "Summarize repeated concerns"],
+          "evidence_types": ["customer_quote", "meeting_summary"]
+        },
+        {
+          "id": "D-G3",
+          "label": "Champion department and organization context identified",
+          "questions": ["Which department is the champion in?", "Was any organization structure or division of responsibility discussed?"],
+          "recommended_activities": ["Build stakeholder map", "Collect organization chart or role map"],
+          "evidence_types": ["stakeholder_map", "sales_note", "meeting_summary"]
+        },
+        {
+          "id": "D-G4",
+          "label": "Decision makers, decision behavior, and EB hypothesis identified",
+          "questions": ["Who may be involved in decisions?", "What decision actions are expected?", "Who is likely the Economic Buyer?"],
+          "recommended_activities": ["Map EB hypothesis", "Ask champion candidate about decision process"],
+          "evidence_types": ["stakeholder_map", "customer_quote", "sales_note"]
+        },
+        {
+          "id": "D-G5",
+          "label": "Pain and current state identified",
+          "questions": ["What pain points and current state may relate to our project opportunity?"],
+          "recommended_activities": ["Document addressable pain", "Quantify implication and business value", "Collect current IT and business process"],
+          "evidence_types": ["customer_quote", "meeting_summary", "process_note"]
+        },
+        {
+          "id": "D-G6",
+          "label": "Potential competitors or alternatives identified",
+          "questions": ["Were competitors, existing vendors, partners, or alternatives mentioned?"],
+          "recommended_activities": ["Collect competitor names", "Research procurement history and partners"],
+          "evidence_types": ["customer_quote", "sales_note", "external_research"]
+        },
+        {
+          "id": "D-G7",
+          "label": "Next action plan agreed",
+          "questions": ["Was a clear next action plan agreed, including time, participants, and objective?"],
+          "recommended_activities": ["Ask sales to secure a concrete next meeting or action", "Record owner and due date"],
+          "evidence_types": ["calendar_event", "customer_confirmation", "meeting_summary"]
+        }
+      ]
+    },
+    "scope": {
+      "label": "Scope",
+      "goal": "Turn vague demand into shared scope, benefits, timeline, possible budget, and champion commitment.",
+      "gates": [
+        {
+          "id": "S-G1",
+          "label": "Champion confirmed organizational benefit",
+          "questions": ["Did the champion personally or verbally confirm what benefit this project brings to the organization?"],
+          "recommended_activities": ["Build preliminary business case with champion", "Use Before/After, capabilities, metrics, solution, differentiation, proof points"],
+          "evidence_types": ["customer_quote", "meeting_summary", "champion_confirmation"]
+        },
+        {
+          "id": "S-G2",
+          "label": "Champion confirmed timeline",
+          "questions": ["Did the champion personally or verbally confirm the project timeline?"],
+          "recommended_activities": ["Build timeline with champion", "Document milestones and expected decision dates"],
+          "evidence_types": ["calendar_event", "meeting_summary", "champion_confirmation"]
+        },
+        {
+          "id": "S-G3",
+          "label": "Champion confirmed possible budget",
+          "questions": ["Did the champion personally or verbally confirm a possible budget or budget range?"],
+          "recommended_activities": ["Probe possible budget", "Clarify budget source and payment expectations"],
+          "evidence_types": ["customer_quote", "meeting_summary", "budget_note"]
+        },
+        {
+          "id": "S-G4",
+          "label": "Benefit, timeline, and budget confirmed in writing",
+          "questions": ["Was the above confirmed in writing, such as whiteboard photo, WeChat, email, or meeting minutes?"],
+          "recommended_activities": ["Send champion confirmation letter", "Ask for written acknowledgement"],
+          "evidence_types": ["email", "chat_screenshot", "whiteboard_photo", "meeting_minutes"]
+        },
+        {
+          "id": "S-G5",
+          "label": "Champion helped schedule EB meeting",
+          "questions": ["Did the champion help schedule a meeting with the Economic Buyer?"],
+          "recommended_activities": ["Test champion through EB access", "Ask sales leader to join EB meeting when useful"],
+          "evidence_types": ["calendar_event", "customer_confirmation", "sales_note"]
+        }
+      ]
+    },
+    "go_no_go": {
+      "label": "Go / No-Go",
+      "goal": "Before spending validation resources, confirm from EB whether the opportunity deserves continued investment.",
+      "gates": [
+        {
+          "id": "G-G1",
+          "label": "EB confirmed pain, priority, and business outcome",
+          "questions": ["Did EB personally or verbally confirm pain, priority, and business benefit?"],
+          "recommended_activities": ["Meet EB", "Confirm pain, priority, and business outcome"],
+          "evidence_types": ["eb_confirmation", "meeting_summary", "customer_quote"]
+        },
+        {
+          "id": "G-G2",
+          "label": "EB confirmed process, timeline, and budget",
+          "questions": ["Did EB personally or verbally confirm process, timeline, and budget?"],
+          "recommended_activities": ["Confirm decision process", "Confirm timeline and budget range"],
+          "evidence_types": ["eb_confirmation", "meeting_summary", "budget_note"]
+        },
+        {
+          "id": "G-G3",
+          "label": "EB confirmed vendor evaluation criteria",
+          "questions": ["How will EB evaluate vendors?", "What are the key evaluation standards?"],
+          "recommended_activities": ["Document evaluation criteria", "Clarify scoring, price weight, and differentiators"],
+          "evidence_types": ["eb_confirmation", "meeting_summary", "evaluation_criteria"]
+        },
+        {
+          "id": "G-G4",
+          "label": "Post-validation EB meeting scheduled",
+          "questions": ["Was the meeting after vendor evaluation or validation scheduled with EB?"],
+          "recommended_activities": ["Schedule post-validation review before leaving EB meeting"],
+          "evidence_types": ["calendar_event", "customer_confirmation"]
+        }
+      ]
+    },
+    "validate_solution": {
+      "label": "Validate Solution",
+      "goal": "Create and execute a controlled validation plan with champion, collect proof, and confirm business process.",
+      "gates": [
+        {
+          "id": "V-G1",
+          "label": "Validation plan and standards discussed with champion",
+          "questions": ["Was a validation plan and standard discussed face-to-face with champion?", "Is the form POC, reference visit, company visit, demo, or industry report?"],
+          "recommended_activities": ["Create validation plan", "Define success criteria with champion"],
+          "evidence_types": ["validation_plan", "meeting_summary", "champion_confirmation"]
+        },
+        {
+          "id": "V-G2",
+          "label": "Validation plan and standards confirmed in writing",
+          "questions": ["Were POC or validation plan and standards confirmed in writing with champion?"],
+          "recommended_activities": ["Send validation confirmation", "Collect written acknowledgement"],
+          "evidence_types": ["email", "chat_screenshot", "validation_plan"]
+        },
+        {
+          "id": "V-G3",
+          "label": "Validation process clarified",
+          "questions": ["What is the validation process?", "What do we do and what does the customer do?"],
+          "recommended_activities": ["Clarify roles, data, environment, timeline, proof collection, and business process"],
+          "evidence_types": ["validation_plan", "process_note", "meeting_summary"]
+        }
+      ]
+    },
+    "business_case": {
+      "label": "Business Case",
+      "goal": "Turn validation proof into business value report, confirm with champion and EB, connect procurement, and prepare negotiation.",
+      "gates": [
+        {
+          "id": "B-G1",
+          "label": "Validation report reviewed with champion",
+          "questions": ["Was the validation report reviewed face-to-face with champion?"],
+          "recommended_activities": ["Co-develop and finalize report with champion"],
+          "evidence_types": ["business_case", "meeting_summary", "champion_confirmation"]
+        },
+        {
+          "id": "B-G2",
+          "label": "Validation conclusion reported to EB and solution confirmed",
+          "questions": ["Was the validation conclusion reported face-to-face to EB and was the solution confirmed?"],
+          "recommended_activities": ["Present business report to EB", "Seek verbal and written acceptance"],
+          "evidence_types": ["eb_confirmation", "business_case", "meeting_summary"]
+        },
+        {
+          "id": "B-G3",
+          "label": "Procurement contact established through champion or EB",
+          "questions": ["Were we introduced to procurement through champion or EB?"],
+          "recommended_activities": ["Ask champion or EB to introduce procurement/legal contacts"],
+          "evidence_types": ["customer_confirmation", "contact_record", "email"]
+        },
+        {
+          "id": "B-G4",
+          "label": "Internal negotiation plan created",
+          "questions": ["Did our sales team create a negotiation plan?"],
+          "recommended_activities": ["Define floor, tradeable value, allies, resistance, negotiation flow, and timeline"],
+          "evidence_types": ["negotiation_plan", "internal_review"]
+        }
+      ]
+    },
+    "negotiate_close": {
+      "label": "Negotiate Close",
+      "goal": "Complete quote, order checklist, SOW check with delivery, and CRM final state check.",
+      "gates": [
+        {
+          "id": "N-G1",
+          "label": "Quote completed",
+          "questions": ["Has the quote been completed?", "Does pricing model match contract amount?"],
+          "recommended_activities": ["Finalize pricing and payment terms with champion"],
+          "evidence_types": ["quote", "pricing_model", "approval_record"]
+        },
+        {
+          "id": "N-G2",
+          "label": "Order checklist completed",
+          "questions": ["Has the order checklist been completed?"],
+          "recommended_activities": ["Check contacts, PO, payment, invoice, contract files, revenue recognition"],
+          "evidence_types": ["order_checklist", "contract_document", "approval_record"]
+        },
+        {
+          "id": "N-G3",
+          "label": "SOW checked and confirmed with delivery",
+          "questions": ["Has SOW been checked and confirmed with delivery?"],
+          "recommended_activities": ["Review scope, exclusions, acceptance criteria, resources, and delivery risks with delivery lead"],
+          "evidence_types": ["sow", "delivery_confirmation", "risk_note"]
+        },
+        {
+          "id": "N-G4",
+          "label": "CRM state final check completed",
+          "questions": ["What is the CRM opportunity URL?", "Are stage, amount, expected close date, and attachments accurate?"],
+          "recommended_activities": ["Ask sales for CRM opportunity link", "Complete final CRM state check"],
+          "evidence_types": ["crm_url", "crm_snapshot", "system_event"]
+        }
+      ]
+    }
+  },
+  "p1_exit_gates": [
+    "Sales stage progression is based on gate status, not only manual CRM stage value.",
+    "Every confirmed gate links at least one evidence item or a human waiver.",
+    "Every missing gate generates an Information Gap and recommended Activity.",
+    "Go/No-Go cannot progress to validation without EB confirmation or explicit waiver.",
+    "Negotiate Close cannot be marked closed-won without quote, order checklist, SOW confirmation, and CRM URL/state check."
+  ]
+}

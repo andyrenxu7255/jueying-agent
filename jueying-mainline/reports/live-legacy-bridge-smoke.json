@@ -1,0 +1,1652 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-26T10:03:49.953Z",
+  "phase": "live_bridge",
+  "health": {
+    "ok": true,
+    "generated_at": "2026-05-26T10:03:47.514Z",
+    "timeout_ms": 1500,
+    "online_count": 9,
+    "service_count": 9,
+    "services": [
+      {
+        "service_name": "workflow-service",
+        "url_env": "JUEYING_WORKFLOW_URL",
+        "health_url": "http://127.0.0.1:3001/health",
+        "online": true,
+        "status": "online",
+        "http_status": 200,
+        "latency_ms": 38,
+        "capabilities": [
+          "mainline.workflow"
+        ]
+      },
+      {
+        "service_name": "executor-gateway",
+        "url_env": "JUEYING_EXECUTOR_URL",
+        "health_url": "http://127.0.0.1:3002/health",
+        "online": true,
+        "status": "online",
+        "http_status": 200,
+        "latency_ms": 3,
+        "capabilities": [
+          "mainline.executor"
+        ]
+      },
+      {
+        "service_name": "fact-retrieval",
+        "url_env": "JUEYING_FACT_RETRIEVAL_URL",
+        "health_url": "http://127.0.0.1:3004/health",
+        "online": true,
+        "status": "online",
+        "http_status": 200,
+        "latency_ms": 3,
+        "capabilities": [
+          "mainline.fact_retrieval"
+        ]
+      },
+      {
+        "service_name": "gateway-adapter",
+        "url_env": "JUEYING_GATEWAY_URL",
+        "health_url": "http://127.0.0.1:3000/health/live",
+        "online": true,
+        "status": "online",
+        "http_status": 200,
+        "latency_ms": 3,
+        "capabilities": [
+          "mainline.gateway_channels",
+          "mainline.org_task_dispatch"
+        ]
+      },
+      {
+        "service_name": "skill-library",
+        "url_env": "JUEYING_SKILL_LIBRARY_URL",
+        "health_url": "http://127.0.0.1:3007/health/live",
+        "online": true,
+        "status": "online",
+        "http_status": 200,
+        "latency_ms": 4,
+        "capabilities": [
+          "mainline.skill_library"
+        ]
+      },
+      {
+        "service_name": "proactive-orchestrator",
+        "url_env": "JUEYING_PROACTIVE_ORCHESTRATOR_URL",
+        "health_url": "http://127.0.0.1:3010/health/live",
+        "online": true,
+        "status": "online",
+        "http_status": 200,
+        "latency_ms": 3,
+        "capabilities": [
+          "mainline.proactive_orchestrator"
+        ]
+      },
+      {
+        "service_name": "web-portal",
+        "url_env": "JUEYING_WEB_PORTAL_URL",
+        "health_url": "http://127.0.0.1:3003/health",
+        "online": true,
+        "status": "online",
+        "http_status": 200,
+        "latency_ms": 2,
+        "capabilities": [
+          "mainline.web_portal",
+          "mainline.audit_policy_identity"
+        ]
+      },
+      {
+        "service_name": "hermes-adapter",
+        "url_env": "JUEYING_HERMES_URL",
+        "health_url": "http://127.0.0.1:3005/health/live",
+        "online": true,
+        "status": "online",
+        "http_status": 200,
+        "latency_ms": 4,
+        "capabilities": [
+          "mainline.memory_dream"
+        ]
+      },
+      {
+        "service_name": "mobile-app",
+        "url_env": "JUEYING_MOBILE_APP_URL",
+        "health_url": "http://127.0.0.1:3009/health/live",
+        "online": true,
+        "status": "online",
+        "http_status": 200,
+        "latency_ms": 4,
+        "capabilities": [
+          "mainline.mobile_notifications"
+        ]
+      }
+    ]
+  },
+  "bridge_summary": {
+    "workflow_stage_count": 2,
+    "org_task_payload_count": 1,
+    "fact_write_payload_count": 3,
+    "audit_event_payload_count": 2
+  },
+  "workflow_ref": "wf_1779789827526_2c82d98e",
+  "operations": [
+    {
+      "operation": "createWorkflowFromTaskGraph",
+      "ok": true,
+      "degraded": false,
+      "service": "workflow",
+      "path": "/internal/workflows/plan",
+      "url": "http://127.0.0.1:3001/internal/workflows/plan",
+      "status": 200,
+      "latency_ms": 2359,
+      "body": {
+        "ok": true,
+        "workflow_definition_ref": null,
+        "workflow_definition_status": "none",
+        "workflow_instance_ref": "wf_1779789827526_2c82d98e",
+        "workflow_plan_hash": "sha256:cf5acfd414ee3fb6489be2d70a4a51c8abf74e819825d4006d98b0b7bcee888c",
+        "workflow_plan": {
+          "workflow_type": "implementation",
+          "plan_version": "v1",
+          "owner_user_id": "u_ai_native_ops",
+          "scope_type": "private",
+          "goal": {
+            "user_goal": "Run AI-native TaskGraph tg_sales_acme_001",
+            "success_definition": [
+              "All markdown steps completed",
+              "Output delivered to user"
+            ]
+          },
+          "risk_level": "medium",
+          "policy_snapshot_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "retrieval_profile": "balanced",
+          "budgets": {
+            "time_budget_sec": 1800,
+            "retrieval_budget": 20,
+            "execution_budget": 120,
+            "repair_budget": 3
+          },
+          "stage_chain": [
+            {
+              "stage_id": "st_1779789827526_0",
+              "seq": 0,
+              "stage_key": "decisionmaking_0",
+              "stage_type": "DecisionMaking",
+              "assigned_executor": "generic-executor",
+              "purpose": "Confirm champion or target champion",
+              "inputs": {
+                "required_refs": [],
+                "optional_refs": []
+              },
+              "retrieval_plan": {
+                "enabled": false,
+                "profiles": [
+                  "wide_candidate",
+                  "graph_gate",
+                  "graph_inner_recall",
+                  "rerank"
+                ],
+                "max_candidates": 50,
+                "allow_graph": false,
+                "max_graph_hops": 0
+              },
+              "acceptance": {
+                "must_have": [
+                  "non-empty output"
+                ],
+                "pass_rules": [],
+                "fail_rules": []
+              },
+              "timeouts": {
+                "soft_timeout_sec": 180,
+                "hard_timeout_sec": 900
+              },
+              "retry_policy": {
+                "max_retries": 1,
+                "max_repairs": 0,
+                "retryable_errors": []
+              },
+              "checkpoint_policy": {
+                "on_enter": true,
+                "on_progress": false,
+                "on_exit": true
+              },
+              "on_success": "next_stage",
+              "on_failure": "repair_or_fail"
+            },
+            {
+              "stage_id": "st_1779789827526_1",
+              "seq": 1,
+              "stage_key": "decisionmaking_1",
+              "stage_type": "DecisionMaking",
+              "assigned_executor": "generic-executor",
+              "purpose": "Confirm next customer action",
+              "inputs": {
+                "required_refs": [],
+                "optional_refs": []
+              },
+              "retrieval_plan": {
+                "enabled": false,
+                "profiles": [
+                  "wide_candidate",
+                  "graph_gate",
+                  "graph_inner_recall",
+                  "rerank"
+                ],
+                "max_candidates": 50,
+                "allow_graph": false,
+                "max_graph_hops": 0
+              },
+              "acceptance": {
+                "must_have": [
+                  "non-empty output"
+                ],
+                "pass_rules": [],
+                "fail_rules": []
+              },
+              "timeouts": {
+                "soft_timeout_sec": 180,
+                "hard_timeout_sec": 900
+              },
+              "retry_policy": {
+                "max_retries": 1,
+                "max_repairs": 0,
+                "retryable_errors": []
+              },
+              "checkpoint_policy": {
+                "on_enter": true,
+                "on_progress": false,
+                "on_exit": true
+              },
+              "on_success": "succeeded",
+              "on_failure": "repair_or_fail"
+            }
+          ],
+          "report_policy": {
+            "on_stage_complete": true,
+            "on_waiting_user": true,
+            "on_blocked": true,
+            "on_final": true
+          },
+          "archive_policy": {
+            "archive_evidence": true,
+            "archive_artifacts": true,
+            "archive_checkpoints": true,
+            "retention_days": 90
+          },
+          "plan_hash": "sha256:cf5acfd414ee3fb6489be2d70a4a51c8abf74e819825d4006d98b0b7bcee888c"
+        },
+        "stage_plan": [
+          {
+            "stage_id": "st_1779789827526_0",
+            "seq": 0,
+            "stage_key": "decisionmaking_0",
+            "stage_type": "DecisionMaking",
+            "assigned_executor": "generic-executor",
+            "purpose": "Confirm champion or target champion",
+            "inputs": {
+              "required_refs": [],
+              "optional_refs": []
+            },
+            "retrieval_plan": {
+              "enabled": false,
+              "profiles": [
+                "wide_candidate",
+                "graph_gate",
+                "graph_inner_recall",
+                "rerank"
+              ],
+              "max_candidates": 50,
+              "allow_graph": false,
+              "max_graph_hops": 0
+            },
+            "acceptance": {
+              "must_have": [
+                "non-empty output"
+              ],
+              "pass_rules": [],
+              "fail_rules": []
+            },
+            "timeouts": {
+              "soft_timeout_sec": 180,
+              "hard_timeout_sec": 900
+            },
+            "retry_policy": {
+              "max_retries": 1,
+              "max_repairs": 0,
+              "retryable_errors": []
+            },
+            "checkpoint_policy": {
+              "on_enter": true,
+              "on_progress": false,
+              "on_exit": true
+            },
+            "on_success": "next_stage",
+            "on_failure": "repair_or_fail"
+          },
+          {
+            "stage_id": "st_1779789827526_1",
+            "seq": 1,
+            "stage_key": "decisionmaking_1",
+            "stage_type": "DecisionMaking",
+            "assigned_executor": "generic-executor",
+            "purpose": "Confirm next customer action",
+            "inputs": {
+              "required_refs": [],
+              "optional_refs": []
+            },
+            "retrieval_plan": {
+              "enabled": false,
+              "profiles": [
+                "wide_candidate",
+                "graph_gate",
+                "graph_inner_recall",
+                "rerank"
+              ],
+              "max_candidates": 50,
+              "allow_graph": false,
+              "max_graph_hops": 0
+            },
+            "acceptance": {
+              "must_have": [
+                "non-empty output"
+              ],
+              "pass_rules": [],
+              "fail_rules": []
+            },
+            "timeouts": {
+              "soft_timeout_sec": 180,
+              "hard_timeout_sec": 900
+            },
+            "retry_policy": {
+              "max_retries": 1,
+              "max_repairs": 0,
+              "retryable_errors": []
+            },
+            "checkpoint_policy": {
+              "on_enter": true,
+              "on_progress": false,
+              "on_exit": true
+            },
+            "on_success": "succeeded",
+            "on_failure": "repair_or_fail"
+          }
+        ],
+        "validation": {
+          "ok": true,
+          "issues": []
+        }
+      }
+    },
+    {
+      "operation": "createOrgTaskFromInformationGap",
+      "ok": true,
+      "degraded": false,
+      "service": "gateway",
+      "path": "/admin/tasks",
+      "url": "http://127.0.0.1:3000/admin/tasks",
+      "status": 201,
+      "latency_ms": 15,
+      "body": {
+        "ok": true,
+        "task": {
+          "id": "72173cca-9601-423c-9c80-9431b68e6878",
+          "org_id": null,
+          "created_by": null,
+          "title": "补充信息: Who interacted most, asked questions, commented, or listened carefully during th",
+          "description": "D-G1 cannot be confirmed without a champion or target champion signal.",
+          "task_type": "form",
+          "schedule_type": "once",
+          "cron_expression": null,
+          "status": "active",
+          "prompt_message": "Who interacted most, asked questions, commented, or listened carefully during the meeting?\n\n为什么需要: D-G1 cannot be confirmed without a champion or target champion signal.\n期望证据: sales_note, meeting_summary, customer_quote\n请补充可验证的信息、截图、会议纪要、CRM链接或项目系统链接。",
+          "required_fields": [],
+          "target_channels": [
+            "wecom",
+            "feishu"
+          ],
+          "metadata": {},
+          "created_at": "2026-05-26T10:03:49.886Z",
+          "updated_at": "2026-05-26T10:03:49.886Z",
+          "proactive_rule_id": null,
+          "proactive_run_id": null,
+          "proactive_insight_id": null,
+          "proactive_mission_id": null,
+          "source_type": "manual",
+          "review_status": "pending",
+          "source_summary": "",
+          "evidence_refs": [],
+          "rule_metadata": {}
+        }
+      }
+    },
+    {
+      "operation": "writeFactFromEvidence",
+      "ok": true,
+      "degraded": false,
+      "service": "factRetrieval",
+      "path": "/internal/facts/write",
+      "url": "http://127.0.0.1:3004/internal/facts/write",
+      "status": 200,
+      "latency_ms": 22,
+      "body": {
+        "ok": true,
+        "fact_id": "43da94cc-bbd7-4e7a-87bd-35546fda6020",
+        "mode": "insert"
+      }
+    },
+    {
+      "operation": "writeFactFromEvidence",
+      "ok": true,
+      "degraded": false,
+      "service": "factRetrieval",
+      "path": "/internal/facts/write",
+      "url": "http://127.0.0.1:3004/internal/facts/write",
+      "status": 200,
+      "latency_ms": 22,
+      "body": {
+        "ok": true,
+        "fact_id": "624ac949-1aed-4f43-8beb-c793ebfef951",
+        "mode": "insert"
+      }
+    },
+    {
+      "operation": "writeFactFromEvidence",
+      "ok": true,
+      "degraded": false,
+      "service": "factRetrieval",
+      "path": "/internal/facts/write",
+      "url": "http://127.0.0.1:3004/internal/facts/write",
+      "status": 200,
+      "latency_ms": 11,
+      "body": {
+        "ok": true,
+        "fact_id": "5aca5ee4-3107-4458-9c47-d1a309842e2c",
+        "mode": "insert"
+      }
+    },
+    {
+      "operation": "readWorkflowProgress",
+      "ok": true,
+      "degraded": false,
+      "service": "workflow",
+      "path": "/internal/workflows/wf_1779789827526_2c82d98e/progress?owner_user_id=u_ai_native_ops&acting_role=admin",
+      "url": "http://127.0.0.1:3001/internal/workflows/wf_1779789827526_2c82d98e/progress?owner_user_id=u_ai_native_ops&acting_role=admin",
+      "status": 200,
+      "latency_ms": 2,
+      "body": {
+        "ok": true,
+        "progress": {
+          "workflow_id": "wf_1779789827526_2c82d98e",
+          "status": "planned",
+          "stages": [
+            {
+              "id": "st_1779789827526_0",
+              "status": "pending",
+              "seq": 0,
+              "last_output_preview": "",
+              "verification_meta": {}
+            },
+            {
+              "id": "st_1779789827526_1",
+              "status": "pending",
+              "seq": 1,
+              "last_output_preview": "",
+              "verification_meta": {}
+            }
+          ],
+          "observability_summary": {
+            "workflow_ref": "wf_1779789827526_2c82d98e",
+            "status": "planned",
+            "goal": "Run AI-native TaskGraph tg_sales_acme_001",
+            "stage_count": 2,
+            "completed_count": 0,
+            "current_stage": {
+              "seq": 1,
+              "stage_id": "st_1779789827526_0",
+              "stage_type": "DecisionMaking",
+              "purpose": "Confirm champion or target champion",
+              "assigned_executor": "generic-executor",
+              "status": "pending",
+              "output_preview": ""
+            },
+            "stages": [
+              {
+                "seq": 1,
+                "stage_id": "st_1779789827526_0",
+                "stage_type": "DecisionMaking",
+                "purpose": "Confirm champion or target champion",
+                "assigned_executor": "generic-executor",
+                "status": "pending",
+                "output_preview": ""
+              },
+              {
+                "seq": 2,
+                "stage_id": "st_1779789827526_1",
+                "stage_type": "DecisionMaking",
+                "purpose": "Confirm next customer action",
+                "assigned_executor": "generic-executor",
+                "status": "pending",
+                "output_preview": ""
+              }
+            ],
+            "process_summary": [
+              "1. DecisionMaking - pending - Confirm champion or target champion",
+              "2. DecisionMaking - pending - Confirm next customer action"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "operation": "listOrgTasks",
+      "ok": true,
+      "degraded": false,
+      "service": "gateway",
+      "path": "/admin/tasks",
+      "url": "http://127.0.0.1:3000/admin/tasks",
+      "status": 200,
+      "latency_ms": 6,
+      "body": {
+        "ok": true,
+        "tasks": [
+          {
+            "id": "72173cca-9601-423c-9c80-9431b68e6878",
+            "org_id": null,
+            "created_by": null,
+            "title": "补充信息: Who interacted most, asked questions, commented, or listened carefully during th",
+            "description": "D-G1 cannot be confirmed without a champion or target champion signal.",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "Who interacted most, asked questions, commented, or listened carefully during the meeting?\n\n为什么需要: D-G1 cannot be confirmed without a champion or target champion signal.\n期望证据: sales_note, meeting_summary, customer_quote\n请补充可验证的信息、截图、会议纪要、CRM链接或项目系统链接。",
+            "required_fields": [],
+            "target_channels": [
+              "wecom",
+              "feishu"
+            ],
+            "metadata": {},
+            "created_at": "2026-05-26T10:03:49.886Z",
+            "updated_at": "2026-05-26T10:03:49.886Z",
+            "proactive_rule_id": null,
+            "proactive_run_id": null,
+            "proactive_insight_id": null,
+            "proactive_mission_id": null,
+            "source_type": "manual",
+            "review_status": "pending",
+            "source_summary": "",
+            "evidence_refs": [],
+            "rule_metadata": {},
+            "completed_count": "0",
+            "total_count": "0"
+          },
+          {
+            "id": "ecf16db4-2aa3-464a-a75d-3ac0e4357957",
+            "org_id": null,
+            "created_by": null,
+            "title": "补充信息: Who interacted most, asked questions, commented, or listened carefully during th",
+            "description": "D-G1 cannot be confirmed without a champion or target champion signal.",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "Who interacted most, asked questions, commented, or listened carefully during the meeting?\n\n为什么需要: D-G1 cannot be confirmed without a champion or target champion signal.\n期望证据: sales_note, meeting_summary, customer_quote\n请补充可验证的信息、截图、会议纪要、CRM链接或项目系统链接。",
+            "required_fields": [],
+            "target_channels": [
+              "wecom",
+              "feishu"
+            ],
+            "metadata": {},
+            "created_at": "2026-05-26T09:36:10.742Z",
+            "updated_at": "2026-05-26T09:36:10.742Z",
+            "proactive_rule_id": null,
+            "proactive_run_id": null,
+            "proactive_insight_id": null,
+            "proactive_mission_id": null,
+            "source_type": "manual",
+            "review_status": "pending",
+            "source_summary": "",
+            "evidence_refs": [],
+            "rule_metadata": {},
+            "completed_count": "0",
+            "total_count": "0"
+          },
+          {
+            "id": "d17c9c62-99af-4a1d-83ed-68af06991508",
+            "org_id": null,
+            "created_by": null,
+            "title": "补充信息: Who interacted most, asked questions, commented, or listened carefully during th",
+            "description": "D-G1 cannot be confirmed without a champion or target champion signal.",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "Who interacted most, asked questions, commented, or listened carefully during the meeting?\n\n为什么需要: D-G1 cannot be confirmed without a champion or target champion signal.\n期望证据: sales_note, meeting_summary, customer_quote\n请补充可验证的信息、截图、会议纪要、CRM链接或项目系统链接。",
+            "required_fields": [],
+            "target_channels": [
+              "wecom",
+              "feishu"
+            ],
+            "metadata": {},
+            "created_at": "2026-05-26T08:01:32.376Z",
+            "updated_at": "2026-05-26T08:01:32.376Z",
+            "proactive_rule_id": null,
+            "proactive_run_id": null,
+            "proactive_insight_id": null,
+            "proactive_mission_id": null,
+            "source_type": "manual",
+            "review_status": "pending",
+            "source_summary": "",
+            "evidence_refs": [],
+            "rule_metadata": {},
+            "completed_count": "0",
+            "total_count": "0"
+          },
+          {
+            "id": "40a69efd-334a-4d25-bf5d-0f1f9d5f2174",
+            "org_id": null,
+            "created_by": null,
+            "title": "补充信息: Who interacted most, asked questions, commented, or listened carefully during th",
+            "description": "D-G1 cannot be confirmed without a champion or target champion signal.",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "Who interacted most, asked questions, commented, or listened carefully during the meeting?\n\n为什么需要: D-G1 cannot be confirmed without a champion or target champion signal.\n期望证据: sales_note, meeting_summary, customer_quote\n请补充可验证的信息、截图、会议纪要、CRM链接或项目系统链接。",
+            "required_fields": [],
+            "target_channels": [
+              "wecom",
+              "feishu"
+            ],
+            "metadata": {},
+            "created_at": "2026-05-26T07:46:59.132Z",
+            "updated_at": "2026-05-26T07:46:59.132Z",
+            "proactive_rule_id": null,
+            "proactive_run_id": null,
+            "proactive_insight_id": null,
+            "proactive_mission_id": null,
+            "source_type": "manual",
+            "review_status": "pending",
+            "source_summary": "",
+            "evidence_refs": [],
+            "rule_metadata": {},
+            "completed_count": "0",
+            "total_count": "0"
+          },
+          {
+            "id": "a8f67154-5a24-4180-99ac-b36b4489431d",
+            "org_id": null,
+            "created_by": null,
+            "title": "补充信息: Who interacted most, asked questions, commented, or listened carefully during th",
+            "description": "D-G1 cannot be confirmed without a champion or target champion signal.",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "Who interacted most, asked questions, commented, or listened carefully during the meeting?\n\n为什么需要: D-G1 cannot be confirmed without a champion or target champion signal.\n期望证据: sales_note, meeting_summary, customer_quote\n请补充可验证的信息、截图、会议纪要、CRM链接或项目系统链接。",
+            "required_fields": [],
+            "target_channels": [
+              "wecom",
+              "feishu"
+            ],
+            "metadata": {},
+            "created_at": "2026-05-26T07:39:23.396Z",
+            "updated_at": "2026-05-26T07:39:23.396Z",
+            "proactive_rule_id": null,
+            "proactive_run_id": null,
+            "proactive_insight_id": null,
+            "proactive_mission_id": null,
+            "source_type": "manual",
+            "review_status": "pending",
+            "source_summary": "",
+            "evidence_refs": [],
+            "rule_metadata": {},
+            "completed_count": "0",
+            "total_count": "0"
+          },
+          {
+            "id": "b4dd33d8-893b-4b5d-ae7a-f1d1df521fe1",
+            "org_id": null,
+            "created_by": null,
+            "title": "补充信息: Who interacted most, asked questions, commented, or listened carefully during th",
+            "description": "D-G1 cannot be confirmed without a champion or target champion signal.",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "Who interacted most, asked questions, commented, or listened carefully during the meeting?\n\n为什么需要: D-G1 cannot be confirmed without a champion or target champion signal.\n期望证据: sales_note, meeting_summary, customer_quote\n请补充可验证的信息、截图、会议纪要、CRM链接或项目系统链接。",
+            "required_fields": [],
+            "target_channels": [
+              "wecom",
+              "feishu"
+            ],
+            "metadata": {},
+            "created_at": "2026-05-26T07:38:10.740Z",
+            "updated_at": "2026-05-26T07:38:10.740Z",
+            "proactive_rule_id": null,
+            "proactive_run_id": null,
+            "proactive_insight_id": null,
+            "proactive_mission_id": null,
+            "source_type": "manual",
+            "review_status": "pending",
+            "source_summary": "",
+            "evidence_refs": [],
+            "rule_metadata": {},
+            "completed_count": "0",
+            "total_count": "0"
+          },
+          {
+            "id": "b2a7bff4-9149-4103-9f45-5d1efc52d84c",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779585029105\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "05d1644c-cff5-4a70-a83b-d27ca7bef1db",
+              "proactive_rule_id": "c5d1890f-ef9d-41be-9a19-06847b995555",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "88cf6846-a53e-4cc1-99e7-c79e68f9b173",
+              "proactive_mission_id": "7e98d6e2-115d-4acf-98ac-d8a2016a7634",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-24T01:10:33.272Z",
+            "updated_at": "2026-05-24T01:10:33.272Z",
+            "proactive_rule_id": "c5d1890f-ef9d-41be-9a19-06847b995555",
+            "proactive_run_id": "05d1644c-cff5-4a70-a83b-d27ca7bef1db",
+            "proactive_insight_id": "88cf6846-a53e-4cc1-99e7-c79e68f9b173",
+            "proactive_mission_id": "7e98d6e2-115d-4acf-98ac-d8a2016a7634",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779585029105",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "4804aba0-c778-4cdd-840a-79c0fcd08e97",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779584362554\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "abe7bd50-4dd5-4057-b0e2-be7f800243f6",
+              "proactive_rule_id": "5a4b24cd-e1e2-4c69-b164-b3dde2fb2411",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "846bcd18-033f-4fc4-a05d-e7f3f45156be",
+              "proactive_mission_id": "c852cd0e-ccdf-4a80-a151-1e664f3e7d71",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-24T00:59:26.111Z",
+            "updated_at": "2026-05-24T00:59:26.111Z",
+            "proactive_rule_id": "5a4b24cd-e1e2-4c69-b164-b3dde2fb2411",
+            "proactive_run_id": "abe7bd50-4dd5-4057-b0e2-be7f800243f6",
+            "proactive_insight_id": "846bcd18-033f-4fc4-a05d-e7f3f45156be",
+            "proactive_mission_id": "c852cd0e-ccdf-4a80-a151-1e664f3e7d71",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779584362554",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "0c539c45-6c78-4c26-9f49-fe1be44d4762",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779582755914\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "1167e003-de05-4dd3-ba95-8745ebcd7762",
+              "proactive_rule_id": "dee2562d-2ab2-47a1-9c4e-f39a8ec02345",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "2a10de70-2a60-446d-8acc-98b5ac2cbb41",
+              "proactive_mission_id": "a3c2ea4e-f0ce-4753-80d2-01829e32c3a4",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-24T00:32:39.233Z",
+            "updated_at": "2026-05-24T00:32:39.233Z",
+            "proactive_rule_id": "dee2562d-2ab2-47a1-9c4e-f39a8ec02345",
+            "proactive_run_id": "1167e003-de05-4dd3-ba95-8745ebcd7762",
+            "proactive_insight_id": "2a10de70-2a60-446d-8acc-98b5ac2cbb41",
+            "proactive_mission_id": "a3c2ea4e-f0ce-4753-80d2-01829e32c3a4",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779582755914",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "72c9f831-097a-4772-928b-14e69c35ca43",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779582391934\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "c19485de-0eff-4e34-a302-217c14c9a92a",
+              "proactive_rule_id": "0d7b001a-b6c3-4785-8e97-3172ade9ce1a",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "882436c7-3b94-4f2d-bbe5-33b3dfd78d31",
+              "proactive_mission_id": "2fdc4549-a20c-4b7b-8faf-b17579af2751",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-24T00:26:35.261Z",
+            "updated_at": "2026-05-24T00:26:35.261Z",
+            "proactive_rule_id": "0d7b001a-b6c3-4785-8e97-3172ade9ce1a",
+            "proactive_run_id": "c19485de-0eff-4e34-a302-217c14c9a92a",
+            "proactive_insight_id": "882436c7-3b94-4f2d-bbe5-33b3dfd78d31",
+            "proactive_mission_id": "2fdc4549-a20c-4b7b-8faf-b17579af2751",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779582391934",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "2a24a8c1-64e3-4c78-b77d-f4090430774d",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779549328451\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "f6170a79-c9f2-441f-bfd9-b4d2ace5da08",
+              "proactive_rule_id": "89157644-e31b-45bb-b2f5-505d0b1bbde5",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "63e6b623-0b15-45ac-b441-d326c6dc817b",
+              "proactive_mission_id": "489266a0-678d-4968-92c3-44d5793b0e62",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-23T15:15:32.562Z",
+            "updated_at": "2026-05-23T15:15:32.562Z",
+            "proactive_rule_id": "89157644-e31b-45bb-b2f5-505d0b1bbde5",
+            "proactive_run_id": "f6170a79-c9f2-441f-bfd9-b4d2ace5da08",
+            "proactive_insight_id": "63e6b623-0b15-45ac-b441-d326c6dc817b",
+            "proactive_mission_id": "489266a0-678d-4968-92c3-44d5793b0e62",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779549328451",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "9c891909-1754-453b-ae15-ccd60f202179",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779547990930\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "803fb4e7-8d21-4abf-bc43-e2d0132c3d15",
+              "proactive_rule_id": "c1755916-ef3d-4166-937b-06ba804323f1",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "47ccf293-be8b-4d45-9e7c-004940d49b94",
+              "proactive_mission_id": "dcbfc906-f7b0-4977-ad03-705288471545",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-23T14:53:14.243Z",
+            "updated_at": "2026-05-23T14:53:14.243Z",
+            "proactive_rule_id": "c1755916-ef3d-4166-937b-06ba804323f1",
+            "proactive_run_id": "803fb4e7-8d21-4abf-bc43-e2d0132c3d15",
+            "proactive_insight_id": "47ccf293-be8b-4d45-9e7c-004940d49b94",
+            "proactive_mission_id": "dcbfc906-f7b0-4977-ad03-705288471545",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779547990930",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "76f51f0b-f2bd-4ff2-a787-348324b8080e",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779546742051\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "16145a69-399e-4593-976d-9908cbf56f4a",
+              "proactive_rule_id": "e477c2d6-8922-4bfb-9e93-d53f8bfc4cc7",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "e6b7e12e-0271-4dac-9ec5-07c47153decf",
+              "proactive_mission_id": "340f8785-dc55-483c-ad5e-5145552f99f8",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-23T14:32:36.166Z",
+            "updated_at": "2026-05-23T14:32:36.166Z",
+            "proactive_rule_id": "e477c2d6-8922-4bfb-9e93-d53f8bfc4cc7",
+            "proactive_run_id": "16145a69-399e-4593-976d-9908cbf56f4a",
+            "proactive_insight_id": "e6b7e12e-0271-4dac-9ec5-07c47153decf",
+            "proactive_mission_id": "340f8785-dc55-483c-ad5e-5145552f99f8",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779546742051",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "53985f13-486d-43cb-bf16-6d7f2048d30a",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779546068694\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "7970e991-7b37-42f3-bb54-e61ff4ced50b",
+              "proactive_rule_id": "941b569e-09ff-4d5b-9b03-c8ea76a01656",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "11414061-7e82-499a-a460-454d3dadb2b9",
+              "proactive_mission_id": "ec2fd763-3331-4598-88ff-e537413069b5",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-23T14:21:12.056Z",
+            "updated_at": "2026-05-23T14:21:12.056Z",
+            "proactive_rule_id": "941b569e-09ff-4d5b-9b03-c8ea76a01656",
+            "proactive_run_id": "7970e991-7b37-42f3-bb54-e61ff4ced50b",
+            "proactive_insight_id": "11414061-7e82-499a-a460-454d3dadb2b9",
+            "proactive_mission_id": "ec2fd763-3331-4598-88ff-e537413069b5",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779546068694",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "934c04ad-eb00-44fc-88a4-e73d62bbcb19",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779545623277\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "a6771ab0-e6c0-4a42-b05a-e4455b6b8d3a",
+              "proactive_rule_id": "b14e7483-53e7-4527-9930-a78d99c49df2",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "4d4f82b0-bb1e-4887-9523-22014875f14b",
+              "proactive_mission_id": "3cb6e54b-bfad-4816-bed9-8ec28dd06291",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-23T14:13:46.485Z",
+            "updated_at": "2026-05-23T14:13:46.485Z",
+            "proactive_rule_id": "b14e7483-53e7-4527-9930-a78d99c49df2",
+            "proactive_run_id": "a6771ab0-e6c0-4a42-b05a-e4455b6b8d3a",
+            "proactive_insight_id": "4d4f82b0-bb1e-4887-9523-22014875f14b",
+            "proactive_mission_id": "3cb6e54b-bfad-4816-bed9-8ec28dd06291",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779545623277",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "c6f7c30f-0a74-404a-82a7-df2d6d744185",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - 任务链路待验证与派单状态检查",
+            "description": "当前共有 1 条待处理派单，需要确认验证状态、反馈摘要和后续派单是否已经真正闭环。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - 任务链路待验证与派单状态检查\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779543285021\n信心值: 0.79\n证据: 1",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "530bffd4-99a4-4ab7-8a9e-f69c6c8162a4",
+              "proactive_rule_id": "4de15b09-0c03-4e1d-aee9-7f48daf5a02d",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:92ff143eb439d7ab49be72e345a420b72d6a9b21ccfa66e493baf61f6f9013a3",
+              "proactive_insight_id": "ce9ee1fa-63e9-4c50-a73d-3fb7ac0f0ae6",
+              "proactive_mission_id": "572114dd-08cb-4004-8dc5-26cfa44676e5",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-23T13:43:07.501Z",
+            "updated_at": "2026-05-23T13:43:07.501Z",
+            "proactive_rule_id": "4de15b09-0c03-4e1d-aee9-7f48daf5a02d",
+            "proactive_run_id": "530bffd4-99a4-4ab7-8a9e-f69c6c8162a4",
+            "proactive_insight_id": "ce9ee1fa-63e9-4c50-a73d-3fb7ac0f0ae6",
+            "proactive_mission_id": "572114dd-08cb-4004-8dc5-26cfa44676e5",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "当前共有 1 条待处理派单，需要确认验证状态、反馈摘要和后续派单是否已经真正闭环。",
+            "evidence_refs": [
+              {
+                "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+                "ref_id": "a1a97979-1654-4f6f-b4cc-dc185ad381f8",
+                "summary": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779543177153\n信心值: 0.95\n证据: 3",
+                "source_type": "assignment"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779543285021",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "83db7035-a7f1-44d1-a17a-2f0a89e687a6",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779543285021\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "530bffd4-99a4-4ab7-8a9e-f69c6c8162a4",
+              "proactive_rule_id": "4de15b09-0c03-4e1d-aee9-7f48daf5a02d",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "29251b2d-e7a9-4e20-b679-96bda2612a43",
+              "proactive_mission_id": "db75896c-93a4-4b15-883f-bf4ac021158b",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-23T13:34:46.693Z",
+            "updated_at": "2026-05-23T13:34:46.693Z",
+            "proactive_rule_id": "4de15b09-0c03-4e1d-aee9-7f48daf5a02d",
+            "proactive_run_id": "530bffd4-99a4-4ab7-8a9e-f69c6c8162a4",
+            "proactive_insight_id": "29251b2d-e7a9-4e20-b679-96bda2612a43",
+            "proactive_mission_id": "db75896c-93a4-4b15-883f-bf4ac021158b",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779543285021",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          },
+          {
+            "id": "1b951f2d-bf0d-4147-9d4c-1291a2d481ac",
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "created_by": "b89c7218-56c2-4c2a-b773-5d556a4673ad",
+            "title": "管理员复核 - MEDDIC 销售复盘与客户跟进",
+            "description": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "task_type": "form",
+            "schedule_type": "once",
+            "cron_expression": null,
+            "status": "active",
+            "prompt_message": "主动编排任务: 管理员复核 - MEDDIC 销售复盘与客户跟进\n验证状态: approved\n规则: 功能测试 MEDDIC 主动跟进 1779543177153\n信心值: 0.95\n证据: 3",
+            "required_fields": [
+              "summary",
+              "evidence_refs"
+            ],
+            "target_channels": [
+              "org_task"
+            ],
+            "metadata": {
+              "source": "proactive_orchestrator",
+              "proactive_run_id": "15d9a345-2a61-49b4-a34f-0632b4fa385d",
+              "proactive_rule_id": "bb727a17-ec03-4271-b62d-3e1c0a7dd467",
+              "validation_status": "approved",
+              "evidence_pack_hash": "sha256:3ddd2d8f4f33751cd600ae3c5969fb89fd3f3a89365c14291c78152740f9941c",
+              "proactive_insight_id": "caa872de-2bde-47eb-99d7-85ccf0081c77",
+              "proactive_mission_id": "cd2eb31f-e78e-42a4-a3c3-bb4f2f4f4f3d",
+              "proactive_mission_type": "user_task"
+            },
+            "created_at": "2026-05-23T13:32:58.902Z",
+            "updated_at": "2026-05-23T13:32:58.902Z",
+            "proactive_rule_id": "bb727a17-ec03-4271-b62d-3e1c0a7dd467",
+            "proactive_run_id": "15d9a345-2a61-49b4-a34f-0632b4fa385d",
+            "proactive_insight_id": "caa872de-2bde-47eb-99d7-85ccf0081c77",
+            "proactive_mission_id": "cd2eb31f-e78e-42a4-a3c3-bb4f2f4f4f3d",
+            "source_type": "proactive_orchestrator",
+            "review_status": "approved",
+            "source_summary": "现有 demo 知识库包含 MEDDIC 销售资料，建议把 Champion、痛点、预算、决策标准和下一步动作作为主动跟进的优先核对项。",
+            "evidence_refs": [
+              {
+                "title": "MEDDIC销售六步法总览",
+                "ref_id": "d0000028-0000-0000-0000-000000000001",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法总览",
+                "source_type": "document"
+              },
+              {
+                "title": "销售六步法Gates检查清单",
+                "ref_id": "d0000028-0000-0000-0000-000000000002",
+                "summary": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_uri": "local-demo://MEDDIC销售助手/销售六步法gates",
+                "source_type": "document"
+              },
+              {
+                "title": "Champion识别标准",
+                "ref_id": "d0000028-0000-0000-0000-000000000003",
+                "summary": "local-demo://MEDDIC销售助手/关于champion",
+                "source_uri": "local-demo://MEDDIC销售助手/关于champion",
+                "source_type": "document"
+              }
+            ],
+            "rule_metadata": {
+              "rule_name": "功能测试 MEDDIC 主动跟进 1779543177153",
+              "routing_policy": {
+                "escalation_role": "admin",
+                "preferred_channels": [
+                  "org_task"
+                ],
+                "default_mission_type": "user_task"
+              },
+              "evidence_policy": {
+                "min_confidence": 0.72,
+                "require_evidence": true
+              }
+            },
+            "completed_count": "0",
+            "total_count": "1"
+          }
+        ]
+      }
+    }
+  ],
+  "failed_operations": []
+}

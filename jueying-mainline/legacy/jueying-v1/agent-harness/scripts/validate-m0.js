@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const root = 'D:/teamclaw/agent-harness'
+const root = path.resolve(__dirname, '..')
 
 const requiredPaths = [
   'package.json',

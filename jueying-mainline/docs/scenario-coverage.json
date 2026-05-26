@@ -1,0 +1,266 @@
+{
+  "version": "v0.1",
+  "updated_at": "2026-05-26",
+  "description": "Machine-readable scenario coverage index for the AI-native operating system. Use this file to route product, design, implementation, and test work back to scenario stories and capability domains.",
+  "authority_docs": {
+    "scenario_library": "docs/DEV-28-场景故事库-销售与项目交付.md",
+    "capability_matrix": "docs/DEV-29-能力覆盖矩阵与研发补洞清单.md",
+    "sales_six_step_gates": "docs/DEV-30-销售六步法Gate驱动运营设计.md",
+    "sales_six_step_gate_index": "docs/sales-six-step-gates.json",
+    "crm_fact_sync": "docs/DEV-32-CRM事实层对接与双向同步机制.md",
+    "project_management_fact_sync": "docs/DEV-33-项目管理事实层对接与双向同步机制.md",
+    "object_graph": "docs/DEV-26-对象依赖与系统图谱.md",
+    "north_star": "docs/DEV-23-AI原生运营系统总纲.md"
+  },
+  "scenario_groups": {
+    "sales": {
+      "prefix": "SS",
+      "story_ranges": {
+        "sales_goals_and_rhythm": ["SS-01", "SS-05A"],
+        "lead_intake_and_cleaning": ["SS-06", "SS-10"],
+        "discover": ["SS-11", "SS-17"],
+        "scope_and_go_no_go": ["SS-18", "SS-24B"],
+        "validate_solution_and_business_case": ["SS-25", "SS-31A"],
+        "negotiate_close_lost_and_payment": ["SS-32", "SS-38A"],
+        "sales_management_and_growth": ["SS-39", "SS-44"]
+      },
+      "primary_lens": "Sales Six-Step Lens",
+      "authority_gate_model": "docs/DEV-30-销售六步法Gate驱动运营设计.md",
+      "stage_order": [
+        "discover",
+        "scope",
+        "go_no_go",
+        "validate_solution",
+        "business_case",
+        "negotiate_close"
+      ],
+      "p1_anchor_gates": [
+        "D-G1",
+        "D-G2",
+        "D-G3",
+        "D-G4",
+        "D-G5",
+        "D-G6",
+        "D-G7",
+        "S-G1",
+        "S-G2",
+        "S-G3",
+        "S-G4",
+        "S-G5",
+        "G-G1",
+        "G-G2",
+        "G-G3",
+        "G-G4",
+        "V-G1",
+        "V-G2",
+        "V-G3",
+        "B-G1",
+        "B-G2",
+        "B-G3",
+        "B-G4",
+        "N-G1",
+        "N-G2",
+        "N-G3",
+        "N-G4"
+      ],
+      "critical_objects": [
+        "Work Unit",
+        "Project",
+        "Run",
+        "TaskGraph",
+        "Task",
+        "Information Gap",
+        "Evidence",
+        "Human Twin Agent",
+        "SalesGateCheck",
+        "SalesActivityRecommendation",
+        "ChampionProfile",
+        "EconomicBuyerProfile",
+        "ValidationPlan",
+        "BusinessCase",
+        "NegotiationPlan",
+        "OrderChecklist",
+        "SOWCheck",
+        "Opportunity",
+        "Account",
+        "Contact",
+        "Interaction",
+        "Proposal",
+        "Contract",
+        "Payment Milestone"
+      ],
+      "p1_anchor_stories": [
+        "SS-05A",
+        "SS-06",
+        "SS-11",
+        "SS-15",
+        "SS-24A",
+        "SS-24B",
+        "SS-27",
+        "SS-31A",
+        "SS-38A",
+        "SS-39"
+      ]
+    },
+    "delivery": {
+      "prefix": "PD",
+      "story_ranges": {
+        "sales_to_delivery_handoff": ["PD-01", "PD-05"],
+        "kickoff_requirement_and_field_collection": ["PD-06", "PD-12"],
+        "planning_resources_and_acceptance": ["PD-13", "PD-18"],
+        "execution_evidence_and_quality": ["PD-19", "PD-26"],
+        "change_risk_and_escalation": ["PD-27", "PD-32"],
+        "acceptance_payment_handover_and_review": ["PD-33", "PD-42"],
+        "external_project_management_sync": ["PD-43", "PD-44"]
+      },
+      "primary_lens": "Delivery Control Lens",
+      "critical_objects": [
+        "Work Unit",
+        "Project",
+        "Run",
+        "TaskGraph",
+        "Task",
+        "Dependency",
+        "Assignment",
+        "Information Gap",
+        "Evidence",
+        "Deliverable",
+        "Human Twin Agent",
+        "Contract",
+        "Delivery Scope",
+        "Change Request",
+        "Risk",
+        "Payment Milestone",
+        "Stakeholder Map",
+        "PMConnection",
+        "PMRecordMirror",
+        "PMWritebackIntent",
+        "PMFieldMapping"
+      ],
+      "p1_anchor_stories": [
+        "PD-01",
+        "PD-02",
+        "PD-08",
+        "PD-09",
+        "PD-13",
+        "PD-20",
+        "PD-22",
+        "PD-33",
+        "PD-43",
+        "PD-44"
+      ]
+    },
+    "cross_scenario": {
+      "prefix": "XS",
+      "story_ranges": {
+        "governance_channel_overload_and_legacy": ["XS-01", "XS-08"]
+      },
+      "critical_objects": [
+        "Organization",
+        "Person/User",
+        "Human Twin Agent",
+        "Audit Event",
+        "Policy",
+        "TaskGraph",
+        "Evidence",
+        "Legacy Workflow Substrate"
+      ],
+      "p1_anchor_stories": [
+        "XS-01",
+        "XS-02",
+        "XS-03",
+        "XS-04",
+        "XS-05"
+      ]
+    }
+  },
+  "capability_domains": {
+    "work_unit_management": {
+      "priority": "P1",
+      "supports": ["SS-01", "SS-03", "PD-01", "PD-13"],
+      "objects": ["Work Unit", "Project", "Routine", "Run"]
+    },
+    "taskgraph_engine": {
+      "priority": "P1",
+      "supports": ["SS-21", "SS-24", "PD-13", "PD-24", "PD-27"],
+      "objects": ["TaskGraph", "Task", "Dependency", "Assignment"]
+    },
+    "sales_six_step_gate_engine": {
+      "priority": "P1",
+      "supports": ["D-G1", "D-G7", "S-G1", "S-G5", "G-G1", "G-G4", "V-G1", "V-G3", "B-G1", "B-G4", "N-G1", "N-G4"],
+      "objects": ["SalesGateCheck", "SalesActivityRecommendation", "Information Gap", "Evidence", "Task"]
+    },
+    "information_gap_engine": {
+      "priority": "P1",
+      "supports": ["SS-09", "SS-18", "SS-24", "PD-08", "PD-09", "PD-32"],
+      "objects": ["Information Gap", "Human Twin Agent", "Evidence"]
+    },
+    "evidence_engine": {
+      "priority": "P1",
+      "supports": ["SS-23", "SS-28", "PD-21", "PD-22", "PD-33"],
+      "objects": ["Evidence", "Deliverable", "Acceptance Criteria"]
+    },
+    "human_twin_agent": {
+      "priority": "P1",
+      "supports": ["SS-12", "SS-39", "PD-20", "PD-26", "XS-01"],
+      "objects": ["Human Twin Agent", "Person/User", "Channel", "Permission"]
+    },
+    "pm_agent_contracts": {
+      "priority": "P1",
+      "supports": ["SS-01", "SS-11", "SS-15", "PD-13", "PD-17", "PD-22"],
+      "objects": ["Agent Template", "TaskGraph", "Information Gap", "Evidence"]
+    },
+    "operating_console": {
+      "priority": "P1",
+      "supports": ["SS-02", "SS-40", "PD-14", "PD-29", "PD-30"],
+      "objects": ["Run", "TaskGraph", "Task", "Risk", "Escalation"]
+    },
+    "governance_and_audit": {
+      "priority": "P1",
+      "supports": ["SS-29", "PD-25", "XS-04", "XS-05"],
+      "objects": ["Policy", "Audit Event", "Human Confirmation", "Sensitivity"]
+    },
+    "crm_fact_sync": {
+      "priority": "P1",
+      "supports": ["DEV-32", "SS-05A", "SS-38A", "N-G4"],
+      "objects": ["CRMConnection", "CRMRecordMirror", "CRMWritebackIntent", "CRMWritebackQueue", "CRMFieldMapping", "External Fact Mirror", "External Writeback Intent"]
+    },
+    "project_management_fact_sync": {
+      "priority": "P1",
+      "supports": ["DEV-33", "PD-43", "PD-44", "PD-13", "PD-20", "PD-22", "PD-33"],
+      "objects": ["PMConnection", "PMRecordMirror", "PMWritebackIntent", "PMWritebackQueue", "PMFieldMapping", "External Fact Mirror", "External Writeback Intent"]
+    },
+    "sales_six_step_lens": {
+      "priority": "P2",
+      "supports": ["SS-05A", "SS-15", "SS-24A", "SS-24B", "SS-27", "SS-31A", "SS-38A"],
+      "objects": ["Opportunity", "SalesGateCheck", "ChampionProfile", "EconomicBuyerProfile", "ValidationPlan", "BusinessCase", "NegotiationPlan", "OrderChecklist", "SOWCheck", "Evidence"]
+    },
+    "delivery_control_lens": {
+      "priority": "P2",
+      "supports": ["PD-01", "PD-44"],
+      "objects": ["Contract", "Delivery Scope", "Change Request", "Risk", "Stakeholder Map", "PMRecordMirror", "PMWritebackIntent"]
+    },
+    "legacy_workflow_adapter": {
+      "priority": "P2",
+      "supports": ["XS-08", "SS-25", "PD-34"],
+      "objects": ["Legacy Workflow Substrate", "Worker Agent", "Deliverable", "Evidence"]
+    },
+    "review_template_skill": {
+      "priority": "P2",
+      "supports": ["SS-36", "SS-42", "PD-40", "PD-41", "PD-42"],
+      "objects": ["Review", "Template", "Skill Candidate"]
+    }
+  },
+  "p1_exit_gates": [
+    "Every implemented feature references at least one SS, PD, or XS story id.",
+    "Every sales feature references at least one six-step stage or gate id from DEV-30.",
+    "Sales stage progression is based on gate status and evidence, not CRM stage text alone.",
+    "External project management status is not the same as Agent TaskGraph status; PMRecordMirror and PMWritebackIntent must preserve both.",
+    "Every Agent judgment can name required information and missing Information Gaps.",
+    "Every human collection task includes reason, format, deadline, and use.",
+    "Every completed or accepted task links Evidence or a documented evidence waiver.",
+    "Every replan records reason, trigger evidence, affected tasks, and version change.",
+    "Sales and delivery views read from TaskGraph and Evidence instead of isolated status stores.",
+    "Authorization, dispatch, verification, escalation, replan, and human confirmation write audit events."
+  ]
+}

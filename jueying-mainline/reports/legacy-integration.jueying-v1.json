@@ -1,0 +1,4582 @@
+{
+  "report": {
+    "ok": true,
+    "generated_at": "2026-05-26T10:16:08.397Z",
+    "integration_id": "jueying-v1-mainline",
+    "integration_name": "JueYing 主版本能力归并",
+    "root": "D:\\teamclaw\\jueying-mainline",
+    "legacy_root": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness",
+    "legacy_package": {
+      "name": "agent-harness",
+      "version": "1.7.0",
+      "workspaces": [
+        "apps/*",
+        "services/*",
+        "libs/*"
+      ],
+      "scripts": [
+        "build",
+        "context:audit",
+        "db:generate",
+        "db:migrate",
+        "db:migrate:drizzle",
+        "db:push",
+        "db:repair:main",
+        "docker:core:up",
+        "docker:down",
+        "docker:logs",
+        "docker:logs:feishu",
+        "docker:up",
+        "feishu:logs",
+        "feishu:restart",
+        "feishu:start",
+        "health:core",
+        "infra:bootstrap",
+        "infra:bootstrap:full",
+        "infra:bootstrap:llm",
+        "lint",
+        "preflight:audit",
+        "smoke:channels",
+        "smoke:eval",
+        "smoke:workflow-observability",
+        "test",
+        "test:dream-mode",
+        "test:portal-admin",
+        "test:portal-static",
+        "test:proactive",
+        "test:task-dispatch",
+        "test:user-journey-coverage",
+        "type-check",
+        "validate:m0"
+      ]
+    },
+    "phases": [
+      {
+        "id": "phase_0_discover",
+        "name": "发现与只读映射",
+        "exit_gate": "主版本能定位历史代码、脚本、路由、数据表和关键能力，不依赖运行时在线。"
+      },
+      {
+        "id": "phase_1_contract_bridge",
+        "name": "契约转换",
+        "exit_gate": "TaskGraph、Information Gap、Evidence、Writeback Intent 能转换成 JueYing workflow/org_task/fact/audit payload。"
+      },
+      {
+        "id": "phase_2_runtime_proxy",
+        "name": "运行时代理",
+        "exit_gate": "JueYing 服务在线时，主版本控制台能健康检查并按能力路由调用；离线时保留静态适配状态。"
+      },
+      {
+        "id": "phase_3_fact_convergence",
+        "name": "事实层一致",
+        "exit_gate": "CRM/项目管理镜像、JueYing fact/evidence 和 Agent fact layer 有明确冲突策略和反写策略。"
+      },
+      {
+        "id": "phase_4_ui_cutover",
+        "name": "界面接管",
+        "exit_gate": "JueYing Operating Console 承接 Portal 的主能力入口，历史 Portal 退为排障和迁移参考。"
+      }
+    ],
+    "required_capability_ids": [
+      "mainline.workflow",
+      "mainline.executor",
+      "mainline.fact_retrieval",
+      "mainline.gateway_channels",
+      "mainline.org_task_dispatch",
+      "mainline.skill_library",
+      "mainline.proactive_orchestrator",
+      "mainline.web_portal",
+      "mainline.audit_policy_identity",
+      "mainline.memory_dream"
+    ],
+    "totals": {
+      "capability_count": 11,
+      "critical_count": 10,
+      "adapter_ready_count": 11,
+      "partial_count": 0,
+      "missing_count": 0,
+      "route_count": 59,
+      "data_object_count": 36,
+      "bridge_contract_count": 14
+    },
+    "capabilities": [
+      {
+        "id": "mainline.workflow",
+        "name": "Workflow 编排主干",
+        "critical": true,
+        "new_concept": "TaskGraph execution substrate",
+        "ai_native_role": "把 JueYing TaskGraph 落到主版本多阶段 workflow_instance / workflow_stage 生命周期。",
+        "integration_mode": "contract_transform + optional_service_proxy",
+        "package_path": "services/workflow",
+        "required_paths": [
+          {
+            "path": "services/workflow/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 45388
+          },
+          {
+            "path": "services/workflow/src/engine/workflow-machine.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\engine\\workflow-machine.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 3513
+          },
+          {
+            "path": "services/workflow/src/planner/planner.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\planner.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 54535
+          },
+          {
+            "path": "services/workflow/src/planner/plan-validator.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\plan-validator.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 2962
+          },
+          {
+            "path": "services/workflow/src/checkpoint/manager.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\checkpoint\\manager.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 16200
+          },
+          {
+            "path": "services/workflow/src/supervisor/manager.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\supervisor\\manager.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 22517
+          },
+          {
+            "path": "libs/contracts/src/workflow-types.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\src\\workflow-types.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 1669
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "services/workflow/src/persistence/db.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\persistence\\db.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 23786
+          },
+          {
+            "path": "db/migrations/003_workflow_core.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 7120
+          },
+          {
+            "path": "db/migrations/027_workflow_definition_review.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 2141
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "workflow-service",
+          "url_env": "JUEYING_WORKFLOW_URL",
+          "default_url": "http://127.0.0.1:3001",
+          "health_path": "/health"
+        },
+        "routes": [
+          {
+            "method": "POST",
+            "path": "/internal/workflows/plan",
+            "purpose": "创建 JueYing workflow plan",
+            "bridge_use": "TaskGraph -> workflow_plan"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/workflows/:workflowRef/dispatch",
+            "purpose": "启动 workflow 执行",
+            "bridge_use": "Run dispatch"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/workflows/:workflowRef/stages/:stageId/dispatch",
+            "purpose": "回写阶段执行结果",
+            "bridge_use": "Task status / Evidence update"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/workflows/:workflowRef/complete",
+            "purpose": "完成 workflow",
+            "bridge_use": "TaskGraph completion"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/workflows/:workflowRef/progress",
+            "purpose": "读取进度和观测摘要",
+            "bridge_use": "workflow_progress -> TaskGraph view"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/workflows",
+            "purpose": "列出 workflow",
+            "bridge_use": "Operating Console list"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "workflow_instance",
+            "ai_native_object": "Run / TaskGraph",
+            "exists": true
+          },
+          {
+            "legacy_table": "workflow_stage",
+            "ai_native_object": "Task",
+            "exists": true
+          },
+          {
+            "legacy_table": "checkpoint",
+            "ai_native_object": "Checkpoint / Resume Token",
+            "exists": true
+          },
+          {
+            "legacy_table": "workflow_event",
+            "ai_native_object": "Audit Event / Run Event",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "taskGraphToLegacyWorkflowPlan",
+          "legacyWorkflowProgressToTaskGraph"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "services/workflow",
+          "name": "@agent-harness/workflow-service",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "start": "node dist/index.js",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/audit",
+            "@agent-harness/contracts",
+            "@agent-harness/policy",
+            "@agent-harness/shared",
+            "xstate"
+          ],
+          "optional_dependencies": []
+        },
+        "route_count": 6,
+        "bridge_contract_count": 2,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.executor",
+        "name": "Executor 执行器主干",
+        "critical": true,
+        "new_concept": "Worker Agent execution substrate",
+        "ai_native_role": "承接 PM Agent 生成的阶段任务，执行通用、检索增强、审批、代码、验证、修复等工作。",
+        "integration_mode": "service_proxy + result_normalization",
+        "package_path": "services/executor-gateway",
+        "required_paths": [
+          {
+            "path": "services/executor-gateway/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 19536
+          },
+          {
+            "path": "services/executor-gateway/src/executor/generic-executor.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\generic-executor.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 27878
+          },
+          {
+            "path": "services/executor-gateway/src/executor/retrieval-aware-executor.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\retrieval-aware-executor.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 5303
+          },
+          {
+            "path": "services/executor-gateway/src/executor/approval-executor.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\approval-executor.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 5828
+          },
+          {
+            "path": "services/executor-gateway/src/executor/code-executor.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\code-executor.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 3264
+          },
+          {
+            "path": "services/executor-gateway/src/executor/verification-executor.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\verification-executor.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 5480
+          },
+          {
+            "path": "services/executor-gateway/src/executor/repair-executor.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\repair-executor.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 3303
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "db/migrations/003_workflow_core.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 7120
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "executor-gateway",
+          "url_env": "JUEYING_EXECUTOR_URL",
+          "default_url": "http://127.0.0.1:3002",
+          "health_path": "/health"
+        },
+        "routes": [
+          {
+            "method": "POST",
+            "path": "/internal/executor/dispatch",
+            "purpose": "异步调度 workflow 执行",
+            "bridge_use": "TaskGraph run dispatch"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/executor/execute",
+            "purpose": "同步执行单阶段任务",
+            "bridge_use": "Task -> ExecutionResult"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/executor/runs/:runRef",
+            "purpose": "读取执行会话状态",
+            "bridge_use": "Run observability"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "execution_session",
+            "ai_native_object": "Agent Run / Worker Session",
+            "exists": true
+          },
+          {
+            "legacy_table": "artifact_object",
+            "ai_native_object": "Artifact / Evidence",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "legacyExecutionResultToAgentOutput"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "services/executor-gateway",
+          "name": "@agent-harness/executor-gateway",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "start": "node dist/index.js",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/audit",
+            "@agent-harness/contracts",
+            "@agent-harness/shared"
+          ],
+          "optional_dependencies": []
+        },
+        "route_count": 3,
+        "bridge_contract_count": 1,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.fact_retrieval",
+        "name": "事实检索与证据层",
+        "critical": true,
+        "new_concept": "Evidence and Retrieval substrate",
+        "ai_native_role": "把文档、事实、实体、检索 trace 和 evidence pack 作为 Agent 判断的事实底座。",
+        "integration_mode": "record_mirror + evidence_projection + optional_service_proxy",
+        "package_path": "services/fact-retrieval",
+        "required_paths": [
+          {
+            "path": "services/fact-retrieval/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 23733
+          },
+          {
+            "path": "services/fact-retrieval/src/service.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\service.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 87868
+          },
+          {
+            "path": "services/fact-retrieval/src/support.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\support.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 3252
+          },
+          {
+            "path": "services/fact-retrieval/src/artifact-storage.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\artifact-storage.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 11540
+          },
+          {
+            "path": "libs/contracts/schemas/evidence.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\evidence.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 1226
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "db/migrations/004_document_evidence.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\004_document_evidence.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 2571
+          },
+          {
+            "path": "db/migrations/005_entity_fact.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\005_entity_fact.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 3772
+          },
+          {
+            "path": "db/migrations/007_retrieval_audit.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\007_retrieval_audit.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 1398
+          },
+          {
+            "path": "db/migrations/022_align_fact_retrieval_trace_schema.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\022_align_fact_retrieval_trace_schema.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 754
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "fact-retrieval",
+          "url_env": "JUEYING_FACT_RETRIEVAL_URL",
+          "default_url": "http://127.0.0.1:3004",
+          "health_path": "/health"
+        },
+        "routes": [
+          {
+            "method": "POST",
+            "path": "/internal/documents/index",
+            "purpose": "索引文档",
+            "bridge_use": "Evidence content_ref -> document"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/retrieval/query",
+            "purpose": "检索事实和文档片段",
+            "bridge_use": "Information Gap -> retrieval query"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/facts/write",
+            "purpose": "写入结构化事实",
+            "bridge_use": "Evidence -> fact write"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/entities/write",
+            "purpose": "写入实体和属性",
+            "bridge_use": "Business object mirror -> entity graph"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/fact/submit",
+            "purpose": "用户提交待审核知识",
+            "bridge_use": "Human Twin collected evidence"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/fact/review",
+            "purpose": "知识审核队列",
+            "bridge_use": "Evidence review console"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/files/upload",
+            "purpose": "用户文件存储",
+            "bridge_use": "File evidence"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "document",
+            "ai_native_object": "Evidence Source",
+            "exists": true
+          },
+          {
+            "legacy_table": "document_chunk",
+            "ai_native_object": "Retrieval Item",
+            "exists": true
+          },
+          {
+            "legacy_table": "fact",
+            "ai_native_object": "Fact",
+            "exists": true
+          },
+          {
+            "legacy_table": "fact_evidence",
+            "ai_native_object": "Evidence Link",
+            "exists": true
+          },
+          {
+            "legacy_table": "retrieval_trace",
+            "ai_native_object": "Retrieval Trace",
+            "exists": true
+          },
+          {
+            "legacy_table": "artifact_object",
+            "ai_native_object": "Artifact",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "evidenceToLegacyFactWrite",
+          "evidenceToLegacyDocumentIndex"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "services/fact-retrieval",
+          "name": "@agent-harness/fact-retrieval",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "start": "node dist/index.js",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/audit",
+            "@agent-harness/contracts",
+            "@agent-harness/shared",
+            "@aws-sdk/client-s3",
+            "drizzle-orm",
+            "pg"
+          ],
+          "optional_dependencies": [
+            "redis"
+          ]
+        },
+        "route_count": 7,
+        "bridge_contract_count": 2,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.gateway_channels",
+        "name": "渠道接入与 Human Twin 入口",
+        "critical": true,
+        "new_concept": "Human Twin channel substrate",
+        "ai_native_role": "把飞书、企微、Web Portal 等外部入口统一成用户身份、会话、消息、附件和补采任务。",
+        "integration_mode": "channel_proxy + identity_resolution",
+        "package_path": "apps/gateway-adapter",
+        "required_paths": [
+          {
+            "path": "apps/gateway-adapter/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 112311
+          },
+          {
+            "path": "apps/gateway-adapter/src/services/session-mapper.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\session-mapper.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 1441
+          },
+          {
+            "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 9480
+          },
+          {
+            "path": "apps/gateway-adapter/src/services/file-validator.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\file-validator.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 6916
+          },
+          {
+            "path": "apps/gateway-adapter/src/services/gateway-state.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\gateway-state.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 1334
+          },
+          {
+            "path": "services/feishu-longconn/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\feishu-longconn\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 4766
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "db/migrations/002_identity_policy.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 1968
+          },
+          {
+            "path": "db/migrations/015_relation_org_id.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\015_relation_org_id.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 418
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "gateway-adapter",
+          "url_env": "JUEYING_GATEWAY_URL",
+          "default_url": "http://127.0.0.1:3000",
+          "health_path": "/health/live"
+        },
+        "routes": [
+          {
+            "method": "POST",
+            "path": "/internal/channel-ingress/normalize",
+            "purpose": "统一入口消息结构",
+            "bridge_use": "Channel Message -> Evidence / Task"
+          },
+          {
+            "method": "POST",
+            "path": "/channels/feishu/webhook",
+            "purpose": "飞书 webhook",
+            "bridge_use": "Human Twin channel"
+          },
+          {
+            "method": "POST",
+            "path": "/channels/feishu/longconn/event",
+            "purpose": "飞书长连接事件",
+            "bridge_use": "Human Twin channel"
+          },
+          {
+            "method": "POST",
+            "path": "/channels/wecom/webhook",
+            "purpose": "企微 webhook",
+            "bridge_use": "Human Twin channel"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/notify/wecom",
+            "purpose": "企微通知",
+            "bridge_use": "Information Gap prompt"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "channel_identity",
+            "ai_native_object": "Human Twin Identity Binding",
+            "exists": true
+          },
+          {
+            "legacy_table": "memory_item",
+            "ai_native_object": "Conversation Memory",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "informationGapToHumanTwinPrompt"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "apps/gateway-adapter",
+          "name": "@agent-harness/gateway-adapter",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "start": "node dist/index.js",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/contracts",
+            "@agent-harness/policy",
+            "@agent-harness/shared",
+            "officeparser"
+          ],
+          "optional_dependencies": []
+        },
+        "route_count": 5,
+        "bridge_contract_count": 1,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.org_task_dispatch",
+        "name": "组织任务分发",
+        "critical": true,
+        "new_concept": "Assignment and information collection substrate",
+        "ai_native_role": "当 Agent 传感器不足时，把信息缺口转成可派发、可提醒、可反馈、可验收的人类采集任务。",
+        "integration_mode": "information_gap_to_org_task",
+        "package_path": "apps/gateway-adapter",
+        "required_paths": [
+          {
+            "path": "apps/gateway-adapter/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 112311
+          },
+          {
+            "path": "tests/integration/task-dispatch-lui-test.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\task-dispatch-lui-test.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 21426
+          },
+          {
+            "path": "db/migrations/017_org_task.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\017_org_task.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 2189
+          },
+          {
+            "path": "db/migrations/020_org_task_nullable_created_by.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\020_org_task_nullable_created_by.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 362
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "apps/mobile-app/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 22004
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "gateway-adapter",
+          "url_env": "JUEYING_GATEWAY_URL",
+          "default_url": "http://127.0.0.1:3000",
+          "health_path": "/health/live"
+        },
+        "routes": [
+          {
+            "method": "POST",
+            "path": "/admin/tasks",
+            "purpose": "创建组织任务",
+            "bridge_use": "Information Gap -> org_task"
+          },
+          {
+            "method": "GET",
+            "path": "/admin/tasks",
+            "purpose": "任务分发列表",
+            "bridge_use": "Operating Console assignments"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/tasks/assign",
+            "purpose": "给组织成员分配任务",
+            "bridge_use": "Human Twin assignment"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/tasks/notify",
+            "purpose": "通知被分配人",
+            "bridge_use": "Collector prompt delivery"
+          },
+          {
+            "method": "GET",
+            "path": "/tasks",
+            "purpose": "我的任务",
+            "bridge_use": "Human information workbench"
+          },
+          {
+            "method": "POST",
+            "path": "/tasks/:assignmentId/submit",
+            "purpose": "提交反馈",
+            "bridge_use": "Human Twin collect result"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "org_task",
+            "ai_native_object": "Assignment / Information Gap Work Order",
+            "exists": true
+          },
+          {
+            "legacy_table": "org_task_assignment",
+            "ai_native_object": "Human Twin Task Assignment",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "informationGapToLegacyOrgTask"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "apps/gateway-adapter",
+          "name": "@agent-harness/gateway-adapter",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "start": "node dist/index.js",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/contracts",
+            "@agent-harness/policy",
+            "@agent-harness/shared",
+            "officeparser"
+          ],
+          "optional_dependencies": []
+        },
+        "route_count": 6,
+        "bridge_contract_count": 1,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.skill_library",
+        "name": "技能库与工作流模板",
+        "critical": true,
+        "new_concept": "Agent Skill and Workflow Template substrate",
+        "ai_native_role": "把可复用工作流、Prompt、工具定义和组织技能沉淀成可召回、可审核、可升级的能力资产。",
+        "integration_mode": "skill_registry_adapter",
+        "package_path": "services/skill-library",
+        "required_paths": [
+          {
+            "path": "services/skill-library/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\skill-library\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 77243
+          },
+          {
+            "path": "services/skill-library/README.md",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\skill-library\\README.md",
+            "exists": true,
+            "kind": "file",
+            "size": 340
+          },
+          {
+            "path": "db/migrations/008_memory_skill.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\008_memory_skill.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 4767
+          },
+          {
+            "path": "db/migrations/013_seed_skills.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\013_seed_skills.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 10819
+          },
+          {
+            "path": "db/migrations/019_skill_constraint_expand.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\019_skill_constraint_expand.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 1158
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "db/migrations/024_align_seed_skill_retrieval_intents.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\024_align_seed_skill_retrieval_intents.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 604
+          },
+          {
+            "path": "db/migrations/027_workflow_definition_review.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 2141
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "skill-library",
+          "url_env": "JUEYING_SKILL_LIBRARY_URL",
+          "default_url": "http://127.0.0.1:3007",
+          "health_path": "/health/live"
+        },
+        "routes": [
+          {
+            "method": "POST",
+            "path": "/internal/skills/create",
+            "purpose": "创建技能",
+            "bridge_use": "Agent Template save"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/skills/search",
+            "purpose": "搜索技能",
+            "bridge_use": "Skill recall"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/skills/import",
+            "purpose": "导入 Markdown 技能",
+            "bridge_use": "Workflow template import"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/skills/audit",
+            "purpose": "技能审核",
+            "bridge_use": "Skill quality gate"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/skills/audit/batch",
+            "purpose": "批量技能审核",
+            "bridge_use": "Dream skill maintenance"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/skills/org-registry",
+            "purpose": "组织技能库",
+            "bridge_use": "Org-level agent capability registry"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/workflow-definition-reviews/nominate",
+            "purpose": "推荐工作流模板复用",
+            "bridge_use": "Successful workflow -> reusable skill"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "skill",
+            "ai_native_object": "Skill",
+            "exists": true
+          },
+          {
+            "legacy_table": "skill_version",
+            "ai_native_object": "Skill Version",
+            "exists": true
+          },
+          {
+            "legacy_table": "org_skill_registry",
+            "ai_native_object": "Organization Skill Registry",
+            "exists": true
+          },
+          {
+            "legacy_table": "workflow_definition_review",
+            "ai_native_object": "Workflow Template Review",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "taskGraphToWorkflowSkillCandidate"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "services/skill-library",
+          "name": "@agent-harness/skill-library",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/contracts",
+            "@agent-harness/shared"
+          ],
+          "optional_dependencies": []
+        },
+        "route_count": 7,
+        "bridge_contract_count": 1,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.proactive_orchestrator",
+        "name": "主动运营编排",
+        "critical": true,
+        "new_concept": "COO Signal Layer",
+        "ai_native_role": "持续扫描事实、记忆、技能和任务状态，形成洞察、任务、报告，并通过组织任务闭环。",
+        "integration_mode": "signal_scan_adapter + mission_dispatch",
+        "package_path": "services/proactive-orchestrator",
+        "required_paths": [
+          {
+            "path": "services/proactive-orchestrator/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\proactive-orchestrator\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 12147
+          },
+          {
+            "path": "services/proactive-orchestrator/src/domain.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\proactive-orchestrator\\src\\domain.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 12831
+          },
+          {
+            "path": "services/proactive-orchestrator/src/service.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\proactive-orchestrator\\src\\service.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 46395
+          },
+          {
+            "path": "tests/integration/proactive-orchestration-test.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\proactive-orchestration-test.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 14877
+          },
+          {
+            "path": "db/migrations/029_proactive_orchestration.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\029_proactive_orchestration.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 8836
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "db/migrations/026_recall_outcome_attribution.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\026_recall_outcome_attribution.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 6237
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "proactive-orchestrator",
+          "url_env": "JUEYING_PROACTIVE_ORCHESTRATOR_URL",
+          "default_url": "http://127.0.0.1:3010",
+          "health_path": "/health/live"
+        },
+        "routes": [
+          {
+            "method": "GET",
+            "path": "/api/admin/proactive/dashboard",
+            "purpose": "主动运营看板",
+            "bridge_use": "COO Signal dashboard"
+          },
+          {
+            "method": "POST",
+            "path": "/api/admin/proactive/rules",
+            "purpose": "创建扫描规则",
+            "bridge_use": "Operating rule"
+          },
+          {
+            "method": "POST",
+            "path": "/api/admin/proactive/runs",
+            "purpose": "执行扫描",
+            "bridge_use": "Signal scan"
+          },
+          {
+            "method": "POST",
+            "path": "/api/admin/proactive/insights/:id/review",
+            "purpose": "审核洞察",
+            "bridge_use": "Human confirmation"
+          },
+          {
+            "method": "POST",
+            "path": "/api/admin/proactive/missions/:id/dispatch",
+            "purpose": "派发任务",
+            "bridge_use": "Insight -> org_task"
+          },
+          {
+            "method": "POST",
+            "path": "/api/admin/proactive/reports/:id/publish",
+            "purpose": "发布报告",
+            "bridge_use": "Operating report"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "proactive_rule",
+            "ai_native_object": "Operating Rule",
+            "exists": true
+          },
+          {
+            "legacy_table": "proactive_run",
+            "ai_native_object": "Signal Scan Run",
+            "exists": true
+          },
+          {
+            "legacy_table": "proactive_insight",
+            "ai_native_object": "Agent Insight",
+            "exists": true
+          },
+          {
+            "legacy_table": "proactive_mission",
+            "ai_native_object": "Mission / Assignment",
+            "exists": true
+          },
+          {
+            "legacy_table": "proactive_report",
+            "ai_native_object": "Operating Report",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "signalToInformationGap",
+          "insightToTaskGraph"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "services/proactive-orchestrator",
+          "name": "@agent-harness/proactive-orchestrator",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "start": "node dist/index.js",
+            "type-check": "tsc --noEmit",
+            "test": "jest --config ../../tests/setup/jest.config.cjs --runInBand services/proactive-orchestrator/src/*.test.ts"
+          },
+          "dependencies": [
+            "@agent-harness/shared",
+            "pg",
+            "zod"
+          ],
+          "optional_dependencies": []
+        },
+        "route_count": 6,
+        "bridge_contract_count": 2,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.web_portal",
+        "name": "JueYing 管理门户",
+        "critical": true,
+        "new_concept": "Legacy operational surface and migration source",
+        "ai_native_role": "承载 JueYing 已有的 workflow、审批、技能、知识、审计、检索、身份、派单、主动运营等界面经验。",
+        "integration_mode": "surface_reference + route_inventory",
+        "package_path": "apps/web-portal",
+        "required_paths": [
+          {
+            "path": "apps/web-portal/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 199738
+          },
+          {
+            "path": "apps/web-portal/static/index.html",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\static\\index.html",
+            "exists": true,
+            "kind": "file",
+            "size": 13204
+          },
+          {
+            "path": "apps/web-portal/static/app.js",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\static\\app.js",
+            "exists": true,
+            "kind": "file",
+            "size": 215404
+          },
+          {
+            "path": "apps/web-portal/static/localization.js",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\static\\localization.js",
+            "exists": true,
+            "kind": "file",
+            "size": 91768
+          },
+          {
+            "path": "apps/web-portal/static/app.static.test.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\static\\app.static.test.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 7007
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "tests/integration/portal-admin-functional-test.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\portal-admin-functional-test.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 31343
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "web-portal",
+          "url_env": "JUEYING_WEB_PORTAL_URL",
+          "default_url": "http://127.0.0.1:3003",
+          "health_path": "/health"
+        },
+        "routes": [
+          {
+            "method": "GET",
+            "path": "/api/system/overview",
+            "purpose": "系统概览",
+            "bridge_use": "Ops Console summary"
+          },
+          {
+            "method": "GET",
+            "path": "/api/workflows",
+            "purpose": "workflow 列表",
+            "bridge_use": "TaskGraph list"
+          },
+          {
+            "method": "GET",
+            "path": "/api/admin/audit",
+            "purpose": "审计日志",
+            "bridge_use": "Audit console"
+          },
+          {
+            "method": "GET",
+            "path": "/api/admin/retrieval-traces",
+            "purpose": "检索追踪",
+            "bridge_use": "Evidence trace console"
+          },
+          {
+            "method": "GET",
+            "path": "/api/channels/identity",
+            "purpose": "身份绑定",
+            "bridge_use": "Human Twin identities"
+          },
+          {
+            "method": "GET",
+            "path": "/api/tasks",
+            "purpose": "我的任务",
+            "bridge_use": "Human collection inbox"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "audit_event",
+            "ai_native_object": "Audit Event",
+            "exists": true
+          },
+          {
+            "legacy_table": "channel_identity",
+            "ai_native_object": "Identity Binding",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "legacyPortalRouteToOpsConsoleView"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "apps/web-portal",
+          "name": "@agent-harness/web-portal",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "start": "node dist/index.js",
+            "dev": "ts-node src/index.ts",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/audit",
+            "@agent-harness/shared",
+            "mammoth",
+            "officeparser",
+            "pdfjs-dist",
+            "pg"
+          ],
+          "optional_dependencies": [
+            "redis"
+          ]
+        },
+        "route_count": 6,
+        "bridge_contract_count": 1,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.audit_policy_identity",
+        "name": "审计、权限和身份",
+        "critical": true,
+        "new_concept": "Trust, permission, and traceability substrate",
+        "ai_native_role": "保障 Agent 执行、人工确认、外部系统反写和身份绑定都可追踪、可约束、可追责。",
+        "integration_mode": "policy_snapshot + audit_projection",
+        "package_path": "libs/audit",
+        "required_paths": [
+          {
+            "path": "libs/audit/src/writer.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\audit\\src\\writer.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 7878
+          },
+          {
+            "path": "libs/policy/src/manager.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\policy\\src\\manager.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 15665
+          },
+          {
+            "path": "libs/contracts/schemas/envelope.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\envelope.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 1896
+          },
+          {
+            "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 9480
+          },
+          {
+            "path": "db/migrations/002_identity_policy.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 1968
+          },
+          {
+            "path": "db/migrations/010_audit_and_day3.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\010_audit_and_day3.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 880
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "db/migrations/014_org_id_isolation.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\014_org_id_isolation.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 5651
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "web-portal",
+          "url_env": "JUEYING_WEB_PORTAL_URL",
+          "default_url": "http://127.0.0.1:3003",
+          "health_path": "/health"
+        },
+        "routes": [
+          {
+            "method": "GET",
+            "path": "/api/admin/audit",
+            "purpose": "查看审计事件",
+            "bridge_use": "AI-native audit console"
+          },
+          {
+            "method": "GET",
+            "path": "/api/channels/identity",
+            "purpose": "查看身份绑定",
+            "bridge_use": "Human Twin identity management"
+          },
+          {
+            "method": "POST",
+            "path": "/api/channels/identity/:id/rebind",
+            "purpose": "重新绑定身份",
+            "bridge_use": "Channel identity repair"
+          },
+          {
+            "method": "GET",
+            "path": "/api/admin/policies",
+            "purpose": "查看组织策略",
+            "bridge_use": "Writeback and autonomy policy"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "audit_event",
+            "ai_native_object": "Audit Event",
+            "exists": true
+          },
+          {
+            "legacy_table": "policy_snapshot",
+            "ai_native_object": "Policy Snapshot",
+            "exists": true
+          },
+          {
+            "legacy_table": "channel_identity",
+            "ai_native_object": "Human Twin Identity",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "writebackIntentToLegacyAuditEvent"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "libs/audit",
+          "name": "@agent-harness/audit",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/contracts",
+            "@agent-harness/shared",
+            "pg"
+          ],
+          "optional_dependencies": []
+        },
+        "route_count": 4,
+        "bridge_contract_count": 1,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.memory_dream",
+        "name": "记忆、梦境与归因",
+        "critical": true,
+        "new_concept": "Memory, recall, and compounding knowledge substrate",
+        "ai_native_role": "沉淀对话记忆、组织记忆、技能召回效果和业务结果归因，为 Agent 后续判断提供长期上下文。",
+        "integration_mode": "memory_projection + recall_outcome_attribution",
+        "package_path": "services/hermes-adapter",
+        "required_paths": [
+          {
+            "path": "services/hermes-adapter/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\hermes-adapter\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 43619
+          },
+          {
+            "path": "services/hermes-adapter/src/db.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\hermes-adapter\\src\\db.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 695
+          },
+          {
+            "path": "tests/integration/dream-mode-test.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\dream-mode-test.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 11187
+          },
+          {
+            "path": "db/migrations/021_dream_mode.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\021_dream_mode.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 11375
+          },
+          {
+            "path": "db/migrations/026_recall_outcome_attribution.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\026_recall_outcome_attribution.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 6237
+          }
+        ],
+        "optional_paths": [
+          {
+            "path": "db/migrations/028_seed_admin_demo_content.sql",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\028_seed_admin_demo_content.sql",
+            "exists": true,
+            "kind": "file",
+            "size": 29810
+          },
+          {
+            "path": "services/skill-library/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\skill-library\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 77243
+          }
+        ],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "hermes-adapter",
+          "url_env": "JUEYING_HERMES_URL",
+          "default_url": "http://127.0.0.1:3005",
+          "health_path": "/health/live"
+        },
+        "routes": [
+          {
+            "method": "POST",
+            "path": "/internal/memory",
+            "purpose": "写入会话记忆",
+            "bridge_use": "Human Twin memory"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/memory/analyze",
+            "purpose": "个人梦境分析",
+            "bridge_use": "Memory compression and extraction"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/memory/analyze/org",
+            "purpose": "组织级记忆分析",
+            "bridge_use": "Organization memory summary"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/memory/summary",
+            "purpose": "读取组织记忆汇总",
+            "bridge_use": "Agent context recall"
+          },
+          {
+            "method": "GET",
+            "path": "/api/admin/dream/attribution",
+            "purpose": "召回与结果归因",
+            "bridge_use": "Skill / knowledge compounding"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "memory_item",
+            "ai_native_object": "Memory Item",
+            "exists": true
+          },
+          {
+            "legacy_table": "org_memory_summary",
+            "ai_native_object": "Organization Memory Summary",
+            "exists": true
+          },
+          {
+            "legacy_table": "knowledge_recall_event",
+            "ai_native_object": "Knowledge Recall Event",
+            "exists": true
+          },
+          {
+            "legacy_table": "skill_recall_event",
+            "ai_native_object": "Skill Recall Event",
+            "exists": true
+          },
+          {
+            "legacy_table": "workflow_outcome_eval",
+            "ai_native_object": "Outcome Evaluation",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "memorySummaryToAgentContext"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "services/hermes-adapter",
+          "name": "@agent-harness/hermes-adapter",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/contracts",
+            "@agent-harness/shared",
+            "drizzle-orm",
+            "pg"
+          ],
+          "optional_dependencies": []
+        },
+        "route_count": 5,
+        "bridge_contract_count": 1,
+        "issues": [],
+        "warnings": []
+      },
+      {
+        "id": "mainline.mobile_notifications",
+        "name": "移动通知与提醒",
+        "critical": false,
+        "new_concept": "Human notification substrate",
+        "ai_native_role": "为信息补采、任务提醒和派单闭环提供移动端通知通道。",
+        "integration_mode": "notification_adapter",
+        "package_path": "apps/mobile-app",
+        "required_paths": [
+          {
+            "path": "apps/mobile-app/src/index.ts",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\src\\index.ts",
+            "exists": true,
+            "kind": "file",
+            "size": 22004
+          },
+          {
+            "path": "apps/mobile-app/package.json",
+            "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\package.json",
+            "exists": true,
+            "kind": "file",
+            "size": 353
+          }
+        ],
+        "optional_paths": [],
+        "required_scripts": [
+          {
+            "script": "build",
+            "exists": true
+          },
+          {
+            "script": "type-check",
+            "exists": true
+          }
+        ],
+        "runtime": {
+          "service_name": "mobile-app",
+          "url_env": "JUEYING_MOBILE_APP_URL",
+          "default_url": "http://127.0.0.1:3009",
+          "health_path": "/health/live"
+        },
+        "routes": [
+          {
+            "method": "POST",
+            "path": "/internal/devices/register",
+            "purpose": "注册设备",
+            "bridge_use": "Human notification identity"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/notifications/send",
+            "purpose": "发送移动通知",
+            "bridge_use": "Information Gap reminder"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/notifications/history",
+            "purpose": "通知历史",
+            "bridge_use": "Notification audit"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/badges/:userId",
+            "purpose": "未读数量",
+            "bridge_use": "Human task inbox badge"
+          }
+        ],
+        "data_objects": [
+          {
+            "legacy_table": "org_task_assignment",
+            "ai_native_object": "Notification Target",
+            "exists": true
+          }
+        ],
+        "bridge_contracts": [
+          "informationGapToNotification"
+        ],
+        "status": "adapter_ready",
+        "package": {
+          "path": "apps/mobile-app",
+          "name": "@agent-harness/mobile-app",
+          "version": "1.0.0",
+          "scripts": {
+            "build": "tsc",
+            "type-check": "tsc --noEmit"
+          },
+          "dependencies": [
+            "@agent-harness/contracts",
+            "@agent-harness/shared"
+          ],
+          "optional_dependencies": []
+        },
+        "route_count": 4,
+        "bridge_contract_count": 1,
+        "issues": [],
+        "warnings": []
+      }
+    ],
+    "service_runtime": [
+      {
+        "service_name": "workflow-service",
+        "url_env": "JUEYING_WORKFLOW_URL",
+        "default_url": "http://127.0.0.1:3001",
+        "health_path": "/health",
+        "capabilities": [
+          "mainline.workflow"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "executor-gateway",
+        "url_env": "JUEYING_EXECUTOR_URL",
+        "default_url": "http://127.0.0.1:3002",
+        "health_path": "/health",
+        "capabilities": [
+          "mainline.executor"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "fact-retrieval",
+        "url_env": "JUEYING_FACT_RETRIEVAL_URL",
+        "default_url": "http://127.0.0.1:3004",
+        "health_path": "/health",
+        "capabilities": [
+          "mainline.fact_retrieval"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "gateway-adapter",
+        "url_env": "JUEYING_GATEWAY_URL",
+        "default_url": "http://127.0.0.1:3000",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.gateway_channels",
+          "mainline.org_task_dispatch"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "skill-library",
+        "url_env": "JUEYING_SKILL_LIBRARY_URL",
+        "default_url": "http://127.0.0.1:3007",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.skill_library"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "proactive-orchestrator",
+        "url_env": "JUEYING_PROACTIVE_ORCHESTRATOR_URL",
+        "default_url": "http://127.0.0.1:3010",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.proactive_orchestrator"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "web-portal",
+        "url_env": "JUEYING_WEB_PORTAL_URL",
+        "default_url": "http://127.0.0.1:3003",
+        "health_path": "/health",
+        "capabilities": [
+          "mainline.web_portal",
+          "mainline.audit_policy_identity"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "hermes-adapter",
+        "url_env": "JUEYING_HERMES_URL",
+        "default_url": "http://127.0.0.1:3005",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.memory_dream"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "mobile-app",
+        "url_env": "JUEYING_MOBILE_APP_URL",
+        "default_url": "http://127.0.0.1:3009",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.mobile_notifications"
+        ],
+        "status": "adapter_ready"
+      }
+    ],
+    "bridge_contracts": [
+      {
+        "name": "evidenceToLegacyDocumentIndex",
+        "capability_ids": [
+          "mainline.fact_retrieval"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "evidenceToLegacyFactWrite",
+        "capability_ids": [
+          "mainline.fact_retrieval"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "informationGapToHumanTwinPrompt",
+        "capability_ids": [
+          "mainline.gateway_channels"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "informationGapToLegacyOrgTask",
+        "capability_ids": [
+          "mainline.org_task_dispatch"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "informationGapToNotification",
+        "capability_ids": [
+          "mainline.mobile_notifications"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "insightToTaskGraph",
+        "capability_ids": [
+          "mainline.proactive_orchestrator"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "legacyExecutionResultToAgentOutput",
+        "capability_ids": [
+          "mainline.executor"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "legacyPortalRouteToOpsConsoleView",
+        "capability_ids": [
+          "mainline.web_portal"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "legacyWorkflowProgressToTaskGraph",
+        "capability_ids": [
+          "mainline.workflow"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "memorySummaryToAgentContext",
+        "capability_ids": [
+          "mainline.memory_dream"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "signalToInformationGap",
+        "capability_ids": [
+          "mainline.proactive_orchestrator"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "taskGraphToLegacyWorkflowPlan",
+        "capability_ids": [
+          "mainline.workflow"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "taskGraphToWorkflowSkillCandidate",
+        "capability_ids": [
+          "mainline.skill_library"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "writebackIntentToLegacyAuditEvent",
+        "capability_ids": [
+          "mainline.audit_policy_identity"
+        ],
+        "status": "implemented_or_declared"
+      }
+    ],
+    "cutover_plan": [
+      {
+        "area": "工作流和执行",
+        "legacy_capability_ids": [
+          "mainline.workflow",
+          "mainline.executor"
+        ],
+        "new_surface": "TaskGraph + Operating Console",
+        "current_state": "adapter_ready",
+        "next_step": "把 P1 TaskGraph 通过 taskGraphToLegacyWorkflowPlan 提交到 workflow-service，执行结果归一成 AgentOutput。"
+      },
+      {
+        "area": "信息缺口和人类补采",
+        "legacy_capability_ids": [
+          "mainline.gateway_channels",
+          "mainline.org_task_dispatch",
+          "mainline.mobile_notifications"
+        ],
+        "new_surface": "Information Gap Inbox + Human Twin Workbench",
+        "current_state": "adapter_ready",
+        "next_step": "把 Information Gap 转成 org_task / assignment，并把提交结果转成 Evidence。"
+      },
+      {
+        "area": "事实、证据、检索",
+        "legacy_capability_ids": [
+          "mainline.fact_retrieval",
+          "mainline.audit_policy_identity"
+        ],
+        "new_surface": "Evidence Trace + External Fact Mirror",
+        "current_state": "adapter_ready",
+        "next_step": "把 CRM/项目管理 mirror 和人工补采内容投影到 fact/document/evidence pack。"
+      },
+      {
+        "area": "技能、记忆、主动运营",
+        "legacy_capability_ids": [
+          "mainline.skill_library",
+          "mainline.memory_dream",
+          "mainline.proactive_orchestrator"
+        ],
+        "new_surface": "Agent Skill Registry + COO Signal Layer",
+        "current_state": "adapter_ready",
+        "next_step": "把成功工作流沉淀为技能候选，并让主动运营洞察回流到 TaskGraph。"
+      },
+      {
+        "area": "界面归并",
+        "legacy_capability_ids": [
+          "mainline.web_portal"
+        ],
+        "new_surface": "JueYing Operating Console",
+        "current_state": "adapter_ready",
+        "next_step": "主版本控制台先显示运行状态，再逐步承接历史 Portal 中高频功能页。"
+      }
+    ],
+    "issues": [],
+    "warnings": []
+  },
+  "view_model": {
+    "ok": true,
+    "summary": {
+      "integration_id": "jueying-v1-mainline",
+      "legacy_root": "legacy/jueying-v1/agent-harness",
+      "ready_percent": 100,
+      "critical_ready": 10,
+      "critical_total": 10,
+      "capability_count": 11,
+      "route_count": 59,
+      "data_object_count": 36,
+      "bridge_contract_count": 14,
+      "issue_count": 0,
+      "warning_count": 0,
+      "status_counts": {
+        "adapter_ready": 11
+      }
+    },
+    "capability_groups": [
+      {
+        "id": "execution",
+        "name": "编排执行",
+        "ids": [
+          "mainline.workflow",
+          "mainline.executor"
+        ],
+        "capabilities": [
+          {
+            "id": "mainline.workflow",
+            "name": "Workflow 编排主干",
+            "critical": true,
+            "new_concept": "TaskGraph execution substrate",
+            "ai_native_role": "把 JueYing TaskGraph 落到主版本多阶段 workflow_instance / workflow_stage 生命周期。",
+            "integration_mode": "contract_transform + optional_service_proxy",
+            "package_path": "services/workflow",
+            "required_paths": [
+              {
+                "path": "services/workflow/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 45388
+              },
+              {
+                "path": "services/workflow/src/engine/workflow-machine.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\engine\\workflow-machine.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 3513
+              },
+              {
+                "path": "services/workflow/src/planner/planner.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\planner.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 54535
+              },
+              {
+                "path": "services/workflow/src/planner/plan-validator.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\plan-validator.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 2962
+              },
+              {
+                "path": "services/workflow/src/checkpoint/manager.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\checkpoint\\manager.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 16200
+              },
+              {
+                "path": "services/workflow/src/supervisor/manager.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\supervisor\\manager.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 22517
+              },
+              {
+                "path": "libs/contracts/src/workflow-types.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\src\\workflow-types.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 1669
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "services/workflow/src/persistence/db.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\persistence\\db.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 23786
+              },
+              {
+                "path": "db/migrations/003_workflow_core.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 7120
+              },
+              {
+                "path": "db/migrations/027_workflow_definition_review.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 2141
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "workflow-service",
+              "url_env": "JUEYING_WORKFLOW_URL",
+              "default_url": "http://127.0.0.1:3001",
+              "health_path": "/health"
+            },
+            "routes": [
+              {
+                "method": "POST",
+                "path": "/internal/workflows/plan",
+                "purpose": "创建 JueYing workflow plan",
+                "bridge_use": "TaskGraph -> workflow_plan"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/workflows/:workflowRef/dispatch",
+                "purpose": "启动 workflow 执行",
+                "bridge_use": "Run dispatch"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/workflows/:workflowRef/stages/:stageId/dispatch",
+                "purpose": "回写阶段执行结果",
+                "bridge_use": "Task status / Evidence update"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/workflows/:workflowRef/complete",
+                "purpose": "完成 workflow",
+                "bridge_use": "TaskGraph completion"
+              },
+              {
+                "method": "GET",
+                "path": "/internal/workflows/:workflowRef/progress",
+                "purpose": "读取进度和观测摘要",
+                "bridge_use": "workflow_progress -> TaskGraph view"
+              },
+              {
+                "method": "GET",
+                "path": "/internal/workflows",
+                "purpose": "列出 workflow",
+                "bridge_use": "Operating Console list"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "workflow_instance",
+                "ai_native_object": "Run / TaskGraph",
+                "exists": true
+              },
+              {
+                "legacy_table": "workflow_stage",
+                "ai_native_object": "Task",
+                "exists": true
+              },
+              {
+                "legacy_table": "checkpoint",
+                "ai_native_object": "Checkpoint / Resume Token",
+                "exists": true
+              },
+              {
+                "legacy_table": "workflow_event",
+                "ai_native_object": "Audit Event / Run Event",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "taskGraphToLegacyWorkflowPlan",
+              "legacyWorkflowProgressToTaskGraph"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "services/workflow",
+              "name": "@agent-harness/workflow-service",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "start": "node dist/index.js",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/audit",
+                "@agent-harness/contracts",
+                "@agent-harness/policy",
+                "@agent-harness/shared",
+                "xstate"
+              ],
+              "optional_dependencies": []
+            },
+            "route_count": 6,
+            "bridge_contract_count": 2,
+            "issues": [],
+            "warnings": []
+          },
+          {
+            "id": "mainline.executor",
+            "name": "Executor 执行器主干",
+            "critical": true,
+            "new_concept": "Worker Agent execution substrate",
+            "ai_native_role": "承接 PM Agent 生成的阶段任务，执行通用、检索增强、审批、代码、验证、修复等工作。",
+            "integration_mode": "service_proxy + result_normalization",
+            "package_path": "services/executor-gateway",
+            "required_paths": [
+              {
+                "path": "services/executor-gateway/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 19536
+              },
+              {
+                "path": "services/executor-gateway/src/executor/generic-executor.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\generic-executor.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 27878
+              },
+              {
+                "path": "services/executor-gateway/src/executor/retrieval-aware-executor.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\retrieval-aware-executor.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 5303
+              },
+              {
+                "path": "services/executor-gateway/src/executor/approval-executor.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\approval-executor.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 5828
+              },
+              {
+                "path": "services/executor-gateway/src/executor/code-executor.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\code-executor.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 3264
+              },
+              {
+                "path": "services/executor-gateway/src/executor/verification-executor.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\verification-executor.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 5480
+              },
+              {
+                "path": "services/executor-gateway/src/executor/repair-executor.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\repair-executor.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 3303
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "db/migrations/003_workflow_core.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 7120
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "executor-gateway",
+              "url_env": "JUEYING_EXECUTOR_URL",
+              "default_url": "http://127.0.0.1:3002",
+              "health_path": "/health"
+            },
+            "routes": [
+              {
+                "method": "POST",
+                "path": "/internal/executor/dispatch",
+                "purpose": "异步调度 workflow 执行",
+                "bridge_use": "TaskGraph run dispatch"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/executor/execute",
+                "purpose": "同步执行单阶段任务",
+                "bridge_use": "Task -> ExecutionResult"
+              },
+              {
+                "method": "GET",
+                "path": "/internal/executor/runs/:runRef",
+                "purpose": "读取执行会话状态",
+                "bridge_use": "Run observability"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "execution_session",
+                "ai_native_object": "Agent Run / Worker Session",
+                "exists": true
+              },
+              {
+                "legacy_table": "artifact_object",
+                "ai_native_object": "Artifact / Evidence",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "legacyExecutionResultToAgentOutput"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "services/executor-gateway",
+              "name": "@agent-harness/executor-gateway",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "start": "node dist/index.js",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/audit",
+                "@agent-harness/contracts",
+                "@agent-harness/shared"
+              ],
+              "optional_dependencies": []
+            },
+            "route_count": 3,
+            "bridge_contract_count": 1,
+            "issues": [],
+            "warnings": []
+          }
+        ]
+      },
+      {
+        "id": "human_loop",
+        "name": "人类闭环",
+        "ids": [
+          "mainline.gateway_channels",
+          "mainline.org_task_dispatch",
+          "mainline.mobile_notifications"
+        ],
+        "capabilities": [
+          {
+            "id": "mainline.gateway_channels",
+            "name": "渠道接入与 Human Twin 入口",
+            "critical": true,
+            "new_concept": "Human Twin channel substrate",
+            "ai_native_role": "把飞书、企微、Web Portal 等外部入口统一成用户身份、会话、消息、附件和补采任务。",
+            "integration_mode": "channel_proxy + identity_resolution",
+            "package_path": "apps/gateway-adapter",
+            "required_paths": [
+              {
+                "path": "apps/gateway-adapter/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 112311
+              },
+              {
+                "path": "apps/gateway-adapter/src/services/session-mapper.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\session-mapper.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 1441
+              },
+              {
+                "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 9480
+              },
+              {
+                "path": "apps/gateway-adapter/src/services/file-validator.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\file-validator.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 6916
+              },
+              {
+                "path": "apps/gateway-adapter/src/services/gateway-state.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\gateway-state.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 1334
+              },
+              {
+                "path": "services/feishu-longconn/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\feishu-longconn\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 4766
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "db/migrations/002_identity_policy.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 1968
+              },
+              {
+                "path": "db/migrations/015_relation_org_id.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\015_relation_org_id.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 418
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "gateway-adapter",
+              "url_env": "JUEYING_GATEWAY_URL",
+              "default_url": "http://127.0.0.1:3000",
+              "health_path": "/health/live"
+            },
+            "routes": [
+              {
+                "method": "POST",
+                "path": "/internal/channel-ingress/normalize",
+                "purpose": "统一入口消息结构",
+                "bridge_use": "Channel Message -> Evidence / Task"
+              },
+              {
+                "method": "POST",
+                "path": "/channels/feishu/webhook",
+                "purpose": "飞书 webhook",
+                "bridge_use": "Human Twin channel"
+              },
+              {
+                "method": "POST",
+                "path": "/channels/feishu/longconn/event",
+                "purpose": "飞书长连接事件",
+                "bridge_use": "Human Twin channel"
+              },
+              {
+                "method": "POST",
+                "path": "/channels/wecom/webhook",
+                "purpose": "企微 webhook",
+                "bridge_use": "Human Twin channel"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/notify/wecom",
+                "purpose": "企微通知",
+                "bridge_use": "Information Gap prompt"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "channel_identity",
+                "ai_native_object": "Human Twin Identity Binding",
+                "exists": true
+              },
+              {
+                "legacy_table": "memory_item",
+                "ai_native_object": "Conversation Memory",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "informationGapToHumanTwinPrompt"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "apps/gateway-adapter",
+              "name": "@agent-harness/gateway-adapter",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "start": "node dist/index.js",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/contracts",
+                "@agent-harness/policy",
+                "@agent-harness/shared",
+                "officeparser"
+              ],
+              "optional_dependencies": []
+            },
+            "route_count": 5,
+            "bridge_contract_count": 1,
+            "issues": [],
+            "warnings": []
+          },
+          {
+            "id": "mainline.org_task_dispatch",
+            "name": "组织任务分发",
+            "critical": true,
+            "new_concept": "Assignment and information collection substrate",
+            "ai_native_role": "当 Agent 传感器不足时，把信息缺口转成可派发、可提醒、可反馈、可验收的人类采集任务。",
+            "integration_mode": "information_gap_to_org_task",
+            "package_path": "apps/gateway-adapter",
+            "required_paths": [
+              {
+                "path": "apps/gateway-adapter/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 112311
+              },
+              {
+                "path": "tests/integration/task-dispatch-lui-test.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\task-dispatch-lui-test.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 21426
+              },
+              {
+                "path": "db/migrations/017_org_task.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\017_org_task.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 2189
+              },
+              {
+                "path": "db/migrations/020_org_task_nullable_created_by.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\020_org_task_nullable_created_by.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 362
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "apps/mobile-app/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 22004
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "gateway-adapter",
+              "url_env": "JUEYING_GATEWAY_URL",
+              "default_url": "http://127.0.0.1:3000",
+              "health_path": "/health/live"
+            },
+            "routes": [
+              {
+                "method": "POST",
+                "path": "/admin/tasks",
+                "purpose": "创建组织任务",
+                "bridge_use": "Information Gap -> org_task"
+              },
+              {
+                "method": "GET",
+                "path": "/admin/tasks",
+                "purpose": "任务分发列表",
+                "bridge_use": "Operating Console assignments"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/tasks/assign",
+                "purpose": "给组织成员分配任务",
+                "bridge_use": "Human Twin assignment"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/tasks/notify",
+                "purpose": "通知被分配人",
+                "bridge_use": "Collector prompt delivery"
+              },
+              {
+                "method": "GET",
+                "path": "/tasks",
+                "purpose": "我的任务",
+                "bridge_use": "Human information workbench"
+              },
+              {
+                "method": "POST",
+                "path": "/tasks/:assignmentId/submit",
+                "purpose": "提交反馈",
+                "bridge_use": "Human Twin collect result"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "org_task",
+                "ai_native_object": "Assignment / Information Gap Work Order",
+                "exists": true
+              },
+              {
+                "legacy_table": "org_task_assignment",
+                "ai_native_object": "Human Twin Task Assignment",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "informationGapToLegacyOrgTask"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "apps/gateway-adapter",
+              "name": "@agent-harness/gateway-adapter",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "start": "node dist/index.js",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/contracts",
+                "@agent-harness/policy",
+                "@agent-harness/shared",
+                "officeparser"
+              ],
+              "optional_dependencies": []
+            },
+            "route_count": 6,
+            "bridge_contract_count": 1,
+            "issues": [],
+            "warnings": []
+          },
+          {
+            "id": "mainline.mobile_notifications",
+            "name": "移动通知与提醒",
+            "critical": false,
+            "new_concept": "Human notification substrate",
+            "ai_native_role": "为信息补采、任务提醒和派单闭环提供移动端通知通道。",
+            "integration_mode": "notification_adapter",
+            "package_path": "apps/mobile-app",
+            "required_paths": [
+              {
+                "path": "apps/mobile-app/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 22004
+              },
+              {
+                "path": "apps/mobile-app/package.json",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\package.json",
+                "exists": true,
+                "kind": "file",
+                "size": 353
+              }
+            ],
+            "optional_paths": [],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "mobile-app",
+              "url_env": "JUEYING_MOBILE_APP_URL",
+              "default_url": "http://127.0.0.1:3009",
+              "health_path": "/health/live"
+            },
+            "routes": [
+              {
+                "method": "POST",
+                "path": "/internal/devices/register",
+                "purpose": "注册设备",
+                "bridge_use": "Human notification identity"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/notifications/send",
+                "purpose": "发送移动通知",
+                "bridge_use": "Information Gap reminder"
+              },
+              {
+                "method": "GET",
+                "path": "/internal/notifications/history",
+                "purpose": "通知历史",
+                "bridge_use": "Notification audit"
+              },
+              {
+                "method": "GET",
+                "path": "/internal/badges/:userId",
+                "purpose": "未读数量",
+                "bridge_use": "Human task inbox badge"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "org_task_assignment",
+                "ai_native_object": "Notification Target",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "informationGapToNotification"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "apps/mobile-app",
+              "name": "@agent-harness/mobile-app",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/contracts",
+                "@agent-harness/shared"
+              ],
+              "optional_dependencies": []
+            },
+            "route_count": 4,
+            "bridge_contract_count": 1,
+            "issues": [],
+            "warnings": []
+          }
+        ]
+      },
+      {
+        "id": "facts",
+        "name": "事实证据",
+        "ids": [
+          "mainline.fact_retrieval",
+          "mainline.audit_policy_identity"
+        ],
+        "capabilities": [
+          {
+            "id": "mainline.fact_retrieval",
+            "name": "事实检索与证据层",
+            "critical": true,
+            "new_concept": "Evidence and Retrieval substrate",
+            "ai_native_role": "把文档、事实、实体、检索 trace 和 evidence pack 作为 Agent 判断的事实底座。",
+            "integration_mode": "record_mirror + evidence_projection + optional_service_proxy",
+            "package_path": "services/fact-retrieval",
+            "required_paths": [
+              {
+                "path": "services/fact-retrieval/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 23733
+              },
+              {
+                "path": "services/fact-retrieval/src/service.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\service.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 87868
+              },
+              {
+                "path": "services/fact-retrieval/src/support.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\support.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 3252
+              },
+              {
+                "path": "services/fact-retrieval/src/artifact-storage.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\artifact-storage.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 11540
+              },
+              {
+                "path": "libs/contracts/schemas/evidence.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\evidence.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 1226
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "db/migrations/004_document_evidence.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\004_document_evidence.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 2571
+              },
+              {
+                "path": "db/migrations/005_entity_fact.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\005_entity_fact.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 3772
+              },
+              {
+                "path": "db/migrations/007_retrieval_audit.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\007_retrieval_audit.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 1398
+              },
+              {
+                "path": "db/migrations/022_align_fact_retrieval_trace_schema.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\022_align_fact_retrieval_trace_schema.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 754
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "fact-retrieval",
+              "url_env": "JUEYING_FACT_RETRIEVAL_URL",
+              "default_url": "http://127.0.0.1:3004",
+              "health_path": "/health"
+            },
+            "routes": [
+              {
+                "method": "POST",
+                "path": "/internal/documents/index",
+                "purpose": "索引文档",
+                "bridge_use": "Evidence content_ref -> document"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/retrieval/query",
+                "purpose": "检索事实和文档片段",
+                "bridge_use": "Information Gap -> retrieval query"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/facts/write",
+                "purpose": "写入结构化事实",
+                "bridge_use": "Evidence -> fact write"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/entities/write",
+                "purpose": "写入实体和属性",
+                "bridge_use": "Business object mirror -> entity graph"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/fact/submit",
+                "purpose": "用户提交待审核知识",
+                "bridge_use": "Human Twin collected evidence"
+              },
+              {
+                "method": "GET",
+                "path": "/internal/fact/review",
+                "purpose": "知识审核队列",
+                "bridge_use": "Evidence review console"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/files/upload",
+                "purpose": "用户文件存储",
+                "bridge_use": "File evidence"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "document",
+                "ai_native_object": "Evidence Source",
+                "exists": true
+              },
+              {
+                "legacy_table": "document_chunk",
+                "ai_native_object": "Retrieval Item",
+                "exists": true
+              },
+              {
+                "legacy_table": "fact",
+                "ai_native_object": "Fact",
+                "exists": true
+              },
+              {
+                "legacy_table": "fact_evidence",
+                "ai_native_object": "Evidence Link",
+                "exists": true
+              },
+              {
+                "legacy_table": "retrieval_trace",
+                "ai_native_object": "Retrieval Trace",
+                "exists": true
+              },
+              {
+                "legacy_table": "artifact_object",
+                "ai_native_object": "Artifact",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "evidenceToLegacyFactWrite",
+              "evidenceToLegacyDocumentIndex"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "services/fact-retrieval",
+              "name": "@agent-harness/fact-retrieval",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "start": "node dist/index.js",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/audit",
+                "@agent-harness/contracts",
+                "@agent-harness/shared",
+                "@aws-sdk/client-s3",
+                "drizzle-orm",
+                "pg"
+              ],
+              "optional_dependencies": [
+                "redis"
+              ]
+            },
+            "route_count": 7,
+            "bridge_contract_count": 2,
+            "issues": [],
+            "warnings": []
+          },
+          {
+            "id": "mainline.audit_policy_identity",
+            "name": "审计、权限和身份",
+            "critical": true,
+            "new_concept": "Trust, permission, and traceability substrate",
+            "ai_native_role": "保障 Agent 执行、人工确认、外部系统反写和身份绑定都可追踪、可约束、可追责。",
+            "integration_mode": "policy_snapshot + audit_projection",
+            "package_path": "libs/audit",
+            "required_paths": [
+              {
+                "path": "libs/audit/src/writer.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\audit\\src\\writer.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 7878
+              },
+              {
+                "path": "libs/policy/src/manager.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\policy\\src\\manager.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 15665
+              },
+              {
+                "path": "libs/contracts/schemas/envelope.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\envelope.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 1896
+              },
+              {
+                "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 9480
+              },
+              {
+                "path": "db/migrations/002_identity_policy.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 1968
+              },
+              {
+                "path": "db/migrations/010_audit_and_day3.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\010_audit_and_day3.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 880
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "db/migrations/014_org_id_isolation.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\014_org_id_isolation.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 5651
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "web-portal",
+              "url_env": "JUEYING_WEB_PORTAL_URL",
+              "default_url": "http://127.0.0.1:3003",
+              "health_path": "/health"
+            },
+            "routes": [
+              {
+                "method": "GET",
+                "path": "/api/admin/audit",
+                "purpose": "查看审计事件",
+                "bridge_use": "AI-native audit console"
+              },
+              {
+                "method": "GET",
+                "path": "/api/channels/identity",
+                "purpose": "查看身份绑定",
+                "bridge_use": "Human Twin identity management"
+              },
+              {
+                "method": "POST",
+                "path": "/api/channels/identity/:id/rebind",
+                "purpose": "重新绑定身份",
+                "bridge_use": "Channel identity repair"
+              },
+              {
+                "method": "GET",
+                "path": "/api/admin/policies",
+                "purpose": "查看组织策略",
+                "bridge_use": "Writeback and autonomy policy"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "audit_event",
+                "ai_native_object": "Audit Event",
+                "exists": true
+              },
+              {
+                "legacy_table": "policy_snapshot",
+                "ai_native_object": "Policy Snapshot",
+                "exists": true
+              },
+              {
+                "legacy_table": "channel_identity",
+                "ai_native_object": "Human Twin Identity",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "writebackIntentToLegacyAuditEvent"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "libs/audit",
+              "name": "@agent-harness/audit",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/contracts",
+                "@agent-harness/shared",
+                "pg"
+              ],
+              "optional_dependencies": []
+            },
+            "route_count": 4,
+            "bridge_contract_count": 1,
+            "issues": [],
+            "warnings": []
+          }
+        ]
+      },
+      {
+        "id": "compound",
+        "name": "复利能力",
+        "ids": [
+          "mainline.skill_library",
+          "mainline.memory_dream",
+          "mainline.proactive_orchestrator"
+        ],
+        "capabilities": [
+          {
+            "id": "mainline.skill_library",
+            "name": "技能库与工作流模板",
+            "critical": true,
+            "new_concept": "Agent Skill and Workflow Template substrate",
+            "ai_native_role": "把可复用工作流、Prompt、工具定义和组织技能沉淀成可召回、可审核、可升级的能力资产。",
+            "integration_mode": "skill_registry_adapter",
+            "package_path": "services/skill-library",
+            "required_paths": [
+              {
+                "path": "services/skill-library/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\skill-library\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 77243
+              },
+              {
+                "path": "services/skill-library/README.md",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\skill-library\\README.md",
+                "exists": true,
+                "kind": "file",
+                "size": 340
+              },
+              {
+                "path": "db/migrations/008_memory_skill.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\008_memory_skill.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 4767
+              },
+              {
+                "path": "db/migrations/013_seed_skills.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\013_seed_skills.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 10819
+              },
+              {
+                "path": "db/migrations/019_skill_constraint_expand.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\019_skill_constraint_expand.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 1158
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "db/migrations/024_align_seed_skill_retrieval_intents.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\024_align_seed_skill_retrieval_intents.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 604
+              },
+              {
+                "path": "db/migrations/027_workflow_definition_review.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 2141
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "skill-library",
+              "url_env": "JUEYING_SKILL_LIBRARY_URL",
+              "default_url": "http://127.0.0.1:3007",
+              "health_path": "/health/live"
+            },
+            "routes": [
+              {
+                "method": "POST",
+                "path": "/internal/skills/create",
+                "purpose": "创建技能",
+                "bridge_use": "Agent Template save"
+              },
+              {
+                "method": "GET",
+                "path": "/internal/skills/search",
+                "purpose": "搜索技能",
+                "bridge_use": "Skill recall"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/skills/import",
+                "purpose": "导入 Markdown 技能",
+                "bridge_use": "Workflow template import"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/skills/audit",
+                "purpose": "技能审核",
+                "bridge_use": "Skill quality gate"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/skills/audit/batch",
+                "purpose": "批量技能审核",
+                "bridge_use": "Dream skill maintenance"
+              },
+              {
+                "method": "GET",
+                "path": "/internal/skills/org-registry",
+                "purpose": "组织技能库",
+                "bridge_use": "Org-level agent capability registry"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/workflow-definition-reviews/nominate",
+                "purpose": "推荐工作流模板复用",
+                "bridge_use": "Successful workflow -> reusable skill"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "skill",
+                "ai_native_object": "Skill",
+                "exists": true
+              },
+              {
+                "legacy_table": "skill_version",
+                "ai_native_object": "Skill Version",
+                "exists": true
+              },
+              {
+                "legacy_table": "org_skill_registry",
+                "ai_native_object": "Organization Skill Registry",
+                "exists": true
+              },
+              {
+                "legacy_table": "workflow_definition_review",
+                "ai_native_object": "Workflow Template Review",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "taskGraphToWorkflowSkillCandidate"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "services/skill-library",
+              "name": "@agent-harness/skill-library",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/contracts",
+                "@agent-harness/shared"
+              ],
+              "optional_dependencies": []
+            },
+            "route_count": 7,
+            "bridge_contract_count": 1,
+            "issues": [],
+            "warnings": []
+          },
+          {
+            "id": "mainline.proactive_orchestrator",
+            "name": "主动运营编排",
+            "critical": true,
+            "new_concept": "COO Signal Layer",
+            "ai_native_role": "持续扫描事实、记忆、技能和任务状态，形成洞察、任务、报告，并通过组织任务闭环。",
+            "integration_mode": "signal_scan_adapter + mission_dispatch",
+            "package_path": "services/proactive-orchestrator",
+            "required_paths": [
+              {
+                "path": "services/proactive-orchestrator/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\proactive-orchestrator\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 12147
+              },
+              {
+                "path": "services/proactive-orchestrator/src/domain.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\proactive-orchestrator\\src\\domain.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 12831
+              },
+              {
+                "path": "services/proactive-orchestrator/src/service.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\proactive-orchestrator\\src\\service.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 46395
+              },
+              {
+                "path": "tests/integration/proactive-orchestration-test.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\proactive-orchestration-test.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 14877
+              },
+              {
+                "path": "db/migrations/029_proactive_orchestration.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\029_proactive_orchestration.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 8836
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "db/migrations/026_recall_outcome_attribution.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\026_recall_outcome_attribution.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 6237
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "proactive-orchestrator",
+              "url_env": "JUEYING_PROACTIVE_ORCHESTRATOR_URL",
+              "default_url": "http://127.0.0.1:3010",
+              "health_path": "/health/live"
+            },
+            "routes": [
+              {
+                "method": "GET",
+                "path": "/api/admin/proactive/dashboard",
+                "purpose": "主动运营看板",
+                "bridge_use": "COO Signal dashboard"
+              },
+              {
+                "method": "POST",
+                "path": "/api/admin/proactive/rules",
+                "purpose": "创建扫描规则",
+                "bridge_use": "Operating rule"
+              },
+              {
+                "method": "POST",
+                "path": "/api/admin/proactive/runs",
+                "purpose": "执行扫描",
+                "bridge_use": "Signal scan"
+              },
+              {
+                "method": "POST",
+                "path": "/api/admin/proactive/insights/:id/review",
+                "purpose": "审核洞察",
+                "bridge_use": "Human confirmation"
+              },
+              {
+                "method": "POST",
+                "path": "/api/admin/proactive/missions/:id/dispatch",
+                "purpose": "派发任务",
+                "bridge_use": "Insight -> org_task"
+              },
+              {
+                "method": "POST",
+                "path": "/api/admin/proactive/reports/:id/publish",
+                "purpose": "发布报告",
+                "bridge_use": "Operating report"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "proactive_rule",
+                "ai_native_object": "Operating Rule",
+                "exists": true
+              },
+              {
+                "legacy_table": "proactive_run",
+                "ai_native_object": "Signal Scan Run",
+                "exists": true
+              },
+              {
+                "legacy_table": "proactive_insight",
+                "ai_native_object": "Agent Insight",
+                "exists": true
+              },
+              {
+                "legacy_table": "proactive_mission",
+                "ai_native_object": "Mission / Assignment",
+                "exists": true
+              },
+              {
+                "legacy_table": "proactive_report",
+                "ai_native_object": "Operating Report",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "signalToInformationGap",
+              "insightToTaskGraph"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "services/proactive-orchestrator",
+              "name": "@agent-harness/proactive-orchestrator",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "start": "node dist/index.js",
+                "type-check": "tsc --noEmit",
+                "test": "jest --config ../../tests/setup/jest.config.cjs --runInBand services/proactive-orchestrator/src/*.test.ts"
+              },
+              "dependencies": [
+                "@agent-harness/shared",
+                "pg",
+                "zod"
+              ],
+              "optional_dependencies": []
+            },
+            "route_count": 6,
+            "bridge_contract_count": 2,
+            "issues": [],
+            "warnings": []
+          },
+          {
+            "id": "mainline.memory_dream",
+            "name": "记忆、梦境与归因",
+            "critical": true,
+            "new_concept": "Memory, recall, and compounding knowledge substrate",
+            "ai_native_role": "沉淀对话记忆、组织记忆、技能召回效果和业务结果归因，为 Agent 后续判断提供长期上下文。",
+            "integration_mode": "memory_projection + recall_outcome_attribution",
+            "package_path": "services/hermes-adapter",
+            "required_paths": [
+              {
+                "path": "services/hermes-adapter/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\hermes-adapter\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 43619
+              },
+              {
+                "path": "services/hermes-adapter/src/db.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\hermes-adapter\\src\\db.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 695
+              },
+              {
+                "path": "tests/integration/dream-mode-test.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\dream-mode-test.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 11187
+              },
+              {
+                "path": "db/migrations/021_dream_mode.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\021_dream_mode.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 11375
+              },
+              {
+                "path": "db/migrations/026_recall_outcome_attribution.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\026_recall_outcome_attribution.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 6237
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "db/migrations/028_seed_admin_demo_content.sql",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\028_seed_admin_demo_content.sql",
+                "exists": true,
+                "kind": "file",
+                "size": 29810
+              },
+              {
+                "path": "services/skill-library/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\skill-library\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 77243
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "hermes-adapter",
+              "url_env": "JUEYING_HERMES_URL",
+              "default_url": "http://127.0.0.1:3005",
+              "health_path": "/health/live"
+            },
+            "routes": [
+              {
+                "method": "POST",
+                "path": "/internal/memory",
+                "purpose": "写入会话记忆",
+                "bridge_use": "Human Twin memory"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/memory/analyze",
+                "purpose": "个人梦境分析",
+                "bridge_use": "Memory compression and extraction"
+              },
+              {
+                "method": "POST",
+                "path": "/internal/memory/analyze/org",
+                "purpose": "组织级记忆分析",
+                "bridge_use": "Organization memory summary"
+              },
+              {
+                "method": "GET",
+                "path": "/internal/memory/summary",
+                "purpose": "读取组织记忆汇总",
+                "bridge_use": "Agent context recall"
+              },
+              {
+                "method": "GET",
+                "path": "/api/admin/dream/attribution",
+                "purpose": "召回与结果归因",
+                "bridge_use": "Skill / knowledge compounding"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "memory_item",
+                "ai_native_object": "Memory Item",
+                "exists": true
+              },
+              {
+                "legacy_table": "org_memory_summary",
+                "ai_native_object": "Organization Memory Summary",
+                "exists": true
+              },
+              {
+                "legacy_table": "knowledge_recall_event",
+                "ai_native_object": "Knowledge Recall Event",
+                "exists": true
+              },
+              {
+                "legacy_table": "skill_recall_event",
+                "ai_native_object": "Skill Recall Event",
+                "exists": true
+              },
+              {
+                "legacy_table": "workflow_outcome_eval",
+                "ai_native_object": "Outcome Evaluation",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "memorySummaryToAgentContext"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "services/hermes-adapter",
+              "name": "@agent-harness/hermes-adapter",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/contracts",
+                "@agent-harness/shared",
+                "drizzle-orm",
+                "pg"
+              ],
+              "optional_dependencies": []
+            },
+            "route_count": 5,
+            "bridge_contract_count": 1,
+            "issues": [],
+            "warnings": []
+          }
+        ]
+      },
+      {
+        "id": "surface",
+        "name": "界面入口",
+        "ids": [
+          "mainline.web_portal"
+        ],
+        "capabilities": [
+          {
+            "id": "mainline.web_portal",
+            "name": "JueYing 管理门户",
+            "critical": true,
+            "new_concept": "Legacy operational surface and migration source",
+            "ai_native_role": "承载 JueYing 已有的 workflow、审批、技能、知识、审计、检索、身份、派单、主动运营等界面经验。",
+            "integration_mode": "surface_reference + route_inventory",
+            "package_path": "apps/web-portal",
+            "required_paths": [
+              {
+                "path": "apps/web-portal/src/index.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\src\\index.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 199738
+              },
+              {
+                "path": "apps/web-portal/static/index.html",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\static\\index.html",
+                "exists": true,
+                "kind": "file",
+                "size": 13204
+              },
+              {
+                "path": "apps/web-portal/static/app.js",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\static\\app.js",
+                "exists": true,
+                "kind": "file",
+                "size": 215404
+              },
+              {
+                "path": "apps/web-portal/static/localization.js",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\static\\localization.js",
+                "exists": true,
+                "kind": "file",
+                "size": 91768
+              },
+              {
+                "path": "apps/web-portal/static/app.static.test.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\web-portal\\static\\app.static.test.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 7007
+              }
+            ],
+            "optional_paths": [
+              {
+                "path": "tests/integration/portal-admin-functional-test.ts",
+                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\portal-admin-functional-test.ts",
+                "exists": true,
+                "kind": "file",
+                "size": 31343
+              }
+            ],
+            "required_scripts": [
+              {
+                "script": "build",
+                "exists": true
+              },
+              {
+                "script": "type-check",
+                "exists": true
+              }
+            ],
+            "runtime": {
+              "service_name": "web-portal",
+              "url_env": "JUEYING_WEB_PORTAL_URL",
+              "default_url": "http://127.0.0.1:3003",
+              "health_path": "/health"
+            },
+            "routes": [
+              {
+                "method": "GET",
+                "path": "/api/system/overview",
+                "purpose": "系统概览",
+                "bridge_use": "Ops Console summary"
+              },
+              {
+                "method": "GET",
+                "path": "/api/workflows",
+                "purpose": "workflow 列表",
+                "bridge_use": "TaskGraph list"
+              },
+              {
+                "method": "GET",
+                "path": "/api/admin/audit",
+                "purpose": "审计日志",
+                "bridge_use": "Audit console"
+              },
+              {
+                "method": "GET",
+                "path": "/api/admin/retrieval-traces",
+                "purpose": "检索追踪",
+                "bridge_use": "Evidence trace console"
+              },
+              {
+                "method": "GET",
+                "path": "/api/channels/identity",
+                "purpose": "身份绑定",
+                "bridge_use": "Human Twin identities"
+              },
+              {
+                "method": "GET",
+                "path": "/api/tasks",
+                "purpose": "我的任务",
+                "bridge_use": "Human collection inbox"
+              }
+            ],
+            "data_objects": [
+              {
+                "legacy_table": "audit_event",
+                "ai_native_object": "Audit Event",
+                "exists": true
+              },
+              {
+                "legacy_table": "channel_identity",
+                "ai_native_object": "Identity Binding",
+                "exists": true
+              }
+            ],
+            "bridge_contracts": [
+              "legacyPortalRouteToOpsConsoleView"
+            ],
+            "status": "adapter_ready",
+            "package": {
+              "path": "apps/web-portal",
+              "name": "@agent-harness/web-portal",
+              "version": "1.0.0",
+              "scripts": {
+                "build": "tsc",
+                "start": "node dist/index.js",
+                "dev": "ts-node src/index.ts",
+                "type-check": "tsc --noEmit"
+              },
+              "dependencies": [
+                "@agent-harness/audit",
+                "@agent-harness/shared",
+                "mammoth",
+                "officeparser",
+                "pdfjs-dist",
+                "pg"
+              ],
+              "optional_dependencies": [
+                "redis"
+              ]
+            },
+            "route_count": 6,
+            "bridge_contract_count": 1,
+            "issues": [],
+            "warnings": []
+          }
+        ]
+      }
+    ],
+    "service_runtime": [
+      {
+        "service_name": "workflow-service",
+        "url_env": "JUEYING_WORKFLOW_URL",
+        "default_url": "http://127.0.0.1:3001",
+        "health_path": "/health",
+        "capabilities": [
+          "mainline.workflow"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "executor-gateway",
+        "url_env": "JUEYING_EXECUTOR_URL",
+        "default_url": "http://127.0.0.1:3002",
+        "health_path": "/health",
+        "capabilities": [
+          "mainline.executor"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "fact-retrieval",
+        "url_env": "JUEYING_FACT_RETRIEVAL_URL",
+        "default_url": "http://127.0.0.1:3004",
+        "health_path": "/health",
+        "capabilities": [
+          "mainline.fact_retrieval"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "gateway-adapter",
+        "url_env": "JUEYING_GATEWAY_URL",
+        "default_url": "http://127.0.0.1:3000",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.gateway_channels",
+          "mainline.org_task_dispatch"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "skill-library",
+        "url_env": "JUEYING_SKILL_LIBRARY_URL",
+        "default_url": "http://127.0.0.1:3007",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.skill_library"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "proactive-orchestrator",
+        "url_env": "JUEYING_PROACTIVE_ORCHESTRATOR_URL",
+        "default_url": "http://127.0.0.1:3010",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.proactive_orchestrator"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "web-portal",
+        "url_env": "JUEYING_WEB_PORTAL_URL",
+        "default_url": "http://127.0.0.1:3003",
+        "health_path": "/health",
+        "capabilities": [
+          "mainline.web_portal",
+          "mainline.audit_policy_identity"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "hermes-adapter",
+        "url_env": "JUEYING_HERMES_URL",
+        "default_url": "http://127.0.0.1:3005",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.memory_dream"
+        ],
+        "status": "adapter_ready"
+      },
+      {
+        "service_name": "mobile-app",
+        "url_env": "JUEYING_MOBILE_APP_URL",
+        "default_url": "http://127.0.0.1:3009",
+        "health_path": "/health/live",
+        "capabilities": [
+          "mainline.mobile_notifications"
+        ],
+        "status": "adapter_ready"
+      }
+    ],
+    "bridge_contracts": [
+      {
+        "name": "evidenceToLegacyDocumentIndex",
+        "capability_ids": [
+          "mainline.fact_retrieval"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "evidenceToLegacyFactWrite",
+        "capability_ids": [
+          "mainline.fact_retrieval"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "informationGapToHumanTwinPrompt",
+        "capability_ids": [
+          "mainline.gateway_channels"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "informationGapToLegacyOrgTask",
+        "capability_ids": [
+          "mainline.org_task_dispatch"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "informationGapToNotification",
+        "capability_ids": [
+          "mainline.mobile_notifications"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "insightToTaskGraph",
+        "capability_ids": [
+          "mainline.proactive_orchestrator"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "legacyExecutionResultToAgentOutput",
+        "capability_ids": [
+          "mainline.executor"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "legacyPortalRouteToOpsConsoleView",
+        "capability_ids": [
+          "mainline.web_portal"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "legacyWorkflowProgressToTaskGraph",
+        "capability_ids": [
+          "mainline.workflow"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "memorySummaryToAgentContext",
+        "capability_ids": [
+          "mainline.memory_dream"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "signalToInformationGap",
+        "capability_ids": [
+          "mainline.proactive_orchestrator"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "taskGraphToLegacyWorkflowPlan",
+        "capability_ids": [
+          "mainline.workflow"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "taskGraphToWorkflowSkillCandidate",
+        "capability_ids": [
+          "mainline.skill_library"
+        ],
+        "status": "implemented_or_declared"
+      },
+      {
+        "name": "writebackIntentToLegacyAuditEvent",
+        "capability_ids": [
+          "mainline.audit_policy_identity"
+        ],
+        "status": "implemented_or_declared"
+      }
+    ],
+    "cutover_plan": [
+      {
+        "area": "工作流和执行",
+        "legacy_capability_ids": [
+          "mainline.workflow",
+          "mainline.executor"
+        ],
+        "new_surface": "TaskGraph + Operating Console",
+        "current_state": "adapter_ready",
+        "next_step": "把 P1 TaskGraph 通过 taskGraphToLegacyWorkflowPlan 提交到 workflow-service，执行结果归一成 AgentOutput。"
+      },
+      {
+        "area": "信息缺口和人类补采",
+        "legacy_capability_ids": [
+          "mainline.gateway_channels",
+          "mainline.org_task_dispatch",
+          "mainline.mobile_notifications"
+        ],
+        "new_surface": "Information Gap Inbox + Human Twin Workbench",
+        "current_state": "adapter_ready",
+        "next_step": "把 Information Gap 转成 org_task / assignment，并把提交结果转成 Evidence。"
+      },
+      {
+        "area": "事实、证据、检索",
+        "legacy_capability_ids": [
+          "mainline.fact_retrieval",
+          "mainline.audit_policy_identity"
+        ],
+        "new_surface": "Evidence Trace + External Fact Mirror",
+        "current_state": "adapter_ready",
+        "next_step": "把 CRM/项目管理 mirror 和人工补采内容投影到 fact/document/evidence pack。"
+      },
+      {
+        "area": "技能、记忆、主动运营",
+        "legacy_capability_ids": [
+          "mainline.skill_library",
+          "mainline.memory_dream",
+          "mainline.proactive_orchestrator"
+        ],
+        "new_surface": "Agent Skill Registry + COO Signal Layer",
+        "current_state": "adapter_ready",
+        "next_step": "把成功工作流沉淀为技能候选，并让主动运营洞察回流到 TaskGraph。"
+      },
+      {
+        "area": "界面归并",
+        "legacy_capability_ids": [
+          "mainline.web_portal"
+        ],
+        "new_surface": "JueYing Operating Console",
+        "current_state": "adapter_ready",
+        "next_step": "主版本控制台先显示运行状态，再逐步承接历史 Portal 中高频功能页。"
+      }
+    ],
+    "phases": [
+      {
+        "id": "phase_0_discover",
+        "name": "发现与只读映射",
+        "exit_gate": "主版本能定位历史代码、脚本、路由、数据表和关键能力，不依赖运行时在线。"
+      },
+      {
+        "id": "phase_1_contract_bridge",
+        "name": "契约转换",
+        "exit_gate": "TaskGraph、Information Gap、Evidence、Writeback Intent 能转换成 JueYing workflow/org_task/fact/audit payload。"
+      },
+      {
+        "id": "phase_2_runtime_proxy",
+        "name": "运行时代理",
+        "exit_gate": "JueYing 服务在线时，主版本控制台能健康检查并按能力路由调用；离线时保留静态适配状态。"
+      },
+      {
+        "id": "phase_3_fact_convergence",
+        "name": "事实层一致",
+        "exit_gate": "CRM/项目管理镜像、JueYing fact/evidence 和 Agent fact layer 有明确冲突策略和反写策略。"
+      },
+      {
+        "id": "phase_4_ui_cutover",
+        "name": "界面接管",
+        "exit_gate": "JueYing Operating Console 承接 Portal 的主能力入口，历史 Portal 退为排障和迁移参考。"
+      }
+    ],
+    "issues": [],
+    "warnings": []
+  },
+  "bridge_preview": {
+    "ok": true,
+    "generated_at": "2026-05-26T10:16:08.399Z",
+    "workflow_plan_payload": {
+      "user_id": "u_ai_native_ops",
+      "user_role": "admin",
+      "user_goal": "Run AI-native TaskGraph tg_sales_acme_001",
+      "task_type_hint": "implementation",
+      "risk_level": "medium",
+      "policy_snapshot_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "context": {
+        "ai_native_task_graph_id": "tg_sales_acme_001",
+        "ai_native_run_id": "run_sales_acme_001",
+        "autonomy_level": "L1",
+        "business_refs": {
+          "opportunity_id": "opp_acme_001",
+          "account_id": "acct_acme",
+          "crm_mirror_id": "mirror_crm_opp_acme_001"
+        },
+        "stage_chain": [
+          {
+            "stage_id": "task_discover_champion",
+            "seq": 0,
+            "stage_key": "task_discover_champion",
+            "stage_type": "Approval",
+            "assigned_executor": "approval-executor",
+            "purpose": "Confirm champion or target champion",
+            "inputs": {
+              "required_refs": [
+                "sales_note",
+                "meeting_summary",
+                "customer_quote"
+              ],
+              "optional_refs": []
+            },
+            "retrieval_plan": {
+              "enabled": true
+            },
+            "acceptance": {
+              "must_have": [
+                "sales_note",
+                "meeting_summary",
+                "customer_quote"
+              ],
+              "pass_rules": [
+                "A candidate champion is identified with behavior signal, department, and influence hypothesis."
+              ],
+              "fail_rules": [
+                "required evidence missing",
+                "acceptance criteria not met"
+              ]
+            },
+            "timeouts": {
+              "soft_timeout_sec": 900,
+              "hard_timeout_sec": 3600
+            },
+            "retry_policy": {
+              "max_retries": 1,
+              "max_repairs": 0
+            },
+            "checkpoint_policy": {
+              "on_enter": true,
+              "on_progress": true,
+              "on_exit": true
+            },
+            "on_success": "task_discover_next_action",
+            "on_failure": "repair_or_fail",
+            "ai_native_refs": {
+              "task_graph_id": "tg_sales_acme_001",
+              "task_id": "task_discover_champion",
+              "owner_actor_type": "human_twin_agent",
+              "owner_actor_id": "twin_sales_andy",
+              "information_gap_ids": [
+                "gap_discover_champion"
+              ],
+              "evidence_ids": [],
+              "external_refs": []
+            }
+          },
+          {
+            "stage_id": "task_discover_next_action",
+            "seq": 1,
+            "stage_key": "task_discover_next_action",
+            "stage_type": "Approval",
+            "assigned_executor": "approval-executor",
+            "purpose": "Confirm next customer action",
+            "inputs": {
+              "required_refs": [
+                "calendar_event",
+                "customer_confirmation"
+              ],
+              "optional_refs": [
+                "ev_next_meeting_calendar"
+              ]
+            },
+            "retrieval_plan": {
+              "enabled": true
+            },
+            "acceptance": {
+              "must_have": [
+                "calendar_event",
+                "customer_confirmation"
+              ],
+              "pass_rules": [
+                "Next action has objective, time, participants, and owner."
+              ],
+              "fail_rules": [
+                "required evidence missing",
+                "acceptance criteria not met"
+              ]
+            },
+            "timeouts": {
+              "soft_timeout_sec": 900,
+              "hard_timeout_sec": 3600
+            },
+            "retry_policy": {
+              "max_retries": 1,
+              "max_repairs": 0
+            },
+            "checkpoint_policy": {
+              "on_enter": true,
+              "on_progress": true,
+              "on_exit": true
+            },
+            "on_success": "complete",
+            "on_failure": "repair_or_fail",
+            "ai_native_refs": {
+              "task_graph_id": "tg_sales_acme_001",
+              "task_id": "task_discover_next_action",
+              "owner_actor_type": "human",
+              "owner_actor_id": "user_sales_andy",
+              "information_gap_ids": [],
+              "evidence_ids": [
+                "ev_next_meeting_calendar"
+              ],
+              "external_refs": []
+            }
+          }
+        ]
+      },
+      "source": "ai_native_ops_bridge",
+      "markdown_steps": [
+        {
+          "seq": 0,
+          "name": "task_discover_champion",
+          "description": "Confirm champion or target champion"
+        },
+        {
+          "seq": 1,
+          "name": "task_discover_next_action",
+          "description": "Confirm next customer action"
+        }
+      ],
+      "workflow_plan_preview": {
+        "plan_hash_seed": "tg_sales_acme_001:1",
+        "stage_chain": [
+          {
+            "stage_id": "task_discover_champion",
+            "seq": 0,
+            "stage_key": "task_discover_champion",
+            "stage_type": "Approval",
+            "assigned_executor": "approval-executor",
+            "purpose": "Confirm champion or target champion",
+            "inputs": {
+              "required_refs": [
+                "sales_note",
+                "meeting_summary",
+                "customer_quote"
+              ],
+              "optional_refs": []
+            },
+            "retrieval_plan": {
+              "enabled": true
+            },
+            "acceptance": {
+              "must_have": [
+                "sales_note",
+                "meeting_summary",
+                "customer_quote"
+              ],
+              "pass_rules": [
+                "A candidate champion is identified with behavior signal, department, and influence hypothesis."
+              ],
+              "fail_rules": [
+                "required evidence missing",
+                "acceptance criteria not met"
+              ]
+            },
+            "timeouts": {
+              "soft_timeout_sec": 900,
+              "hard_timeout_sec": 3600
+            },
+            "retry_policy": {
+              "max_retries": 1,
+              "max_repairs": 0
+            },
+            "checkpoint_policy": {
+              "on_enter": true,
+              "on_progress": true,
+              "on_exit": true
+            },
+            "on_success": "task_discover_next_action",
+            "on_failure": "repair_or_fail",
+            "ai_native_refs": {
+              "task_graph_id": "tg_sales_acme_001",
+              "task_id": "task_discover_champion",
+              "owner_actor_type": "human_twin_agent",
+              "owner_actor_id": "twin_sales_andy",
+              "information_gap_ids": [
+                "gap_discover_champion"
+              ],
+              "evidence_ids": [],
+              "external_refs": []
+            }
+          },
+          {
+            "stage_id": "task_discover_next_action",
+            "seq": 1,
+            "stage_key": "task_discover_next_action",
+            "stage_type": "Approval",
+            "assigned_executor": "approval-executor",
+            "purpose": "Confirm next customer action",
+            "inputs": {
+              "required_refs": [
+                "calendar_event",
+                "customer_confirmation"
+              ],
+              "optional_refs": [
+                "ev_next_meeting_calendar"
+              ]
+            },
+            "retrieval_plan": {
+              "enabled": true
+            },
+            "acceptance": {
+              "must_have": [
+                "calendar_event",
+                "customer_confirmation"
+              ],
+              "pass_rules": [
+                "Next action has objective, time, participants, and owner."
+              ],
+              "fail_rules": [
+                "required evidence missing",
+                "acceptance criteria not met"
+              ]
+            },
+            "timeouts": {
+              "soft_timeout_sec": 900,
+              "hard_timeout_sec": 3600
+            },
+            "retry_policy": {
+              "max_retries": 1,
+              "max_repairs": 0
+            },
+            "checkpoint_policy": {
+              "on_enter": true,
+              "on_progress": true,
+              "on_exit": true
+            },
+            "on_success": "complete",
+            "on_failure": "repair_or_fail",
+            "ai_native_refs": {
+              "task_graph_id": "tg_sales_acme_001",
+              "task_id": "task_discover_next_action",
+              "owner_actor_type": "human",
+              "owner_actor_id": "user_sales_andy",
+              "information_gap_ids": [],
+              "evidence_ids": [
+                "ev_next_meeting_calendar"
+              ],
+              "external_refs": []
+            }
+          }
+        ]
+      }
+    },
+    "org_task_payloads": [
+      {
+        "information_gap_id": "gap_discover_champion",
+        "payload": {
+          "title": "补充信息: Who interacted most, asked questions, commented, or listened carefully during th",
+          "description": "D-G1 cannot be confirmed without a champion or target champion signal.",
+          "task_type": "form",
+          "schedule_type": "once",
+          "cron_expression": null,
+          "prompt_message": "Who interacted most, asked questions, commented, or listened carefully during the meeting?\n\n为什么需要: D-G1 cannot be confirmed without a champion or target champion signal.\n期望证据: sales_note, meeting_summary, customer_quote\n请补充可验证的信息、截图、会议纪要、CRM链接或项目系统链接。",
+          "target_channels": [
+            "wecom",
+            "feishu"
+          ],
+          "org_id": null,
+          "created_by": null,
+          "ai_native_refs": {
+            "information_gap_id": "gap_discover_champion",
+            "task_id": "task_discover_champion",
+            "collector_actor_id": "twin_sales_andy",
+            "priority": "high",
+            "due_at": "2026-05-27T18:00:00+08:00",
+            "required_schema": {
+              "fields": [
+                "person_name",
+                "department",
+                "behavior_signal",
+                "influence_hypothesis",
+                "original_quote"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "fact_write_payloads": [
+      {
+        "evidence_id": "ev_next_meeting_calendar",
+        "payload": {
+          "owner_user_id": "u_ai_native_ops",
+          "fact_text": "Next meeting scheduled with ACME IT director on 2026-05-28.",
+          "object_value": "Next meeting scheduled with ACME IT director on 2026-05-28.",
+          "subject_ref": "opp_acme_001",
+          "predicate": "evidence.calendar_event",
+          "scope": [
+            "private"
+          ],
+          "mode": "insert",
+          "evidence_refs": [
+            {
+              "evidence_pack_id": "ev_next_meeting_calendar",
+              "evidence_pack_hash": "ai-native:ev_next_meeting_calendar"
+            }
+          ],
+          "confidence": 0.9,
+          "ai_native_refs": {
+            "evidence_id": "ev_next_meeting_calendar",
+            "evidence_type": "calendar_event",
+            "capture_channel": "api",
+            "content_ref": {
+              "kind": "external_record",
+              "value": "hubspot://meeting/mtg_90001",
+              "summary": "Next meeting scheduled with ACME IT director on 2026-05-28."
+            }
+          }
+        }
+      },
+      {
+        "evidence_id": "ev_crm_snapshot_acme",
+        "payload": {
+          "owner_user_id": "u_ai_native_ops",
+          "fact_text": "CRM stage is discovery, amount is unset, next step is meeting.",
+          "object_value": "CRM stage is discovery, amount is unset, next step is meeting.",
+          "subject_ref": "opp_acme_001",
+          "predicate": "evidence.crm_snapshot",
+          "scope": [
+            "private"
+          ],
+          "mode": "insert",
+          "evidence_refs": [
+            {
+              "evidence_pack_id": "ev_crm_snapshot_acme",
+              "evidence_pack_hash": "ai-native:ev_crm_snapshot_acme"
+            }
+          ],
+          "confidence": 0.8,
+          "ai_native_refs": {
+            "evidence_id": "ev_crm_snapshot_acme",
+            "evidence_type": "crm_snapshot",
+            "capture_channel": "api",
+            "content_ref": {
+              "kind": "external_record",
+              "value": "hubspot://deal/deal_10001",
+              "summary": "CRM stage is discovery, amount is unset, next step is meeting."
+            }
+          }
+        }
+      },
+      {
+        "evidence_id": "ev_pm_snapshot_kickoff",
+        "payload": {
+          "owner_user_id": "u_ai_native_ops",
+          "fact_text": "External task is Done but no acceptance evidence is attached.",
+          "object_value": "External task is Done but no acceptance evidence is attached.",
+          "subject_ref": "ev_pm_snapshot_kickoff",
+          "predicate": "evidence.pm_snapshot",
+          "scope": [
+            "private"
+          ],
+          "mode": "insert",
+          "evidence_refs": [
+            {
+              "evidence_pack_id": "ev_pm_snapshot_kickoff",
+              "evidence_pack_hash": "ai-native:ev_pm_snapshot_kickoff"
+            }
+          ],
+          "confidence": 0.75,
+          "ai_native_refs": {
+            "evidence_id": "ev_pm_snapshot_kickoff",
+            "evidence_type": "pm_snapshot",
+            "capture_channel": "api",
+            "content_ref": {
+              "kind": "external_record",
+              "value": "jira://issue/ACME-12",
+              "summary": "External task is Done but no acceptance evidence is attached."
+            }
+          }
+        }
+      }
+    ],
+    "audit_event_payloads": [
+      {
+        "intent_id": "wbi_crm_note_acme_001",
+        "payload": {
+          "user_id": "pm_agent_sales_001",
+          "action": "external.writeback.intent",
+          "resource_type": "crm",
+          "resource_ref": "hubspot:opportunity:deal_10001",
+          "resource_scope": "conn_crm_hubspot_demo",
+          "result": "success",
+          "detail_json": {
+            "intent_id": "wbi_crm_note_acme_001",
+            "provider": "hubspot",
+            "operation": "create_note",
+            "risk_level": "low",
+            "policy_decision": "auto_execute",
+            "reasons": [],
+            "payload": {
+              "title": "AI Gate Check Summary",
+              "body": "D-G1 is missing champion evidence. D-G7 has a confirmed next meeting."
+            },
+            "source": {
+              "agent_id": "pm_agent_sales_001",
+              "task_id": "task_discover_champion",
+              "evidence_ids": [
+                "ev_next_meeting_calendar"
+              ],
+              "reason": "Keep CRM activity notes aligned with Agent gate check."
+            }
+          }
+        }
+      },
+      {
+        "intent_id": "wbi_pm_comment_acme_12",
+        "payload": {
+          "user_id": "pm_agent_delivery_001",
+          "action": "external.writeback.intent",
+          "resource_type": "project_management",
+          "resource_ref": "jira:issue:ACME-12",
+          "resource_scope": "conn_pm_jira_demo",
+          "result": "success",
+          "detail_json": {
+            "intent_id": "wbi_pm_comment_acme_12",
+            "provider": "jira",
+            "operation": "create_comment",
+            "risk_level": "low",
+            "policy_decision": "auto_execute",
+            "reasons": [],
+            "payload": {
+              "body": "Agent sees external status Done, but acceptance evidence is missing. Please attach customer confirmation or kickoff agenda link."
+            },
+            "source": {
+              "agent_id": "pm_agent_delivery_001",
+              "evidence_ids": [
+                "ev_pm_snapshot_kickoff"
+              ],
+              "reason": "External issue status and Agent acceptance evidence are inconsistent."
+            }
+          }
+        }
+      }
+    ],
+    "summary": {
+      "workflow_stage_count": 2,
+      "org_task_payload_count": 1,
+      "fact_write_payload_count": 3,
+      "audit_event_payload_count": 2
+    },
+    "target_routes": {
+      "workflow_plan": "/internal/workflows/plan",
+      "org_task_create": "/admin/tasks",
+      "fact_write": "/internal/facts/write",
+      "audit_projection": "/api/admin/audit"
+    }
+  }
+}

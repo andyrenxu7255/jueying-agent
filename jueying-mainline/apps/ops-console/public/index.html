@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>JueYing Agent Harness</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Primary">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">JY</div>
+          <div>
+            <h1>JueYing</h1>
+            <p>Agent Harness</p>
+          </div>
+        </div>
+        <nav class="nav" aria-label="Views">
+          <button type="button" class="nav-item is-active" data-view="overview">总览</button>
+          <button type="button" class="nav-item" data-view="gates">销售 Gate</button>
+          <button type="button" class="nav-item" data-view="taskgraph">TaskGraph</button>
+          <button type="button" class="nav-item" data-view="gaps">信息缺口</button>
+          <button type="button" class="nav-item" data-view="sync">外部同步</button>
+          <button type="button" class="nav-item" data-view="storylines">故事线验收</button>
+          <button type="button" class="nav-item" data-view="legacy">主版本能力</button>
+          <button type="button" class="nav-item" data-view="contracts">契约健康</button>
+        </nav>
+      </aside>
+
+      <main id="main" class="main" tabindex="-1">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">中小团队集中管理的企业级 Agent Harness</p>
+            <h2 id="view-title">运营总览</h2>
+          </div>
+          <div class="top-actions">
+            <span id="health-pill" class="pill">Loading</span>
+            <button type="button" id="refresh-button" class="icon-button" title="刷新数据" aria-label="刷新数据">↻</button>
+          </div>
+        </header>
+
+        <section id="loading" class="state-panel">正在加载运营状态...</section>
+        <section id="error" class="state-panel is-error" hidden></section>
+
+        <section id="view-overview" class="view is-active" aria-labelledby="view-title">
+          <div class="metric-grid" id="metric-grid"></div>
+          <section class="workspace-band">
+            <div class="section-heading">
+              <h3>当前异常</h3>
+              <p>来自任务、Gate、外部镜像和反写队列</p>
+            </div>
+            <div id="alerts-list" class="alert-list"></div>
+          </section>
+        </section>
+
+        <section id="view-gates" class="view" aria-labelledby="view-title">
+          <div class="section-heading">
+            <h3>Discover Gate 巡检</h3>
+            <p>基于 P1 样例证据自动生成 SalesGateCheck 和 Information Gap</p>
+          </div>
+          <div id="gate-table" class="table-wrap"></div>
+        </section>
+
+        <section id="view-taskgraph" class="view" aria-labelledby="view-title">
+          <div class="section-heading">
+            <h3>TaskGraph</h3>
+            <p>任务、依赖、证据、验收和缺口</p>
+          </div>
+          <div id="task-list" class="task-list"></div>
+        </section>
+
+        <section id="view-gaps" class="view" aria-labelledby="view-title">
+          <div class="section-heading">
+            <h3>Information Gap Inbox</h3>
+            <p>Agent 传感器不足时，要求人补充的信息</p>
+          </div>
+          <div id="gap-list" class="task-list"></div>
+        </section>
+
+        <section id="view-sync" class="view" aria-labelledby="view-title">
+          <div class="section-heading">
+            <h3>External Sync Console</h3>
+            <p>CRM / 项目管理事实镜像与反写队列</p>
+          </div>
+          <div class="split-grid">
+            <div>
+              <h4>Record Mirrors</h4>
+              <div id="mirror-list" class="compact-list"></div>
+            </div>
+            <div>
+              <h4>Writeback Queue</h4>
+              <div id="writeback-list" class="compact-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-legacy" class="view" aria-labelledby="view-title">
+          <div class="section-heading">
+            <h3>JueYing 主版本能力</h3>
+            <p>默认内置的运营中枢、执行底座、事实层、渠道、人类闭环和治理能力</p>
+          </div>
+          <div class="legacy-summary" id="legacy-summary"></div>
+          <section class="workspace-band legacy-cutover">
+            <div class="section-heading">
+              <h3>在线运行态</h3>
+              <p>当前 JueYing 主版本服务的实时连接状态</p>
+            </div>
+            <div id="legacy-runtime" class="compact-list"></div>
+          </section>
+          <div id="legacy-groups" class="legacy-groups"></div>
+          <section class="workspace-band legacy-cutover">
+            <div class="section-heading">
+              <h3>桥接预览</h3>
+              <p>当前 P1 对象进入 JueYing 主版本时将生成的工作流、派单、事实和审计 payload</p>
+            </div>
+            <div id="legacy-bridge" class="compact-list"></div>
+          </section>
+          <section class="workspace-band legacy-cutover">
+            <div class="section-heading">
+              <h3>归并路线</h3>
+              <p>把运营中枢能力默认纳入 JueYing 主版本的分区归并计划</p>
+            </div>
+            <div id="legacy-cutover" class="compact-list"></div>
+          </section>
+        </section>
+
+        <section id="view-storylines" class="view" aria-labelledby="view-title">
+          <div class="section-heading">
+            <h3>角色故事线验收</h3>
+            <p>逐角色、逐故事线、逐步骤检查业务闭环、界面、接口、契约和整合能力</p>
+          </div>
+          <div class="legacy-summary" id="storyline-summary"></div>
+          <div id="storyline-roles" class="storyline-list"></div>
+        </section>
+
+        <section id="view-contracts" class="view" aria-labelledby="view-title">
+          <div class="section-heading">
+            <h3>契约健康</h3>
+            <p>文档、fixture、schema 和业务红线的应用内状态</p>
+          </div>
+          <div id="contract-health" class="contract-panel"></div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

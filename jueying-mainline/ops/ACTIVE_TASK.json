@@ -1,0 +1,29 @@
+{
+  "status": "done",
+  "task_name": "Role storyline acceptance regression for upgraded JueYing operating system",
+  "started_at": "2026-05-26T13:23:14+08:00",
+  "last_progress_report_at": "2026-05-26T13:43:40+08:00",
+  "max_silence_minutes": 30,
+  "current_stage": "role_storyline_acceptance_verified",
+  "current_focus": "Role-by-role, storyline-by-storyline, step-by-step acceptance is implemented, exposed in the Ops Console, covered by API/browser smoke, and included in npm run verify.",
+  "latest_user_visible_target": "Every defined sales, delivery, management, human information collector, and system admin storyline has executable acceptance evidence across contracts, APIs, UI, legacy integration, external sync, and browser behavior.",
+  "verification_plan": [
+    "V1: role and storyline acceptance matrix covers all documented story IDs and critical user roles",
+    "V2: each acceptance step maps to implemented contracts, app APIs, UI surfaces, and legacy bridge capabilities",
+    "V3: automated story regression report is generated with no failed steps",
+    "V4: ops-console exposes a readable storyline acceptance view for non-technical review",
+    "V5: browser smoke walks the role/storyline view and verifies visible outcomes",
+    "V6: root npm run verify passes end-to-end after repairs"
+  ],
+  "orchestration_method": "single-agent staged implementation with local command verification",
+  "notes": [
+    "Do not move legacy code back to root.",
+    "Treat this as role/storyline acceptance, not just generic smoke testing.",
+    "Use existing docs and scenario coverage as the source of truth; add executable matrices and reports where missing.",
+    "Previous npm run verify passed with documentation audit, contract audit, sales gate audit, view model build, legacy integration check, legacy smoke, 22 tests, app smoke, and browser smoke.",
+    "User asked to self-test each role, each storyline, each step, make necessary fixes, and confirm functionality.",
+    "Implemented docs/role-storyline-acceptance.json, src/contracts/storyline-acceptance.mjs, scripts/run-storyline-acceptance.mjs, reports/storyline-acceptance.json, /api/storylines, Ops Console 故事线验收 view, DEV-37, and tests.",
+    "Storyline acceptance passes with 10 roles, 11 storylines, 41/41 steps, 101/101 scenario stories, and 27/27 sales gates.",
+    "npm run verify passes end-to-end after the role storyline acceptance implementation."
+  ]
+}

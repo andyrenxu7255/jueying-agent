@@ -1,0 +1,26 @@
+[
+  {
+    "id": "sgc_acme_d_g1",
+    "opportunity_id": "opp_acme_001",
+    "stage": "discover",
+    "gate_id": "D-G1",
+    "status": "missing",
+    "evidence_ids": [],
+    "information_gap_ids": ["gap_discover_champion"],
+    "recommended_activity_ids": ["act_collect_champion_signal"],
+    "owner_id": "user_sales_andy",
+    "updated_at": "2026-05-26T10:15:00+08:00"
+  },
+  {
+    "id": "sgc_acme_d_g7",
+    "opportunity_id": "opp_acme_001",
+    "stage": "discover",
+    "gate_id": "D-G7",
+    "status": "confirmed",
+    "evidence_ids": ["ev_next_meeting_calendar"],
+    "information_gap_ids": [],
+    "recommended_activity_ids": [],
+    "owner_id": "user_sales_andy",
+    "updated_at": "2026-05-26T10:16:00+08:00"
+  }
+]

@@ -1,0 +1,60 @@
+[
+  {
+    "id": "ev_next_meeting_calendar",
+    "evidence_type": "calendar_event",
+    "source_type": "external",
+    "source_actor_id": "crm_hubspot_demo",
+    "capture_channel": "api",
+    "task_id": "task_discover_next_action",
+    "business_refs": {
+      "opportunity_id": "opp_acme_001",
+      "crm_external_id": "deal_10001"
+    },
+    "content_ref": {
+      "kind": "external_record",
+      "value": "hubspot://meeting/mtg_90001",
+      "summary": "Next meeting scheduled with ACME IT director on 2026-05-28."
+    },
+    "quality_score": 0.9,
+    "sensitivity": "internal",
+    "created_at": "2026-05-26T10:00:00+08:00"
+  },
+  {
+    "id": "ev_crm_snapshot_acme",
+    "evidence_type": "crm_snapshot",
+    "source_type": "external",
+    "source_actor_id": "crm_hubspot_demo",
+    "capture_channel": "api",
+    "business_refs": {
+      "opportunity_id": "opp_acme_001",
+      "crm_external_id": "deal_10001"
+    },
+    "content_ref": {
+      "kind": "external_record",
+      "value": "hubspot://deal/deal_10001",
+      "summary": "CRM stage is discovery, amount is unset, next step is meeting."
+    },
+    "quality_score": 0.8,
+    "sensitivity": "internal",
+    "created_at": "2026-05-26T10:05:00+08:00"
+  },
+  {
+    "id": "ev_pm_snapshot_kickoff",
+    "evidence_type": "pm_snapshot",
+    "source_type": "external",
+    "source_actor_id": "pm_jira_demo",
+    "capture_channel": "api",
+    "business_refs": {
+      "delivery_project_id": "delivery_acme_001",
+      "pm_external_id": "ACME-12"
+    },
+    "content_ref": {
+      "kind": "external_record",
+      "value": "jira://issue/ACME-12",
+      "summary": "External task is Done but no acceptance evidence is attached."
+    },
+    "quality_score": 0.75,
+    "sensitivity": "internal",
+    "created_at": "2026-05-26T10:10:00+08:00"
+  }
+]

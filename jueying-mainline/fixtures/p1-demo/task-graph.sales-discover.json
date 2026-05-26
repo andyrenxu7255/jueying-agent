@@ -1,0 +1,41 @@
+{
+  "id": "tg_sales_acme_001",
+  "run_id": "run_sales_acme_001",
+  "version": 1,
+  "status": "active",
+  "generated_by": "pm_agent_sales_001",
+  "autonomy_level": "L1",
+  "business_refs": {
+    "opportunity_id": "opp_acme_001",
+    "account_id": "acct_acme",
+    "crm_mirror_id": "mirror_crm_opp_acme_001"
+  },
+  "tasks": [
+    {
+      "id": "task_discover_champion",
+      "title": "Confirm champion or target champion",
+      "status": "needs_info",
+      "owner_actor_type": "human_twin_agent",
+      "owner_actor_id": "twin_sales_andy",
+      "depends_on": [],
+      "required_evidence": ["sales_note", "meeting_summary", "customer_quote"],
+      "information_gap_ids": ["gap_discover_champion"],
+      "evidence_ids": [],
+      "acceptance_criteria": "A candidate champion is identified with behavior signal, department, and influence hypothesis.",
+      "due_at": "2026-05-27T18:00:00+08:00"
+    },
+    {
+      "id": "task_discover_next_action",
+      "title": "Confirm next customer action",
+      "status": "accepted",
+      "owner_actor_type": "human",
+      "owner_actor_id": "user_sales_andy",
+      "depends_on": ["task_discover_champion"],
+      "required_evidence": ["calendar_event", "customer_confirmation"],
+      "information_gap_ids": [],
+      "evidence_ids": ["ev_next_meeting_calendar"],
+      "acceptance_criteria": "Next action has objective, time, participants, and owner.",
+      "due_at": "2026-05-28T18:00:00+08:00"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+[
+  {
+    "id": "mirror_crm_opp_acme_001",
+    "connection_id": "conn_crm_hubspot_demo",
+    "system_type": "crm",
+    "provider": "hubspot",
+    "object_type": "opportunity",
+    "external_id": "deal_10001",
+    "external_url": "https://crm.example.test/deals/10001",
+    "mirrored_at": "2026-05-26T10:05:00+08:00",
+    "source_updated_at": "2026-05-26T09:58:00+08:00",
+    "field_snapshot": {
+      "stage": "discovery",
+      "amount": null,
+      "next_step": "Meet IT director",
+      "expected_close_date": null
+    },
+    "field_mapping_version": "crm-hubspot-v0.1",
+    "freshness": "fresh"
+  },
+  {
+    "id": "mirror_pm_issue_acme_12",
+    "connection_id": "conn_pm_jira_demo",
+    "system_type": "project_management",
+    "provider": "jira",
+    "object_type": "issue",
+    "external_id": "ACME-12",
+    "external_url": "https://jira.example.test/browse/ACME-12",
+    "mirrored_at": "2026-05-26T10:10:00+08:00",
+    "source_updated_at": "2026-05-26T09:50:00+08:00",
+    "field_snapshot": {
+      "status": "Done",
+      "assignee": "delivery_lead",
+      "due_date": "2026-05-30",
+      "summary": "Prepare kickoff agenda"
+    },
+    "field_mapping_version": "pm-jira-v0.1",
+    "freshness": "fresh"
+  }
+]

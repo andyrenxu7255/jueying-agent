@@ -975,7 +975,7 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
     return {
       stage_id: stageId,
       seq,
-      stage_key: stageType.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+      stage_key: `${stageType.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${seq}`,
       stage_type: stageType,
       assigned_executor: executor,
       purpose,
@@ -1022,7 +1022,7 @@ Generate an appropriate workflow with 2-5 stages. Ensure stage_chain follows log
       return {
         stage_id: stageId,
         seq: index,
-        stage_key: (stage.stage_type || 'Generic').toLowerCase().replace(/[^a-z0-9]/g, '_'),
+        stage_key: `${(stage.stage_type || 'Generic').toLowerCase().replace(/[^a-z0-9]/g, '_')}_${index}`,
         stage_type: stage.stage_type as Stage['stage_type'] || 'IntentClarification',
         assigned_executor: stage.assigned_executor as Stage['assigned_executor'] || 'generic-executor',
         purpose: stage.purpose || input.user_goal.slice(0, 100),

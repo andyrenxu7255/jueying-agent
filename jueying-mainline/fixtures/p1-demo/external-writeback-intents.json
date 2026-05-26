@@ -1,0 +1,50 @@
+[
+  {
+    "id": "wbi_crm_note_acme_001",
+    "connection_id": "conn_crm_hubspot_demo",
+    "system_type": "crm",
+    "provider": "hubspot",
+    "target": {
+      "object_type": "opportunity",
+      "external_id": "deal_10001"
+    },
+    "operation": "create_note",
+    "payload": {
+      "title": "AI Gate Check Summary",
+      "body": "D-G1 is missing champion evidence. D-G7 has a confirmed next meeting."
+    },
+    "source": {
+      "agent_id": "pm_agent_sales_001",
+      "task_id": "task_discover_champion",
+      "evidence_ids": ["ev_next_meeting_calendar"],
+      "reason": "Keep CRM activity notes aligned with Agent gate check."
+    },
+    "risk_level": "low",
+    "idempotency_key": "crm-note-opp-acme-001-d-g1-20260526",
+    "policy_decision": "auto_execute",
+    "created_at": "2026-05-26T10:20:00+08:00"
+  },
+  {
+    "id": "wbi_pm_comment_acme_12",
+    "connection_id": "conn_pm_jira_demo",
+    "system_type": "project_management",
+    "provider": "jira",
+    "target": {
+      "object_type": "issue",
+      "external_id": "ACME-12"
+    },
+    "operation": "create_comment",
+    "payload": {
+      "body": "Agent sees external status Done, but acceptance evidence is missing. Please attach customer confirmation or kickoff agenda link."
+    },
+    "source": {
+      "agent_id": "pm_agent_delivery_001",
+      "evidence_ids": ["ev_pm_snapshot_kickoff"],
+      "reason": "External issue status and Agent acceptance evidence are inconsistent."
+    },
+    "risk_level": "low",
+    "idempotency_key": "pm-comment-acme-12-evidence-gap-20260526",
+    "policy_decision": "auto_execute",
+    "created_at": "2026-05-26T10:25:00+08:00"
+  }
+]

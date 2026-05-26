@@ -1,0 +1,80 @@
+[
+  {
+    "id": "out_pm_plan_sales_acme_001",
+    "kind": "pm_agent_plan",
+    "agent_id": "pm_agent_sales_001",
+    "run_id": "run_sales_acme_001",
+    "created_at": "2026-05-26T10:30:00+08:00",
+    "payload": {
+      "task_graph": "tg_sales_acme_001",
+      "information_gaps": ["gap_discover_champion"],
+      "rationale": "Discover cannot be considered complete until D-G1 champion evidence is collected."
+    }
+  },
+  {
+    "id": "out_pm_verify_next_action_001",
+    "kind": "pm_agent_verify",
+    "agent_id": "pm_agent_sales_001",
+    "run_id": "run_sales_acme_001",
+    "task_id": "task_discover_next_action",
+    "created_at": "2026-05-26T10:35:00+08:00",
+    "payload": {
+      "decision": "accepted",
+      "task_id": "task_discover_next_action",
+      "evidence_ids": ["ev_next_meeting_calendar"],
+      "reason": "The calendar event confirms time, participants, and next meeting objective."
+    }
+  },
+  {
+    "id": "out_twin_prompt_champion_001",
+    "kind": "human_twin_collect_prompt",
+    "agent_id": "twin_sales_andy",
+    "run_id": "run_sales_acme_001",
+    "task_id": "task_discover_champion",
+    "created_at": "2026-05-26T10:40:00+08:00",
+    "payload": {
+      "gap_id": "gap_discover_champion",
+      "recipient_id": "user_sales_andy",
+      "message": "Please identify who showed the strongest champion signal in the meeting and provide department, behavior signal, and original quote.",
+      "required_schema": {
+        "fields": [
+          "person_name",
+          "department",
+          "behavior_signal",
+          "influence_hypothesis",
+          "original_quote"
+        ]
+      },
+      "deadline": "2026-05-27T18:00:00+08:00"
+    }
+  },
+  {
+    "id": "out_twin_result_champion_001",
+    "kind": "human_twin_collect_result",
+    "agent_id": "twin_sales_andy",
+    "run_id": "run_sales_acme_001",
+    "task_id": "task_discover_champion",
+    "created_at": "2026-05-26T11:00:00+08:00",
+    "payload": {
+      "gap_id": "gap_discover_champion",
+      "collector_actor_id": "twin_sales_andy",
+      "evidence": {
+        "candidate_summary": "Customer IT director asked repeated integration questions and agreed to invite operations stakeholders next time."
+      },
+      "completeness": 0.8
+    }
+  },
+  {
+    "id": "out_replan_pm_gap_001",
+    "kind": "replan",
+    "agent_id": "pm_agent_delivery_001",
+    "run_id": "run_delivery_acme_001",
+    "created_at": "2026-05-26T11:10:00+08:00",
+    "payload": {
+      "reason": "External PM issue is Done but acceptance evidence is missing.",
+      "trigger_evidence_ids": ["ev_pm_snapshot_kickoff"],
+      "affected_task_ids": ["task_delivery_acceptance_check"],
+      "new_task_graph": "tg_delivery_acme_002"
+    }
+  }
+]

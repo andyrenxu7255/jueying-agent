@@ -1,0 +1,2831 @@
+{
+  "ok": true,
+  "generated_at": "2026-05-26T10:16:08.088Z",
+  "matrix_version": "v0.1",
+  "root": "D:/teamclaw/jueying-mainline",
+  "summary": {
+    "role_count": 10,
+    "storyline_count": 11,
+    "step_count": 41,
+    "passed_step_count": 41,
+    "failed_step_count": 0,
+    "documented_story_count": 101,
+    "covered_story_count": 101,
+    "sales_gate_count": 27,
+    "covered_gate_count": 27,
+    "issue_count": 0
+  },
+  "coverage": {
+    "documented_story_ids": [
+      "SS-01",
+      "SS-02",
+      "SS-03",
+      "SS-04",
+      "SS-05",
+      "SS-05A",
+      "SS-06",
+      "SS-07",
+      "SS-08",
+      "SS-09",
+      "SS-10",
+      "SS-11",
+      "SS-12",
+      "SS-13",
+      "SS-14",
+      "SS-15",
+      "SS-16",
+      "SS-17",
+      "SS-18",
+      "SS-19",
+      "SS-20",
+      "SS-21",
+      "SS-22",
+      "SS-23",
+      "SS-24",
+      "SS-24A",
+      "SS-24B",
+      "SS-25",
+      "SS-26",
+      "SS-27",
+      "SS-28",
+      "SS-29",
+      "SS-30",
+      "SS-31",
+      "SS-31A",
+      "SS-32",
+      "SS-33",
+      "SS-34",
+      "SS-35",
+      "SS-36",
+      "SS-37",
+      "SS-38",
+      "SS-38A",
+      "SS-39",
+      "SS-40",
+      "SS-41",
+      "SS-42",
+      "SS-43",
+      "SS-44",
+      "PD-01",
+      "PD-02",
+      "PD-03",
+      "PD-04",
+      "PD-05",
+      "PD-06",
+      "PD-07",
+      "PD-08",
+      "PD-09",
+      "PD-10",
+      "PD-11",
+      "PD-12",
+      "PD-13",
+      "PD-14",
+      "PD-15",
+      "PD-16",
+      "PD-17",
+      "PD-18",
+      "PD-19",
+      "PD-20",
+      "PD-21",
+      "PD-22",
+      "PD-23",
+      "PD-24",
+      "PD-25",
+      "PD-26",
+      "PD-27",
+      "PD-28",
+      "PD-29",
+      "PD-30",
+      "PD-31",
+      "PD-32",
+      "PD-33",
+      "PD-34",
+      "PD-35",
+      "PD-36",
+      "PD-37",
+      "PD-38",
+      "PD-39",
+      "PD-40",
+      "PD-41",
+      "PD-42",
+      "PD-43",
+      "PD-44",
+      "XS-01",
+      "XS-02",
+      "XS-03",
+      "XS-04",
+      "XS-05",
+      "XS-06",
+      "XS-07",
+      "XS-08"
+    ],
+    "covered_story_ids": [
+      "SS-01",
+      "SS-02",
+      "SS-03",
+      "SS-04",
+      "SS-05",
+      "SS-05A",
+      "SS-06",
+      "SS-07",
+      "SS-08",
+      "SS-09",
+      "SS-10",
+      "SS-11",
+      "SS-12",
+      "SS-13",
+      "SS-14",
+      "SS-15",
+      "SS-16",
+      "SS-17",
+      "SS-18",
+      "SS-19",
+      "SS-20",
+      "SS-21",
+      "SS-22",
+      "SS-23",
+      "SS-24",
+      "SS-24A",
+      "SS-24B",
+      "SS-25",
+      "SS-26",
+      "SS-27",
+      "SS-28",
+      "SS-29",
+      "SS-30",
+      "SS-31",
+      "SS-31A",
+      "SS-32",
+      "SS-33",
+      "SS-34",
+      "SS-35",
+      "SS-36",
+      "SS-37",
+      "SS-38",
+      "SS-38A",
+      "SS-39",
+      "SS-40",
+      "SS-41",
+      "SS-42",
+      "SS-43",
+      "SS-44",
+      "PD-01",
+      "PD-02",
+      "PD-03",
+      "PD-04",
+      "PD-05",
+      "PD-06",
+      "PD-07",
+      "PD-08",
+      "PD-09",
+      "PD-10",
+      "PD-11",
+      "PD-12",
+      "PD-13",
+      "PD-14",
+      "PD-15",
+      "PD-16",
+      "PD-17",
+      "PD-18",
+      "PD-19",
+      "PD-20",
+      "PD-21",
+      "PD-22",
+      "PD-23",
+      "PD-24",
+      "PD-25",
+      "PD-26",
+      "PD-27",
+      "PD-28",
+      "PD-29",
+      "PD-30",
+      "PD-31",
+      "PD-32",
+      "PD-33",
+      "PD-34",
+      "PD-35",
+      "PD-36",
+      "PD-37",
+      "PD-38",
+      "PD-39",
+      "PD-40",
+      "PD-41",
+      "PD-42",
+      "PD-43",
+      "PD-44",
+      "XS-01",
+      "XS-02",
+      "XS-03",
+      "XS-04",
+      "XS-05",
+      "XS-06",
+      "XS-07",
+      "XS-08"
+    ],
+    "missing_story_ids": [],
+    "sales_gate_ids": [
+      "D-G1",
+      "D-G2",
+      "D-G3",
+      "D-G4",
+      "D-G5",
+      "D-G6",
+      "D-G7",
+      "S-G1",
+      "S-G2",
+      "S-G3",
+      "S-G4",
+      "S-G5",
+      "G-G1",
+      "G-G2",
+      "G-G3",
+      "G-G4",
+      "V-G1",
+      "V-G2",
+      "V-G3",
+      "B-G1",
+      "B-G2",
+      "B-G3",
+      "B-G4",
+      "N-G1",
+      "N-G2",
+      "N-G3",
+      "N-G4"
+    ],
+    "covered_gate_ids": [
+      "D-G1",
+      "D-G2",
+      "D-G3",
+      "D-G4",
+      "D-G5",
+      "D-G6",
+      "D-G7",
+      "S-G1",
+      "S-G2",
+      "S-G3",
+      "S-G4",
+      "S-G5",
+      "G-G1",
+      "G-G2",
+      "G-G3",
+      "G-G4",
+      "V-G1",
+      "V-G2",
+      "V-G3",
+      "B-G1",
+      "B-G2",
+      "B-G3",
+      "B-G4",
+      "N-G1",
+      "N-G2",
+      "N-G3",
+      "N-G4"
+    ],
+    "missing_gate_ids": []
+  },
+  "implemented_surfaces": {
+    "ui": [
+      "contract_health",
+      "external_sync_console",
+      "information_gap_inbox",
+      "legacy_integration_view",
+      "overview",
+      "sales_gate_view",
+      "storyline_acceptance_view",
+      "task_graph_view"
+    ],
+    "api": [
+      "/api/jueying/mainline/bridge-preview",
+      "/api/jueying/mainline/capabilities",
+      "/api/jueying/mainline/runtime-health",
+      "/api/legacy/bridge-preview",
+      "/api/legacy/capabilities",
+      "/api/legacy/runtime-health",
+      "/api/state",
+      "/api/storylines",
+      "/health"
+    ],
+    "contracts": [
+      "agentOutput",
+      "evidence",
+      "externalFactMirror",
+      "externalWritebackIntent",
+      "informationGap",
+      "legacyBridge",
+      "salesGateCheck",
+      "taskGraph"
+    ]
+  },
+  "roles": [
+    {
+      "id": "executive_coo",
+      "name": "企业负责人 / COO",
+      "type": "human_manager",
+      "primary_goal": "看经营目标、跨销售和交付风险、资源瓶颈、回款节点和可复用经验，不被流水账淹没。",
+      "storyline_count": 1,
+      "step_count": 4,
+      "passed_step_count": 4,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "exec-01-operating-rhythm",
+          "title": "经营目标、销售节奏与跨事项巡检",
+          "story_refs": [
+            "SS-01..SS-05A",
+            "SS-40..SS-43",
+            "PD-14",
+            "PD-29",
+            "PD-30",
+            "PD-37",
+            "PD-40..PD-42",
+            "XS-07"
+          ],
+          "step_count": 4,
+          "passed_step_count": 4,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "exec-01-step-01",
+              "role_id": "executive_coo",
+              "storyline_id": "exec-01-operating-rhythm",
+              "action": "查看本周期目标、销售 Routine、重点商机和交付项目是否都被纳入 Work Unit / Run。",
+              "expected_result": "总览能显示待补信息、缺失 Gate、外部反写和主风险，不只显示原始流水。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-01",
+                "SS-02",
+                "SS-03",
+                "SS-04",
+                "SS-05",
+                "PD-14"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-01",
+                "SS-02",
+                "SS-03",
+                "SS-04",
+                "SS-05",
+                "PD-14"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "work_unit_management",
+                "operating_console",
+                "taskgraph_engine"
+              ],
+              "ui_surfaces": [
+                "overview",
+                "task_graph_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "exec-01-step-02",
+              "role_id": "executive_coo",
+              "storyline_id": "exec-01-operating-rhythm",
+              "action": "检查销售六步法 Gate 缺口是否能解释机会质量。",
+              "expected_result": "系统输出缺失 Gate、责任人、建议 Activity 和证据要求。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-05A",
+                "SS-40",
+                "SS-41"
+              ],
+              "gate_refs": [
+                "D-G1..D-G7",
+                "S-G1..S-G5",
+                "G-G1..G-G4",
+                "V-G1..V-G3",
+                "B-G1..B-G4",
+                "N-G1..N-G4"
+              ],
+              "covered_story_ids": [
+                "SS-05A",
+                "SS-40",
+                "SS-41"
+              ],
+              "covered_gate_ids": [
+                "D-G1",
+                "D-G2",
+                "D-G3",
+                "D-G4",
+                "D-G5",
+                "D-G6",
+                "D-G7",
+                "S-G1",
+                "S-G2",
+                "S-G3",
+                "S-G4",
+                "S-G5",
+                "G-G1",
+                "G-G2",
+                "G-G3",
+                "G-G4",
+                "V-G1",
+                "V-G2",
+                "V-G3",
+                "B-G1",
+                "B-G2",
+                "B-G3",
+                "B-G4",
+                "N-G1",
+                "N-G2",
+                "N-G3",
+                "N-G4"
+              ],
+              "capability_domains": [
+                "sales_six_step_gate_engine",
+                "sales_six_step_lens",
+                "information_gap_engine",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "sales_gate_view",
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "salesGateCheck",
+                "informationGap",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "exec-01-step-03",
+              "role_id": "executive_coo",
+              "storyline_id": "exec-01-operating-rhythm",
+              "action": "检查项目延期、资源冲突、回款触发和复盘候选。",
+              "expected_result": "交付风险必须回到 TaskGraph、Evidence、Information Gap 和外部项目镜像，而不是独立状态。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-29",
+                "PD-30",
+                "PD-37",
+                "PD-40..PD-42"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-29",
+                "PD-30",
+                "PD-37",
+                "PD-40",
+                "PD-41",
+                "PD-42"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "delivery_control_lens",
+                "taskgraph_engine",
+                "project_management_fact_sync",
+                "review_template_skill"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "external_sync_console"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "externalFactMirror",
+                "externalWritebackIntent"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "external_sync"
+              ],
+              "external_systems": [
+                "project_management"
+              ],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "exec-01-step-04",
+              "role_id": "executive_coo",
+              "storyline_id": "exec-01-operating-rhythm",
+              "action": "确认旧主版本能力可作为执行和沉淀底座继续被调用。",
+              "expected_result": "Workflow、Executor、事实证据、组织派单、技能库、主动运营、审计权限等主能力 adapter ready。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "XS-07",
+                "XS-08"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "XS-07",
+                "XS-08"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "legacy_workflow_adapter",
+                "review_template_skill",
+                "governance_and_audit"
+              ],
+              "ui_surfaces": [
+                "legacy_integration_view"
+              ],
+              "api_surfaces": [
+                "/api/legacy/capabilities",
+                "/api/legacy/bridge-preview"
+              ],
+              "contract_refs": [
+                "legacyBridge",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "api",
+                "ui",
+                "legacy_bridge"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": [
+                "mainline.workflow",
+                "mainline.executor",
+                "mainline.fact_retrieval",
+                "mainline.org_task_dispatch",
+                "mainline.skill_library",
+                "mainline.proactive_orchestrator",
+                "mainline.audit_policy_identity"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sales_manager",
+      "name": "销售负责人",
+      "type": "human_manager",
+      "primary_goal": "管理管线质量、销售动作、CRM 一致性、预测和人员成长。",
+      "storyline_count": 1,
+      "step_count": 4,
+      "passed_step_count": 4,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "sales-manager-01-six-step-control",
+          "title": "六步法 Gate 驱动的机会推进",
+          "story_refs": [
+            "SS-05A",
+            "SS-15",
+            "SS-24A",
+            "SS-24B",
+            "SS-27",
+            "SS-31A",
+            "SS-38A",
+            "SS-39..SS-44"
+          ],
+          "step_count": 4,
+          "passed_step_count": 4,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "sales-manager-01-step-01",
+              "role_id": "sales_manager",
+              "storyline_id": "sales-manager-01-six-step-control",
+              "action": "按 Discover、Scope、Go/No-Go、Validate Solution、Business Case、Negotiate Close 查看机会质量。",
+              "expected_result": "每个销售阶段都通过 Gate 状态和证据判断，不由 CRM 阶段单独决定。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-05A",
+                "SS-15",
+                "SS-24A",
+                "SS-24B",
+                "SS-27",
+                "SS-31A",
+                "SS-38A"
+              ],
+              "gate_refs": [
+                "D-G1..D-G7",
+                "S-G1..S-G5",
+                "G-G1..G-G4",
+                "V-G1..V-G3",
+                "B-G1..B-G4",
+                "N-G1..N-G4"
+              ],
+              "covered_story_ids": [
+                "SS-05A",
+                "SS-15",
+                "SS-24A",
+                "SS-24B",
+                "SS-27",
+                "SS-31A",
+                "SS-38A"
+              ],
+              "covered_gate_ids": [
+                "D-G1",
+                "D-G2",
+                "D-G3",
+                "D-G4",
+                "D-G5",
+                "D-G6",
+                "D-G7",
+                "S-G1",
+                "S-G2",
+                "S-G3",
+                "S-G4",
+                "S-G5",
+                "G-G1",
+                "G-G2",
+                "G-G3",
+                "G-G4",
+                "V-G1",
+                "V-G2",
+                "V-G3",
+                "B-G1",
+                "B-G2",
+                "B-G3",
+                "B-G4",
+                "N-G1",
+                "N-G2",
+                "N-G3",
+                "N-G4"
+              ],
+              "capability_domains": [
+                "sales_six_step_gate_engine",
+                "sales_six_step_lens",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "sales_gate_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "salesGateCheck",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "sales-manager-01-step-02",
+              "role_id": "sales_manager",
+              "storyline_id": "sales-manager-01-six-step-control",
+              "action": "Gate 未达成时检查系统是否生成具体补采问题和推荐 Activity。",
+              "expected_result": "缺 Champion、EB、预算、验证标准、SOW、CRM 链接时，系统能生成 Information Gap 和下一步任务。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-15",
+                "SS-24A",
+                "SS-24B",
+                "SS-27",
+                "SS-31A",
+                "SS-38A"
+              ],
+              "gate_refs": [
+                "D-G1",
+                "D-G4",
+                "S-G3",
+                "S-G5",
+                "G-G1",
+                "V-G2",
+                "B-G3",
+                "N-G3",
+                "N-G4"
+              ],
+              "covered_story_ids": [
+                "SS-15",
+                "SS-24A",
+                "SS-24B",
+                "SS-27",
+                "SS-31A",
+                "SS-38A"
+              ],
+              "covered_gate_ids": [
+                "D-G1",
+                "D-G4",
+                "S-G3",
+                "S-G5",
+                "G-G1",
+                "V-G2",
+                "B-G3",
+                "N-G3",
+                "N-G4"
+              ],
+              "capability_domains": [
+                "information_gap_engine",
+                "taskgraph_engine",
+                "human_twin_agent"
+              ],
+              "ui_surfaces": [
+                "information_gap_inbox",
+                "task_graph_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "informationGap",
+                "taskGraph",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "sales-manager-01-step-03",
+              "role_id": "sales_manager",
+              "storyline_id": "sales-manager-01-six-step-control",
+              "action": "核对 CRM 镜像、CRM 反写队列和 Gate 判断是否一致。",
+              "expected_result": "低风险 Note/Task 可自动反写；金额、阶段、预计成交日等高风险字段必须确认。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-05A",
+                "SS-38A"
+              ],
+              "gate_refs": [
+                "N-G4"
+              ],
+              "covered_story_ids": [
+                "SS-05A",
+                "SS-38A"
+              ],
+              "covered_gate_ids": [
+                "N-G4"
+              ],
+              "capability_domains": [
+                "crm_fact_sync",
+                "governance_and_audit"
+              ],
+              "ui_surfaces": [
+                "external_sync_console",
+                "sales_gate_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "externalFactMirror",
+                "externalWritebackIntent",
+                "salesGateCheck"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "external_sync"
+              ],
+              "external_systems": [
+                "crm"
+              ],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "sales-manager-01-step-04",
+              "role_id": "sales_manager",
+              "storyline_id": "sales-manager-01-six-step-control",
+              "action": "做周销售复盘、预测、人员辅导和利润风险检查。",
+              "expected_result": "复盘输出异常、下周动作、输单原因、技能建议和利润/提成风险，不只是活动数量。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-39..SS-44"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-39",
+                "SS-40",
+                "SS-41",
+                "SS-42",
+                "SS-43",
+                "SS-44"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "operating_console",
+                "review_template_skill",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "overview",
+                "contract_health"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "agentOutput",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sales_rep",
+      "name": "销售人员",
+      "type": "human_worker",
+      "primary_goal": "知道今天联系谁、问什么、补什么证据、下一步如何推进。",
+      "storyline_count": 2,
+      "step_count": 7,
+      "passed_step_count": 7,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "sales-rep-01-lead-to-discover",
+          "title": "线索入库、首触达与 Discover",
+          "story_refs": [
+            "SS-06..SS-17"
+          ],
+          "step_count": 4,
+          "passed_step_count": 4,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "sales-rep-01-step-01",
+              "role_id": "sales_rep",
+              "storyline_id": "sales-rep-01-lead-to-discover",
+              "action": "把口头、IM、名片或活动来源线索整理成客户、联系人和商机草稿。",
+              "expected_result": "系统能表达线索入库、去重、归属、质量初判和缺字段追问。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-06..SS-10"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-06",
+                "SS-07",
+                "SS-08",
+                "SS-09",
+                "SS-10"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "work_unit_management",
+                "information_gap_engine",
+                "human_twin_agent",
+                "crm_fact_sync"
+              ],
+              "ui_surfaces": [
+                "information_gap_inbox",
+                "external_sync_console"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "informationGap",
+                "externalFactMirror",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "external_sync"
+              ],
+              "external_systems": [
+                "crm"
+              ],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "sales-rep-01-step-02",
+              "role_id": "sales_rep",
+              "storyline_id": "sales-rep-01-lead-to-discover",
+              "action": "首触达前获取本次沟通目标、问题清单和记录模板。",
+              "expected_result": "Agent 给出明确目标和采集 schema，而不是泛泛建议跟进。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-11",
+                "SS-14"
+              ],
+              "gate_refs": [
+                "D-G1..D-G7"
+              ],
+              "covered_story_ids": [
+                "SS-11",
+                "SS-14"
+              ],
+              "covered_gate_ids": [
+                "D-G1",
+                "D-G2",
+                "D-G3",
+                "D-G4",
+                "D-G5",
+                "D-G6",
+                "D-G7"
+              ],
+              "capability_domains": [
+                "pm_agent_contracts",
+                "sales_six_step_gate_engine",
+                "information_gap_engine"
+              ],
+              "ui_surfaces": [
+                "sales_gate_view",
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "salesGateCheck",
+                "informationGap",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "sales-rep-01-step-03",
+              "role_id": "sales_rep",
+              "storyline_id": "sales-rep-01-lead-to-discover",
+              "action": "拜访后提交客户原话、参与人、关注点、痛点、竞争对手和下一步。",
+              "expected_result": "Human Twin 整理为 Evidence，PM Agent 更新 Discover Gate 和 TaskGraph。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-12",
+                "SS-14",
+                "SS-15",
+                "SS-16"
+              ],
+              "gate_refs": [
+                "D-G1..D-G7"
+              ],
+              "covered_story_ids": [
+                "SS-12",
+                "SS-14",
+                "SS-15",
+                "SS-16"
+              ],
+              "covered_gate_ids": [
+                "D-G1",
+                "D-G2",
+                "D-G3",
+                "D-G4",
+                "D-G5",
+                "D-G6",
+                "D-G7"
+              ],
+              "capability_domains": [
+                "human_twin_agent",
+                "evidence_engine",
+                "sales_six_step_gate_engine",
+                "taskgraph_engine"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "sales_gate_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "evidence",
+                "salesGateCheck",
+                "taskGraph",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "sales-rep-01-step-04",
+              "role_id": "sales_rep",
+              "storyline_id": "sales-rep-01-lead-to-discover",
+              "action": "若线索暂不合格或未回复，设置再唤醒、重试节奏和 lost/nurture 原因。",
+              "expected_result": "系统生成下一次触达任务或暂缓原因，并保留证据。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-13",
+                "SS-17"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-13",
+                "SS-17"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "taskgraph_engine",
+                "human_twin_agent",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "overview"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "evidence",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            }
+          ]
+        },
+        {
+          "id": "sales-rep-02-scope-to-close",
+          "title": "Scope 到赢单交接",
+          "story_refs": [
+            "SS-18..SS-38A"
+          ],
+          "step_count": 3,
+          "passed_step_count": 3,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "sales-rep-02-step-01",
+              "role_id": "sales_rep",
+              "storyline_id": "sales-rep-02-scope-to-close",
+              "action": "建立决策链、痛点地图和推进阻塞诊断。",
+              "expected_result": "Champion、EB、痛点、预算、竞品、下一步都能进入 Gate、Gap、Evidence。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-18..SS-24B"
+              ],
+              "gate_refs": [
+                "S-G1..S-G5",
+                "G-G1..G-G4"
+              ],
+              "covered_story_ids": [
+                "SS-18",
+                "SS-19",
+                "SS-20",
+                "SS-21",
+                "SS-22",
+                "SS-23",
+                "SS-24",
+                "SS-24A",
+                "SS-24B"
+              ],
+              "covered_gate_ids": [
+                "S-G1",
+                "S-G2",
+                "S-G3",
+                "S-G4",
+                "S-G5",
+                "G-G1",
+                "G-G2",
+                "G-G3",
+                "G-G4"
+              ],
+              "capability_domains": [
+                "sales_six_step_gate_engine",
+                "information_gap_engine",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "sales_gate_view",
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "salesGateCheck",
+                "informationGap",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "sales-rep-02-step-02",
+              "role_id": "sales_rep",
+              "storyline_id": "sales-rep-02-scope-to-close",
+              "action": "推进验证计划、售前派单、报价、审批和客户材料。",
+              "expected_result": "验证计划和报价动作都绑定证据、审批和必要的人确认。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-25..SS-31A"
+              ],
+              "gate_refs": [
+                "V-G1..V-G3",
+                "B-G1..B-G4"
+              ],
+              "covered_story_ids": [
+                "SS-25",
+                "SS-26",
+                "SS-27",
+                "SS-28",
+                "SS-29",
+                "SS-30",
+                "SS-31",
+                "SS-31A"
+              ],
+              "covered_gate_ids": [
+                "V-G1",
+                "V-G2",
+                "V-G3",
+                "B-G1",
+                "B-G2",
+                "B-G3",
+                "B-G4"
+              ],
+              "capability_domains": [
+                "pm_agent_contracts",
+                "legacy_workflow_adapter",
+                "governance_and_audit",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "legacy_integration_view",
+                "contract_health"
+              ],
+              "api_surfaces": [
+                "/api/state",
+                "/api/legacy/bridge-preview"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "evidence",
+                "legacyBridge",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "legacy_bridge"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": [
+                "mainline.workflow",
+                "mainline.executor",
+                "mainline.fact_retrieval"
+              ]
+            },
+            {
+              "id": "sales-rep-02-step-03",
+              "role_id": "sales_rep",
+              "storyline_id": "sales-rep-02-scope-to-close",
+              "action": "谈判签约前检查报价、订单、SOW、CRM 状态和赢单交接。",
+              "expected_result": "N-G1 至 N-G4 任一缺失不得判定 Closed-Won；赢单后生成交付 handoff package。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-32..SS-38A"
+              ],
+              "gate_refs": [
+                "N-G1..N-G4"
+              ],
+              "covered_story_ids": [
+                "SS-32",
+                "SS-33",
+                "SS-34",
+                "SS-35",
+                "SS-36",
+                "SS-37",
+                "SS-38",
+                "SS-38A"
+              ],
+              "covered_gate_ids": [
+                "N-G1",
+                "N-G2",
+                "N-G3",
+                "N-G4"
+              ],
+              "capability_domains": [
+                "sales_six_step_gate_engine",
+                "crm_fact_sync",
+                "delivery_control_lens",
+                "taskgraph_engine"
+              ],
+              "ui_surfaces": [
+                "sales_gate_view",
+                "external_sync_console",
+                "task_graph_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "salesGateCheck",
+                "externalFactMirror",
+                "externalWritebackIntent",
+                "taskGraph"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "external_sync"
+              ],
+              "external_systems": [
+                "crm"
+              ],
+              "legacy_capabilities": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "delivery_lead",
+      "name": "交付负责人",
+      "type": "human_manager",
+      "primary_goal": "把销售承诺转成可执行交付图谱，管住范围、风险、验收、回款和外部项目系统一致性。",
+      "storyline_count": 1,
+      "step_count": 5,
+      "passed_step_count": 5,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "delivery-lead-01-handoff-control",
+          "title": "赢单交接、范围解析与交付控制",
+          "story_refs": [
+            "PD-01..PD-05",
+            "PD-13..PD-18",
+            "PD-33..PD-44"
+          ],
+          "step_count": 5,
+          "passed_step_count": 5,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "delivery-lead-01-step-01",
+              "role_id": "delivery_lead",
+              "storyline_id": "delivery-lead-01-handoff-control",
+              "action": "从赢单 handoff 创建 Delivery Project，并检查合同范围、承诺、联系人、风险和付款节点。",
+              "expected_result": "交接包不完整时向销售追问，完整时生成交付 Work Unit / Run。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-01..PD-05",
+                "SS-35"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-35",
+                "PD-01",
+                "PD-02",
+                "PD-03",
+                "PD-04",
+                "PD-05"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "work_unit_management",
+                "information_gap_engine",
+                "delivery_control_lens",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "informationGap",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "delivery-lead-01-step-02",
+              "role_id": "delivery_lead",
+              "storyline_id": "delivery-lead-01-handoff-control",
+              "action": "生成交付 TaskGraph、关键路径、资源分配、客户责任和验收标准。",
+              "expected_result": "TaskGraph 表达依赖、证据、责任人、验收标准和风险，不把外部 issue 当成 Agent Task。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-13..PD-18"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-13",
+                "PD-14",
+                "PD-15",
+                "PD-16",
+                "PD-17",
+                "PD-18"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "taskgraph_engine",
+                "pm_agent_contracts",
+                "delivery_control_lens",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "overview"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "evidence",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "delivery-lead-01-step-03",
+              "role_id": "delivery_lead",
+              "storyline_id": "delivery-lead-01-handoff-control",
+              "action": "接入外部项目管理系统，读取任务、评论、附件、里程碑并建立 PMRecordMirror。",
+              "expected_result": "外部项目事实可被 Agent 引用，外部 Done 不等于 Agent accepted。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-43"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-43"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "project_management_fact_sync",
+                "delivery_control_lens",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "external_sync_console",
+                "task_graph_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "externalFactMirror",
+                "taskGraph",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "external_sync"
+              ],
+              "external_systems": [
+                "project_management"
+              ],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "delivery-lead-01-step-04",
+              "role_id": "delivery_lead",
+              "storyline_id": "delivery-lead-01-handoff-control",
+              "action": "验收、遗留项、开票回款、移交、满意度和复盘。",
+              "expected_result": "验收证据触发付款任务，复盘沉淀模板和 Skill 候选。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-33..PD-42"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-33",
+                "PD-34",
+                "PD-35",
+                "PD-36",
+                "PD-37",
+                "PD-38",
+                "PD-39",
+                "PD-40",
+                "PD-41",
+                "PD-42"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "evidence_engine",
+                "review_template_skill",
+                "taskgraph_engine",
+                "human_twin_agent"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "contract_health"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "evidence",
+                "taskGraph",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "delivery-lead-01-step-05",
+              "role_id": "delivery_lead",
+              "storyline_id": "delivery-lead-01-handoff-control",
+              "action": "需要同步外部项目系统时生成 PM Writeback Intent。",
+              "expected_result": "低风险评论和 Evidence Link 可按策略自动反写；状态、负责人、截止时间需确认。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-44"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-44"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "project_management_fact_sync",
+                "governance_and_audit"
+              ],
+              "ui_surfaces": [
+                "external_sync_console"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "externalWritebackIntent"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "external_sync"
+              ],
+              "external_systems": [
+                "project_management"
+              ],
+              "legacy_capabilities": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "project_manager",
+      "name": "项目经理",
+      "type": "human_manager",
+      "primary_goal": "让 TaskGraph 真实推进，处理启动、需求、执行、证据、质量、变更和风险。",
+      "storyline_count": 1,
+      "step_count": 4,
+      "passed_step_count": 4,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "project-manager-01-kickoff-to-change",
+          "title": "启动、需求、现场采集、执行与变更闭环",
+          "story_refs": [
+            "PD-06..PD-32"
+          ],
+          "step_count": 4,
+          "passed_step_count": 4,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "project-manager-01-step-01",
+              "role_id": "project_manager",
+              "storyline_id": "project-manager-01-kickoff-to-change",
+              "action": "准备启动会并结构化目标、范围、里程碑、责任人和风险。",
+              "expected_result": "启动会纪要进入 TaskGraph，未决问题进入 Information Gap。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-06",
+                "PD-07",
+                "PD-12"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-06",
+                "PD-07",
+                "PD-12"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "taskgraph_engine",
+                "information_gap_engine",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "informationGap",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "project-manager-01-step-02",
+              "role_id": "project_manager",
+              "storyline_id": "project-manager-01-kickoff-to-change",
+              "action": "派发需求、现场环境、权限、第三方依赖和客户责任采集任务。",
+              "expected_result": "每个采集任务说明为什么问、采什么格式、谁采、何时反馈。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-08..PD-12"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-08",
+                "PD-09",
+                "PD-10",
+                "PD-11",
+                "PD-12"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "information_gap_engine",
+                "human_twin_agent",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "informationGap",
+                "agentOutput",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "project-manager-01-step-03",
+              "role_id": "project_manager",
+              "storyline_id": "project-manager-01-kickoff-to-change",
+              "action": "执行任务、提交交付物、Agent 质量检查并派生整改。",
+              "expected_result": "完成必须绑定 Evidence；质量失败要产生补充或整改任务。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-19..PD-26"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-19",
+                "PD-20",
+                "PD-21",
+                "PD-22",
+                "PD-23",
+                "PD-24",
+                "PD-25",
+                "PD-26"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "taskgraph_engine",
+                "evidence_engine",
+                "pm_agent_contracts",
+                "human_twin_agent"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "contract_health"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "evidence",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "project-manager-01-step-04",
+              "role_id": "project_manager",
+              "storyline_id": "project-manager-01-kickoff-to-change",
+              "action": "识别范围蔓延、变更影响、延期、资源冲突、客户不配合和低置信度判断。",
+              "expected_result": "变更和延期都记录原因、证据、影响任务和版本变化；低置信度必须升级给人。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-27..PD-32"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-27",
+                "PD-28",
+                "PD-29",
+                "PD-30",
+                "PD-31",
+                "PD-32"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "taskgraph_engine",
+                "governance_and_audit",
+                "pm_agent_contracts",
+                "delivery_control_lens"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "overview"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "agentOutput",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frontline_collector",
+      "name": "一线执行者 / 现场信息采集者",
+      "type": "human_worker",
+      "primary_goal": "收到清楚任务，知道采集什么现场信息和证据，避免被无上下文追问。",
+      "storyline_count": 1,
+      "step_count": 3,
+      "passed_step_count": 3,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "frontline-01-human-sensor-loop",
+          "title": "人类补充传感器与证据提交",
+          "story_refs": [
+            "SS-09",
+            "SS-12",
+            "SS-24",
+            "SS-39",
+            "PD-08..PD-10",
+            "PD-20",
+            "PD-21",
+            "PD-23",
+            "PD-26",
+            "PD-31",
+            "PD-32",
+            "PD-39",
+            "XS-01..XS-05"
+          ],
+          "step_count": 3,
+          "passed_step_count": 3,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "frontline-01-step-01",
+              "role_id": "frontline_collector",
+              "storyline_id": "frontline-01-human-sensor-loop",
+              "action": "查看分配给自己的信息缺口、问题原因、采集格式和截止时间。",
+              "expected_result": "任务不是一句请处理，而是解释 Agent 为什么缺这个信息、如何补。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-09",
+                "PD-08",
+                "PD-09",
+                "XS-01",
+                "XS-03"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-09",
+                "PD-08",
+                "PD-09",
+                "XS-01",
+                "XS-03"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "information_gap_engine",
+                "human_twin_agent"
+              ],
+              "ui_surfaces": [
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "informationGap",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "frontline-01-step-02",
+              "role_id": "frontline_collector",
+              "storyline_id": "frontline-01-human-sensor-loop",
+              "action": "提交照片、文字、文件、截图、现场记录或客户确认。",
+              "expected_result": "反馈转成 Evidence，低质量反馈触发 needs_supplement，不自动完成任务。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-12",
+                "PD-20",
+                "PD-21",
+                "PD-26",
+                "PD-39"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-12",
+                "PD-20",
+                "PD-21",
+                "PD-26",
+                "PD-39"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "evidence_engine",
+                "human_twin_agent",
+                "pm_agent_contracts"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "contract_health"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "evidence",
+                "agentOutput",
+                "taskGraph"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "frontline-01-step-03",
+              "role_id": "frontline_collector",
+              "storyline_id": "frontline-01-human-sensor-loop",
+              "action": "对客户确认、客户不配合、低置信度判断或 Agent 建议提出反驳。",
+              "expected_result": "争议保留人类理由，不覆盖事实，并进入审计或人工确认。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-24",
+                "PD-23",
+                "PD-31",
+                "PD-32",
+                "XS-04",
+                "XS-05"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-24",
+                "PD-23",
+                "PD-31",
+                "PD-32",
+                "XS-04",
+                "XS-05"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "governance_and_audit",
+                "information_gap_engine",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "contract_health",
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "evidence",
+                "informationGap",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "admin_it",
+      "name": "Admin / IT",
+      "type": "human_admin",
+      "primary_goal": "配置组织、人员、权限、渠道、审计、CRM、项目管理和旧主版本接入边界。",
+      "storyline_count": 1,
+      "step_count": 4,
+      "passed_step_count": 4,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "admin-01-governance-and-integrations",
+          "title": "组织治理、渠道和外部系统接入",
+          "story_refs": [
+            "SS-03",
+            "SS-06",
+            "PD-43",
+            "PD-44",
+            "XS-01..XS-08"
+          ],
+          "step_count": 4,
+          "passed_step_count": 4,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "admin-01-step-01",
+              "role_id": "admin_it",
+              "storyline_id": "admin-01-governance-and-integrations",
+              "action": "创建组织、人员、Human Twin Agent，并确认默认权限为 notify + collect + draft。",
+              "expected_result": "Human Twin 不越权替真人承诺、签字、确认完成或写高风险字段。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "XS-01",
+                "XS-04",
+                "XS-05"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "XS-01",
+                "XS-04",
+                "XS-05"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "human_twin_agent",
+                "governance_and_audit"
+              ],
+              "ui_surfaces": [
+                "contract_health",
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "agentOutput",
+                "informationGap"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "legacy_bridge"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": [
+                "mainline.gateway_channels",
+                "mainline.audit_policy_identity"
+              ]
+            },
+            {
+              "id": "admin-01-step-02",
+              "role_id": "admin_it",
+              "storyline_id": "admin-01-governance-and-integrations",
+              "action": "配置 CRM 连接、同步权限、字段映射、低风险反写和冲突策略。",
+              "expected_result": "CRMRecordMirror 和 CRMWritebackIntent 可用，CRM 阶段不覆盖 Agent Gate 判断。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-03",
+                "SS-06",
+                "SS-05A"
+              ],
+              "gate_refs": [
+                "N-G4"
+              ],
+              "covered_story_ids": [
+                "SS-03",
+                "SS-05A",
+                "SS-06"
+              ],
+              "covered_gate_ids": [
+                "N-G4"
+              ],
+              "capability_domains": [
+                "crm_fact_sync",
+                "governance_and_audit"
+              ],
+              "ui_surfaces": [
+                "external_sync_console"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "externalFactMirror",
+                "externalWritebackIntent"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "external_sync"
+              ],
+              "external_systems": [
+                "crm"
+              ],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "admin-01-step-03",
+              "role_id": "admin_it",
+              "storyline_id": "admin-01-governance-and-integrations",
+              "action": "配置 Jira、禅道、TAPD、飞书项目、Teambition、Asana、Monday、ClickUp、Linear、MS Project 或自研项目管理系统接入预留。",
+              "expected_result": "PMRecordMirror 和 PMWritebackIntent 可用，外部状态不等同 Agent Task 状态。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-43",
+                "PD-44"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-43",
+                "PD-44"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "project_management_fact_sync",
+                "governance_and_audit"
+              ],
+              "ui_surfaces": [
+                "external_sync_console"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "externalFactMirror",
+                "externalWritebackIntent"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "external_sync"
+              ],
+              "external_systems": [
+                "project_management"
+              ],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "admin-01-step-04",
+              "role_id": "admin_it",
+              "storyline_id": "admin-01-governance-and-integrations",
+              "action": "检查通知失败、信息过载、敏感信息、Agent 判断争议、自动化升级和旧系统调用。",
+              "expected_result": "失败、重试、升级、敏感查看、人工反驳和 legacy 调用都有审计或桥接证据。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "XS-02..XS-08"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "XS-02",
+                "XS-03",
+                "XS-04",
+                "XS-05",
+                "XS-06",
+                "XS-07",
+                "XS-08"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "governance_and_audit",
+                "legacy_workflow_adapter",
+                "human_twin_agent",
+                "review_template_skill"
+              ],
+              "ui_surfaces": [
+                "legacy_integration_view",
+                "contract_health"
+              ],
+              "api_surfaces": [
+                "/api/legacy/capabilities",
+                "/api/legacy/runtime-health"
+              ],
+              "contract_refs": [
+                "legacyBridge",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "api",
+                "ui",
+                "legacy_bridge"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": [
+                "mainline.workflow",
+                "mainline.gateway_channels",
+                "mainline.org_task_dispatch",
+                "mainline.audit_policy_identity",
+                "mainline.mobile_notifications"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pm_agent",
+      "name": "Project Manager Agent",
+      "type": "agent",
+      "primary_goal": "理解目标、生成 TaskGraph、识别缺口、验收证据、重规划并升级低置信度问题。",
+      "storyline_count": 1,
+      "step_count": 4,
+      "passed_step_count": 4,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "pm-agent-01-plan-verify-replan",
+          "title": "计划、验收、重规划与旧 workflow 调用",
+          "story_refs": [
+            "SS-15",
+            "SS-21",
+            "SS-24",
+            "SS-24A",
+            "SS-24B",
+            "SS-27",
+            "SS-31A",
+            "SS-38A",
+            "PD-13",
+            "PD-17",
+            "PD-22",
+            "PD-24",
+            "PD-27..PD-33",
+            "XS-05",
+            "XS-08"
+          ],
+          "step_count": 4,
+          "passed_step_count": 4,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "pm-agent-01-step-01",
+              "role_id": "pm_agent",
+              "storyline_id": "pm-agent-01-plan-verify-replan",
+              "action": "从销售或交付目标生成 TaskGraph、任务依赖、执行主体、证据要求和验收规则。",
+              "expected_result": "TaskGraph 通过契约校验，至少有任务、依赖、证据要求、缺口或验收标准。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-21",
+                "PD-13",
+                "PD-17"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-21",
+                "PD-13",
+                "PD-17"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "pm_agent_contracts",
+                "taskgraph_engine",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "task_graph_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "taskGraph",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "pm-agent-01-step-02",
+              "role_id": "pm_agent",
+              "storyline_id": "pm-agent-01-plan-verify-replan",
+              "action": "发现信息缺口并派给 Human Twin 或真人补充现场事实。",
+              "expected_result": "每个缺口说明缺什么、为什么影响判断、谁采、怎么采。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-15",
+                "SS-24",
+                "SS-24A",
+                "SS-24B",
+                "PD-28",
+                "PD-32"
+              ],
+              "gate_refs": [
+                "D-G1..D-G7",
+                "S-G1..S-G5",
+                "G-G1..G-G4"
+              ],
+              "covered_story_ids": [
+                "SS-15",
+                "SS-24",
+                "SS-24A",
+                "SS-24B",
+                "PD-28",
+                "PD-32"
+              ],
+              "covered_gate_ids": [
+                "D-G1",
+                "D-G2",
+                "D-G3",
+                "D-G4",
+                "D-G5",
+                "D-G6",
+                "D-G7",
+                "S-G1",
+                "S-G2",
+                "S-G3",
+                "S-G4",
+                "S-G5",
+                "G-G1",
+                "G-G2",
+                "G-G3",
+                "G-G4"
+              ],
+              "capability_domains": [
+                "information_gap_engine",
+                "human_twin_agent",
+                "sales_six_step_gate_engine"
+              ],
+              "ui_surfaces": [
+                "information_gap_inbox",
+                "sales_gate_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "informationGap",
+                "salesGateCheck",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "pm-agent-01-step-03",
+              "role_id": "pm_agent",
+              "storyline_id": "pm-agent-01-plan-verify-replan",
+              "action": "按 Evidence、Gap、验收规则和风险等级判断 accepted / needs_supplement / blocked / rejected / escalated。",
+              "expected_result": "accepted 必须引用 Evidence；低置信度、高风险和越权场景必须升级。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-27",
+                "SS-31A",
+                "SS-38A",
+                "PD-22",
+                "PD-24",
+                "PD-33",
+                "XS-05"
+              ],
+              "gate_refs": [
+                "V-G1..V-G3",
+                "B-G1..B-G4",
+                "N-G1..N-G4"
+              ],
+              "covered_story_ids": [
+                "SS-27",
+                "SS-31A",
+                "SS-38A",
+                "PD-22",
+                "PD-24",
+                "PD-33",
+                "XS-05"
+              ],
+              "covered_gate_ids": [
+                "V-G1",
+                "V-G2",
+                "V-G3",
+                "B-G1",
+                "B-G2",
+                "B-G3",
+                "B-G4",
+                "N-G1",
+                "N-G2",
+                "N-G3",
+                "N-G4"
+              ],
+              "capability_domains": [
+                "pm_agent_contracts",
+                "evidence_engine",
+                "governance_and_audit"
+              ],
+              "ui_surfaces": [
+                "contract_health",
+                "task_graph_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "agentOutput",
+                "evidence",
+                "taskGraph"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "pm-agent-01-step-04",
+              "role_id": "pm_agent",
+              "storyline_id": "pm-agent-01-plan-verify-replan",
+              "action": "需要 AI 执行时把 TaskGraph、Information Gap、Evidence 或 Writeback Intent 投影到 JueYing v1 主版本。",
+              "expected_result": "桥接 payload 能覆盖 workflow、org_task、fact write 和 audit projection。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "XS-08"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "XS-08"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "legacy_workflow_adapter",
+                "taskgraph_engine",
+                "evidence_engine",
+                "governance_and_audit"
+              ],
+              "ui_surfaces": [
+                "legacy_integration_view"
+              ],
+              "api_surfaces": [
+                "/api/legacy/bridge-preview"
+              ],
+              "contract_refs": [
+                "legacyBridge",
+                "taskGraph",
+                "informationGap",
+                "evidence",
+                "externalWritebackIntent"
+              ],
+              "verification_modes": [
+                "api",
+                "ui",
+                "legacy_bridge"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": [
+                "mainline.workflow",
+                "mainline.executor",
+                "mainline.fact_retrieval",
+                "mainline.org_task_dispatch",
+                "mainline.audit_policy_identity"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "human_twin_agent",
+      "name": "Human Twin Agent",
+      "type": "agent",
+      "primary_goal": "通知真人、追问信息、整理反馈、检查完整性和生成草稿，但不默认替真人承诺。",
+      "storyline_count": 1,
+      "step_count": 3,
+      "passed_step_count": 3,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "human-twin-01-notify-collect-draft",
+          "title": "通知、追问、整理和权限边界",
+          "story_refs": [
+            "SS-09",
+            "SS-12",
+            "SS-31",
+            "SS-39",
+            "PD-08",
+            "PD-09",
+            "PD-20",
+            "PD-23",
+            "PD-26",
+            "PD-39",
+            "XS-01..XS-05"
+          ],
+          "step_count": 3,
+          "passed_step_count": 3,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "human-twin-01-step-01",
+              "role_id": "human_twin_agent",
+              "storyline_id": "human-twin-01-notify-collect-draft",
+              "action": "把信息缺口转成真人看得懂的自然语言采集请求。",
+              "expected_result": "请求包含任务上下文、问题、格式、截止时间和用途。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-09",
+                "SS-12",
+                "PD-08",
+                "PD-09",
+                "XS-01"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-09",
+                "SS-12",
+                "PD-08",
+                "PD-09",
+                "XS-01"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "human_twin_agent",
+                "information_gap_engine"
+              ],
+              "ui_surfaces": [
+                "information_gap_inbox"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "informationGap",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "human-twin-01-step-02",
+              "role_id": "human_twin_agent",
+              "storyline_id": "human-twin-01-notify-collect-draft",
+              "action": "收到模糊反馈时追问缺失字段并保持上下文。",
+              "expected_result": "不完整反馈不会直接关闭 Gap；追问按 required_schema 执行。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-12",
+                "PD-20",
+                "PD-26",
+                "XS-03"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-12",
+                "PD-20",
+                "PD-26",
+                "XS-03"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "human_twin_agent",
+                "information_gap_engine",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "information_gap_inbox",
+                "contract_health"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "agentOutput",
+                "informationGap",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "human-twin-01-step-03",
+              "role_id": "human_twin_agent",
+              "storyline_id": "human-twin-01-notify-collect-draft",
+              "action": "整理反馈为 Evidence，并为销售材料、客户确认或项目报告生成草稿。",
+              "expected_result": "草稿需要真人确认后再发送高风险内容。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-31",
+                "SS-39",
+                "PD-23",
+                "PD-39",
+                "XS-04",
+                "XS-05"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-31",
+                "SS-39",
+                "PD-23",
+                "PD-39",
+                "XS-04",
+                "XS-05"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "human_twin_agent",
+                "evidence_engine",
+                "governance_and_audit"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "contract_health"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "agentOutput",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "worker_agent",
+      "name": "Worker Agent",
+      "type": "agent",
+      "primary_goal": "生成纪要、方案、报价、分析、验收报告和其他可验收交付物。",
+      "storyline_count": 1,
+      "step_count": 3,
+      "passed_step_count": 3,
+      "status": "pass",
+      "issues": [],
+      "storylines": [
+        {
+          "id": "worker-agent-01-draft-and-deliver",
+          "title": "可验收交付物生成与旧执行底座",
+          "story_refs": [
+            "SS-23",
+            "SS-25",
+            "SS-28",
+            "SS-30",
+            "SS-31",
+            "SS-33",
+            "PD-03",
+            "PD-07",
+            "PD-22",
+            "PD-34",
+            "PD-40",
+            "XS-08"
+          ],
+          "step_count": 3,
+          "passed_step_count": 3,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "worker-agent-01-step-01",
+              "role_id": "worker_agent",
+              "storyline_id": "worker-agent-01-draft-and-deliver",
+              "action": "把会议、合同、需求、验证和客户材料整理成结构化交付物。",
+              "expected_result": "输出必须能绑定 Evidence、Task 和验收规则。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-23",
+                "SS-25",
+                "SS-28",
+                "SS-30",
+                "SS-31",
+                "SS-33",
+                "PD-03",
+                "PD-07",
+                "PD-34"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-23",
+                "SS-25",
+                "SS-28",
+                "SS-30",
+                "SS-31",
+                "SS-33",
+                "PD-03",
+                "PD-07",
+                "PD-34"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "evidence_engine",
+                "pm_agent_contracts",
+                "taskgraph_engine"
+              ],
+              "ui_surfaces": [
+                "task_graph_view",
+                "contract_health"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "evidence",
+                "taskGraph",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "worker-agent-01-step-02",
+              "role_id": "worker_agent",
+              "storyline_id": "worker-agent-01-draft-and-deliver",
+              "action": "交付物提交后进入 Agent 质量检查和补充闭环。",
+              "expected_result": "质量检查能给出通过、补充、失败或升级理由。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "PD-22",
+                "PD-40"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "PD-22",
+                "PD-40"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "evidence_engine",
+                "pm_agent_contracts",
+                "review_template_skill"
+              ],
+              "ui_surfaces": [
+                "contract_health",
+                "task_graph_view"
+              ],
+              "api_surfaces": [
+                "/api/state"
+              ],
+              "contract_refs": [
+                "agentOutput",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "worker-agent-01-step-03",
+              "role_id": "worker_agent",
+              "storyline_id": "worker-agent-01-draft-and-deliver",
+              "action": "需要调用旧执行底座时通过 JueYing v1 workflow/executor/fact 能力完成。",
+              "expected_result": "旧执行结果回到新系统 Deliverable / Evidence / AgentOutput。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "XS-08"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "XS-08"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "legacy_workflow_adapter",
+                "evidence_engine"
+              ],
+              "ui_surfaces": [
+                "legacy_integration_view"
+              ],
+              "api_surfaces": [
+                "/api/legacy/capabilities",
+                "/api/legacy/bridge-preview"
+              ],
+              "contract_refs": [
+                "legacyBridge",
+                "evidence",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "api",
+                "ui",
+                "legacy_bridge"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": [
+                "mainline.workflow",
+                "mainline.executor",
+                "mainline.fact_retrieval"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "issues": []
+}
