@@ -105,7 +105,38 @@ export const AGENT_OUTPUT_KINDS = [
   "pm_agent_verify",
   "human_twin_collect_prompt",
   "human_twin_collect_result",
+  "management_command_plan",
+  "scheduled_command_tick",
+  "condition_trigger_match",
   "replan"
+];
+
+export const MANAGEMENT_COMMAND_STATUSES = [
+  "draft",
+  "scheduled",
+  "active",
+  "triggered",
+  "delegated",
+  "completed",
+  "paused",
+  "cancelled"
+];
+
+export const MANAGEMENT_TRIGGER_TYPES = [
+  "manual",
+  "scheduled",
+  "condition"
+];
+
+export const MANAGEMENT_PROJECT_STATUSES = [
+  "intake",
+  "planning",
+  "delegated",
+  "in_progress",
+  "needs_info",
+  "review",
+  "done",
+  "blocked"
 ];
 
 export const VERIFY_DECISIONS = [

@@ -35,7 +35,9 @@ function checkJsonFiles() {
     "docs/context-graph.json",
     "docs/context-routing.json",
     "docs/scenario-coverage.json",
-    "docs/sales-six-step-gates.json"
+    "docs/sales-six-step-gates.json",
+    "docs/role-storyline-acceptance.json",
+    "fixtures/p1-demo/management-command-center.json"
   ]) {
     try {
       readJson(relativePath);
@@ -43,6 +45,31 @@ function checkJsonFiles() {
       addError(`JSON parse failed: ${relativePath}: ${error.message}`);
     }
   }
+}
+
+function markdownLinkTargets(relativePath) {
+  const text = readText(relativePath);
+  const targets = [];
+  const matches = text.matchAll(/\[[^\]]+\]\(([^)]+)\)/g);
+  for (const match of matches) {
+    let target = match[1].trim();
+    if (/^(https?:|mailto:|#)/.test(target)) {
+      continue;
+    }
+    if (target.startsWith("<") && target.endsWith(">")) {
+      target = target.slice(1, -1);
+    }
+    const withoutHash = target.split("#")[0];
+    if (!withoutHash) {
+      continue;
+    }
+    const normalized = resolve(dirname(join(root, relativePath)), withoutHash)
+      .replace(root, "")
+      .replaceAll("\\", "/")
+      .replace(/^\//, "");
+    targets.push(normalized);
+  }
+  return targets;
 }
 
 function checkMarkdownLinks() {
@@ -72,6 +99,43 @@ function checkMarkdownLinks() {
   }
 }
 
+function activeDocPaths() {
+  return readdirSync(docsDir)
+    .filter((name) => name.endsWith(".md") && name !== "README.md")
+    .map((name) => `docs/${name}`)
+    .sort();
+}
+
+function checkDocEntryIndexes() {
+  const rootLinks = new Set(markdownLinkTargets("README.md"));
+  const docsLinks = new Set(markdownLinkTargets("docs/README.md"));
+
+  for (const docPath of activeDocPaths()) {
+    if (!rootLinks.has(docPath)) {
+      addError(`Active doc missing from README.md: ${docPath}`);
+    }
+    if (!docsLinks.has(docPath)) {
+      addError(`Active doc missing from docs/README.md: ${docPath}`);
+    }
+  }
+
+  for (const jsonPath of [
+    "docs/context-graph.json",
+    "docs/context-routing.json",
+    "docs/scenario-coverage.json",
+    "docs/sales-six-step-gates.json",
+    "docs/role-storyline-acceptance.json",
+    "fixtures/p1-demo/management-command-center.json"
+  ]) {
+    if (!rootLinks.has(jsonPath)) {
+      addError(`Machine-readable asset missing from README.md: ${jsonPath}`);
+    }
+    if (!docsLinks.has(jsonPath)) {
+      addError(`Machine-readable asset missing from docs/README.md: ${jsonPath}`);
+    }
+  }
+}
+
 function checkGraphPaths() {
   for (const relativePath of [
     "docs/context-graph.json",
@@ -88,6 +152,85 @@ function checkGraphPaths() {
       if (!existsSync(join(root, referenced))) {
         addError(`Missing referenced path in ${relativePath}: ${referenced}`);
       }
+    }
+  }
+}
+
+function collectGraphPaths(graph) {
+  const paths = new Set();
+
+  function visit(value) {
+    if (typeof value === "string" && looksLikeWorkspacePath(value)) {
+      paths.add(value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        visit(item);
+      }
+      return;
+    }
+    if (value && typeof value === "object") {
+      for (const item of Object.values(value)) {
+        visit(item);
+      }
+    }
+  }
+
+  visit(graph);
+  return paths;
+}
+
+function looksLikeWorkspacePath(value) {
+  return value === "README.md" ||
+    value.startsWith("docs/") ||
+    value.startsWith("src/") ||
+    value.startsWith("scripts/") ||
+    value.startsWith("apps/") ||
+    value.startsWith("fixtures/") ||
+    value.startsWith("reports/") ||
+    value.startsWith("legacy/");
+}
+
+function checkGraphCoverage() {
+  const graph = readJson("docs/context-graph.json");
+  const routing = readJson("docs/context-routing.json");
+  const graphPaths = collectGraphPaths(graph);
+  const routingPaths = collectGraphPaths(routing);
+  const activeDocs = activeDocPaths();
+
+  for (const docPath of activeDocs) {
+    if (!graphPaths.has(docPath)) {
+      addError(`Active doc missing from context-graph.json: ${docPath}`);
+    }
+    if (!routingPaths.has(docPath)) {
+      addError(`Active doc missing from context-routing.json: ${docPath}`);
+    }
+  }
+
+  for (const jsonPath of [
+    "docs/scenario-coverage.json",
+    "docs/sales-six-step-gates.json",
+    "docs/role-storyline-acceptance.json",
+    "fixtures/p1-demo/management-command-center.json"
+  ]) {
+    if (!graphPaths.has(jsonPath)) {
+      addError(`Machine-readable asset missing from context-graph.json: ${jsonPath}`);
+    }
+    if (!routingPaths.has(jsonPath)) {
+      addError(`Machine-readable asset missing from context-routing.json: ${jsonPath}`);
+    }
+  }
+
+  for (const [key, value] of Object.entries(graph.authority_map ?? {})) {
+    if (!looksLikeWorkspacePath(value) || !existsSync(join(root, value))) {
+      addError(`Invalid authority_map path for ${key}: ${value}`);
+    }
+  }
+
+  for (const [name, concept] of Object.entries(graph.concepts ?? {})) {
+    if (!concept.authority || !existsSync(join(root, concept.authority))) {
+      addError(`Concept ${name} has invalid authority: ${concept.authority}`);
     }
   }
 }
@@ -166,7 +309,9 @@ function checkRootShape() {
 
 checkJsonFiles();
 checkMarkdownLinks();
+checkDocEntryIndexes();
 checkGraphPaths();
+checkGraphCoverage();
 checkSalesGateIds();
 checkEvidenceVocabulary();
 checkScenarioCoverage();

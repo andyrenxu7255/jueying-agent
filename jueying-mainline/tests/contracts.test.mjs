@@ -6,6 +6,10 @@ import {
   decideWritebackPolicy,
   evaluateSalesStage,
   buildOperatingConsoleViewModel,
+  buildManagementCommandCenterViewModel,
+  buildManagementCommandDispatchPreview,
+  buildRoleOperationPathTestReport,
+  buildOperationPathTestViewModel,
   buildRoleStorylineAcceptanceReport,
   buildStorylineAcceptanceViewModel,
   loadSalesGateModel,
@@ -16,6 +20,7 @@ import {
 import {
   buildLegacyIntegrationViewModel,
   buildLegacyBridgePreview,
+  buildLegacyRuntimeHealthCatalog,
   checkLegacyRuntimeHealth,
   createJueyingV1RuntimeClient,
   evidenceToLegacyFactWrite,
@@ -55,7 +60,8 @@ const p1FixtureState = {
     gateChecks: JSON.parse(readFileSync(new URL("../fixtures/p1-demo/sales-gate-checks.json", import.meta.url), "utf8")),
     mirrors: JSON.parse(readFileSync(new URL("../fixtures/p1-demo/external-fact-mirrors.json", import.meta.url), "utf8")),
     writebackIntents: JSON.parse(readFileSync(new URL("../fixtures/p1-demo/external-writeback-intents.json", import.meta.url), "utf8")),
-    agentOutputs: JSON.parse(readFileSync(new URL("../fixtures/p1-demo/agent-outputs.json", import.meta.url), "utf8"))
+    agentOutputs: JSON.parse(readFileSync(new URL("../fixtures/p1-demo/agent-outputs.json", import.meta.url), "utf8")),
+    management: JSON.parse(readFileSync(new URL("../fixtures/p1-demo/management-command-center.json", import.meta.url), "utf8"))
   }
 };
 
@@ -138,6 +144,48 @@ test("missing sales gate without information gap is rejected", () => {
   assert.match(result.issues.map((issue) => issue.message).join("\n"), /missing gate must reference/);
 });
 
+test("confirmed sales gate without evidence is rejected", () => {
+  const salesGateIndex = buildSalesGateIndex(loadSalesGateModel());
+  const result = validateContract(
+    "salesGateCheck",
+    {
+      id: "sgc_confirmed_without_evidence",
+      opportunity_id: "opp_001",
+      stage: "discover",
+      gate_id: "D-G7",
+      status: "confirmed",
+      evidence_ids: [],
+      information_gap_ids: [],
+      recommended_activity_ids: [],
+      owner_id: "user_sales",
+      updated_at: "2026-05-26T10:00:00+08:00"
+    },
+    { salesGateIndex }
+  );
+
+  assert.equal(result.ok, false);
+  assert.match(result.issues.map((issue) => issue.message).join("\n"), /must reference evidence/);
+});
+
+test("evidence quality score must stay within contract bounds", () => {
+  const result = validateContract("evidence", {
+    id: "ev_bad_quality",
+    evidence_type: "meeting_summary",
+    source_type: "human",
+    source_actor_id: "user_sales",
+    capture_channel: "meeting",
+    content_ref: {
+      kind: "text",
+      value: "Customer confirmed the next step."
+    },
+    quality_score: 1.2,
+    created_at: "2026-05-26T10:00:00+08:00"
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.issues.map((issue) => issue.message).join("\n"), /expected <= 1/);
+});
+
 test("high-risk writeback cannot auto execute", () => {
   const result = validateContract("externalWritebackIntent", {
     id: "wbi_test",
@@ -164,6 +212,33 @@ test("high-risk writeback cannot auto execute", () => {
 
   assert.equal(result.ok, false);
   assert.match(result.issues.map((issue) => issue.message).join("\n"), /high-risk writeback cannot/);
+});
+
+test("writeback intent must carry idempotency key and source reason", () => {
+  const result = validateContract("externalWritebackIntent", {
+    id: "wbi_missing_idempotency",
+    connection_id: "conn_crm",
+    system_type: "crm",
+    provider: "hubspot",
+    target: {
+      object_type: "opportunity",
+      external_id: "deal_1"
+    },
+    operation: "create_note",
+    payload: {
+      body: "Gate summary"
+    },
+    source: {
+      agent_id: "pm_agent_sales"
+    },
+    risk_level: "low",
+    policy_decision: "auto_execute",
+    created_at: "2026-05-26T10:00:00+08:00"
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.issues.map((issue) => issue.message).join("\n"), /idempotency_key|required field missing/);
+  assert.match(result.issues.map((issue) => issue.path).join("\n"), /\$\.source\.reason/);
 });
 
 test("accepted PM Agent verification must reference evidence", () => {
@@ -208,6 +283,24 @@ test("human twin collect result completeness must be bounded", () => {
   assert.match(result.issues.map((issue) => issue.message).join("\n"), /between 0 and 1/);
 });
 
+test("replan agent output must include trigger evidence, affected tasks, and new graph", () => {
+  const result = validateContract("agentOutput", {
+    id: "out_replan_bad",
+    kind: "replan",
+    agent_id: "pm_agent_delivery",
+    run_id: "run_delivery_001",
+    created_at: "2026-05-26T10:00:00+08:00",
+    payload: {
+      reason: "External PM status changed"
+    }
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.issues.map((issue) => issue.path).join("\n"), /\$\.payload\.trigger_evidence_ids/);
+  assert.match(result.issues.map((issue) => issue.path).join("\n"), /\$\.payload\.affected_task_ids/);
+  assert.match(result.issues.map((issue) => issue.path).join("\n"), /\$\.payload\.new_task_graph/);
+});
+
 test("writeback policy allows low-risk CRM note", () => {
   const decision = decideWritebackPolicy({
     operation: "create_note",
@@ -231,6 +324,21 @@ test("writeback policy requires confirmation for CRM amount update", () => {
 
   assert.equal(decision.decision, "needs_confirmation");
   assert.match(decision.reasons.join("\n"), /high-risk operation|amount/);
+});
+
+test("writeback policy requires confirmation for nested high-risk fields", () => {
+  const decision = decideWritebackPolicy({
+    operation: "create_note",
+    risk_level: "low",
+    payload: {
+      crm_update: {
+        expected_close_date: "2026-06-30"
+      }
+    }
+  });
+
+  assert.equal(decision.decision, "needs_confirmation");
+  assert.match(decision.reasons.join("\n"), /expected_close_date/);
 });
 
 test("writeback policy requires confirmation for PM status update", () => {
@@ -297,6 +405,128 @@ test("operating console view model surfaces missing gates and information tasks"
   assert.equal(viewModel.task_counts.needs_info, 1);
   assert.equal(viewModel.gate_counts.missing, 1);
   assert.match(viewModel.primary_alerts.join("\n"), /need information/);
+});
+
+test("management command center validates executive command, schedules, triggers, and swimlanes", () => {
+  const result = validateContract("managementCommandCenter", p1FixtureState.raw.management);
+  assert.equal(result.ok, true);
+  assert.ok(p1FixtureState.raw.management.commands.some((command) => command.trigger_type === "scheduled"));
+  assert.ok(p1FixtureState.raw.management.commands.some((command) => command.trigger_type === "condition"));
+  assert.ok(p1FixtureState.raw.management.commands.every((command) => command.generated_task_ids.length >= 1));
+  assert.ok(p1FixtureState.raw.management.execution_tasks.some((task) => task.status === "in_progress"));
+  assert.ok(p1FixtureState.raw.management.execution_tasks.some((task) => task.status === "done" && task.result_summary));
+  assert.ok(p1FixtureState.raw.management.execution_updates.some((update) => update.update_type === "progress"));
+  assert.ok(p1FixtureState.raw.management.execution_updates.some((update) => update.update_type === "result"));
+  assert.ok(p1FixtureState.raw.management.commands.some((command) =>
+    command.delegation_chain.map((item) => item.actor_type).includes("executive") &&
+    command.delegation_chain.some((item) => item.actor_type.endsWith("_agent")) &&
+    command.delegation_chain.some((item) => ["human", "human_twin_agent"].includes(item.actor_type))
+  ));
+});
+
+test("management command center view model exposes permissions and project swimlanes", () => {
+  const viewModel = buildManagementCommandCenterViewModel({
+    management: p1FixtureState.raw.management,
+    taskGraph: p1FixtureState.raw.taskGraph,
+    gaps: p1FixtureState.raw.gaps,
+    evidence: p1FixtureState.raw.evidence,
+    bridgePreview: { summary: { org_task_payload_count: 1 } }
+  });
+
+  assert.equal(viewModel.ok, true);
+  assert.equal(viewModel.active_role.role_type, "executive");
+  assert.equal(viewModel.permissions.can_create_command, true);
+  assert.equal(viewModel.summary.scheduled_command_count, 1);
+  assert.equal(viewModel.summary.condition_command_count, 1);
+  assert.equal(viewModel.summary.decomposed_task_count, p1FixtureState.raw.management.execution_tasks.length);
+  assert.ok(viewModel.summary.in_progress_task_count >= 1);
+  assert.ok(viewModel.summary.result_task_count >= 1);
+  assert.ok(viewModel.swimlanes.some((lane) => lane.title === "缺信息" && lane.tasks.length >= 1));
+  assert.ok(viewModel.swimlanes.some((lane) =>
+    lane.tasks.some((task) =>
+      task.source === "management_execution_task" &&
+      typeof task.progress_percent === "number" &&
+      task.latest_update?.message
+    )
+  ));
+  assert.ok(viewModel.swimlanes.some((lane) =>
+    lane.tasks.some((task) => task.result_summary)
+  ));
+  assert.ok(viewModel.projects.some((project) => project.domain === "delivery"));
+});
+
+test("management command center applies role-specific command visibility and read-only permissions", () => {
+  const management = structuredClone(p1FixtureState.raw.management);
+  management.active_user_id = "sales_agent_001";
+  const viewModel = buildManagementCommandCenterViewModel({
+    management,
+    taskGraph: p1FixtureState.raw.taskGraph,
+    gaps: p1FixtureState.raw.gaps,
+    evidence: p1FixtureState.raw.evidence,
+    bridgePreview: { summary: { org_task_payload_count: 1 } }
+  });
+
+  assert.equal(viewModel.ok, true);
+  assert.equal(viewModel.active_role.role_type, "specialized_agent");
+  assert.equal(viewModel.permissions.can_create_command, false);
+  assert.ok(viewModel.summary.command_count < p1FixtureState.raw.management.commands.length);
+  assert.ok(viewModel.commands.length >= 1);
+  assert.ok(viewModel.commands.every((command) =>
+    command.delegation_chain.some((item) => item.actor_id === "sales_agent_001")
+  ));
+  assert.ok(viewModel.swimlanes.flatMap((lane) => lane.tasks).some((task) =>
+    task.owner.id === "sales_agent_001" &&
+    typeof task.progress_percent === "number"
+  ));
+});
+
+test("management dispatch preview turns boss intent into agent delegation and task preview", () => {
+  const preview = buildManagementCommandDispatchPreview({
+    management: p1FixtureState.raw.management,
+    commandInput: {
+      title: "安排客户风险巡检",
+      objective: "老板要求 PM Agent 检查项目风险并委派交付 Agent 跟进。",
+      trigger_type: "condition",
+      specialized_agent_type: "delivery_agent",
+      specialized_agent_id: "delivery_agent_001",
+      executor_type: "human",
+      executor_id: "user_pm_chen"
+    },
+    taskGraph: p1FixtureState.raw.taskGraph
+  });
+
+  assert.equal(preview.ok, true);
+  assert.equal(preview.command.trigger_type, "condition");
+  assert.equal(preview.command.delegation_chain[0].actor_type, "executive");
+  assert.ok(preview.command.delegation_chain.some((item) => item.actor_type === "delivery_agent"));
+  assert.equal(preview.command.generated_task_ids.length, 3);
+  assert.equal(preview.execution_tasks.length, 3);
+  assert.ok(preview.execution_tasks.some((task) => task.status === "in_progress"));
+  assert.ok(preview.execution_tasks.some((task) => task.status === "needs_info"));
+  assert.ok(preview.execution_updates.some((update) => update.update_type === "decomposition"));
+  assert.equal(preview.task.owner_actor_type, "pm_agent");
+  assert.match(preview.bridge_routes.org_task_create, /admin\/tasks/);
+});
+
+test("management dispatch preview blocks non-creator roles without breaking the boss delegation chain", () => {
+  const management = structuredClone(p1FixtureState.raw.management);
+  management.active_user_id = "sales_agent_001";
+  const preview = buildManagementCommandDispatchPreview({
+    management,
+    commandInput: {
+      title: "销售 Agent 试图越权下发",
+      objective: "该角色只能查看被委派工作，不能代替老板创建管理指令。",
+      trigger_type: "manual",
+      specialized_agent_type: "sales_agent"
+    },
+    taskGraph: p1FixtureState.raw.taskGraph
+  });
+
+  assert.equal(preview.ok, false);
+  assert.match(preview.warnings.join("\n"), /cannot create/);
+  assert.equal(preview.command.created_by_role_id, "role_sales_agent");
+  assert.equal(preview.command.delegation_chain[0].actor_type, "executive");
+  assert.equal(preview.command.delegation_chain[0].actor_id, "user_exec_lina");
 });
 
 test("legacy JueYing v1 integration detects mainline capabilities", () => {
@@ -520,7 +750,8 @@ test("role storyline acceptance covers every documented role story and sales gat
 
   assert.equal(report.ok, true);
   assert.equal(report.summary.role_count, 10);
-  assert.equal(report.summary.step_count, 41);
+  assert.equal(report.summary.storyline_count, 12);
+  assert.equal(report.summary.step_count, 46);
   assert.equal(report.summary.failed_step_count, 0);
   assert.equal(report.summary.covered_story_count, report.summary.documented_story_count);
   assert.equal(report.summary.covered_story_count, 101);
@@ -559,4 +790,58 @@ test("storyline acceptance fails when a step references an unimplemented surface
 
   assert.equal(report.ok, false);
   assert.match(report.issues.map((item) => item.message).join("\n"), /unimplemented UI surface/);
+});
+
+test("role operation path tests materialize every role step as executable assertions", () => {
+  const legacyIntegration = inspectJueyingV1Integration();
+  const bridgePreview = buildLegacyBridgePreview({
+    taskGraph: p1FixtureState.raw.taskGraph,
+    gaps: p1FixtureState.raw.gaps,
+    evidence: p1FixtureState.raw.evidence,
+    writebackIntents: p1FixtureState.raw.writebackIntents
+  });
+  const report = buildRoleOperationPathTestReport({
+    matrix: loadRoleStorylineAcceptanceMatrix(),
+    scenarioCoverage: loadScenarioCoverage(),
+    salesGateModel: loadSalesGateModel(),
+    legacyIntegration,
+    state: p1FixtureState,
+    bridgePreview,
+    runtimeHealth: buildLegacyRuntimeHealthCatalog(legacyIntegration)
+  });
+
+  assert.equal(report.ok, true);
+  assert.equal(report.summary.role_count, 10);
+  assert.equal(report.summary.operation_path_count, 46);
+  assert.equal(report.summary.failed_operation_path_count, 0);
+  assert.equal(report.summary.assertion_count >= 478, true);
+  assert.equal(report.summary.failed_assertion_count, 0);
+  assert.equal(report.summary.external_sync_path_count, 9);
+  assert.equal(report.summary.legacy_bridge_path_count, 7);
+});
+
+test("operation path test view model exposes role path pass state", () => {
+  const legacyIntegration = inspectJueyingV1Integration();
+  const bridgePreview = buildLegacyBridgePreview({
+    taskGraph: p1FixtureState.raw.taskGraph,
+    gaps: p1FixtureState.raw.gaps,
+    evidence: p1FixtureState.raw.evidence,
+    writebackIntents: p1FixtureState.raw.writebackIntents
+  });
+  const report = buildRoleOperationPathTestReport({
+    matrix: loadRoleStorylineAcceptanceMatrix(),
+    scenarioCoverage: loadScenarioCoverage(),
+    salesGateModel: loadSalesGateModel(),
+    legacyIntegration,
+    state: p1FixtureState,
+    bridgePreview,
+    runtimeHealth: buildLegacyRuntimeHealthCatalog(legacyIntegration)
+  });
+  const viewModel = buildOperationPathTestViewModel(report);
+
+  assert.equal(viewModel.ok, true);
+  assert.ok(viewModel.roles.some((role) => role.id === "executive_coo"));
+  assert.ok(viewModel.roles.some((role) => role.id === "worker_agent"));
+  assert.ok(viewModel.roles.every((role) => role.status === "pass"));
+  assert.ok(viewModel.roles.every((role) => role.operation_path_count === role.passed_operation_path_count));
 });

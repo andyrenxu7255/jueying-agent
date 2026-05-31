@@ -1,10 +1,12 @@
 const state = {
   data: null,
-  view: "overview"
+  view: "overview",
+  userId: new URLSearchParams(window.location.search).get("user_id") ?? "user_exec_lina"
 };
 
 const viewTitles = {
   overview: "运营总览",
+  management: "管理指挥",
   gates: "销售 Gate",
   taskgraph: "TaskGraph",
   gaps: "信息缺口",
@@ -22,6 +24,13 @@ const elements = {
   viewTitle: document.querySelector("#view-title"),
   metricGrid: document.querySelector("#metric-grid"),
   alertsList: document.querySelector("#alerts-list"),
+  managementRoleStrip: document.querySelector("#management-role-strip"),
+  roleSwitcher: document.querySelector("#role-switcher"),
+  commandForm: document.querySelector("#command-form"),
+  dispatchPreview: document.querySelector("#dispatch-preview"),
+  managementCommandList: document.querySelector("#management-command-list"),
+  managementSwimlanes: document.querySelector("#management-swimlanes"),
+  managementProjects: document.querySelector("#management-projects"),
   gateTable: document.querySelector("#gate-table"),
   taskList: document.querySelector("#task-list"),
   gapList: document.querySelector("#gap-list"),
@@ -34,6 +43,8 @@ const elements = {
   legacyCutover: document.querySelector("#legacy-cutover"),
   storylineSummary: document.querySelector("#storyline-summary"),
   storylineRoles: document.querySelector("#storyline-roles"),
+  operationPathSummary: document.querySelector("#operation-path-summary"),
+  operationPathRoles: document.querySelector("#operation-path-roles"),
   contractHealth: document.querySelector("#contract-health")
 };
 
@@ -47,13 +58,18 @@ elements.refreshButton.addEventListener("click", () => {
   loadState();
 });
 
+elements.commandForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  previewManagementCommand(new FormData(elements.commandForm));
+});
+
 await loadState();
 
 async function loadState() {
   elements.loading.hidden = false;
   elements.error.hidden = true;
   try {
-    const response = await fetch("/api/state", { cache: "no-store" });
+    const response = await fetch(`/api/state?user_id=${encodeURIComponent(state.userId)}`, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Request failed: ${response.status}`);
     }
@@ -85,14 +101,242 @@ function render() {
   elements.healthPill.textContent = healthOk ? "Contracts OK" : "Needs Attention";
   elements.healthPill.className = `pill ${healthOk ? "is-ok" : "is-danger"}`;
   renderOverview(data);
+  renderManagement(data.views.management_command_center);
   renderGates(data.sales.discover_audit);
   renderTaskGraph(data.views.task_graph);
   renderGaps(data.views.information_gap_inbox);
   renderSync(data.views.external_sync_console, data.external_sync.writeback_policy_decisions);
   renderLegacy(data.views.legacy_integration, data.views.legacy_bridge_preview);
   renderStorylines(data.views.storyline_acceptance);
+  renderOperationPaths(data.views.operation_path_tests);
   renderContracts(data);
   setView(state.view);
+}
+
+async function previewManagementCommand(formData) {
+  if (!elements.dispatchPreview) return;
+  elements.dispatchPreview.innerHTML = `
+    <div class="compact-item">
+      <strong>正在生成指挥预览</strong>
+      <p>运营 PM Agent 正在把经营意图转换成委派链和 TaskGraph。</p>
+    </div>
+  `;
+  const payload = {
+    ...Object.fromEntries(formData.entries()),
+    user_id: state.userId
+  };
+  try {
+    const response = await fetch(`/api/management/dispatch-preview?user_id=${encodeURIComponent(state.userId)}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+    renderDispatchPreview(await response.json());
+  } catch (error) {
+    elements.dispatchPreview.innerHTML = `
+      <div class="compact-item">
+        <strong>生成失败</strong>
+        <p>${escapeHtml(error instanceof Error ? error.message : String(error))}</p>
+      </div>
+    `;
+  }
+}
+
+function renderManagement(viewModel) {
+  if (!viewModel || !elements.managementRoleStrip) return;
+  const role = viewModel.active_role;
+  const summary = viewModel.summary;
+  const canCreate = viewModel.permissions?.can_create_command === true;
+  state.userId = role?.user_id ?? state.userId;
+  elements.managementRoleStrip.innerHTML = `
+    <div class="role-card">
+      <span>当前登录视角</span>
+      <strong>${escapeHtml(role?.name ?? "未登录")}</strong>
+      <p>${escapeHtml(role?.role_type ?? "unknown")} · ${escapeHtml((role?.permissions ?? []).join(" / "))}</p>
+    </div>
+    <div class="role-card">
+      <span>指令</span>
+      <strong>${escapeHtml(String(summary.command_count))}</strong>
+      <p>${escapeHtml(`${summary.manual_command_count} 即时 / ${summary.scheduled_command_count} 定时 / ${summary.condition_command_count} 条件`)}</p>
+    </div>
+    <div class="role-card">
+      <span>项目</span>
+      <strong>${escapeHtml(String(summary.project_count))}</strong>
+      <p>${escapeHtml(`${summary.red_project_count} 个红灯项目 · ${summary.delegated_task_count} 个已委派任务`)}</p>
+    </div>
+    <div class="role-card">
+      <span>执行闭环</span>
+      <strong>${escapeHtml(String(summary.decomposed_task_count ?? 0))}</strong>
+      <p>${escapeHtml(`${summary.in_progress_task_count ?? 0} 执行中 · ${summary.result_task_count ?? 0} 有结果`)}</p>
+    </div>
+    <div class="role-card">
+      <span>旧主版本派单</span>
+      <strong>${escapeHtml(String(summary.bridge_org_task_count))}</strong>
+      <p>Information Gap 可进入 org_task / assignment 通道</p>
+    </div>
+  `;
+  renderRoleSwitcher(viewModel);
+  setCommandFormAvailability(canCreate, role);
+
+  elements.managementCommandList.innerHTML = viewModel.commands.map((command) => `
+    <div class="compact-item command-item">
+      <strong>${escapeHtml(command.title)} · ${statusPill(command.status)}</strong>
+      <p>${escapeHtml(command.trigger_type)} · ${escapeHtml(command.objective)}</p>
+      <p>${escapeHtml(`自动拆解：${command.generated_task_count ?? 0} 个执行任务`)}</p>
+      ${command.schedule ? `<p>定时：${escapeHtml(command.schedule.cadence_label ?? command.schedule.next_run_at)}</p>` : ""}
+      ${command.condition ? `<p>条件：${escapeHtml(`${command.condition.signal} ${command.condition.operator} ${command.condition.threshold}`)}</p>` : ""}
+      <div class="delegation-chain">
+        ${command.delegation_chain.map((item) => `<span>${escapeHtml(`${item.order}. ${item.actor_type}`)}</span>`).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  elements.managementSwimlanes.innerHTML = viewModel.swimlanes.map((lane) => `
+    <section class="swimlane">
+      <header>
+        <h4>${escapeHtml(lane.title)}</h4>
+        <span>${escapeHtml(String(lane.tasks.length))}</span>
+      </header>
+      <div class="swimlane-tasks">
+        ${lane.tasks.length ? lane.tasks.map((task) => `
+          <article class="swimlane-card">
+            <strong>${escapeHtml(task.title)}</strong>
+            ${task.command ? `<p>来自：${escapeHtml(task.command.title)}</p>` : ""}
+            <p>${escapeHtml(task.owner.type)} / ${escapeHtml(task.owner.id)}</p>
+            ${typeof task.progress_percent === "number" ? `
+              <div class="progress-bar" aria-label="${escapeHtml(`进度 ${task.progress_percent}%`)}">
+                <span style="width: ${escapeHtml(String(task.progress_percent))}%"></span>
+              </div>
+              <p>${escapeHtml(`进度 ${task.progress_percent}%`)}</p>
+            ` : ""}
+            ${task.latest_update ? `<p>进展：${escapeHtml(task.latest_update.message)}</p>` : ""}
+            ${task.result_summary ? `<p>结果：${escapeHtml(task.result_summary)}</p>` : ""}
+            ${task.blocker ? `<p>阻塞：${escapeHtml(task.blocker)}</p>` : ""}
+            <div class="tag-row">
+              <span>${escapeHtml(task.status)}</span>
+              ${typeof task.gap_count === "number" ? `<span>${escapeHtml(`${task.gap_count} gaps`)}</span>` : ""}
+              <span>${escapeHtml(`${task.evidence_count} evidence`)}</span>
+              <span>${escapeHtml(task.source === "management_execution_task" ? "执行任务" : "TaskGraph")}</span>
+            </div>
+          </article>
+        `).join("") : `<div class="empty-lane">暂无任务</div>`}
+      </div>
+    </section>
+  `).join("");
+
+  elements.managementProjects.innerHTML = viewModel.projects.map((project) => `
+    <article class="project-card">
+      <header>
+        <div>
+          <h4>${escapeHtml(project.name)}</h4>
+          <p>${escapeHtml(project.domain)} · ${escapeHtml(project.status)}</p>
+        </div>
+        ${statusPill(project.health)}
+      </header>
+      <p>${escapeHtml(project.commands.map((command) => command.title).join(" / "))}</p>
+    </article>
+  `).join("");
+
+  if (!elements.dispatchPreview.innerHTML || !canCreate) {
+    renderDispatchPreview({
+      ok: viewModel.permissions.can_create_command,
+      command: viewModel.commands.find((command) => command.trigger_type === "manual") ?? viewModel.commands[0],
+      task: viewModel.swimlanes.flatMap((lane) => lane.tasks)[0] ?? null,
+      bridge_routes: {
+        workflow_plan: "/internal/workflows/plan",
+        org_task_create: "/admin/tasks",
+        human_assignment: "/internal/tasks/assign",
+        audit_projection: "/api/admin/audit"
+      },
+      warnings: canCreate ? [] : [`${role?.name ?? "当前角色"}没有下发管理指令权限，可查看看板但不能创建任务。`]
+    });
+  }
+}
+
+function renderRoleSwitcher(viewModel) {
+  if (!elements.roleSwitcher) return;
+  const activeUserId = viewModel.active_role?.user_id;
+  elements.roleSwitcher.innerHTML = (viewModel.roles ?? []).map((role) => {
+    const active = role.user_id === activeUserId;
+    const permissions = role.permissions ?? [];
+    return `
+      <button type="button" class="role-switch ${active ? "is-active" : ""}" data-user-id="${escapeHtml(role.user_id)}" aria-pressed="${active ? "true" : "false"}">
+        <strong>${escapeHtml(role.name)}</strong>
+        <span>${escapeHtml(role.role_type)} · ${escapeHtml(permissions.join(" / "))}</span>
+      </button>
+    `;
+  }).join("");
+  elements.roleSwitcher.querySelectorAll("[data-user-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const userId = button.dataset.userId;
+      if (!userId || userId === state.userId) return;
+      state.userId = userId;
+      elements.dispatchPreview.innerHTML = "";
+      loadState();
+    });
+  });
+}
+
+function setCommandFormAvailability(canCreate, role) {
+  if (!elements.commandForm) return;
+  const controls = elements.commandForm.querySelectorAll("input, select, textarea, button");
+  controls.forEach((control) => {
+    control.disabled = !canCreate;
+  });
+  elements.commandForm.classList.toggle("is-read-only", !canCreate);
+  let notice = elements.commandForm.querySelector(".permission-notice");
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.className = "permission-notice";
+    elements.commandForm.prepend(notice);
+  }
+  notice.hidden = canCreate;
+  notice.textContent = `${role?.name ?? "当前角色"}可查看管理看板，但没有下发新任务的权限。`;
+}
+
+function renderDispatchPreview(preview) {
+  if (!elements.dispatchPreview) return;
+  const command = preview.command;
+  const warnings = preview.warnings ?? [];
+  const executionTasks = preview.execution_tasks ?? [];
+  elements.dispatchPreview.innerHTML = `
+    <div class="compact-item">
+      <strong>${escapeHtml(command?.title ?? "指挥预览")} · ${statusPill(preview.ok ? "ready" : "blocked")}</strong>
+      <p>${escapeHtml(command?.objective ?? "")}</p>
+      ${warnings.length ? `<p>${escapeHtml(warnings.join(" / "))}</p>` : ""}
+    </div>
+    <div class="delegation-preview">
+      ${(command?.delegation_chain ?? []).map((item) => `
+        <div class="chain-node">
+          <span>${escapeHtml(String(item.order))}</span>
+          <strong>${escapeHtml(item.actor_type)}</strong>
+          <p>${escapeHtml(item.responsibility)}</p>
+        </div>
+      `).join("")}
+    </div>
+    <div class="meta-grid">
+      <div class="meta"><span>TaskGraph</span><strong>${escapeHtml(command?.task_graph_id ?? "")}</strong></div>
+      <div class="meta"><span>Task</span><p>${escapeHtml(preview.task?.title ?? "等待生成")}</p></div>
+      <div class="meta"><span>Bridge</span><p>${escapeHtml(Object.values(preview.bridge_routes ?? {}).join(" / "))}</p></div>
+    </div>
+    ${executionTasks.length ? `
+      <div class="preview-execution">
+        ${executionTasks.map((task) => `
+          <article class="swimlane-card">
+            <strong>${escapeHtml(task.title)}</strong>
+            <p>${escapeHtml(`${task.owner_actor_type} / ${task.owner_actor_id}`)}</p>
+            <div class="progress-bar" aria-label="${escapeHtml(`进度 ${task.progress_percent}%`)}">
+              <span style="width: ${escapeHtml(String(task.progress_percent))}%"></span>
+            </div>
+            <p>${escapeHtml(`泳道：${task.status} · 进度 ${task.progress_percent}%`)}</p>
+            ${task.result_summary ? `<p>结果：${escapeHtml(task.result_summary)}</p>` : ""}
+            ${task.blocker ? `<p>阻塞：${escapeHtml(task.blocker)}</p>` : ""}
+          </article>
+        `).join("")}
+      </div>
+    ` : ""}
+  `;
 }
 
 function renderOverview(data) {
@@ -393,6 +637,63 @@ function renderStorylines(viewModel) {
   `).join("");
 }
 
+function renderOperationPaths(viewModel) {
+  if (!elements.operationPathSummary || !elements.operationPathRoles) return;
+  const summaryItems = [
+    ["Operation Paths", `${viewModel.summary.passed_operation_path_count}/${viewModel.summary.operation_path_count}`, "逐角色操作路径测试用例"],
+    ["Assertions", `${viewModel.summary.passed_assertion_count}/${viewModel.summary.assertion_count}`, "UI / API / Contract / Fixture / Bridge 断言"],
+    ["External Sync", viewModel.summary.external_sync_path_count, "CRM 和项目管理外部同步路径"],
+    ["Legacy Bridge", viewModel.summary.legacy_bridge_path_count, "JueYing 主版本桥接路径"]
+  ];
+  elements.operationPathSummary.innerHTML = summaryItems.map(([label, value, detail]) => `
+    <article class="metric">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(String(value))}</strong>
+      <p>${escapeHtml(detail)}</p>
+    </article>
+  `).join("");
+
+  elements.operationPathRoles.innerHTML = viewModel.roles.map((role) => `
+    <section class="workspace-band storyline-role">
+      <header class="storyline-role-header">
+        <div>
+          <h3>${escapeHtml(role.name)}</h3>
+          <p>${escapeHtml(`${role.passed_operation_path_count}/${role.operation_path_count} operation paths`)}</p>
+        </div>
+        ${statusPill(role.status)}
+      </header>
+      <div class="storyline-stack">
+        ${role.storylines.map((storyline) => `
+          <article class="storyline-card">
+            <header>
+              <div>
+                <h4>${escapeHtml(storyline.title)}</h4>
+                <p>${escapeHtml(`${storyline.passed_operation_path_count}/${storyline.operation_path_count} paths`)}</p>
+              </div>
+              ${statusPill(storyline.status)}
+            </header>
+            <div class="step-list">
+              ${storyline.test_cases.map((testCase) => `
+                <div class="step-item">
+                  <div class="step-title">
+                    <strong>${escapeHtml(testCase.action)}</strong>
+                    ${statusPill(testCase.status)}
+                  </div>
+                  <p>${escapeHtml(`${testCase.passed_assertion_count}/${testCase.assertion_count} assertions · ${testCase.expected_result}`)}</p>
+                  <div class="tag-row">
+                    ${testCase.verification_modes.slice(0, 4).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+                    ${testCase.ui_surfaces.slice(0, 3).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `).join("");
+}
+
 function renderContracts(data) {
   elements.contractHealth.innerHTML = `
     <div class="meta-grid">
@@ -400,6 +701,7 @@ function renderContracts(data) {
       <div class="meta"><span>Gate Count</span><strong>${escapeHtml(String(data.sales.gate_count))}</strong></div>
       <div class="meta"><span>JueYing Mainline</span><strong>${escapeHtml(data.views.legacy_integration.ok ? "OK" : "Failed")}</strong></div>
       <div class="meta"><span>Storylines</span><strong>${escapeHtml(data.views.storyline_acceptance.ok ? "OK" : "Failed")}</strong></div>
+      <div class="meta"><span>Operation Paths</span><strong>${escapeHtml(data.views.operation_path_tests.ok ? "OK" : "Failed")}</strong></div>
       <div class="meta"><span>Generated</span><p>${escapeHtml(data.generated_at)}</p></div>
     </div>
     <pre>${escapeHtml(JSON.stringify(data.health, null, 2))}</pre>

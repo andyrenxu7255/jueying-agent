@@ -153,10 +153,33 @@ export function buildLegacyBridgePreview({ taskGraph, gaps = [], evidence = [], 
   };
 }
 
+export function buildLegacyRuntimeHealthCatalog(report = inspectJueyingV1Integration()) {
+  const services = (report.service_runtime ?? []).map((service) => {
+    const baseUrl = process.env[service.url_env] || service.default_url;
+    return {
+      service_name: service.service_name,
+      url_env: service.url_env,
+      health_url: `${baseUrl.replace(/\/$/, "")}${service.health_path}`,
+      online: false,
+      status: "not_checked",
+      capabilities: service.capabilities
+    };
+  });
+
+  return {
+    ok: services.length > 0,
+    generated_at: new Date().toISOString(),
+    timeout_ms: 0,
+    online_count: 0,
+    service_count: services.length,
+    services
+  };
+}
+
 export async function checkLegacyRuntimeHealth(report = inspectJueyingV1Integration(), options = {}) {
   const timeoutMs = options.timeoutMs ?? 600;
   const services = [];
-  for (const service of report.service_runtime) {
+  for (const service of report.service_runtime ?? []) {
     const baseUrl = process.env[service.url_env] || service.default_url;
     const healthUrl = `${baseUrl.replace(/\/$/, "")}${service.health_path}`;
     const startedAt = Date.now();

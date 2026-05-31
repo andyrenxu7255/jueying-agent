@@ -20,6 +20,7 @@
         </div>
         <nav class="nav" aria-label="Views">
           <button type="button" class="nav-item is-active" data-view="overview">总览</button>
+          <button type="button" class="nav-item" data-view="management">管理指挥</button>
           <button type="button" class="nav-item" data-view="gates">销售 Gate</button>
           <button type="button" class="nav-item" data-view="taskgraph">TaskGraph</button>
           <button type="button" class="nav-item" data-view="gaps">信息缺口</button>
@@ -53,6 +54,90 @@
               <p>来自任务、Gate、外部镜像和反写队列</p>
             </div>
             <div id="alerts-list" class="alert-list"></div>
+          </section>
+        </section>
+
+        <section id="view-management" class="view" aria-labelledby="view-title">
+          <div class="section-heading">
+            <h3>管理指挥中心</h3>
+            <p>老板下达经营意图，运营 Agent 拆解任务，再委派给专门 Agent、Worker Agent 或下属人员</p>
+          </div>
+          <div class="role-strip" id="management-role-strip"></div>
+          <section class="workspace-band role-switch-panel">
+            <div class="section-heading">
+              <h3>登录身份</h3>
+              <p>同一统一界面按角色权限展示和限制可执行动作</p>
+            </div>
+            <div id="role-switcher" class="role-switcher"></div>
+          </section>
+          <div class="management-grid">
+            <section class="workspace-band command-panel">
+              <div class="section-heading">
+                <h3>下发任务</h3>
+                <p>在统一 JueYing 控制台里生成指令、委派链和 TaskGraph 预览</p>
+              </div>
+              <form id="command-form" class="command-form">
+                <label>
+                  <span>任务标题</span>
+                  <input name="title" autocomplete="off" value="让销售 Agent 本周补齐 ACME 冠军证据">
+                </label>
+                <label>
+                  <span>经营意图</span>
+                  <textarea name="objective" rows="4">老板要求运营 PM Agent 检查 ACME 商机质量，委派销售 Agent 补齐冠军、下一步动作和客户确认，必要时让 Human Twin 追问销售同事。</textarea>
+                </label>
+                <div class="form-grid">
+                  <label>
+                    <span>触发方式</span>
+                    <select name="trigger_type">
+                      <option value="manual">即时下发</option>
+                      <option value="scheduled">定时任务</option>
+                      <option value="condition">条件触发</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>专门 Agent</span>
+                    <select name="specialized_agent_type">
+                      <option value="sales_agent">销售 Agent</option>
+                      <option value="delivery_agent">交付 Agent</option>
+                      <option value="worker_agent">Worker Agent</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="form-grid">
+                  <label>
+                    <span>下次运行</span>
+                    <input name="next_run_at" value="2026-06-01T09:00:00+08:00">
+                  </label>
+                  <label>
+                    <span>触发信号</span>
+                    <input name="condition_signal" value="task_graph.needs_info_count">
+                  </label>
+                </div>
+                <button type="submit" class="primary-button">生成指挥预览</button>
+              </form>
+              <div id="dispatch-preview" class="dispatch-preview"></div>
+            </section>
+            <section class="workspace-band">
+              <div class="section-heading">
+                <h3>自动任务</h3>
+                <p>定时巡检和条件触发都回到同一套 Agent 委派链</p>
+              </div>
+              <div id="management-command-list" class="compact-list"></div>
+            </section>
+          </div>
+          <section class="workspace-band">
+            <div class="section-heading">
+              <h3>项目泳道</h3>
+              <p>按项目/任务状态查看从计划、委派、执行、缺信息、验收到完成的流转</p>
+            </div>
+            <div id="management-swimlanes" class="swimlane-board"></div>
+          </section>
+          <section class="workspace-band">
+            <div class="section-heading">
+              <h3>项目组合</h3>
+              <p>不限销售，也覆盖交付、运营、治理和自定义组织管理项目</p>
+            </div>
+            <div id="management-projects" class="project-grid"></div>
           </section>
         </section>
 
@@ -130,9 +215,17 @@
         <section id="view-storylines" class="view" aria-labelledby="view-title">
           <div class="section-heading">
             <h3>角色故事线验收</h3>
-            <p>逐角色、逐故事线、逐步骤检查业务闭环、界面、接口、契约和整合能力</p>
+            <p>逐角色、逐故事线、逐操作路径检查业务闭环、界面、接口、契约和整合能力</p>
           </div>
           <div class="legacy-summary" id="storyline-summary"></div>
+          <section class="workspace-band">
+            <div class="section-heading">
+              <h3>操作路径测试</h3>
+              <p>从角色故事线矩阵派生的可执行测试用例与断言</p>
+            </div>
+            <div class="legacy-summary" id="operation-path-summary"></div>
+            <div id="operation-path-roles" class="storyline-list"></div>
+          </section>
           <div id="storyline-roles" class="storyline-list"></div>
         </section>
 

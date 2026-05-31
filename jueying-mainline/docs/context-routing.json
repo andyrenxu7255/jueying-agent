@@ -1,6 +1,6 @@
 {
   "version": "v0.1",
-  "updated_at": "2026-05-26",
+  "updated_at": "2026-05-31",
   "description": "Task routing for JueYing mainline design and implementation work under jueying-mainline/. The AI-native operating console is a built-in JueYing mainline module, not a separate application.",
   "default_bootstrap_docs": [
     "README.md",
@@ -15,9 +15,11 @@
     "docs/DEV-34-文档图谱一致性审计与修复记录.md",
     "docs/DEV-35-核心代码实施路线与自检计划.md",
     "docs/DEV-36-JueYing主版本能力整合实施记录.md",
-    "docs/DEV-37-角色故事线逐步验收回归记录.md",
-    "docs/role-storyline-acceptance.json",
-    "docs/DEV-26-对象依赖与系统图谱.md",
+        "docs/DEV-37-角色故事线逐步验收回归记录.md",
+        "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
+        "docs/role-storyline-acceptance.json",
+        "fixtures/p1-demo/management-command-center.json",
+        "docs/DEV-26-对象依赖与系统图谱.md",
     "docs/DEV-27-研发前决策清单与风险边界.md"
   ],
   "path_policy": {
@@ -149,6 +151,7 @@
         "docs/DEV-24-JueYing应用差距复盘与整合界面路线.md",
         "docs/DEV-26-对象依赖与系统图谱.md",
         "docs/DEV-36-JueYing主版本能力整合实施记录.md",
+        "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
         "legacy/jueying-v1/agent-harness/ARCHITECTURE.md",
         "legacy/jueying-v1/agent-harness/README.md"
       ],
@@ -172,6 +175,7 @@
         "docs/DEV-35-核心代码实施路线与自检计划.md",
         "docs/DEV-36-JueYing主版本能力整合实施记录.md",
         "docs/DEV-37-角色故事线逐步验收回归记录.md",
+        "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
         "docs/role-storyline-acceptance.json"
       ],
       "optional": [
@@ -195,6 +199,7 @@
         "docs/DEV-35-核心代码实施路线与自检计划.md",
         "docs/DEV-36-JueYing主版本能力整合实施记录.md",
         "docs/DEV-37-角色故事线逐步验收回归记录.md",
+        "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
         "docs/role-storyline-acceptance.json"
       ],
       "optional": [
@@ -211,7 +216,9 @@
         "docs/context-routing.json",
         "docs/scenario-coverage.json",
         "docs/sales-six-step-gates.json",
-        "docs/role-storyline-acceptance.json"
+        "docs/role-storyline-acceptance.json",
+        "docs/DEV-37-角色故事线逐步验收回归记录.md",
+        "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md"
       ],
       "optional": [
         "docs/DEV-23-AI原生运营系统总纲.md",
@@ -240,7 +247,8 @@
         "src/contracts/index.mjs",
         "src/integrations/jueying-v1/index.mjs",
         "scripts/check-contracts.mjs",
-        "tests/contracts.test.mjs"
+        "tests/contracts.test.mjs",
+        "fixtures/p1-demo/management-command-center.json"
       ],
       "optional": [
         "docs/DEV-29-能力覆盖矩阵与研发补洞清单.md",
@@ -260,7 +268,54 @@
         "Information Gap",
         "Evidence",
         "SalesGateCheck",
-        "Writeback Intent"
+        "Writeback Intent",
+        "Management Command Center"
+      ]
+    },
+    "management_command_center": {
+      "must_read": [
+        "docs/DEV-23-AI原生运营系统总纲.md",
+        "docs/DEV-25-用户故事线与验收旅程.md",
+        "docs/DEV-26-对象依赖与系统图谱.md",
+        "docs/DEV-31-TaskGraph与信息缺口最小契约.md",
+        "docs/DEV-37-角色故事线逐步验收回归记录.md",
+        "docs/role-storyline-acceptance.json",
+        "fixtures/p1-demo/management-command-center.json",
+        "src/contracts/view-models.mjs",
+        "apps/ops-console/server.mjs",
+        "apps/ops-console/public/app.js",
+        "apps/ops-console/public/index.html",
+        "tests/contracts.test.mjs"
+      ],
+      "optional": [
+        "docs/DEV-28-场景故事库-销售与项目交付.md",
+        "docs/DEV-29-能力覆盖矩阵与研发补洞清单.md",
+        "src/contracts/schema.mjs",
+        "src/contracts/operation-path-tests.mjs",
+        "scripts/smoke-app.mjs",
+        "scripts/browser-smoke.mjs"
+      ],
+      "keywords": [
+        "老板",
+        "managementCommandCenter",
+        "管理指挥",
+        "下发任务",
+        "自动拆解",
+        "执行进展",
+        "执行结果",
+        "定时任务",
+        "条件触发",
+        "泳道",
+        "项目看板",
+        "management command",
+        "automatic decomposition",
+        "execution update",
+        "execution result",
+        "schedule",
+        "condition trigger",
+        "swimlane",
+        "boss",
+        "executive"
       ]
     },
     "role_storyline_acceptance": {
@@ -274,7 +329,11 @@
         "docs/DEV-33-项目管理事实层对接与双向同步机制.md",
         "docs/DEV-36-JueYing主版本能力整合实施记录.md",
         "docs/DEV-37-角色故事线逐步验收回归记录.md",
+        "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
         "docs/role-storyline-acceptance.json",
+        "src/contracts/operation-path-tests.mjs",
+        "scripts/run-operation-path-tests.mjs",
+        "reports/role-operation-path-tests.json",
         "src/contracts/storyline-acceptance.mjs",
         "scripts/run-storyline-acceptance.mjs",
         "tests/contracts.test.mjs"
@@ -291,9 +350,38 @@
         "acceptance",
         "role",
         "storyline",
+        "operation path",
+        "操作路径",
+        "测试用例",
         "SS-",
         "PD-",
         "XS-"
+      ]
+    },
+    "live_runtime_bridge_validation": {
+      "must_read": [
+        "docs/DEV-24-JueYing应用差距复盘与整合界面路线.md",
+        "docs/DEV-31-TaskGraph与信息缺口最小契约.md",
+        "docs/DEV-36-JueYing主版本能力整合实施记录.md",
+        "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
+        "src/integrations/jueying-v1/index.mjs",
+        "src/integrations/jueying-v1/runtime-client.mjs",
+        "scripts/live-legacy-bridge-smoke.mjs"
+      ],
+      "optional": [
+        "reports/live-legacy-bridge-smoke.json",
+        "legacy/jueying-v1/agent-harness/docker-compose.yml",
+        "legacy/jueying-v1/agent-harness/.env.example"
+      ],
+      "keywords": [
+        "在线联调",
+        "live smoke",
+        "legacy:live-smoke",
+        "runtime health",
+        "workflow-service",
+        "org_task",
+        "fact-retrieval",
+        "Docker"
       ]
     }
   }

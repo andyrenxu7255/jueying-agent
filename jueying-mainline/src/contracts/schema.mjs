@@ -5,6 +5,9 @@ import {
   EVIDENCE_TYPES,
   EXTERNAL_SYSTEM_TYPES,
   INFORMATION_GAP_STATUSES,
+  MANAGEMENT_COMMAND_STATUSES,
+  MANAGEMENT_PROJECT_STATUSES,
+  MANAGEMENT_TRIGGER_TYPES,
   SALES_GATE_STATUSES,
   SALES_STAGE_ORDER,
   TASK_GRAPH_STATUSES,
@@ -319,6 +322,237 @@ export const agentOutputSchema = {
   }
 };
 
+export const managementCommandCenterSchema = {
+  $id: "https://teamclaw.ai/schemas/management-command-center.schema.json",
+  type: "object",
+  additionalProperties: false,
+  required: ["id", "version", "active_user_id", "roles", "commands", "execution_tasks", "execution_updates", "projects", "swimlanes"],
+  properties: {
+    id: { type: "string", pattern: idPattern },
+    version: { type: "string", minLength: 1 },
+    active_user_id: { type: "string", minLength: 1 },
+    roles: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "name", "user_id", "role_type", "permissions", "default_view"],
+        properties: {
+          id: { type: "string", pattern: idPattern },
+          name: { type: "string", minLength: 1 },
+          user_id: { type: "string", minLength: 1 },
+          role_type: { type: "string", enum: ["executive", "manager", "agent_operator", "specialized_agent", "worker", "admin"] },
+          permissions: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "string",
+              enum: [
+                "view_management_dashboard",
+                "create_command",
+                "schedule_command",
+                "configure_trigger",
+                "delegate_to_agent",
+                "approve_high_risk",
+                "view_all_projects",
+                "view_assigned_work",
+                "configure_governance"
+              ]
+            }
+          },
+          default_view: { type: "string", enum: ["management_command_center", "assigned_work", "admin_governance"] }
+        }
+      }
+    },
+    commands: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "id",
+          "title",
+          "status",
+          "trigger_type",
+          "created_by_role_id",
+          "target_agent_id",
+          "objective",
+          "task_graph_id",
+          "project_id",
+          "delegation_chain",
+          "created_at"
+        ],
+        properties: {
+          id: { type: "string", pattern: idPattern },
+          title: { type: "string", minLength: 1 },
+          status: { type: "string", enum: MANAGEMENT_COMMAND_STATUSES },
+          trigger_type: { type: "string", enum: MANAGEMENT_TRIGGER_TYPES },
+          created_by_role_id: { type: "string", pattern: idPattern },
+          target_agent_id: { type: "string", minLength: 1 },
+          objective: { type: "string", minLength: 1 },
+          task_graph_id: { type: "string", pattern: idPattern },
+          project_id: { type: "string", pattern: idPattern },
+          generated_task_ids: {
+            type: "array",
+            minItems: 1,
+            items: { type: "string", pattern: idPattern }
+          },
+          schedule: {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind", "timezone", "next_run_at"],
+            properties: {
+              kind: { type: "string", enum: ["once", "daily", "weekly", "monthly"] },
+              timezone: { type: "string", minLength: 1 },
+              next_run_at: { type: "string", pattern: isoDateTimePattern },
+              cadence_label: { type: "string" }
+            }
+          },
+          condition: {
+            type: "object",
+            additionalProperties: false,
+            required: ["signal", "operator", "threshold", "evaluation_window"],
+            properties: {
+              signal: { type: "string", minLength: 1 },
+              operator: { type: "string", enum: ["equals", "not_equals", "greater_than", "less_than", "contains", "missing_for"] },
+              threshold: { type: "string", minLength: 1 },
+              evaluation_window: { type: "string", minLength: 1 }
+            }
+          },
+          delegation_chain: {
+            type: "array",
+            minItems: 2,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["order", "actor_type", "actor_id", "responsibility"],
+              properties: {
+                order: { type: "integer", minimum: 1 },
+                actor_type: { type: "string", enum: ["executive", "pm_agent", "sales_agent", "delivery_agent", "worker_agent", "human_twin_agent", "human"] },
+                actor_id: { type: "string", minLength: 1 },
+                responsibility: { type: "string", minLength: 1 }
+              }
+            }
+          },
+          created_at: { type: "string", pattern: isoDateTimePattern },
+          last_triggered_at: { type: "string", pattern: isoDateTimePattern }
+        }
+      }
+    },
+    execution_tasks: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "id",
+          "command_id",
+          "project_id",
+          "title",
+          "status",
+          "owner_actor_type",
+          "owner_actor_id",
+          "source_agent_id",
+          "acceptance_criteria",
+          "progress_percent",
+          "created_at"
+        ],
+        properties: {
+          id: { type: "string", pattern: idPattern },
+          command_id: { type: "string", pattern: idPattern },
+          project_id: { type: "string", pattern: idPattern },
+          task_graph_id: { type: "string", pattern: idPattern },
+          title: { type: "string", minLength: 1 },
+          status: { type: "string", enum: MANAGEMENT_PROJECT_STATUSES },
+          owner_actor_type: { type: "string", enum: ["pm_agent", "sales_agent", "delivery_agent", "worker_agent", "human_twin_agent", "human"] },
+          owner_actor_id: { type: "string", minLength: 1 },
+          source_agent_id: { type: "string", minLength: 1 },
+          acceptance_criteria: { type: "string", minLength: 1 },
+          due_at: { type: "string", pattern: isoDateTimePattern },
+          progress_percent: { type: "number", minimum: 0, maximum: 100 },
+          latest_update_id: { type: "string", pattern: idPattern },
+          result_summary: { type: "string" },
+          blocker: { type: "string" },
+          evidence_ids: {
+            type: "array",
+            items: { type: "string", pattern: idPattern }
+          },
+          created_at: { type: "string", pattern: isoDateTimePattern },
+          updated_at: { type: "string", pattern: isoDateTimePattern }
+        }
+      }
+    },
+    execution_updates: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "task_id", "actor_type", "actor_id", "update_type", "status", "message", "progress_percent", "created_at"],
+        properties: {
+          id: { type: "string", pattern: idPattern },
+          task_id: { type: "string", pattern: idPattern },
+          actor_type: { type: "string", enum: ["pm_agent", "sales_agent", "delivery_agent", "worker_agent", "human_twin_agent", "human"] },
+          actor_id: { type: "string", minLength: 1 },
+          update_type: { type: "string", enum: ["decomposition", "handoff", "progress", "evidence", "blocker", "result"] },
+          status: { type: "string", enum: MANAGEMENT_PROJECT_STATUSES },
+          message: { type: "string", minLength: 1 },
+          progress_percent: { type: "number", minimum: 0, maximum: 100 },
+          evidence_ids: {
+            type: "array",
+            items: { type: "string", pattern: idPattern }
+          },
+          created_at: { type: "string", pattern: isoDateTimePattern }
+        }
+      }
+    },
+    projects: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "name", "domain", "owner_role_id", "task_graph_id", "status", "health", "command_ids"],
+        properties: {
+          id: { type: "string", pattern: idPattern },
+          name: { type: "string", minLength: 1 },
+          domain: { type: "string", enum: ["sales", "delivery", "operations", "governance", "custom"] },
+          owner_role_id: { type: "string", pattern: idPattern },
+          task_graph_id: { type: "string", pattern: idPattern },
+          status: { type: "string", enum: MANAGEMENT_PROJECT_STATUSES },
+          health: { type: "string", enum: ["green", "yellow", "red"] },
+          command_ids: {
+            type: "array",
+            minItems: 1,
+            items: { type: "string", pattern: idPattern }
+          }
+        }
+      }
+    },
+    swimlanes: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "title", "status", "task_ids"],
+        properties: {
+          id: { type: "string", pattern: idPattern },
+          title: { type: "string", minLength: 1 },
+          status: { type: "string", enum: MANAGEMENT_PROJECT_STATUSES },
+          task_ids: {
+            type: "array",
+            items: { type: "string", pattern: idPattern }
+          }
+        }
+      }
+    }
+  }
+};
+
 export const contractSchemas = {
   evidence: evidenceSchema,
   informationGap: informationGapSchema,
@@ -326,7 +560,8 @@ export const contractSchemas = {
   salesGateCheck: salesGateCheckSchema,
   externalFactMirror: externalFactMirrorSchema,
   externalWritebackIntent: externalWritebackIntentSchema,
-  agentOutput: agentOutputSchema
+  agentOutput: agentOutputSchema,
+  managementCommandCenter: managementCommandCenterSchema
 };
 
 export const agentOutputPayloadRules = {
@@ -344,6 +579,15 @@ export const agentOutputPayloadRules = {
   },
   human_twin_collect_result: {
     required: ["gap_id", "collector_actor_id", "evidence", "completeness"]
+  },
+  management_command_plan: {
+    required: ["command_id", "task_graph_id", "delegation_chain", "expected_outcome"]
+  },
+  scheduled_command_tick: {
+    required: ["command_id", "scheduled_for", "next_run_at", "reason"]
+  },
+  condition_trigger_match: {
+    required: ["command_id", "signal", "observed_value", "threshold", "reason"]
   },
   replan: {
     required: ["reason", "trigger_evidence_ids", "affected_task_ids", "new_task_graph"]

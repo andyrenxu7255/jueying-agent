@@ -1,7 +1,7 @@
 {
   "report": {
     "ok": true,
-    "generated_at": "2026-05-26T10:16:08.397Z",
+    "generated_at": "2026-05-31T12:25:12.443Z",
     "integration_id": "jueying-v1-mainline",
     "integration_name": "JueYing 主版本能力归并",
     "root": "D:\\teamclaw\\jueying-mainline",
@@ -4099,7 +4099,7 @@
   },
   "bridge_preview": {
     "ok": true,
-    "generated_at": "2026-05-26T10:16:08.399Z",
+    "generated_at": "2026-05-31T12:25:12.445Z",
     "workflow_plan_payload": {
       "user_id": "u_ai_native_ops",
       "user_role": "admin",

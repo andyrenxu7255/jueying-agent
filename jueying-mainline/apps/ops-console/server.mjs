@@ -5,8 +5,12 @@ import { extname, join, normalize, resolve } from "node:path";
 import {
   buildExternalSyncConsoleViewModel,
   buildInformationGapInboxViewModel,
+  buildManagementCommandCenterViewModel,
+  buildManagementCommandDispatchPreview,
   buildOperatingConsoleViewModel,
+  buildOperationPathTestViewModel,
   buildRoleStorylineAcceptanceReport,
+  buildRoleOperationPathTestReport,
   buildSalesGateIndex,
   buildStorylineAcceptanceViewModel,
   buildTaskGraphViewModel,
@@ -16,6 +20,7 @@ import {
   validateContract
 } from "../../src/contracts/index.mjs";
 import {
+  buildLegacyRuntimeHealthCatalog,
   buildLegacyBridgePreview,
   buildLegacyIntegrationViewModel,
   checkLegacyRuntimeHealth,
@@ -31,7 +36,7 @@ function fixture(name) {
   return JSON.parse(readFileSync(join(root, "fixtures", "p1-demo", name), "utf8"));
 }
 
-function loadState() {
+function loadState(options = {}) {
   const taskGraph = fixture("task-graph.sales-discover.json");
   const gaps = fixture("information-gaps.json");
   const evidence = fixture("evidence.json");
@@ -39,6 +44,10 @@ function loadState() {
   const mirrors = fixture("external-fact-mirrors.json");
   const writebackIntents = fixture("external-writeback-intents.json");
   const agentOutputs = fixture("agent-outputs.json");
+  const management = fixture("management-command-center.json");
+  if (options.userId && management.roles.some((role) => role.user_id === options.userId)) {
+    management.active_user_id = options.userId;
+  }
   const salesGateModel = loadSalesGateModel();
   const discoverAudit = evaluateSalesStage(
     {
@@ -74,6 +83,13 @@ function loadState() {
     writebackIntents,
     writebackDecisions
   });
+  const managementCommandCenter = buildManagementCommandCenterViewModel({
+    management,
+    taskGraph,
+    gaps,
+    evidence,
+    bridgePreview: legacyBridgePreview
+  });
   const storylineAcceptance = buildRoleStorylineAcceptanceReport({
     legacyIntegration,
     salesGateModel,
@@ -85,12 +101,33 @@ function loadState() {
         gateChecks,
         mirrors,
         writebackIntents,
-        agentOutputs
+        agentOutputs,
+        management
       }
     },
     root
   });
   const storylineAcceptanceView = buildStorylineAcceptanceViewModel(storylineAcceptance);
+  const operationPathTests = buildRoleOperationPathTestReport({
+    legacyIntegration,
+    salesGateModel,
+    state: {
+      raw: {
+        taskGraph,
+        gaps,
+        evidence,
+        gateChecks,
+        mirrors,
+        writebackIntents,
+        agentOutputs,
+        management
+      }
+    },
+    bridgePreview: legacyBridgePreview,
+    runtimeHealth: buildLegacyRuntimeHealthCatalog(legacyIntegration),
+    root
+  });
+  const operationPathTestView = buildOperationPathTestViewModel(operationPathTests);
 
   const contractHealth = validateState({
     taskGraph,
@@ -100,6 +137,7 @@ function loadState() {
     mirrors,
     writebackIntents,
     agentOutputs,
+    management,
     salesGateModel
   });
 
@@ -112,12 +150,14 @@ function loadState() {
     },
     views: {
       operating_console: operatingConsole,
+      management_command_center: managementCommandCenter,
       task_graph: taskGraphView,
       information_gap_inbox: gapInbox,
       external_sync_console: externalSync,
       legacy_integration: legacyIntegrationView,
       legacy_bridge_preview: legacyBridgePreview,
-      storyline_acceptance: storylineAcceptanceView
+      storyline_acceptance: storylineAcceptanceView,
+      operation_path_tests: operationPathTestView
     },
     sales: {
       discover_audit: discoverAudit,
@@ -133,6 +173,9 @@ function loadState() {
     storyline_acceptance: {
       report: storylineAcceptance
     },
+    operation_path_tests: {
+      report: operationPathTests
+    },
     raw: {
       taskGraph,
       gaps,
@@ -140,7 +183,8 @@ function loadState() {
       gateChecks,
       mirrors,
       writebackIntents,
-      agentOutputs
+      agentOutputs,
+      management
     },
     health: contractHealth
   };
@@ -157,6 +201,7 @@ function validateState(state) {
   for (const item of state.mirrors) collectIssues("externalFactMirror", item, {});
   for (const item of state.writebackIntents) collectIssues("externalWritebackIntent", item, {});
   for (const item of state.agentOutputs) collectIssues("agentOutput", item, {});
+  collectIssues("managementCommandCenter", state.management, {});
 
   function collectIssues(kind, value, options) {
     const result = validateContract(kind, value, options);
@@ -179,7 +224,30 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
 
     if (url.pathname === "/api/state") {
-      sendJson(res, 200, loadState());
+      sendJson(res, 200, loadState({ userId: url.searchParams.get("user_id") }));
+      return;
+    }
+
+    if (url.pathname === "/api/management/command-center") {
+      const state = loadState({ userId: url.searchParams.get("user_id") });
+      sendJson(res, 200, {
+        view_model: state.views.management_command_center,
+        raw: state.raw.management
+      });
+      return;
+    }
+
+    if (url.pathname === "/api/management/dispatch-preview") {
+      const state = loadState({ userId: url.searchParams.get("user_id") });
+      const body = req.method === "POST" ? await readJsonBody(req) : {};
+      if (body.user_id && state.raw.management.roles.some((role) => role.user_id === body.user_id)) {
+        state.raw.management.active_user_id = body.user_id;
+      }
+      sendJson(res, 200, buildManagementCommandDispatchPreview({
+        management: state.raw.management,
+        commandInput: body,
+        taskGraph: state.raw.taskGraph
+      }));
       return;
     }
 
@@ -193,7 +261,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/storylines") {
-      const state = loadState();
+      const state = loadState({ userId: url.searchParams.get("user_id") });
       sendJson(res, 200, {
         report: state.storyline_acceptance.report,
         view_model: state.views.storyline_acceptance
@@ -201,8 +269,17 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (url.pathname === "/api/operation-paths") {
+      const state = loadState({ userId: url.searchParams.get("user_id") });
+      sendJson(res, 200, {
+        report: state.operation_path_tests.report,
+        view_model: state.views.operation_path_tests
+      });
+      return;
+    }
+
     if (url.pathname === "/api/jueying/mainline/bridge-preview" || url.pathname === "/api/legacy/bridge-preview") {
-      const state = loadState();
+      const state = loadState({ userId: url.searchParams.get("user_id") });
       sendJson(res, 200, state.legacy_integration.bridge_preview);
       return;
     }
@@ -260,6 +337,32 @@ function sendJson(res, status, value) {
     "cache-control": "no-store"
   });
   res.end(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function readJsonBody(req) {
+  return new Promise((resolveBody, rejectBody) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 1024 * 1024) {
+        rejectBody(new Error("request body too large"));
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      if (!body.trim()) {
+        resolveBody({});
+        return;
+      }
+      try {
+        resolveBody(JSON.parse(body));
+      } catch (error) {
+        rejectBody(error);
+      }
+    });
+    req.on("error", rejectBody);
+  });
 }
 
 function sendText(res, status, value) {

@@ -58,7 +58,8 @@ function checkFixtureFiles() {
     "sales-gate-checks.json",
     "external-fact-mirrors.json",
     "external-writeback-intents.json",
-    "agent-outputs.json"
+    "agent-outputs.json",
+    "management-command-center.json"
   ];
   const existing = new Set(readdirSync(fixtureDir));
   for (const fileName of required) {
@@ -98,6 +99,8 @@ function checkFixtures() {
   for (const output of collectArrayFixture("agent-outputs.json")) {
     validateFixture("agentOutput", output);
   }
+
+  validateFixture("managementCommandCenter", readJson("fixtures/p1-demo/management-command-center.json"));
 }
 
 function checkCrossReferences() {
@@ -106,11 +109,16 @@ function checkCrossReferences() {
   const evidence = collectArrayFixture("evidence.json");
   const gateChecks = collectArrayFixture("sales-gate-checks.json");
   const mirrors = collectArrayFixture("external-fact-mirrors.json");
+  const management = readJson("fixtures/p1-demo/management-command-center.json");
 
   const taskIds = new Set(taskGraph.tasks.map((task) => task.id));
   const gapIds = new Set(gaps.map((gap) => gap.id));
   const evidenceIds = new Set(evidence.map((item) => item.id));
   const mirrorIds = new Set(mirrors.map((mirror) => mirror.id));
+  const managementCommandIds = new Set((management.commands ?? []).map((command) => command.id));
+  const managementProjectIds = new Set((management.projects ?? []).map((project) => project.id));
+  const managementExecutionTaskIds = new Set((management.execution_tasks ?? []).map((task) => task.id));
+  const managementExecutionUpdateIds = new Set((management.execution_updates ?? []).map((update) => update.id));
 
   for (const task of taskGraph.tasks) {
     for (const gapId of task.information_gap_ids ?? []) {
@@ -153,6 +161,56 @@ function checkCrossReferences() {
       }
     }
   }
+
+  for (const command of management.commands ?? []) {
+    if (!taskIds.has(command.task_graph_id) && command.task_graph_id !== taskGraph.id) {
+      addError(`management command ${command.id} references unknown task graph ${command.task_graph_id}`);
+    }
+    for (const generatedTaskId of command.generated_task_ids ?? []) {
+      if (!managementExecutionTaskIds.has(generatedTaskId)) {
+        addError(`management command ${command.id} references unknown execution task ${generatedTaskId}`);
+      }
+    }
+    if ((command.generated_task_ids ?? []).length === 0) {
+      addError(`management command ${command.id} must have generated execution tasks`);
+    }
+  }
+
+  for (const executionTask of management.execution_tasks ?? []) {
+    if (!managementCommandIds.has(executionTask.command_id)) {
+      addError(`management execution task ${executionTask.id} references unknown command ${executionTask.command_id}`);
+    }
+    if (!managementProjectIds.has(executionTask.project_id)) {
+      addError(`management execution task ${executionTask.id} references unknown project ${executionTask.project_id}`);
+    }
+    if (executionTask.latest_update_id && !managementExecutionUpdateIds.has(executionTask.latest_update_id)) {
+      addError(`management execution task ${executionTask.id} references unknown latest update ${executionTask.latest_update_id}`);
+    }
+    for (const evidenceId of executionTask.evidence_ids ?? []) {
+      if (!evidenceIds.has(evidenceId)) {
+        addError(`management execution task ${executionTask.id} references unknown evidence ${evidenceId}`);
+      }
+    }
+  }
+
+  for (const update of management.execution_updates ?? []) {
+    if (!managementExecutionTaskIds.has(update.task_id)) {
+      addError(`management execution update ${update.id} references unknown execution task ${update.task_id}`);
+    }
+    for (const evidenceId of update.evidence_ids ?? []) {
+      if (!evidenceIds.has(evidenceId)) {
+        addError(`management execution update ${update.id} references unknown evidence ${evidenceId}`);
+      }
+    }
+  }
+
+  for (const lane of management.swimlanes ?? []) {
+    for (const taskId of lane.task_ids ?? []) {
+      if (!managementExecutionTaskIds.has(taskId)) {
+        addError(`management swimlane ${lane.id} references unknown execution task ${taskId}`);
+      }
+    }
+  }
 }
 
 checkFixtureFiles();
@@ -170,4 +228,5 @@ if (errors.length > 0) {
 
 const model = loadSalesGateModel();
 assertContract("taskGraph", readJson("fixtures/p1-demo/task-graph.sales-discover.json"));
+assertContract("managementCommandCenter", readJson("fixtures/p1-demo/management-command-center.json"));
 console.log(`Contract audit OK: ${expectedEvidenceTypes(model).length} sales evidence types, ${buildSalesGateIndex(model).size} gates`);

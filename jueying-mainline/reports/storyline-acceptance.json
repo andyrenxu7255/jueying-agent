@@ -1,13 +1,13 @@
 {
   "ok": true,
-  "generated_at": "2026-05-26T10:16:08.088Z",
+  "generated_at": "2026-05-31T12:25:11.821Z",
   "matrix_version": "v0.1",
   "root": "D:/teamclaw/jueying-mainline",
   "summary": {
     "role_count": 10,
-    "storyline_count": 11,
-    "step_count": 41,
-    "passed_step_count": 41,
+    "storyline_count": 12,
+    "step_count": 46,
+    "passed_step_count": 46,
     "failed_step_count": 0,
     "documented_story_count": 101,
     "covered_story_count": 101,
@@ -289,6 +289,7 @@
       "external_sync_console",
       "information_gap_inbox",
       "legacy_integration_view",
+      "management_command_center",
       "overview",
       "sales_gate_view",
       "storyline_acceptance_view",
@@ -301,6 +302,8 @@
       "/api/legacy/bridge-preview",
       "/api/legacy/capabilities",
       "/api/legacy/runtime-health",
+      "/api/management/command-center",
+      "/api/management/dispatch-preview",
       "/api/state",
       "/api/storylines",
       "/health"
@@ -312,6 +315,7 @@
       "externalWritebackIntent",
       "informationGap",
       "legacyBridge",
+      "managementCommandCenter",
       "salesGateCheck",
       "taskGraph"
     ]
@@ -322,9 +326,9 @@
       "name": "企业负责人 / COO",
       "type": "human_manager",
       "primary_goal": "看经营目标、跨销售和交付风险、资源瓶颈、回款节点和可复用经验，不被流水账淹没。",
-      "storyline_count": 1,
-      "step_count": 4,
-      "passed_step_count": 4,
+      "storyline_count": 2,
+      "step_count": 9,
+      "passed_step_count": 9,
       "status": "pass",
       "issues": [],
       "storylines": [
@@ -581,6 +585,310 @@
                 "mainline.proactive_orchestrator",
                 "mainline.audit_policy_identity"
               ]
+            }
+          ]
+        },
+        {
+          "id": "exec-02-agent-command-center",
+          "title": "老板指挥 Agent 的管理工作台",
+          "story_refs": [
+            "SS-01..SS-05A",
+            "SS-39..SS-44",
+            "PD-13..PD-18",
+            "PD-27..PD-32",
+            "XS-04",
+            "XS-07"
+          ],
+          "step_count": 5,
+          "passed_step_count": 5,
+          "status": "pass",
+          "issues": [],
+          "steps": [
+            {
+              "id": "exec-02-step-01",
+              "role_id": "executive_coo",
+              "storyline_id": "exec-02-agent-command-center",
+              "action": "以老板/经营负责人的登录视角进入统一 JueYing 管理指挥中心。",
+              "expected_result": "页面显示当前角色、权限、可创建指令、可配置定时任务、可配置条件触发和可查看所有项目。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-01",
+                "SS-02",
+                "SS-39",
+                "XS-04"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-01",
+                "SS-02",
+                "SS-39",
+                "XS-04"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "operating_console",
+                "governance_and_audit",
+                "work_unit_management"
+              ],
+              "ui_surfaces": [
+                "management_command_center"
+              ],
+              "api_surfaces": [
+                "/api/management/command-center",
+                "/api/state"
+              ],
+              "contract_refs": [
+                "managementCommandCenter"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "exec-02-step-02",
+              "role_id": "executive_coo",
+              "storyline_id": "exec-02-agent-command-center",
+              "action": "老板输入经营意图并即时下发任务给运营 PM Agent。",
+              "expected_result": "系统生成老板 -> PM Agent -> 专门 Agent -> 下属/Worker 的委派链，并预览 TaskGraph、org_task 和审计路由。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-03",
+                "SS-04",
+                "SS-39",
+                "PD-13",
+                "PD-15",
+                "XS-07"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-03",
+                "SS-04",
+                "SS-39",
+                "PD-13",
+                "PD-15",
+                "XS-07"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "pm_agent_contracts",
+                "taskgraph_engine",
+                "human_twin_agent",
+                "legacy_workflow_adapter"
+              ],
+              "ui_surfaces": [
+                "management_command_center",
+                "task_graph_view",
+                "legacy_integration_view"
+              ],
+              "api_surfaces": [
+                "/api/management/dispatch-preview",
+                "/api/state",
+                "/api/legacy/bridge-preview"
+              ],
+              "contract_refs": [
+                "managementCommandCenter",
+                "taskGraph",
+                "legacyBridge",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture",
+                "legacy_bridge"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": [
+                "mainline.workflow",
+                "mainline.org_task_dispatch",
+                "mainline.audit_policy_identity"
+              ]
+            },
+            {
+              "id": "exec-02-step-03",
+              "role_id": "executive_coo",
+              "storyline_id": "exec-02-agent-command-center",
+              "action": "老板安排每周、每日或一次性定时巡检任务。",
+              "expected_result": "定时任务作为管理指令存在，不是浏览器提醒；下一次运行时间、时区、目标 Agent 和委派链可见。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-01",
+                "SS-02",
+                "SS-40",
+                "PD-14",
+                "PD-29",
+                "PD-30"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-01",
+                "SS-02",
+                "SS-40",
+                "PD-14",
+                "PD-29",
+                "PD-30"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "operating_console",
+                "pm_agent_contracts",
+                "taskgraph_engine"
+              ],
+              "ui_surfaces": [
+                "management_command_center"
+              ],
+              "api_surfaces": [
+                "/api/management/command-center",
+                "/api/state"
+              ],
+              "contract_refs": [
+                "managementCommandCenter",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "exec-02-step-04",
+              "role_id": "executive_coo",
+              "storyline_id": "exec-02-agent-command-center",
+              "action": "老板配置条件触发任务，例如项目延期、缺证据、客户无下一步或外部系统状态异常。",
+              "expected_result": "条件触发规则带信号、阈值和观察窗口，触发后进入 PM Agent 重排和专门 Agent 跟进。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-05A",
+                "SS-40",
+                "SS-41",
+                "PD-27",
+                "PD-29",
+                "PD-30",
+                "PD-32"
+              ],
+              "gate_refs": [
+                "D-G1",
+                "D-G7"
+              ],
+              "covered_story_ids": [
+                "SS-05A",
+                "SS-40",
+                "SS-41",
+                "PD-27",
+                "PD-29",
+                "PD-30",
+                "PD-32"
+              ],
+              "covered_gate_ids": [
+                "D-G1",
+                "D-G7"
+              ],
+              "capability_domains": [
+                "operating_console",
+                "project_management_fact_sync",
+                "crm_fact_sync",
+                "taskgraph_engine"
+              ],
+              "ui_surfaces": [
+                "management_command_center",
+                "external_sync_console"
+              ],
+              "api_surfaces": [
+                "/api/management/command-center",
+                "/api/state"
+              ],
+              "contract_refs": [
+                "managementCommandCenter",
+                "externalFactMirror",
+                "externalWritebackIntent",
+                "agentOutput"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture",
+                "external_sync"
+              ],
+              "external_systems": [
+                "project_management"
+              ],
+              "legacy_capabilities": []
+            },
+            {
+              "id": "exec-02-step-05",
+              "role_id": "executive_coo",
+              "storyline_id": "exec-02-agent-command-center",
+              "action": "老板查看项目泳道图，按计划、委派、执行、缺信息、验收和完成状态管理任意组织项目。",
+              "expected_result": "泳道卡片来自管理指令自动拆解出的执行任务；人员或 Agent 的进展、阻塞、结果和证据回流都能体现在对应泳道。",
+              "status": "pass",
+              "issues": [],
+              "story_refs": [
+                "SS-01",
+                "SS-02",
+                "PD-13",
+                "PD-14",
+                "PD-15",
+                "PD-20",
+                "PD-33",
+                "PD-43",
+                "XS-07"
+              ],
+              "gate_refs": [],
+              "covered_story_ids": [
+                "SS-01",
+                "SS-02",
+                "PD-13",
+                "PD-14",
+                "PD-15",
+                "PD-20",
+                "PD-33",
+                "PD-43",
+                "XS-07"
+              ],
+              "covered_gate_ids": [],
+              "capability_domains": [
+                "work_unit_management",
+                "taskgraph_engine",
+                "delivery_control_lens",
+                "operating_console"
+              ],
+              "ui_surfaces": [
+                "management_command_center",
+                "task_graph_view"
+              ],
+              "api_surfaces": [
+                "/api/management/command-center",
+                "/api/state"
+              ],
+              "contract_refs": [
+                "managementCommandCenter",
+                "taskGraph",
+                "informationGap",
+                "evidence"
+              ],
+              "verification_modes": [
+                "contract",
+                "api",
+                "ui",
+                "fixture"
+              ],
+              "external_systems": [],
+              "legacy_capabilities": []
             }
           ]
         }

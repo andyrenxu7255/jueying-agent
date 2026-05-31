@@ -5,4 +5,5 @@ export * from "./sales-gate-engine.mjs";
 export * from "./validator.mjs";
 export * from "./view-models.mjs";
 export * from "./storyline-acceptance.mjs";
+export * from "./operation-path-tests.mjs";
 export * from "./writeback-policy.mjs";

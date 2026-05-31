@@ -21,11 +21,14 @@
       "external_sync_console",
       "legacy_integration_view",
       "contract_health",
-      "storyline_acceptance_view"
+      "storyline_acceptance_view",
+      "management_command_center"
     ],
     "api": [
       "/health",
       "/api/state",
+      "/api/management/command-center",
+      "/api/management/dispatch-preview",
       "/api/storylines",
       "/api/legacy/capabilities",
       "/api/legacy/bridge-preview",
@@ -38,6 +41,7 @@
       "salesGateCheck",
       "externalFactMirror",
       "externalWritebackIntent",
+      "managementCommandCenter",
       "agentOutput",
       "legacyBridge"
     ]
@@ -107,6 +111,95 @@
               "contract_refs": ["legacyBridge", "agentOutput"],
               "legacy_capabilities": ["mainline.workflow", "mainline.executor", "mainline.fact_retrieval", "mainline.org_task_dispatch", "mainline.skill_library", "mainline.proactive_orchestrator", "mainline.audit_policy_identity"],
               "verification_modes": ["api", "ui", "legacy_bridge"]
+            }
+          ]
+        },
+        {
+          "id": "exec-02-agent-command-center",
+          "title": "老板指挥 Agent 的管理工作台",
+          "story_refs": ["SS-01..SS-05A", "SS-39..SS-44", "PD-13..PD-18", "PD-27..PD-32", "XS-04", "XS-07"],
+          "steps": [
+            {
+              "id": "exec-02-step-01",
+              "action": "以老板/经营负责人的登录视角进入统一 JueYing 管理指挥中心。",
+              "expected_result": "页面显示当前角色、权限、可创建指令、可配置定时任务、可配置条件触发和可查看所有项目。",
+              "story_refs": ["SS-01", "SS-02", "SS-39", "XS-04"],
+              "capability_domains": ["operating_console", "governance_and_audit", "work_unit_management"],
+              "ui_surfaces": ["management_command_center"],
+              "api_surfaces": ["/api/management/command-center", "/api/state"],
+              "contract_refs": ["managementCommandCenter"],
+              "verification_modes": ["contract", "api", "ui", "fixture"],
+              "fixture_expectations": [
+                { "kind": "management_role_type", "value": "executive" }
+              ]
+            },
+            {
+              "id": "exec-02-step-02",
+              "action": "老板输入经营意图并即时下发任务给运营 PM Agent。",
+              "expected_result": "系统生成老板 -> PM Agent -> 专门 Agent -> 下属/Worker 的委派链，并预览 TaskGraph、org_task 和审计路由。",
+              "story_refs": ["SS-03", "SS-04", "SS-39", "PD-13", "PD-15", "XS-07"],
+              "capability_domains": ["pm_agent_contracts", "taskgraph_engine", "human_twin_agent", "legacy_workflow_adapter"],
+              "ui_surfaces": ["management_command_center", "task_graph_view", "legacy_integration_view"],
+              "api_surfaces": ["/api/management/dispatch-preview", "/api/state", "/api/legacy/bridge-preview"],
+              "contract_refs": ["managementCommandCenter", "taskGraph", "legacyBridge", "agentOutput"],
+              "legacy_capabilities": ["mainline.workflow", "mainline.org_task_dispatch", "mainline.audit_policy_identity"],
+              "verification_modes": ["contract", "api", "ui", "fixture", "legacy_bridge"],
+              "fixture_expectations": [
+                { "kind": "management_trigger_type", "value": "manual" },
+                { "kind": "management_command_status", "value": "delegated" },
+                { "kind": "management_execution_task_status", "value": "delegated" }
+              ]
+            },
+            {
+              "id": "exec-02-step-03",
+              "action": "老板安排每周、每日或一次性定时巡检任务。",
+              "expected_result": "定时任务作为管理指令存在，不是浏览器提醒；下一次运行时间、时区、目标 Agent 和委派链可见。",
+              "story_refs": ["SS-01", "SS-02", "SS-40", "PD-14", "PD-29", "PD-30"],
+              "capability_domains": ["operating_console", "pm_agent_contracts", "taskgraph_engine"],
+              "ui_surfaces": ["management_command_center"],
+              "api_surfaces": ["/api/management/command-center", "/api/state"],
+              "contract_refs": ["managementCommandCenter", "agentOutput"],
+              "verification_modes": ["contract", "api", "ui", "fixture"],
+              "fixture_expectations": [
+                { "kind": "management_trigger_type", "value": "scheduled" },
+                { "kind": "agent_output_kind", "value": "scheduled_command_tick" }
+              ]
+            },
+            {
+              "id": "exec-02-step-04",
+              "action": "老板配置条件触发任务，例如项目延期、缺证据、客户无下一步或外部系统状态异常。",
+              "expected_result": "条件触发规则带信号、阈值和观察窗口，触发后进入 PM Agent 重排和专门 Agent 跟进。",
+              "story_refs": ["SS-05A", "SS-40", "SS-41", "PD-27", "PD-29", "PD-30", "PD-32"],
+              "gate_refs": ["D-G1", "D-G7"],
+              "capability_domains": ["operating_console", "project_management_fact_sync", "crm_fact_sync", "taskgraph_engine"],
+              "ui_surfaces": ["management_command_center", "external_sync_console"],
+              "api_surfaces": ["/api/management/command-center", "/api/state"],
+              "contract_refs": ["managementCommandCenter", "externalFactMirror", "externalWritebackIntent", "agentOutput"],
+              "verification_modes": ["contract", "api", "ui", "fixture", "external_sync"],
+              "external_systems": ["project_management"],
+              "fixture_expectations": [
+                { "kind": "management_trigger_type", "value": "condition" },
+                { "kind": "agent_output_kind", "value": "condition_trigger_match" }
+              ]
+            },
+            {
+              "id": "exec-02-step-05",
+              "action": "老板查看项目泳道图，按计划、委派、执行、缺信息、验收和完成状态管理任意组织项目。",
+              "expected_result": "泳道卡片来自管理指令自动拆解出的执行任务；人员或 Agent 的进展、阻塞、结果和证据回流都能体现在对应泳道。",
+              "story_refs": ["SS-01", "SS-02", "PD-13", "PD-14", "PD-15", "PD-20", "PD-33", "PD-43", "XS-07"],
+              "capability_domains": ["work_unit_management", "taskgraph_engine", "delivery_control_lens", "operating_console"],
+              "ui_surfaces": ["management_command_center", "task_graph_view"],
+              "api_surfaces": ["/api/management/command-center", "/api/state"],
+              "contract_refs": ["managementCommandCenter", "taskGraph", "informationGap", "evidence"],
+              "verification_modes": ["contract", "api", "ui", "fixture"],
+              "fixture_expectations": [
+                { "kind": "management_project_domain", "value": "operations" },
+                { "kind": "management_project_domain", "value": "delivery" },
+                { "kind": "management_execution_task_status", "value": "in_progress" },
+                { "kind": "management_execution_task_status", "value": "done" },
+                { "kind": "management_execution_update_type", "value": "progress" },
+                { "kind": "management_execution_update_type", "value": "result" }
+              ]
             }
           ]
         }

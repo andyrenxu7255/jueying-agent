@@ -14,7 +14,8 @@ const schemaFiles = {
   salesGateCheck: "sales-gate-check.schema.json",
   externalFactMirror: "external-fact-mirror.schema.json",
   externalWritebackIntent: "external-writeback-intent.schema.json",
-  agentOutput: "agent-output.schema.json"
+  agentOutput: "agent-output.schema.json",
+  managementCommandCenter: "management-command-center.schema.json"
 };
 
 for (const [kind, fileName] of Object.entries(schemaFiles)) {

@@ -11,6 +11,7 @@
     "audit:sales-gates": "node scripts/run-sales-gate-audit.mjs",
     "view-models:build": "node scripts/build-view-models.mjs",
     "storylines:check": "node scripts/run-storyline-acceptance.mjs",
+    "operation-paths:check": "node scripts/run-operation-path-tests.mjs",
     "integration:check": "node scripts/check-legacy-integration.mjs",
     "legacy:smoke": "node scripts/smoke-legacy.mjs",
     "legacy:live-smoke": "node scripts/live-legacy-bridge-smoke.mjs",
@@ -18,7 +19,7 @@
     "app:smoke": "node scripts/smoke-app.mjs",
     "browser:smoke": "node scripts/browser-smoke.mjs",
     "test": "node --test tests/*.test.mjs",
-    "verify": "npm run schemas:export && npm run check:docs && npm run check:contracts && npm run audit:sales-gates && npm run view-models:build && npm run storylines:check && npm run integration:check && npm run legacy:smoke && npm test && npm run app:smoke && npm run browser:smoke"
+    "verify": "npm run schemas:export && npm run check:docs && npm run check:contracts && npm run audit:sales-gates && npm run view-models:build && npm run storylines:check && npm run operation-paths:check && npm run integration:check && npm run legacy:smoke && npm test && npm run app:smoke && npm run browser:smoke"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -32,6 +32,10 @@ export function validateContract(kind, value, options = {}) {
     issues.push(...validateAgentOutputSemantics(value));
   }
 
+  if (kind === "managementCommandCenter") {
+    issues.push(...validateManagementCommandCenterSemantics(value));
+  }
+
   return {
     ok: issues.length === 0,
     issues
@@ -318,6 +322,126 @@ function validateAgentOutputSemantics(output) {
     const completeness = output.payload.completeness;
     if (typeof completeness !== "number" || completeness < 0 || completeness > 1) {
       issues.push(issue("$.payload.completeness", "expected number between 0 and 1"));
+    }
+  }
+
+  return issues;
+}
+
+function validateManagementCommandCenterSemantics(center) {
+  const issues = [];
+  if (!center || typeof center !== "object") {
+    return issues;
+  }
+
+  const roles = Array.isArray(center.roles) ? center.roles : [];
+  const commands = Array.isArray(center.commands) ? center.commands : [];
+  const executionTasks = Array.isArray(center.execution_tasks) ? center.execution_tasks : [];
+  const executionUpdates = Array.isArray(center.execution_updates) ? center.execution_updates : [];
+  const projects = Array.isArray(center.projects) ? center.projects : [];
+  const swimlanes = Array.isArray(center.swimlanes) ? center.swimlanes : [];
+  const roleIds = new Set(roles.map((role) => role.id));
+  const roleById = new Map(roles.map((role) => [role.id, role]));
+  const commandIds = new Set(commands.map((command) => command.id));
+  const executionTaskIds = new Set(executionTasks.map((task) => task.id));
+  const executionUpdateIds = new Set(executionUpdates.map((update) => update.id));
+  const projectIds = new Set(projects.map((project) => project.id));
+  const taskIds = new Set();
+
+  if (!roles.some((role) => role.role_type === "executive" && role.permissions?.includes("create_command"))) {
+    issues.push(issue("$.roles", "management command center requires an executive role with create_command permission"));
+  }
+
+  for (const command of commands) {
+    if (!roleIds.has(command.created_by_role_id)) {
+      issues.push(issue(`$.commands.${command.id}.created_by_role_id`, `unknown role: ${command.created_by_role_id}`));
+    }
+    const creator = roleById.get(command.created_by_role_id);
+    if (creator && !creator.permissions?.includes("create_command")) {
+      issues.push(issue(`$.commands.${command.id}.created_by_role_id`, "command creator must have create_command permission"));
+    }
+    if (command.trigger_type === "scheduled" && !command.schedule) {
+      issues.push(issue(`$.commands.${command.id}.schedule`, "scheduled command requires schedule"));
+    }
+    if (command.trigger_type === "condition" && !command.condition) {
+      issues.push(issue(`$.commands.${command.id}.condition`, "condition command requires condition"));
+    }
+    if (command.schedule && creator && !creator.permissions?.includes("schedule_command")) {
+      issues.push(issue(`$.commands.${command.id}.schedule`, "schedule creator must have schedule_command permission"));
+    }
+    if (command.condition && creator && !creator.permissions?.includes("configure_trigger")) {
+      issues.push(issue(`$.commands.${command.id}.condition`, "condition creator must have configure_trigger permission"));
+    }
+    if ((command.delegation_chain ?? []).length < 3) {
+      issues.push(issue(`$.commands.${command.id}.delegation_chain`, "command must express boss -> agent -> executor delegation"));
+    }
+    const chainTypes = (command.delegation_chain ?? []).map((item) => item.actor_type);
+    if (!chainTypes.includes("executive") || !chainTypes.some((type) => type.endsWith("_agent")) || !chainTypes.some((type) => ["human", "human_twin_agent"].includes(type))) {
+      issues.push(issue(`$.commands.${command.id}.delegation_chain`, "delegation chain must include executive, agent, and human/subordinate executor"));
+    }
+    if (!Array.isArray(command.generated_task_ids) || command.generated_task_ids.length === 0) {
+      issues.push(issue(`$.commands.${command.id}.generated_task_ids`, "command must reference automatically decomposed execution tasks"));
+    }
+    for (const taskId of command.generated_task_ids ?? []) {
+      if (!executionTaskIds.has(taskId)) {
+        issues.push(issue(`$.commands.${command.id}.generated_task_ids`, `unknown execution task: ${taskId}`));
+      }
+    }
+  }
+
+  for (const task of executionTasks) {
+    if (!commandIds.has(task.command_id)) {
+      issues.push(issue(`$.execution_tasks.${task.id}.command_id`, `unknown command: ${task.command_id}`));
+    }
+    if (!projectIds.has(task.project_id)) {
+      issues.push(issue(`$.execution_tasks.${task.id}.project_id`, `unknown project: ${task.project_id}`));
+    }
+    if (task.latest_update_id && !executionUpdateIds.has(task.latest_update_id)) {
+      issues.push(issue(`$.execution_tasks.${task.id}.latest_update_id`, `unknown execution update: ${task.latest_update_id}`));
+    }
+    if (task.status === "done" && (!task.result_summary || task.progress_percent !== 100)) {
+      issues.push(issue(`$.execution_tasks.${task.id}`, "done execution task must include result_summary and 100 progress"));
+    }
+    if (["in_progress", "needs_info", "review"].includes(task.status) && typeof task.progress_percent !== "number") {
+      issues.push(issue(`$.execution_tasks.${task.id}.progress_percent`, "active execution task must include progress"));
+    }
+  }
+
+  for (const update of executionUpdates) {
+    if (!executionTaskIds.has(update.task_id)) {
+      issues.push(issue(`$.execution_updates.${update.id}.task_id`, `unknown execution task: ${update.task_id}`));
+    }
+    if (["result", "evidence"].includes(update.update_type) && (!Array.isArray(update.evidence_ids))) {
+      issues.push(issue(`$.execution_updates.${update.id}.evidence_ids`, "result or evidence update must carry evidence_ids, even if empty"));
+    }
+  }
+
+  for (const project of projects) {
+    if (!roleIds.has(project.owner_role_id)) {
+      issues.push(issue(`$.projects.${project.id}.owner_role_id`, `unknown role: ${project.owner_role_id}`));
+    }
+    for (const commandId of project.command_ids ?? []) {
+      if (!commandIds.has(commandId)) {
+        issues.push(issue(`$.projects.${project.id}.command_ids`, `unknown command: ${commandId}`));
+      }
+    }
+  }
+
+  for (const swimlane of swimlanes) {
+    for (const taskId of swimlane.task_ids ?? []) {
+      if (!executionTaskIds.has(taskId)) {
+        issues.push(issue(`$.swimlanes.${swimlane.id}.task_ids`, `unknown execution task: ${taskId}`));
+      }
+      taskIds.add(taskId);
+    }
+  }
+  if (taskIds.size === 0) {
+    issues.push(issue("$.swimlanes", "swimlane board must contain at least one task"));
+  }
+
+  for (const command of commands) {
+    if (!projectIds.has(command.project_id)) {
+      issues.push(issue(`$.commands.${command.id}.project_id`, `unknown project: ${command.project_id}`));
     }
   }
 

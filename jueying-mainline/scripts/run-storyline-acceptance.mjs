@@ -19,7 +19,8 @@ const state = {
     gateChecks: fixture("sales-gate-checks.json"),
     mirrors: fixture("external-fact-mirrors.json"),
     writebackIntents: fixture("external-writeback-intents.json"),
-    agentOutputs: fixture("agent-outputs.json")
+    agentOutputs: fixture("agent-outputs.json"),
+    management: fixture("management-command-center.json")
   }
 };
 

@@ -75,15 +75,44 @@ function browserCheckCode() {
     await page.getByText('JueYing').waitFor({ timeout: 3000 });
     await page.getByText('Agent Harness').waitFor({ timeout: 3000 });
     await page.getByText('Contracts OK').waitFor({ timeout: 3000 });
-    for (const name of ['销售 Gate', 'TaskGraph', '信息缺口', '外部同步', '故事线验收', '主版本能力', '契约健康', '总览']) {
+    for (const name of ['管理指挥', '销售 Gate', 'TaskGraph', '信息缺口', '外部同步', '故事线验收', '主版本能力', '契约健康', '总览']) {
       await page.getByRole('button', { name }).click();
       await page.waitForTimeout(80);
     }
+    await page.getByRole('button', { name: '管理指挥' }).click();
+    await page.getByText('管理指挥中心').waitFor({ timeout: 3000 });
+    await page.getByText('当前登录视角').waitFor({ timeout: 3000 });
+    await page.getByText('林总 / 经营负责人').waitFor({ timeout: 3000 });
+    await page.getByText('登录身份').waitFor({ timeout: 3000 });
+    await page.getByText('下发任务').waitFor({ timeout: 3000 });
+    await page.getByText('定时任务').waitFor({ timeout: 3000 });
+    await page.getByText('条件触发').waitFor({ timeout: 3000 });
+    await page.getByText('项目泳道').waitFor({ timeout: 3000 });
+    await page.getByText('缺信息').waitFor({ timeout: 3000 });
+    await page.getByText('执行闭环').waitFor({ timeout: 3000 });
+    await page.getByText('自动拆解').waitFor({ timeout: 3000 });
+    await page.getByText('销售补齐竞品与客户事实').waitFor({ timeout: 3000 });
+    await page.getByText('进展：已定位需要补充的客户原话和竞品功能点').waitFor({ timeout: 3000 });
+    await page.getByText('结果：草稿已生成，等待销售确认客户事实和最终口径。').waitFor({ timeout: 3000 });
+    await page.getByRole('button', { name: '生成指挥预览' }).click();
+    await page.getByText('老板要求运营 PM Agent').waitFor({ timeout: 3000 });
+    await page.getByText('PM Agent 拆解：让销售 Agent 本周补齐 ACME 冠军证据').waitFor({ timeout: 3000 });
+    await page.getByText('泳道：in_progress').waitFor({ timeout: 3000 });
+    await page.getByText('已派给责任人补齐执行证据').waitFor({ timeout: 3000 });
+    await page.getByRole('button', { name: /销售 Agent/ }).click();
+    await page.getByText('销售 Agent可查看管理看板').waitFor({ timeout: 3000 });
+    await page.getByRole('button', { name: '生成指挥预览' }).waitFor({ state: 'disabled', timeout: 3000 });
+    await page.getByText('没有下发管理指令权限').waitFor({ timeout: 3000 });
+    await page.getByRole('button', { name: /林总 \/ 经营负责人/ }).click();
+    await page.getByText('林总 / 经营负责人').waitFor({ timeout: 3000 });
     await page.getByRole('button', { name: '故事线验收' }).click();
     await page.getByText('角色故事线验收').waitFor({ timeout: 3000 });
     await page.getByText('销售负责人').waitFor({ timeout: 3000 });
     await page.getByText('项目经理').waitFor({ timeout: 3000 });
-    await page.getByText('41/41').waitFor({ timeout: 3000 });
+    await page.getByText('46/46').waitFor({ timeout: 3000 });
+    await page.getByText('Operation Paths').waitFor({ timeout: 3000 });
+    await page.getByText('Assertions').waitFor({ timeout: 3000 });
+    await page.getByText('478/478').waitFor({ timeout: 3000 });
     await page.getByRole('button', { name: '主版本能力' }).click();
     await page.getByText('JueYing 主版本能力').waitFor({ timeout: 3000 });
     await page.getByText('在线运行态').waitFor({ timeout: 3000 });
@@ -92,8 +121,8 @@ function browserCheckCode() {
     await page.setViewportSize({ width: 1440, height: 960 });
     await page.screenshot({ path: 'output/playwright/ops-console-desktop.png', fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByRole('button', { name: '总览' }).click();
-    await page.getByText('Tasks Need Info').waitFor({ timeout: 3000 });
+    await page.getByRole('button', { name: '管理指挥' }).click();
+    await page.getByText('项目泳道').waitFor({ timeout: 3000 });
     await page.screenshot({ path: 'output/playwright/ops-console-mobile.png', fullPage: true });
     if (errors.length > 0) throw new Error(errors.join('\\n'));
     return 'ok';

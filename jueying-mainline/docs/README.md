@@ -16,7 +16,7 @@ JueYing is an enterprise-grade Agent Harness for centralized management in small
 | [DEV-28-场景故事库-销售与项目交付.md](./DEV-28-场景故事库-销售与项目交付.md) | Detailed sales and delivery scenario story library, including information gaps, evidence, UI actions, and acceptance gates. |
 | [DEV-29-能力覆盖矩阵与研发补洞清单.md](./DEV-29-能力覆盖矩阵与研发补洞清单.md) | Capability coverage matrix that maps scenarios to system objects, Agent contracts, UI surfaces, and implementation gaps. |
 | [DEV-30-销售六步法Gate驱动运营设计.md](./DEV-30-销售六步法Gate驱动运营设计.md) | Authoritative sales six-step gate model for Discover, Scope, Go/No-Go, Validate Solution, Business Case, and Negotiate Close. |
-| [DEV-31-TaskGraph与信息缺口最小契约.md](./DEV-31-TaskGraph与信息缺口最小契约.md) | Minimal contracts for TaskGraph, Information Gap, Evidence, SalesGateCheck, External Fact Mirror, Writeback Intent, and Agent outputs before implementation. |
+| [DEV-31-TaskGraph与信息缺口最小契约.md](./DEV-31-TaskGraph与信息缺口最小契约.md) | Minimal contracts for TaskGraph, Information Gap, Evidence, SalesGateCheck, External Fact Mirror, Writeback Intent, Management Command Center, and Agent outputs before implementation. |
 | [DEV-32-CRM事实层对接与双向同步机制.md](./DEV-32-CRM事实层对接与双向同步机制.md) | Generic CRM integration, record mirror, writeback intent, conflict handling, and CRM/Agent fact consistency. |
 | [DEV-33-项目管理事实层对接与双向同步机制.md](./DEV-33-项目管理事实层对接与双向同步机制.md) | Generic project management integration, record mirror, writeback intent, conflict handling, and PM/Agent fact consistency for Jira, 禅道, TAPD, 飞书项目, and self-built systems. |
 | [DEV-34-文档图谱一致性审计与修复记录.md](./DEV-34-文档图谱一致性审计与修复记录.md) | Audit record for story-line, dependency, graph, schema, and recall consistency before implementation. |
@@ -29,6 +29,9 @@ JueYing is an enterprise-grade Agent Harness for centralized management in small
 | [scenario-coverage.json](./scenario-coverage.json) | Machine-readable scenario and capability coverage index for sales and delivery implementation. |
 | [role-storyline-acceptance.json](./role-storyline-acceptance.json) | Machine-readable role storyline acceptance matrix consumed by tests, reports, APIs, and the JueYing console. |
 | [sales-six-step-gates.json](./sales-six-step-gates.json) | Machine-readable sales six-step gates, recommended activities, evidence types, and P1 exit gates. |
+| [../fixtures/p1-demo/management-command-center.json](../fixtures/p1-demo/management-command-center.json) | P1 management command center fixture for executive command, automatic task decomposition, execution updates/results, scheduled tasks, condition triggers, Agent delegation, and project swimlanes. |
+
+Generated operation-path evidence lives in `reports/role-operation-path-tests.json`. It is built by `npm run operation-paths:check` from `role-storyline-acceptance.json`, so every role/storyline step becomes an executable UI/API/contract/fixture/external-sync/legacy-bridge test case. The management command center fixture lives at `fixtures/p1-demo/management-command-center.json` and proves the boss-to-Agent-to-agent-to-subordinate command chain, scheduled commands, condition triggers, automatic task decomposition, execution progress/results, and swimlane projection.
 
 ## Recommended Reading Order
 
@@ -57,7 +60,7 @@ From `jueying-mainline/`:
 npm run verify
 ```
 
-This validates docs, graph references, sales Gate vocabulary, P1 fixtures, contract semantics, JueYing mainline integration, and core business red-line tests.
+This validates docs, graph references, sales Gate vocabulary, P1 fixtures, contract semantics, management command center behavior, JueYing mainline integration, and core business red-line tests.
 
 ## Development Rule
 

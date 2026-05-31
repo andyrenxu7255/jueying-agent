@@ -76,5 +76,52 @@
       "affected_task_ids": ["task_delivery_acceptance_check"],
       "new_task_graph": "tg_delivery_acme_002"
     }
+  },
+  {
+    "id": "out_management_command_plan_001",
+    "kind": "management_command_plan",
+    "agent_id": "pm_agent_ops_001",
+    "run_id": "run_sales_acme_001",
+    "task_id": "task_discover_champion",
+    "created_at": "2026-05-31T18:24:30+08:00",
+    "payload": {
+      "command_id": "cmd_manual_competitor_response",
+      "task_graph_id": "tg_sales_acme_001",
+      "delegation_chain": [
+        "executive:user_exec_lina",
+        "pm_agent:pm_agent_ops_001",
+        "sales_agent:sales_agent_001",
+        "worker_agent:worker_agent_docs_001",
+        "human:user_sales_andy"
+      ],
+      "expected_outcome": "补齐客户事实、竞品应对材料草稿和人工确认。"
+    }
+  },
+  {
+    "id": "out_scheduled_command_tick_001",
+    "kind": "scheduled_command_tick",
+    "agent_id": "pm_agent_ops_001",
+    "run_id": "run_sales_acme_001",
+    "created_at": "2026-05-31T18:25:00+08:00",
+    "payload": {
+      "command_id": "cmd_weekly_pipeline_review",
+      "scheduled_for": "2026-06-01T09:00:00+08:00",
+      "next_run_at": "2026-06-08T09:00:00+08:00",
+      "reason": "每周经营节奏巡检。"
+    }
+  },
+  {
+    "id": "out_condition_trigger_match_001",
+    "kind": "condition_trigger_match",
+    "agent_id": "pm_agent_ops_001",
+    "run_id": "run_sales_acme_001",
+    "created_at": "2026-05-31T18:25:30+08:00",
+    "payload": {
+      "command_id": "cmd_trigger_delivery_delay",
+      "signal": "project_management.task_overdue_hours",
+      "observed_value": "72",
+      "threshold": "48",
+      "reason": "外部项目任务延期超过阈值，需要交付 Agent 升级处理。"
+    }
   }
 ]

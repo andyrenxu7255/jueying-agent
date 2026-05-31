@@ -1,6 +1,6 @@
 {
   "version": "v0.1",
-  "updated_at": "2026-05-26",
+  "updated_at": "2026-05-31",
   "description": "Context graph for the JueYing mainline workspace under jueying-mainline/. JueYing is an enterprise Agent Harness for centralized management in small and mid-sized teams. The AI-native operating console is a built-in mainline module; historical v1 code under legacy/jueying-v1 is runtime compatibility and implementation reference.",
   "layers": {
     "L0_north_star": [
@@ -26,6 +26,7 @@
       "docs/DEV-35-核心代码实施路线与自检计划.md",
       "docs/DEV-36-JueYing主版本能力整合实施记录.md",
       "docs/DEV-37-角色故事线逐步验收回归记录.md",
+      "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
       "docs/role-storyline-acceptance.json"
     ],
     "L3_historical_runtime_reference": [
@@ -55,6 +56,9 @@
     "jueying_mainline_integration": "docs/DEV-36-JueYing主版本能力整合实施记录.md",
     "role_storyline_acceptance": "docs/DEV-37-角色故事线逐步验收回归记录.md",
     "role_storyline_acceptance_matrix": "docs/role-storyline-acceptance.json",
+    "role_operation_path_tests": "reports/role-operation-path-tests.json",
+    "management_command_center_fixture": "fixtures/p1-demo/management-command-center.json",
+    "live_runtime_bridge_validation": "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
     "pre_rnd_gate": "docs/DEV-27-研发前决策清单与风险边界.md",
     "historical_v1_runtime": "legacy/jueying-v1/agent-harness/README.md"
   },
@@ -70,6 +74,10 @@
     "Project Manager Agent": {
       "authority": "docs/DEV-23-AI原生运营系统总纲.md",
       "depends_on": ["Agent Template", "TaskGraph", "Skill", "Evidence"]
+    },
+    "Management Command Center": {
+      "authority": "docs/DEV-31-TaskGraph与信息缺口最小契约.md",
+      "depends_on": ["managementCommandCenter", "fixtures/p1-demo/management-command-center.json", "apps/ops-console/public/app.js", "apps/ops-console/server.mjs", "Executive Role", "Management Command", "Automatic Task Decomposition", "Execution Task", "Execution Update", "Scheduled Command", "Condition Trigger", "TaskGraph", "Project Swimlane", "Agent Delegation Chain", "Audit Event"]
     },
     "Information Gap": {
       "authority": "docs/DEV-26-对象依赖与系统图谱.md",
@@ -109,7 +117,7 @@
     },
     "Documentation Consistency Audit": {
       "authority": "docs/DEV-34-文档图谱一致性审计与修复记录.md",
-      "depends_on": ["README.md", "docs/README.md", "context-graph.json", "context-routing.json", "scenario-coverage.json", "sales-six-step-gates.json"]
+      "depends_on": ["README.md", "docs/README.md", "docs/context-graph.json", "docs/context-routing.json", "docs/scenario-coverage.json", "docs/sales-six-step-gates.json", "docs/role-storyline-acceptance.json", "scripts/check-docs.mjs"]
     },
     "JueYing Mainline Directory": {
       "authority": "README.md",
@@ -117,7 +125,7 @@
     },
     "Executable Contract Core": {
       "authority": "docs/DEV-35-核心代码实施路线与自检计划.md",
-      "depends_on": ["src/contracts", "schemas", "fixtures/p1-demo", "reports", "scripts/export-schemas.mjs", "scripts/check-docs.mjs", "scripts/check-contracts.mjs", "scripts/run-sales-gate-audit.mjs", "tests/contracts.test.mjs"]
+      "depends_on": ["src/contracts", "schemas", "fixtures/p1-demo", "fixtures/p1-demo/management-command-center.json", "reports", "scripts/export-schemas.mjs", "scripts/check-docs.mjs", "scripts/check-contracts.mjs", "scripts/run-sales-gate-audit.mjs", "tests/contracts.test.mjs"]
     },
     "JueYing Runtime Substrate": {
       "authority": "docs/DEV-24-JueYing应用差距复盘与整合界面路线.md",
@@ -129,7 +137,15 @@
     },
     "Role Storyline Acceptance": {
       "authority": "docs/DEV-37-角色故事线逐步验收回归记录.md",
-      "depends_on": ["docs/role-storyline-acceptance.json", "src/contracts/storyline-acceptance.mjs", "scripts/run-storyline-acceptance.mjs", "reports/storyline-acceptance.json", "apps/ops-console", "tests/contracts.test.mjs"]
+      "depends_on": ["docs/role-storyline-acceptance.json", "fixtures/p1-demo/management-command-center.json", "src/contracts/storyline-acceptance.mjs", "scripts/run-storyline-acceptance.mjs", "reports/storyline-acceptance.json", "apps/ops-console", "tests/contracts.test.mjs"]
+    },
+    "Role Operation Path Tests": {
+      "authority": "reports/role-operation-path-tests.json",
+      "depends_on": ["docs/role-storyline-acceptance.json", "fixtures/p1-demo/management-command-center.json", "src/contracts/operation-path-tests.mjs", "scripts/run-operation-path-tests.mjs", "reports/role-operation-path-tests.json", "apps/ops-console", "tests/contracts.test.mjs"]
+    },
+    "Live Runtime Bridge Validation": {
+      "authority": "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
+      "depends_on": ["scripts/live-legacy-bridge-smoke.mjs", "reports/live-legacy-bridge-smoke.json", "src/integrations/jueying-v1/runtime-client.mjs", "fixtures/p1-demo", "legacy/jueying-v1/agent-harness/docker-compose.yml"]
     }
   },
   "implementation_order": [
@@ -145,6 +161,7 @@
     "docs/DEV-35-核心代码实施路线与自检计划.md",
     "docs/DEV-36-JueYing主版本能力整合实施记录.md",
     "docs/DEV-37-角色故事线逐步验收回归记录.md",
+    "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
     "docs/DEV-26-对象依赖与系统图谱.md",
     "docs/DEV-27-研发前决策清单与风险边界.md",
     "docs/DEV-24-JueYing应用差距复盘与整合界面路线.md"

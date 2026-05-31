@@ -21,6 +21,9 @@
         "pm_agent_verify",
         "human_twin_collect_prompt",
         "human_twin_collect_result",
+        "management_command_plan",
+        "scheduled_command_tick",
+        "condition_trigger_match",
         "replan"
       ]
     },

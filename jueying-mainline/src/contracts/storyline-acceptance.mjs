@@ -11,6 +11,7 @@ const IMPLEMENTED_UI_SURFACES = new Set([
   "task_graph_view",
   "information_gap_inbox",
   "external_sync_console",
+  "management_command_center",
   "legacy_integration_view",
   "contract_health",
   "storyline_acceptance_view"
@@ -19,6 +20,8 @@ const IMPLEMENTED_UI_SURFACES = new Set([
 const IMPLEMENTED_API_SURFACES = new Set([
   "/health",
   "/api/state",
+  "/api/management/command-center",
+  "/api/management/dispatch-preview",
   "/api/storylines",
   "/api/legacy/capabilities",
   "/api/legacy/bridge-preview",
@@ -35,6 +38,7 @@ const IMPLEMENTED_CONTRACTS = new Set([
   "salesGateCheck",
   "externalFactMirror",
   "externalWritebackIntent",
+  "managementCommandCenter",
   "agentOutput",
   "legacyBridge"
 ]);
@@ -533,6 +537,7 @@ function buildFixtureIndex(state = {}) {
   const mirrors = state.raw?.mirrors ?? state.mirrors ?? [];
   const writebackIntents = state.raw?.writebackIntents ?? state.writebackIntents ?? [];
   const agentOutputs = state.raw?.agentOutputs ?? state.agentOutputs ?? [];
+  const management = state.raw?.management ?? state.management ?? {};
 
   return {
     taskStatuses: new Set(tasks.map((task) => task.status)),
@@ -541,7 +546,13 @@ function buildFixtureIndex(state = {}) {
     gateStatuses: new Set(gateChecks.map((check) => check.status)),
     agentOutputKinds: new Set(agentOutputs.map((output) => output.kind)),
     externalSystemTypes: new Set(mirrors.map((mirror) => mirror.system_type)),
-    writebackSystemTypes: new Set(writebackIntents.map((intent) => intent.system_type))
+    writebackSystemTypes: new Set(writebackIntents.map((intent) => intent.system_type)),
+    managementTriggerTypes: new Set((management.commands ?? []).map((command) => command.trigger_type)),
+    managementCommandStatuses: new Set((management.commands ?? []).map((command) => command.status)),
+    managementProjectDomains: new Set((management.projects ?? []).map((project) => project.domain)),
+    managementRoleTypes: new Set((management.roles ?? []).map((role) => role.role_type)),
+    managementExecutionTaskStatuses: new Set((management.execution_tasks ?? []).map((task) => task.status)),
+    managementExecutionUpdateTypes: new Set((management.execution_updates ?? []).map((update) => update.update_type))
   };
 }
 
@@ -553,7 +564,13 @@ function fixtureExpectationPassed(expectation, fixtureIndex) {
     gate_status: fixtureIndex.gateStatuses,
     agent_output_kind: fixtureIndex.agentOutputKinds,
     external_system: fixtureIndex.externalSystemTypes,
-    writeback_system: fixtureIndex.writebackSystemTypes
+    writeback_system: fixtureIndex.writebackSystemTypes,
+    management_trigger_type: fixtureIndex.managementTriggerTypes,
+    management_command_status: fixtureIndex.managementCommandStatuses,
+    management_project_domain: fixtureIndex.managementProjectDomains,
+    management_role_type: fixtureIndex.managementRoleTypes,
+    management_execution_task_status: fixtureIndex.managementExecutionTaskStatuses,
+    management_execution_update_type: fixtureIndex.managementExecutionUpdateTypes
   };
   const values = checks[expectation.kind];
   return values instanceof Set && values.has(expectation.value);
