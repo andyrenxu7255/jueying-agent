@@ -1,6 +1,6 @@
 {
   "version": "v0.1",
-  "updated_at": "2026-05-26",
+  "updated_at": "2026-06-01",
   "description": "Executable role-by-role storyline acceptance matrix for the AI-native JueYing operating system. Each step must map to documented SS/PD/XS stories, capability domains, UI/API surfaces, contracts, and integration boundaries.",
   "authority_docs": {
     "user_journeys": "docs/DEV-25-用户故事线与验收旅程.md",
@@ -29,7 +29,17 @@
       "/api/state",
       "/api/management/command-center",
       "/api/management/dispatch-preview",
+      "/api/management/commands",
+      "/api/evidence",
+      "/api/information-gaps/:id/reply",
+      "/api/writebacks/:id/:action",
+      "/api/external-connections/drafts",
+      "/api/sales/gates",
       "/api/storylines",
+      "/api/operation-paths",
+      "/api/jueying/mainline/capabilities",
+      "/api/jueying/mainline/bridge-preview",
+      "/api/jueying/mainline/runtime-health",
       "/api/legacy/capabilities",
       "/api/legacy/bridge-preview",
       "/api/legacy/runtime-health"
@@ -66,7 +76,7 @@
             {
               "id": "exec-01-step-01",
               "action": "查看本周期目标、销售 Routine、重点商机和交付项目是否都被纳入 Work Unit / Run。",
-              "expected_result": "总览能显示待补信息、缺失 Gate、外部反写和主风险，不只显示原始流水。",
+              "expected_result": "总览能显示待补信息、缺失 Gate、外部反写、主风险和按当前登录角色排序的行动队列，不只显示原始流水。",
               "story_refs": ["SS-01", "SS-02", "SS-03", "SS-04", "SS-05", "PD-14"],
               "capability_domains": ["work_unit_management", "operating_console", "taskgraph_engine"],
               "ui_surfaces": ["overview", "task_graph_view"],

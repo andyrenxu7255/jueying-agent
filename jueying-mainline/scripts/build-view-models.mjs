@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import {
   buildExternalSyncConsoleViewModel,
   buildInformationGapInboxViewModel,
+  buildManagementCommandCenterViewModel,
   buildOperatingConsoleViewModel,
   buildTaskGraphViewModel
 } from "../src/contracts/index.mjs";
@@ -16,9 +17,17 @@ const evidence = fixture("evidence.json");
 const gateChecks = fixture("sales-gate-checks.json");
 const mirrors = fixture("external-fact-mirrors.json");
 const writebackIntents = fixture("external-writeback-intents.json");
+const management = fixture("management-command-center.json");
 
 const viewModels = {
-  operating_console: buildOperatingConsoleViewModel({ taskGraph, gateChecks, mirrors, writebackIntents }),
+  operating_console: buildOperatingConsoleViewModel({ taskGraph, gateChecks, mirrors, writebackIntents, gaps, management }),
+  management_command_center: buildManagementCommandCenterViewModel({
+    management,
+    taskGraph,
+    gaps,
+    evidence,
+    bridgePreview: { summary: { org_task_payload_count: gaps.length } }
+  }),
   task_graph: buildTaskGraphViewModel({ taskGraph, evidence, gaps }),
   information_gap_inbox: buildInformationGapInboxViewModel({ gaps, taskGraph }),
   external_sync_console: buildExternalSyncConsoleViewModel({ mirrors, writebackIntents })

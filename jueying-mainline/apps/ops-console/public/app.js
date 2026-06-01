@@ -1,8 +1,12 @@
+const initialParams = new URLSearchParams(window.location.search);
+
 const state = {
   data: null,
-  view: "overview",
-  userId: new URLSearchParams(window.location.search).get("user_id") ?? "user_exec_lina"
+  view: initialParams.get("view") ?? "overview",
+  userId: initialParams.get("user_id") ?? "user_exec_lina"
 };
+let loadRequestId = 0;
+let legacyRuntimeRequestId = 0;
 
 const viewTitles = {
   overview: "运营总览",
@@ -24,18 +28,25 @@ const elements = {
   viewTitle: document.querySelector("#view-title"),
   metricGrid: document.querySelector("#metric-grid"),
   alertsList: document.querySelector("#alerts-list"),
+  roleActionList: document.querySelector("#role-action-list"),
   managementRoleStrip: document.querySelector("#management-role-strip"),
   roleSwitcher: document.querySelector("#role-switcher"),
   commandForm: document.querySelector("#command-form"),
+  previewCommandButton: document.querySelector("#preview-command-button"),
   dispatchPreview: document.querySelector("#dispatch-preview"),
   managementCommandList: document.querySelector("#management-command-list"),
   managementSwimlanes: document.querySelector("#management-swimlanes"),
   managementProjects: document.querySelector("#management-projects"),
+  salesStageList: document.querySelector("#sales-stage-list"),
   gateTable: document.querySelector("#gate-table"),
+  evidenceForm: document.querySelector("#evidence-form"),
   taskList: document.querySelector("#task-list"),
   gapList: document.querySelector("#gap-list"),
+  gapReplyForm: document.querySelector("#gap-reply-form"),
   mirrorList: document.querySelector("#mirror-list"),
   writebackList: document.querySelector("#writeback-list"),
+  connectionDraftForm: document.querySelector("#connection-draft-form"),
+  connectionDraftList: document.querySelector("#connection-draft-list"),
   legacySummary: document.querySelector("#legacy-summary"),
   legacyRuntime: document.querySelector("#legacy-runtime"),
   legacyGroups: document.querySelector("#legacy-groups"),
@@ -54,18 +65,38 @@ document.querySelectorAll(".nav-item").forEach((button) => {
   });
 });
 
-elements.refreshButton.addEventListener("click", () => {
+elements.refreshButton?.addEventListener("click", () => {
   loadState();
 });
 
 elements.commandForm?.addEventListener("submit", (event) => {
   event.preventDefault();
+  submitManagementCommand(new FormData(elements.commandForm));
+});
+
+elements.previewCommandButton?.addEventListener("click", () => {
   previewManagementCommand(new FormData(elements.commandForm));
+});
+
+elements.evidenceForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitEvidence(new FormData(elements.evidenceForm));
+});
+
+elements.gapReplyForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitGapReply(new FormData(elements.gapReplyForm));
+});
+
+elements.connectionDraftForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitConnectionDraft(new FormData(elements.connectionDraftForm));
 });
 
 await loadState();
 
 async function loadState() {
+  const requestId = ++loadRequestId;
   elements.loading.hidden = false;
   elements.error.hidden = true;
   try {
@@ -73,26 +104,33 @@ async function loadState() {
     if (!response.ok) {
       throw new Error(`Request failed: ${response.status}`);
     }
-    state.data = await response.json();
+    const data = await response.json();
+    if (requestId !== loadRequestId) return;
+    state.data = data;
     render();
-    refreshLegacyRuntime();
+    refreshLegacyRuntime(requestId);
   } catch (error) {
+    if (requestId !== loadRequestId) return;
     elements.error.hidden = false;
     elements.error.textContent = error instanceof Error ? error.message : String(error);
   } finally {
-    elements.loading.hidden = true;
+    if (requestId === loadRequestId) {
+      elements.loading.hidden = true;
+    }
   }
 }
 
 function setView(view) {
-  state.view = view;
+  const nextView = viewTitles[view] ? view : "overview";
+  state.view = nextView;
   document.querySelectorAll(".nav-item").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.view === view);
+    button.classList.toggle("is-active", button.dataset.view === nextView);
   });
   document.querySelectorAll(".view").forEach((section) => {
-    section.classList.toggle("is-active", section.id === `view-${view}`);
+    section.classList.toggle("is-active", section.id === `view-${nextView}`);
   });
-  elements.viewTitle.textContent = viewTitles[view] ?? "运营总览";
+  elements.viewTitle.textContent = viewTitles[nextView];
+  syncLocation();
 }
 
 function render() {
@@ -102,7 +140,7 @@ function render() {
   elements.healthPill.className = `pill ${healthOk ? "is-ok" : "is-danger"}`;
   renderOverview(data);
   renderManagement(data.views.management_command_center);
-  renderGates(data.sales.discover_audit);
+  renderGates(data.sales.discover_audit, data.sales.stage_gate_index);
   renderTaskGraph(data.views.task_graph);
   renderGaps(data.views.information_gap_inbox);
   renderSync(data.views.external_sync_console, data.external_sync.writeback_policy_decisions);
@@ -141,6 +179,88 @@ async function previewManagementCommand(formData) {
       </div>
     `;
   }
+}
+
+async function submitManagementCommand(formData) {
+  if (!elements.dispatchPreview) return;
+  elements.dispatchPreview.innerHTML = `
+    <div class="compact-item">
+      <strong>正在提交管理指令</strong>
+      <p>指令会写入当前运行态，并投射到泳道任务。</p>
+    </div>
+  `;
+  const payload = {
+    ...Object.fromEntries(formData.entries()),
+    user_id: state.userId
+  };
+  try {
+    const response = await fetch(`/api/management/commands?user_id=${encodeURIComponent(state.userId)}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message ?? result.error ?? `Request failed: ${response.status}`);
+    renderDispatchPreview({
+      ok: true,
+      command: result.created.command,
+      execution_tasks: result.created.execution_tasks,
+      bridge_routes: {
+        workflow_plan: "/internal/workflows/plan",
+        org_task_create: "/admin/tasks",
+        human_assignment: "/internal/tasks/assign",
+        audit_projection: "/api/admin/audit"
+      },
+      warnings: []
+    });
+    await loadState();
+  } catch (error) {
+    elements.dispatchPreview.innerHTML = `
+      <div class="compact-item">
+        <strong>提交失败</strong>
+        <p>${escapeHtml(error instanceof Error ? error.message : String(error))}</p>
+      </div>
+    `;
+  }
+}
+
+async function submitEvidence(formData) {
+  const payload = {
+    ...Object.fromEntries(formData.entries()),
+    user_id: state.userId
+  };
+  await postAction("/api/evidence", payload);
+}
+
+async function submitGapReply(formData) {
+  const payload = {
+    ...Object.fromEntries(formData.entries()),
+    user_id: state.userId
+  };
+  const gapId = payload.gap_id;
+  delete payload.gap_id;
+  await postAction(`/api/information-gaps/${encodeURIComponent(gapId)}/reply`, payload);
+}
+
+async function submitConnectionDraft(formData) {
+  const payload = {
+    ...Object.fromEntries(formData.entries()),
+    user_id: state.userId
+  };
+  await postAction("/api/external-connections/drafts", payload);
+}
+
+async function postAction(path, payload) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Request failed: ${response.status}`);
+  }
+  await loadState();
 }
 
 function renderManagement(viewModel) {
@@ -199,17 +319,20 @@ function renderManagement(viewModel) {
         <span>${escapeHtml(String(lane.tasks.length))}</span>
       </header>
       <div class="swimlane-tasks">
-        ${lane.tasks.length ? lane.tasks.map((task) => `
+        ${lane.tasks.length ? lane.tasks.map((task) => {
+          const progress = normalizeProgressPercent(task.progress_percent);
+          const progressLabel = progress === null ? null : formatProgressPercent(progress);
+          return `
           <article class="swimlane-card">
             <strong>${escapeHtml(task.title)}</strong>
             ${task.command ? `<p>来自：${escapeHtml(task.command.title)}</p>` : ""}
             <p>${escapeHtml(task.owner.type)} / ${escapeHtml(task.owner.id)}</p>
-            ${typeof task.progress_percent === "number" ? `
-              <div class="progress-bar" aria-label="${escapeHtml(`进度 ${task.progress_percent}%`)}">
-                <span style="width: ${escapeHtml(String(task.progress_percent))}%"></span>
+            ${progressLabel === null ? "" : `
+              <div class="progress-bar" aria-label="${escapeHtml(`进度 ${progressLabel}%`)}">
+                <span style="width: ${escapeHtml(progressLabel)}%"></span>
               </div>
-              <p>${escapeHtml(`进度 ${task.progress_percent}%`)}</p>
-            ` : ""}
+              <p>${escapeHtml(`进度 ${progressLabel}%`)}</p>
+            `}
             ${task.latest_update ? `<p>进展：${escapeHtml(task.latest_update.message)}</p>` : ""}
             ${task.result_summary ? `<p>结果：${escapeHtml(task.result_summary)}</p>` : ""}
             ${task.blocker ? `<p>阻塞：${escapeHtml(task.blocker)}</p>` : ""}
@@ -220,7 +343,8 @@ function renderManagement(viewModel) {
               <span>${escapeHtml(task.source === "management_execution_task" ? "执行任务" : "TaskGraph")}</span>
             </div>
           </article>
-        `).join("") : `<div class="empty-lane">暂无任务</div>`}
+        `;
+        }).join("") : `<div class="empty-lane">暂无任务</div>`}
       </div>
     </section>
   `).join("");
@@ -272,10 +396,22 @@ function renderRoleSwitcher(viewModel) {
       const userId = button.dataset.userId;
       if (!userId || userId === state.userId) return;
       state.userId = userId;
+      syncLocation();
       elements.dispatchPreview.innerHTML = "";
       loadState();
     });
   });
+}
+
+function syncLocation() {
+  const params = new URLSearchParams(window.location.search);
+  params.set("view", state.view);
+  params.set("user_id", state.userId);
+  const nextUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl !== currentUrl) {
+    window.history.replaceState(null, "", nextUrl);
+  }
 }
 
 function setCommandFormAvailability(canCreate, role) {
@@ -322,18 +458,22 @@ function renderDispatchPreview(preview) {
     </div>
     ${executionTasks.length ? `
       <div class="preview-execution">
-        ${executionTasks.map((task) => `
+        ${executionTasks.map((task) => {
+          const progress = normalizeProgressPercent(task.progress_percent);
+          const progressLabel = progress === null ? "0" : formatProgressPercent(progress);
+          return `
           <article class="swimlane-card">
             <strong>${escapeHtml(task.title)}</strong>
             <p>${escapeHtml(`${task.owner_actor_type} / ${task.owner_actor_id}`)}</p>
-            <div class="progress-bar" aria-label="${escapeHtml(`进度 ${task.progress_percent}%`)}">
-              <span style="width: ${escapeHtml(String(task.progress_percent))}%"></span>
+            <div class="progress-bar" aria-label="${escapeHtml(`进度 ${progressLabel}%`)}">
+              <span style="width: ${escapeHtml(progressLabel)}%"></span>
             </div>
-            <p>${escapeHtml(`泳道：${task.status} · 进度 ${task.progress_percent}%`)}</p>
+            <p>${escapeHtml(`泳道：${task.status} · 进度 ${progressLabel}%`)}</p>
             ${task.result_summary ? `<p>结果：${escapeHtml(task.result_summary)}</p>` : ""}
             ${task.blocker ? `<p>阻塞：${escapeHtml(task.blocker)}</p>` : ""}
           </article>
-        `).join("")}
+        `;
+        }).join("")}
       </div>
     ` : ""}
   `;
@@ -345,7 +485,7 @@ function renderOverview(data) {
     ["Tasks Need Info", overview.task_counts.needs_info ?? 0, "Human Twin 需要补采的信息任务"],
     ["Accepted Tasks", overview.task_counts.accepted ?? 0, "已有证据并通过验收的任务"],
     ["Missing Gates", overview.gate_counts.missing ?? 0, "销售 Gate 仍缺证据"],
-    ["Writeback Pending", overview.pending_writeback_count ?? 0, "需要确认的外部系统反写"]
+    ["Role Actions", overview.role_action_count ?? 0, "当前身份优先处理的下一步动作"]
   ];
   elements.metricGrid.innerHTML = metrics.map(([label, value, detail]) => `
     <article class="metric">
@@ -362,9 +502,69 @@ function renderOverview(data) {
       <div>${escapeHtml(alert)}</div>
     </div>
   `).join("");
+
+  renderRoleActions(overview);
 }
 
-function renderGates(audit) {
+function renderRoleActions(overview) {
+  if (!elements.roleActionList) return;
+  const actions = overview.role_action_queue ?? [];
+  if (actions.length === 0) {
+    elements.roleActionList.innerHTML = `
+      <div class="compact-item">
+        <strong>当前角色暂无待办</strong>
+        <p>所有高优先级缺口、Gate、同步和执行任务都已处理。</p>
+      </div>
+    `;
+    return;
+  }
+
+  elements.roleActionList.innerHTML = actions.map((action) => `
+    <article class="action-card">
+      <div class="action-rank">${escapeHtml(String(action.rank))}</div>
+      <div class="action-body">
+        <header>
+          <div>
+            <strong>${escapeHtml(action.title)}</strong>
+            <p>${escapeHtml(action.reason)}</p>
+          </div>
+          ${statusPill(action.priority)}
+        </header>
+        <p>${escapeHtml(action.next_step)}</p>
+        <div class="tag-row">
+          <span>${escapeHtml(action.target_view_label)}</span>
+          <span>${escapeHtml(action.status)}</span>
+          <span>${escapeHtml(`${action.owner.type} / ${action.owner.id}`)}</span>
+          ${action.due_at ? `<span>${escapeHtml(action.due_at)}</span>` : ""}
+        </div>
+      </div>
+      <button type="button" class="icon-button action-open" data-target-view="${escapeHtml(action.target_view)}" title="打开${escapeHtml(action.target_view_label)}" aria-label="打开${escapeHtml(action.target_view_label)}">›</button>
+    </article>
+  `).join("");
+  elements.roleActionList.querySelectorAll("[data-target-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setView(button.dataset.targetView ?? "overview");
+    });
+  });
+}
+
+function renderGates(audit, gateIndex) {
+  if (elements.salesStageList && gateIndex) {
+    elements.salesStageList.innerHTML = gateIndex.stages.map((stage) => `
+      <article class="stage-card">
+        <header>
+          <div>
+            <h4>${escapeHtml(stage.label)}</h4>
+            <p>${escapeHtml(stage.id)} · ${escapeHtml(stage.sample_check_count)}/${escapeHtml(stage.gate_count)} sample checks</p>
+          </div>
+          ${statusPill(stage.sample_check_count === stage.gate_count ? "evidence_submitted" : "gate_index_only")}
+        </header>
+        <div class="tag-row">
+          ${stage.gates.map((gate) => `<span title="${escapeHtml(gate.label)}">${escapeHtml(gate.id)}:${escapeHtml(gate.status)}</span>`).join("")}
+        </div>
+      </article>
+    `).join("");
+  }
   elements.gateTable.innerHTML = `
     <table>
       <thead>
@@ -430,6 +630,13 @@ function renderGaps(viewModel) {
         <div class="meta"><span>Collector</span><p>${escapeHtml(gap.collector_actor_id)}</p></div>
         <div class="meta"><span>Expected Evidence</span><p>${escapeHtml(gap.expected_evidence_types.join(", "))}</p></div>
       </div>
+      ${gap.last_reply ? `
+        <div class="meta-grid">
+          <div class="meta"><span>Last Reply</span><strong>${escapeHtml(gap.last_reply.decision)}</strong></div>
+          <div class="meta"><span>By</span><p>${escapeHtml(gap.last_reply.by)}</p></div>
+          <div class="meta"><span>Detail</span><p>${escapeHtml(gap.last_reply.reason ?? gap.last_reply.message ?? "")}</p></div>
+        </div>
+      ` : ""}
     </article>
   `).join("");
 }
@@ -449,9 +656,35 @@ function renderSync(viewModel, decisions) {
       <div class="compact-item">
         <strong>${escapeHtml(intent.operation)} · ${escapeHtml(intent.provider)}</strong>
         <p>${escapeHtml(intent.id)} · ${escapeHtml(intent.risk_level)} · ${escapeHtml(decision?.decision ?? intent.policy_decision)}</p>
+        <div class="button-row">
+          <button type="button" class="secondary-button writeback-action" data-writeback-id="${escapeHtml(intent.id)}" data-writeback-action="approve">审批</button>
+          <button type="button" class="secondary-button writeback-action" data-writeback-id="${escapeHtml(intent.id)}" data-writeback-action="reject">拒绝</button>
+        </div>
       </div>
     `;
   }).join("");
+  elements.writebackList.querySelectorAll(".writeback-action").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await postAction(`/api/writebacks/${encodeURIComponent(button.dataset.writebackId)}/${button.dataset.writebackAction}`, {
+        user_id: state.userId,
+        reason: "Decided from Ops Console"
+      });
+    });
+  });
+  const drafts = state.data?.raw?.externalConnectionDrafts ?? [];
+  if (elements.connectionDraftList) {
+    elements.connectionDraftList.innerHTML = drafts.map((draft) => `
+      <div class="compact-item">
+        <strong>${escapeHtml(draft.provider)} · ${escapeHtml(draft.system_type)} · ${statusPill(draft.status)}</strong>
+        <p>${escapeHtml(draft.field_mapping_draft?.notes ?? "")}</p>
+      </div>
+    `).join("") || `
+      <div class="compact-item">
+        <strong>暂无连接草案</strong>
+        <p>保存草案后会显示在这里。</p>
+      </div>
+    `;
+  }
 }
 
 function renderLegacy(viewModel, bridgePreview) {
@@ -520,15 +753,19 @@ function renderLegacy(viewModel, bridgePreview) {
   `).join("");
 }
 
-async function refreshLegacyRuntime() {
+async function refreshLegacyRuntime(stateRequestId = loadRequestId) {
   if (!state.data || !elements.legacyRuntime) return;
+  const requestId = ++legacyRuntimeRequestId;
   try {
     const response = await fetch("/api/jueying/mainline/runtime-health?timeout_ms=1500", { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Runtime health request failed: ${response.status}`);
     }
-    renderLegacyRuntime(await response.json(), false);
+    const runtime = await response.json();
+    if (requestId !== legacyRuntimeRequestId || stateRequestId !== loadRequestId) return;
+    renderLegacyRuntime(runtime, false);
   } catch (error) {
+    if (requestId !== legacyRuntimeRequestId || stateRequestId !== loadRequestId) return;
     renderLegacyRuntime({
       ok: false,
       online_count: 0,
@@ -720,10 +957,21 @@ function statusClass(status) {
   if (["missing", "needs_info", "needs_supplement", "collecting", "needs_confirmation", "partial"].includes(status)) {
     return "is-warn";
   }
-  if (["rejected", "blocked", "failed"].includes(status)) {
+  if (["rejected", "reject", "blocked", "failed"].includes(status)) {
     return "is-danger";
   }
   return "";
+}
+
+function normalizeProgressPercent(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.min(100, Math.max(0, value));
+}
+
+function formatProgressPercent(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
 }
 
 function escapeHtml(value) {

@@ -24,9 +24,15 @@ try {
   await checkJson("/api/state", (json) => {
     return json.health?.ok === true &&
       json.views?.operating_console &&
+      json.views?.operating_console?.role_action_count >= 3 &&
+      json.views?.operating_console?.role_action_queue?.some((action) => action.target_view === "management") &&
+      json.views?.operating_console?.role_action_queue?.some((action) => action.target_view === "gates") &&
       json.views?.management_command_center?.summary?.scheduled_command_count >= 1 &&
       json.views?.management_command_center?.summary?.condition_command_count >= 1 &&
       json.views?.management_command_center?.permissions?.can_create_command === true &&
+      json.views?.sales_stage_gate_index?.stage_count === 6 &&
+      json.views?.sales_stage_gate_index?.gate_count >= 27 &&
+      json.views?.sales_stage_gate_index?.stages?.every((stage) => stage.gates?.length > 0) &&
       json.sales?.discover_audit?.checks?.length === 7 &&
       json.views?.storyline_acceptance?.summary?.step_count >= 40 &&
       json.views?.storyline_acceptance?.ok === true &&
@@ -59,10 +65,25 @@ try {
       json.view_model?.swimlanes?.some((lane) =>
         lane.tasks?.some((task) => task.owner?.id === "sales_agent_001" && task.latest_update?.message)
       ) &&
+      !json.view_model?.swimlanes?.some((lane) =>
+        lane.tasks?.some((task) => task.owner?.id === "delivery_agent_001")
+      ) &&
       json.view_model?.commands?.every((command) =>
         command.delegation_chain?.some((item) => item.actor_id === "sales_agent_001")
       );
   }, "management command center sales-agent read-only payload");
+  await checkJson("/api/state?user_id=sales_agent_001", (json) => {
+    return json.views?.operating_console?.active_role?.user_id === "sales_agent_001" &&
+      json.views?.operating_console?.role_action_queue?.length >= 1 &&
+      json.views?.operating_console?.role_action_queue?.every((action) =>
+        action.source_type !== "management_execution_task" ||
+        action.owner?.id === "sales_agent_001"
+      ) &&
+      json.views?.operating_console?.role_action_queue?.some((action) =>
+        action.source_type === "management_execution_task" &&
+        action.status === "needs_info"
+      );
+  }, "role action queue sales-agent payload");
   await checkJson("/api/management/dispatch-preview", (json) => {
     return json.ok === true &&
       json.command?.delegation_chain?.some((item) => item.actor_type === "executive") &&
@@ -72,6 +93,23 @@ try {
       json.execution_updates?.some((update) => update.update_type === "decomposition") &&
       json.task?.owner_actor_type === "pm_agent";
   }, "management dispatch preview payload");
+  await checkJson("/api/management/dispatch-preview", (json) => {
+    return json.ok === true;
+  }, "management dispatch preview empty POST payload", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: ""
+  });
+  await checkStatus("/api/management/dispatch-preview", 400, "management dispatch preview malformed JSON", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{"
+  });
+  await checkStatus("/api/management/dispatch-preview", 413, "management dispatch preview oversized body", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "x".repeat((1024 * 1024) + 1)
+  });
   await checkJson("/api/management/dispatch-preview?user_id=sales_agent_001", (json) => {
     return json.ok === false &&
       json.warnings?.length >= 1 &&
@@ -79,6 +117,59 @@ try {
       json.command?.delegation_chain?.[0]?.actor_type === "executive" &&
       json.command?.delegation_chain?.[0]?.actor_id === "user_exec_lina";
   }, "management dispatch preview read-only role payload");
+  const commandTitle = `Smoke live command ${Date.now()}`;
+  await checkJson("/api/management/commands", (json) => {
+    return json.created?.command?.title === commandTitle &&
+      json.raw?.commands?.some((command) => command.title === commandTitle) &&
+      json.view_model?.commands?.some((command) => command.title === commandTitle) &&
+      json.view_model?.swimlanes?.some((lane) => lane.tasks?.some((task) => task.title.includes(commandTitle)));
+  }, "management command create persists payload", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      user_id: "user_exec_lina",
+      title: commandTitle,
+      objective: "Smoke verifies a submitted command survives a refreshed command-center model.",
+      trigger_type: "manual",
+      specialized_agent_type: "sales_agent"
+    })
+  });
+  await checkJson("/api/management/command-center", (json) => {
+    return json.raw?.commands?.some((command) => command.title === commandTitle) &&
+      json.view_model?.swimlanes?.some((lane) => lane.tasks?.some((task) => task.title.includes(commandTitle)));
+  }, "management command remains after refresh");
+  await checkJson("/api/evidence", (json) => {
+    return json.evidence?.evidence_type === "customer_quote" &&
+      json.raw?.some((item) => item.id === json.evidence.id);
+  }, "evidence submit payload", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      user_id: "user_exec_lina",
+      task_id: "task_discover_champion",
+      evidence_type: "customer_quote",
+      summary: "Smoke evidence confirms a champion signal."
+    })
+  });
+  await checkJson("/api/external-connections/drafts", (json) => {
+    return json.draft?.status === "draft" &&
+      json.drafts?.some((draft) => draft.id === json.draft.id);
+  }, "external connection draft payload", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      user_id: "user_admin_it",
+      system_type: "crm",
+      provider: "hubspot",
+      notes: "Smoke draft mapping."
+    })
+  });
+  await checkJson("/api/sales/gates", (json) => {
+    return json.stage_count === 6 &&
+      json.gate_count >= 27 &&
+      json.stages?.some((stage) => stage.id === "negotiate_close" && stage.gates?.some((gate) => gate.id === "N-G4")) &&
+      json.stages?.some((stage) => stage.id === "discover" && stage.sample_check_count >= 1);
+  }, "sales six stage gate index payload");
   await checkJson("/api/storylines", (json) => {
     return json.report?.ok === true &&
       json.view_model?.summary?.role_count >= 10 &&
@@ -124,10 +215,18 @@ try {
       Array.isArray(json.services) &&
       json.service_count >= 5;
   }, "JueYing mainline runtime health payload");
+  await checkJson("/api/jueying/mainline/runtime-health?timeout_ms=not-a-number", (json) => {
+    return typeof json.service_count === "number" &&
+      Array.isArray(json.services) &&
+      json.service_count >= 5;
+  }, "JueYing mainline runtime health fallback timeout payload");
+  await checkStatus("/../package.json", 404, "static traversal normalized by URL is not served");
+  await checkStatus("/%2e%2e/package.json", 404, "encoded static traversal is not served");
   await checkText("/", (text) => {
     return text.includes("JueYing") &&
       text.includes("Agent Harness") &&
       text.includes("view-overview") &&
+      text.includes("role-action-list") &&
       text.includes("view-management") &&
       text.includes("command-form") &&
       text.includes("role-switcher") &&
@@ -136,6 +235,34 @@ try {
       text.includes("view-storylines") &&
       text.includes("operation-path-summary");
   }, "index html");
+  await checkJson("/api/information-gaps/gap_discover_champion/reply", (json) => {
+    const gapView = json.view_model?.gaps?.find((gap) => gap.id === "gap_discover_champion");
+    return json.gap?.status === "waived" &&
+      gapView?.status === "waived" &&
+      gapView?.last_reply?.decision === "rebut" &&
+      gapView?.last_reply?.reason === "Smoke rebuts this gap.";
+  }, "information gap rebut payload", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      user_id: "user_exec_lina",
+      decision: "rebut",
+      reason: "Smoke rebuts this gap."
+    })
+  });
+  await checkJson("/api/writebacks/wbi_crm_note_acme_001/reject", (json) => {
+    const visibleIntent = json.view_model?.writeback_queue?.find((intent) => intent.id === "wbi_crm_note_acme_001");
+    return json.writeback_intent?.policy_decision === "reject" &&
+      json.writeback_intent?.confirmed_by === "user_exec_lina" &&
+      visibleIntent?.policy_decision === "reject";
+  }, "writeback reject payload", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      user_id: "user_exec_lina",
+      reason: "Smoke rejects this writeback."
+    })
+  });
   console.log("App smoke OK");
 } finally {
   child.kill();
@@ -156,14 +283,21 @@ async function waitForServer() {
   throw new Error(`server did not start. Output:\n${output}`);
 }
 
-async function checkJson(path, predicate, label) {
-  const response = await fetch(`${baseUrl}${path}`);
+async function checkJson(path, predicate, label, options) {
+  const response = await fetch(`${baseUrl}${path}`, options);
   if (!response.ok) {
     throw new Error(`${label} failed with status ${response.status}`);
   }
   const json = await response.json();
   if (!predicate(json)) {
     throw new Error(`${label} predicate failed`);
+  }
+}
+
+async function checkStatus(path, expectedStatus, label, options) {
+  const response = await fetch(`${baseUrl}${path}`, options);
+  if (response.status !== expectedStatus) {
+    throw new Error(`${label} expected status ${expectedStatus}, got ${response.status}`);
   }
 }
 

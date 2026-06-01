@@ -65,7 +65,7 @@ export function assertJueyingV1Integration(report = inspectJueyingV1Integration(
   if (!report.legacy_package) {
     errors.push(`legacy package.json not found: ${report.legacy_root}`);
   }
-  for (const issue of report.issues ?? []) {
+  for (const issue of report.issues) {
     errors.push(`${issue.capability_id}: ${issue.message}`);
   }
   if (!report.ok) {
@@ -225,7 +225,8 @@ export async function checkLegacyRuntimeHealth(report = inspectJueyingV1Integrat
 export function taskGraphToLegacyWorkflowPlan(taskGraph, options = {}) {
   const ownerUserId = options.owner_user_id ?? "u_ai_native_ops";
   const policySnapshotHash = options.policy_snapshot_hash ?? `sha256:${"0".repeat(64)}`;
-  const stageChain = (taskGraph.tasks ?? []).map((task, index) => ({
+  const tasks = Array.isArray(taskGraph.tasks) ? taskGraph.tasks : [];
+  const stageChain = tasks.map((task, index) => ({
     stage_id: task.id,
     seq: index,
     stage_key: task.id,
@@ -257,7 +258,7 @@ export function taskGraphToLegacyWorkflowPlan(taskGraph, options = {}) {
       on_progress: true,
       on_exit: true
     },
-    on_success: nextTaskId(taskGraph.tasks, index) ?? "complete",
+    on_success: nextTaskId(tasks, index) ?? "complete",
     on_failure: "repair_or_fail",
     ai_native_refs: {
       task_graph_id: taskGraph.id,
@@ -429,9 +430,9 @@ function discoverWorkspacePackages(legacyRoot, packageJson) {
     if (!existsSync(dir)) continue;
     let children = [];
     try {
-      children = statSync(dir).isDirectory()
-        ? Array.from(new Set(requireDirNames(dir)))
-        : [];
+      if (statSync(dir).isDirectory()) {
+        children = Array.from(new Set(requireDirNames(dir)));
+      }
     } catch {
       children = [];
     }
@@ -594,13 +595,11 @@ function pathCheck(legacyRoot, path) {
 }
 
 function requireDirNames(dir) {
-  return statSync(dir).isDirectory()
-    ? Array.from(new Set(
-        readdirSync(dir, { withFileTypes: true })
-          .filter((entry) => entry.isDirectory())
-          .map((entry) => entry.name)
-      ))
-    : [];
+  return Array.from(new Set(
+    readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+  ));
 }
 
 function readJsonIfExists(path) {
@@ -645,5 +644,8 @@ function nextTaskId(tasks, index) {
 
 function toDisplayPath(path) {
   const rel = relative(resolve("."), path);
-  return rel && !rel.startsWith("..") ? rel.replaceAll("\\", "/") : path.replaceAll("\\", "/");
+  if (rel && !rel.startsWith("..")) {
+    return rel.replaceAll("\\", "/");
+  }
+  return path.replaceAll("\\", "/");
 }

@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generated_at": "2026-05-31T12:25:11.821Z",
+  "generated_at": "2026-06-01T04:41:19.178Z",
   "matrix_version": "v0.1",
   "root": "D:/teamclaw/jueying-mainline",
   "summary": {
@@ -355,7 +355,7 @@
               "role_id": "executive_coo",
               "storyline_id": "exec-01-operating-rhythm",
               "action": "查看本周期目标、销售 Routine、重点商机和交付项目是否都被纳入 Work Unit / Run。",
-              "expected_result": "总览能显示待补信息、缺失 Gate、外部反写和主风险，不只显示原始流水。",
+              "expected_result": "总览能显示待补信息、缺失 Gate、外部反写、主风险和按当前登录角色排序的行动队列，不只显示原始流水。",
               "status": "pass",
               "issues": [],
               "story_refs": [

@@ -84,12 +84,14 @@ export function buildRoleStorylineAcceptanceReport({
 } = {}) {
   const expectedStories = collectExpectedStories(scenarioCoverage);
   const expectedGateIds = new Set(buildSalesGateIndex(salesGateModel).keys());
+  const roles = asArray(matrix.roles);
   const coveredStories = new Set();
   const coveredGateIds = new Set();
   const capabilityDomains = new Set(Object.keys(scenarioCoverage.capability_domains ?? {}));
-  const legacyCapabilities = new Set((legacyIntegration?.capabilities ?? []).map((capability) => capability.id));
+  const legacyCapabilityItems = asArray(legacyIntegration?.capabilities);
+  const legacyCapabilities = new Set(legacyCapabilityItems.map((capability) => capability.id));
   const readyLegacyCapabilities = new Set(
-    (legacyIntegration?.capabilities ?? [])
+    legacyCapabilityItems
       .filter((capability) => capability.status === "adapter_ready")
       .map((capability) => capability.id)
   );
@@ -98,15 +100,15 @@ export function buildRoleStorylineAcceptanceReport({
   const roleResults = [];
   const reportIssues = [];
 
-  for (const role of matrix.roles ?? []) {
+  for (const role of roles) {
     const roleIssues = validateRole(role);
     const storylineResults = [];
 
-    for (const storyline of role.storylines ?? []) {
+    for (const storyline of asArray(role.storylines)) {
       const storylineIssues = validateStoryline(storyline);
       const stepResults = [];
 
-      for (const step of storyline.steps ?? []) {
+      for (const step of asArray(storyline.steps)) {
         const result = validateStep({
           role,
           storyline,
@@ -131,7 +133,7 @@ export function buildRoleStorylineAcceptanceReport({
       storylineResults.push({
         id: storyline.id,
         title: storyline.title,
-        story_refs: storyline.story_refs ?? [],
+        story_refs: asArray(storyline.story_refs),
         step_count: stepResults.length,
         passed_step_count: stepResults.filter((stepResult) => stepResult.status === "pass").length,
         status: issues.length === 0 ? "pass" : "fail",
@@ -159,7 +161,7 @@ export function buildRoleStorylineAcceptanceReport({
   }
 
   for (const roleId of REQUIRED_ROLE_IDS) {
-    if (!(matrix.roles ?? []).some((role) => role.id === roleId)) {
+    if (!roles.some((role) => role.id === roleId)) {
       reportIssues.push(issue("role_missing", `Required role is missing from acceptance matrix: ${roleId}`));
     }
   }
@@ -298,8 +300,18 @@ function validateStep({
   fixtureIndex
 }) {
   const issues = [];
-  const coveredStoryIds = expandScenarioRefs(step.story_refs ?? []);
-  const coveredGateIds = expandGateRefs(step.gate_refs ?? [], expectedGateIds);
+  const storyRefs = asArray(step.story_refs);
+  const gateRefs = asArray(step.gate_refs);
+  const capabilityDomainRefs = asArray(step.capability_domains);
+  const uiSurfaces = asArray(step.ui_surfaces);
+  const apiSurfaces = asArray(step.api_surfaces);
+  const contractRefs = asArray(step.contract_refs);
+  const legacyCapabilityRefs = asArray(step.legacy_capabilities);
+  const externalSystems = asArray(step.external_systems);
+  const fixtureExpectations = asArray(step.fixture_expectations);
+  const verificationModeRefs = asArray(step.verification_modes);
+  const coveredStoryIds = expandScenarioRefs(storyRefs);
+  const coveredGateIds = expandGateRefs(gateRefs, expectedGateIds);
 
   if (!step.id) issues.push(issue("step", "Step id is required"));
   if (!step.action) issues.push(issue("step", `Step ${step.id ?? "<unknown>"} action is required`));
@@ -316,7 +328,7 @@ function validateStep({
 
   const isSalesGateStep =
     coveredStoryIds.some((storyId) => SALES_GATE_STORY_IDS.has(storyId)) ||
-    (step.capability_domains ?? []).some((domain) =>
+    capabilityDomainRefs.some((domain) =>
       ["sales_six_step_gate_engine", "sales_six_step_lens"].includes(domain)
     );
   if (isSalesGateStep && coveredGateIds.length === 0) {
@@ -328,31 +340,31 @@ function validateStep({
     }
   }
 
-  for (const domain of step.capability_domains ?? []) {
+  for (const domain of capabilityDomainRefs) {
     if (!capabilityDomains.has(domain)) {
       issues.push(issue("capability_domains", `Step ${step.id} references unknown capability domain: ${domain}`));
     }
   }
 
-  for (const surface of step.ui_surfaces ?? []) {
+  for (const surface of uiSurfaces) {
     if (!IMPLEMENTED_UI_SURFACES.has(surface)) {
       issues.push(issue("ui_surfaces", `Step ${step.id} references unimplemented UI surface: ${surface}`));
     }
   }
 
-  for (const surface of step.api_surfaces ?? []) {
+  for (const surface of apiSurfaces) {
     if (!IMPLEMENTED_API_SURFACES.has(surface)) {
       issues.push(issue("api_surfaces", `Step ${step.id} references unimplemented API surface: ${surface}`));
     }
   }
 
-  for (const contract of step.contract_refs ?? []) {
+  for (const contract of contractRefs) {
     if (!IMPLEMENTED_CONTRACTS.has(contract)) {
       issues.push(issue("contract_refs", `Step ${step.id} references unimplemented contract: ${contract}`));
     }
   }
 
-  for (const capabilityId of step.legacy_capabilities ?? []) {
+  for (const capabilityId of legacyCapabilityRefs) {
     if (!legacyCapabilities.has(capabilityId)) {
       issues.push(issue("legacy_capabilities", `Step ${step.id} references unknown legacy capability: ${capabilityId}`));
     } else if (!readyLegacyCapabilities.has(capabilityId)) {
@@ -360,7 +372,7 @@ function validateStep({
     }
   }
 
-  for (const systemType of step.external_systems ?? []) {
+  for (const systemType of externalSystems) {
     if (!fixtureIndex.externalSystemTypes.has(systemType)) {
       issues.push(issue("external_systems", `Step ${step.id} expects missing external mirror system: ${systemType}`));
     }
@@ -369,26 +381,26 @@ function validateStep({
     }
   }
 
-  for (const expectation of step.fixture_expectations ?? []) {
+  for (const expectation of fixtureExpectations) {
     if (!fixtureExpectationPassed(expectation, fixtureIndex)) {
       issues.push(issue("fixture_expectations", `Step ${step.id} fixture expectation failed: ${expectation.kind}=${expectation.value}`));
     }
   }
 
-  const verificationModes = new Set(step.verification_modes ?? []);
-  if (verificationModes.has("ui") && (step.ui_surfaces ?? []).length === 0) {
+  const verificationModes = new Set(verificationModeRefs);
+  if (verificationModes.has("ui") && uiSurfaces.length === 0) {
     issues.push(issue("verification_modes", `Step ${step.id} has ui verification but no UI surface`));
   }
-  if (verificationModes.has("api") && (step.api_surfaces ?? []).length === 0) {
+  if (verificationModes.has("api") && apiSurfaces.length === 0) {
     issues.push(issue("verification_modes", `Step ${step.id} has api verification but no API surface`));
   }
-  if (verificationModes.has("contract") && (step.contract_refs ?? []).length === 0) {
+  if (verificationModes.has("contract") && contractRefs.length === 0) {
     issues.push(issue("verification_modes", `Step ${step.id} has contract verification but no contract refs`));
   }
-  if (verificationModes.has("legacy_bridge") && (step.legacy_capabilities ?? []).length === 0) {
+  if (verificationModes.has("legacy_bridge") && legacyCapabilityRefs.length === 0) {
     issues.push(issue("verification_modes", `Step ${step.id} has legacy bridge verification but no legacy capabilities`));
   }
-  if (verificationModes.has("external_sync") && (step.external_systems ?? []).length === 0) {
+  if (verificationModes.has("external_sync") && externalSystems.length === 0) {
     issues.push(issue("verification_modes", `Step ${step.id} has external sync verification but no external systems`));
   }
 
@@ -400,17 +412,17 @@ function validateStep({
     expected_result: step.expected_result,
     status: issues.length === 0 ? "pass" : "fail",
     issues,
-    story_refs: step.story_refs ?? [],
-    gate_refs: step.gate_refs ?? [],
+    story_refs: storyRefs,
+    gate_refs: gateRefs,
     covered_story_ids: coveredStoryIds,
     covered_gate_ids: coveredGateIds,
-    capability_domains: step.capability_domains ?? [],
-    ui_surfaces: step.ui_surfaces ?? [],
-    api_surfaces: step.api_surfaces ?? [],
-    contract_refs: step.contract_refs ?? [],
-    verification_modes: step.verification_modes ?? [],
-    external_systems: step.external_systems ?? [],
-    legacy_capabilities: step.legacy_capabilities ?? []
+    capability_domains: capabilityDomainRefs,
+    ui_surfaces: uiSurfaces,
+    api_surfaces: apiSurfaces,
+    contract_refs: contractRefs,
+    verification_modes: verificationModeRefs,
+    external_systems: externalSystems,
+    legacy_capabilities: legacyCapabilityRefs
   };
 }
 
@@ -431,7 +443,7 @@ function collectExpectedStories(scenarioCoverage) {
 
 function expandScenarioRefs(refs) {
   const ids = [];
-  for (const ref of refs ?? []) {
+  for (const ref of asArray(refs)) {
     if (Array.isArray(ref)) {
       ids.push(...expandScenarioRange(ref[0], ref[1]));
       continue;
@@ -469,8 +481,6 @@ function expandScenarioRange(start, end) {
   }
   return ids.filter((id) => {
     const parsed = parseScenarioId(id);
-    if (!parsed) return false;
-    if (parsed.number < parsedStart.number || parsed.number > parsedEnd.number) return false;
     if (parsed.number === parsedStart.number && compareScenarioIds(id, start) < 0) return false;
     if (parsed.number === parsedEnd.number && compareScenarioIds(id, end) > 0) return false;
     return true;
@@ -483,7 +493,7 @@ function parseScenarioId(id) {
   return {
     prefix: match[1],
     number: Number.parseInt(match[2], 10),
-    suffix: match[3] ?? ""
+    suffix: match[3]
   };
 }
 
@@ -499,7 +509,7 @@ function compareScenarioIds(a, b) {
 
 function expandGateRefs(refs, expectedGateIds) {
   const ids = [];
-  for (const ref of refs ?? []) {
+  for (const ref of asArray(refs)) {
     const value = String(ref);
     const range = value.match(/\b([DSGVBN])-G(\d+)\.\.(?:\1-G)?(\d+)\b/);
     if (range) {
@@ -529,15 +539,16 @@ function compareGateIds(a, b) {
 }
 
 function buildFixtureIndex(state = {}) {
-  const taskGraph = state.raw?.taskGraph ?? state.taskGraph ?? {};
-  const tasks = taskGraph.tasks ?? [];
-  const gaps = state.raw?.gaps ?? state.gaps ?? [];
-  const evidence = state.raw?.evidence ?? state.evidence ?? [];
-  const gateChecks = state.raw?.gateChecks ?? state.gateChecks ?? [];
-  const mirrors = state.raw?.mirrors ?? state.mirrors ?? [];
-  const writebackIntents = state.raw?.writebackIntents ?? state.writebackIntents ?? [];
-  const agentOutputs = state.raw?.agentOutputs ?? state.agentOutputs ?? [];
-  const management = state.raw?.management ?? state.management ?? {};
+  const source = state.raw ?? state;
+  const taskGraph = source.taskGraph ?? {};
+  const tasks = asArray(taskGraph.tasks);
+  const gaps = asArray(source.gaps);
+  const evidence = asArray(source.evidence);
+  const gateChecks = asArray(source.gateChecks);
+  const mirrors = asArray(source.mirrors);
+  const writebackIntents = asArray(source.writebackIntents);
+  const agentOutputs = asArray(source.agentOutputs);
+  const management = source.management ?? {};
 
   return {
     taskStatuses: new Set(tasks.map((task) => task.status)),
@@ -547,12 +558,12 @@ function buildFixtureIndex(state = {}) {
     agentOutputKinds: new Set(agentOutputs.map((output) => output.kind)),
     externalSystemTypes: new Set(mirrors.map((mirror) => mirror.system_type)),
     writebackSystemTypes: new Set(writebackIntents.map((intent) => intent.system_type)),
-    managementTriggerTypes: new Set((management.commands ?? []).map((command) => command.trigger_type)),
-    managementCommandStatuses: new Set((management.commands ?? []).map((command) => command.status)),
-    managementProjectDomains: new Set((management.projects ?? []).map((project) => project.domain)),
-    managementRoleTypes: new Set((management.roles ?? []).map((role) => role.role_type)),
-    managementExecutionTaskStatuses: new Set((management.execution_tasks ?? []).map((task) => task.status)),
-    managementExecutionUpdateTypes: new Set((management.execution_updates ?? []).map((update) => update.update_type))
+    managementTriggerTypes: new Set(asArray(management.commands).map((command) => command.trigger_type)),
+    managementCommandStatuses: new Set(asArray(management.commands).map((command) => command.status)),
+    managementProjectDomains: new Set(asArray(management.projects).map((project) => project.domain)),
+    managementRoleTypes: new Set(asArray(management.roles).map((role) => role.role_type)),
+    managementExecutionTaskStatuses: new Set(asArray(management.execution_tasks).map((task) => task.status)),
+    managementExecutionUpdateTypes: new Set(asArray(management.execution_updates).map((update) => update.update_type))
   };
 }
 
@@ -578,4 +589,8 @@ function fixtureExpectationPassed(expectation, fixtureIndex) {
 
 function issue(kind, message) {
   return { kind, message };
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
 }

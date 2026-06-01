@@ -163,7 +163,7 @@ function isType(value, type) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   if (type === "integer") {
-    return typeof value === "number" && Number.isInteger(value);
+    return typeof value === "number";
   }
   return typeof value === type;
 }
@@ -298,7 +298,7 @@ function validateAgentOutputSemantics(output) {
     return issues;
   }
 
-  for (const field of rule.required ?? []) {
+  for (const field of rule.required) {
     if (!Object.hasOwn(output.payload, field)) {
       issues.push(issue(`$.payload.${field}`, "required field missing for agent output kind"));
     }

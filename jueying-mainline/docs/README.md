@@ -31,7 +31,7 @@ JueYing is an enterprise-grade Agent Harness for centralized management in small
 | [sales-six-step-gates.json](./sales-six-step-gates.json) | Machine-readable sales six-step gates, recommended activities, evidence types, and P1 exit gates. |
 | [../fixtures/p1-demo/management-command-center.json](../fixtures/p1-demo/management-command-center.json) | P1 management command center fixture for executive command, automatic task decomposition, execution updates/results, scheduled tasks, condition triggers, Agent delegation, and project swimlanes. |
 
-Generated operation-path evidence lives in `reports/role-operation-path-tests.json`. It is built by `npm run operation-paths:check` from `role-storyline-acceptance.json`, so every role/storyline step becomes an executable UI/API/contract/fixture/external-sync/legacy-bridge test case. The management command center fixture lives at `fixtures/p1-demo/management-command-center.json` and proves the boss-to-Agent-to-agent-to-subordinate command chain, scheduled commands, condition triggers, automatic task decomposition, execution progress/results, and swimlane projection.
+Generated operation-path evidence lives in `reports/role-operation-path-tests.json`. It is built by `npm run operation-paths:check` from `role-storyline-acceptance.json`; the latest report covers 46/46 operation paths and 671/671 assertions, so every role/storyline step becomes an executable UI/API/contract/fixture/external-sync/legacy-bridge test case. The management command center fixture lives at `fixtures/p1-demo/management-command-center.json` and proves the boss-to-Agent-to-agent-to-subordinate command chain, scheduled commands, condition triggers, automatic task decomposition, execution progress/results, and swimlane projection.
 
 ## Recommended Reading Order
 
@@ -68,10 +68,10 @@ Future product or implementation work should cite at least one `SS-*`, `PD-*`, o
 
 ## Historical Reference
 
-The previous JueYing v1 system has been archived under:
+The previous JueYing v1 system has been moved under:
 
 ```text
 legacy/jueying-v1/
 ```
 
-Use the archived project as runtime compatibility and implementation reference. New product decisions should start from the documents in this directory.
+Use `legacy/jueying-v1/agent-harness/` as runtime compatibility and implementation reference. Content under `legacy/jueying-v1/archive/` is backup material for historical comparison and should not be part of default planning or graph recall. New product decisions should start from the documents in this directory.

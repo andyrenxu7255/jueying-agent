@@ -311,6 +311,7 @@ textarea {
 }
 
 .alert-list,
+.action-list,
 .task-list,
 .storyline-list,
 .storyline-stack,
@@ -328,6 +329,58 @@ textarea {
   border-radius: 8px;
   background: #fffbeb;
   color: #78350f;
+}
+
+.action-list {
+  gap: 8px;
+}
+
+.action-card {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 36px;
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.action-rank {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #ccfbf1;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.action-body {
+  min-width: 0;
+}
+
+.action-body header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.action-body strong,
+.action-body p {
+  overflow-wrap: anywhere;
+}
+
+.action-body p {
+  margin: 5px 0 0;
+  color: var(--muted);
+}
+
+.action-open {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .table-wrap {
@@ -625,6 +678,20 @@ td {
   gap: 10px;
 }
 
+.inline-form {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) minmax(220px, 2fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .primary-button {
   min-height: 40px;
   border: 0;
@@ -646,6 +713,53 @@ td {
 .command-form.is-read-only textarea {
   cursor: not-allowed;
   opacity: 0.72;
+}
+
+.secondary-button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.secondary-button:hover,
+.secondary-button:focus-visible {
+  outline: 2px solid rgba(15, 118, 110, 0.18);
+  border-color: var(--accent);
+}
+
+.stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.stage-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.stage-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.stage-card h4 {
+  margin: 0;
+}
+
+.stage-card p {
+  margin: 4px 0 0;
+  color: var(--muted);
 }
 
 .permission-notice {
@@ -875,6 +989,7 @@ pre {
   .role-strip,
   .role-switcher,
   .management-grid,
+  .inline-form,
   .project-grid,
   .delegation-preview,
   .preview-execution {
@@ -894,5 +1009,14 @@ pre {
 
   .nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .action-card {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .action-open {
+    grid-column: 2;
+    justify-self: start;
   }
 }

@@ -2,7 +2,7 @@
 
 > 状态：持续一致性审计记录
 > 读者：负责人、产品、架构、研发、测试、后续 Agent
-> 最近审计日期：2026-05-31
+> 最近审计日期：2026-06-01
 > 依赖：DEV-23 至 DEV-38、context-graph.json、context-routing.json、scenario-coverage.json、sales-six-step-gates.json、role-storyline-acceptance.json、src/contracts、src/integrations/jueying-v1、apps/ops-console、tests/contracts.test.mjs
 
 ## 1. 审计结论
@@ -17,8 +17,13 @@
 - Sales Six-Step Gate 是销售推进的主干，所有销售阶段质量必须回到 Gate、Evidence、Information Gap 和推荐 Activity。
 - CRM 和项目管理系统必须通过 External Fact Mirror、Writeback Intent、Policy、Queue 和 Audit 保持事实一致。
 - 角色故事线验收已进入可执行资产，覆盖 10 个角色、12 条故事线、46 个步骤、101 个场景故事和 27 个销售 Gate。
-- 角色操作路径测试已把 46 个步骤物化为 46 个可执行测试用例和 478 条断言，覆盖 UI、API、契约、fixture、外部同步和旧主版本桥接路径。
+- 角色操作路径测试已把 46 个步骤物化为 46 个可执行测试用例和 671 条断言，覆盖 UI、API、契约、fixture、外部同步、写类 action surface 和旧主版本桥接路径。
 - 管理指挥中心已进入统一 Ops Console，覆盖老板/经营负责人登录视角、即时下发、定时任务、条件触发、Agent 委派链、项目泳道和项目组合，不再只是独立看板设想。
+- 本轮用户视角复查发现总览虽然有指标和异常，但缺少按登录角色排序的下一步入口，容易让负责人、销售/交付 Agent 和一线采集者在多个视图间自行寻找动作；已新增 `role_action_queue` 和总览“角色行动队列”，把管理执行任务、Information Gap、SalesGateCheck 与外部同步事项聚合为可点击下一步。
+- 2026-06-01 继续从用户视角复查控制台韧性：快速切换身份、异常进度值、错误请求体、非法端口、runtime health 超时参数和静态路径逃逸都不能让用户看到过期状态、越界进度条或模糊的系统错误；已补前端请求序列保护、进度显示兜底、服务端输入边界和 smoke 断言。
+- 2026-06-01 严格覆盖复查继续暴露稀疏输入和旧主版本路径诊断边界：缺失活动角色、缺失 `user_id`、缺失 `taskGraph.tasks`、workspace 非目录、required path 是目录、工作区外 legacy root 展示都必须有明确兜底；已补测试并把 Node 严格覆盖收敛到 100% 行、100% 分支、100% 函数。
+- 2026-06-01 多视角复查从生成物/API/前端/图谱交叉面发现控制台视图与登录身份没有同步到地址栏，用户刷新或分享链接会丢失当前上下文；已新增 URL 状态同步，并把浏览器 smoke 扩展到视图跳转、行动队列入口和角色切换后的 URL 断言。
+- 2026-06-01 文档与图谱收口复查发现 DEV-34/DEV-37 仍保留旧断言数字，README 对写类 API 和历史 archive 边界说明不足；已统一为 `reports/role-operation-path-tests.json` 的 671 条断言，并明确 `legacy/jueying-v1/archive/` 是备份区、`/api/legacy/*` 只是兼容别名。
 - JueYing 主版本能力整合已通过离线 adapter、桥接 payload、runtime health 降级检查、应用 API 和浏览器 smoke 进入 `npm run verify`。
 - DEV-38 记录的在线联调属于真实运行时验证资产，默认不强制要求 Docker 服务在线，但必须能从文档入口、图谱和路由召回。
 
@@ -41,6 +46,10 @@
 | DEV-31 正文已包含外部事实镜像，但索引和早期文档未同步 | 人读和 Agent 路由得到不同结论 | 已同步索引、总纲、故事线和研发闸门。 |
 | 角色故事线验收没有逐步物化为操作路径测试 | 只能说明故事线矩阵覆盖，不能证明每个角色的每一步都具备可执行 UI/API/契约/fixture/外部同步/旧主版本桥接证据 | 已新增 `operation-paths:check`、`reports/role-operation-path-tests.json`、`/api/operation-paths`、Ops Console 操作路径视图和单元/应用/浏览器验证。 |
 | 管理层任务下发曾只停留在故事线概念 | 老板无法在统一网页端按权限下发即时/定时/条件任务，也看不到项目泳道和 Agent 委派链 | 已新增 `managementCommandCenter` 契约、P1 fixture、`/api/management/command-center`、`/api/management/dispatch-preview`、Ops Console“管理指挥”视图和单元/应用/浏览器验证。 |
+| 总览缺少角色下一步入口 | 用户看到指标后仍需自己判断先去管理指挥、信息缺口、销售 Gate 还是外部同步，易用性不足 | 已新增 Operating Console `role_action_queue`、总览“角色行动队列”、角色可见性收紧、单元测试、应用 smoke、浏览器 smoke 和角色故事线预期更新。 |
+| 控制台边界输入韧性不足 | 用户快速切换角色或遇到异常数据时，可能看到旧 runtime 状态、越界进度条，调用方也可能把错误 JSON/超大请求体误判为系统故障 | 已新增前端请求序列保护、进度百分比 0-100 夹取、未知视图回退、服务端端口/timeout 参数兜底、400/413 错误响应、静态目录逃逸防护、应用 smoke 和浏览器截图新鲜度/进度条断言。 |
+| 严格覆盖暴露稀疏输入兜底不足 | 部分缺省数据不会让普通测试失败，但真实用户会遇到空角色、缺省任务数组或旧主版本目录异常，进而看到空白或误导性诊断 | 已补缺失角色可见性、缺失创建人 ID、缺失 `taskGraph.tasks`、非目录 workspace、required path 目录、工作区外路径展示等边界测试，并达到 100% line/branch/function coverage。 |
+| 控制台状态不可分享 | 用户从行动队列进入某视图或切换登录身份后，地址栏仍停留在旧参数，刷新/分享链接会回到错误视图或错误身份 | 已新增前端 URL 状态同步，让 `view` 和 `user_id` 随导航、角色切换和初始加载保持一致，并在浏览器 smoke 中断言。 |
 
 ## 3. 不得破坏的一致性规则
 
@@ -68,8 +77,12 @@
 | 项目管理同步 | DEV-33 覆盖 Jira、禅道、TAPD、飞书项目、Teambition、Asana、Monday、ClickUp、Linear、MS Project 和自研系统 | P1 需先做只读镜像和低风险 Comment/Evidence Link 反写。 |
 | 跨场景治理 | DEV-25、DEV-28、DEV-29 覆盖权限、打扰控制、审计、legacy 接入 | 足够支撑 P1。 |
 | 角色故事线验收 | DEV-37 + `role-storyline-acceptance.json` 覆盖 10 个业务和 Agent 角色、12 条故事线、46 个步骤 | 已经进入 `storylines:check`、`app:smoke`、`browser:smoke` 和 `npm run verify`。 |
-| 角色操作路径测试 | `role-storyline-acceptance.json` + `operation-path-tests.mjs` 生成 46 个测试用例和 478 条断言，逐项检查 UI/API/契约/fixture/外部同步/旧主版本桥接 | 已经进入 `operation-paths:check`、`/api/operation-paths`、Ops Console 故事线验收视图、`app:smoke`、`browser:smoke` 和 `npm run verify`。 |
+| 角色操作路径测试 | `role-storyline-acceptance.json` + `operation-path-tests.mjs` 生成 46 个测试用例和 671 条断言，逐项检查 UI/API/契约/fixture/外部同步/action surface/旧主版本桥接 | 已经进入 `operation-paths:check`、`/api/operation-paths`、Ops Console 故事线验收视图、`app:smoke`、`browser:smoke` 和 `npm run verify`。 |
 | 管理指挥中心 | `management-command-center.json` + Ops Console 管理指挥视图覆盖老板 -> PM Agent -> 专门 Agent -> 下属/Worker 的即时、定时、条件触发和泳道项目管理 | 已经进入 `check:contracts`、`storylines:check`、`operation-paths:check`、`app:smoke`、`browser:smoke` 和 `npm run verify`。 |
+| 角色行动队列 | `views.operating_console.role_action_queue` + Ops Console 总览把当前角色最该处理的执行任务、缺口、Gate 和同步事项排序成下一步 | 已经进入 `tests/contracts.test.mjs`、`app:smoke`、`browser:smoke` 和 `role-storyline-acceptance.json` 的总览步骤预期。 |
+| 控制台韧性 | Ops Console 在角色切换、runtime health 异步刷新、异常进度值、错误请求体、超大请求体、非法端口和静态路径逃逸场景下保持清晰降级 | 已经进入 `app:smoke`、`browser:smoke`，并由 `apps/ops-console/public/app.js` 与 `apps/ops-console/server.mjs` 实现。 |
+| 控制台状态分享 | Ops Console 将当前视图和登录身份同步到地址栏，刷新或分享链接能保留用户所处上下文 | 已经进入 `browser:smoke` 的行动队列入口、导航和角色切换 URL 断言。 |
+| 严格覆盖与稀疏输入 | `tests/contracts.test.mjs` 覆盖缺省 roles、management、TaskGraph tasks、legacy workspace/path 诊断和工作区外路径展示，`tests/docs-graph.test.mjs` 覆盖文档入口、图谱召回、最新断言数字和备份区边界 | 普通 `npm test` 89 个用例通过，Node 严格覆盖达到 100% line/branch/function。 |
 | JueYing 在线联调 | DEV-38 + `legacy:live-smoke` 记录 workflow、org_task、fact 写入的真实 runtime 链路 | 在线 Docker 服务不作为默认 verify 前置，但文档、图谱、路由和脚本必须保持一致。 |
 
 ## 5. 依赖闭环审计
@@ -108,6 +121,10 @@
 - 角色故事线验收：读 DEV-37 和 `role-storyline-acceptance.json`。
 - 角色操作路径测试：读 `src/contracts/operation-path-tests.mjs`、`scripts/run-operation-path-tests.mjs` 和 `reports/role-operation-path-tests.json`。
 - 老板任务下发、定时任务、条件触发和项目泳道：读 DEV-31、DEV-37、`fixtures/p1-demo/management-command-center.json` 和 `apps/ops-console/public/app.js`。
+- 故事线/UI 可操作性审计：读 DEV-35、`docs/role-storyline-acceptance.json`、`docs/sales-six-step-gates.json`、`apps/ops-console/server.mjs`、`apps/ops-console/public/app.js`、`src/contracts/operation-path-tests.mjs`、`scripts/smoke-app.mjs` 和 `scripts/browser-smoke.mjs`。
+- 总览角色行动队列：读 DEV-25、DEV-31、DEV-35、`src/contracts/view-models.mjs`、`apps/ops-console/public/app.js` 和 `tests/contracts.test.mjs`。
+- 控制台韧性、URL 状态同步、请求边界和视觉冒烟：读 DEV-35、`apps/ops-console/server.mjs`、`apps/ops-console/public/app.js`、`scripts/smoke-app.mjs` 和 `scripts/browser-smoke.mjs`。
+- 严格覆盖和稀疏输入兜底：读 DEV-35、`tests/contracts.test.mjs`、`src/contracts/view-models.mjs` 和 `src/integrations/jueying-v1/adapter.mjs`。
 - 在线 runtime 联调：读 DEV-38 和 `scripts/live-legacy-bridge-smoke.mjs`。
 - 对象图谱、状态机、legacy 接入：读 DEV-26。
 - 研发闸门和不做清单：读 DEV-27。
@@ -131,6 +148,8 @@
 | 角色验收 | 影响业务角色或 Agent 行为的能力必须同步 `role-storyline-acceptance.json` 或说明为何不影响现有步骤。 |
 | 操作路径测试 | 新增或修改角色步骤时必须保持 `operation-paths:check` 生成完整测试用例，且 UI/API/契约/fixture/外部同步/旧主版本桥接断言不能退化。 |
 | 管理指挥 | 老板下发任务、定时任务、条件触发或项目看板变更必须同步 `managementCommandCenter` fixture、管理视图、API、故事线和浏览器 smoke。 |
+| 控制台韧性 | 异步刷新、角色切换、URL 状态同步、进度展示、端口/timeout 参数、请求体和静态资源服务变更必须有应用 smoke 或浏览器 smoke 防回归。 |
+| 严格覆盖 | 契约核心、视图模型或 legacy adapter 改动必须保持普通测试通过；若严格覆盖下降，优先补真实用户/数据边界测试。 |
 | 在线联调 | 影响 legacy runtime 桥接、端口、健康路径或 payload 的改动必须同步 DEV-38、`live-legacy-bridge-smoke.mjs` 和对应报告口径。 |
 | P1 边界 | 若进入 P1，必须能说明为什么是最小闭环所需。 |
 | 反模式 | 不能把旧 workflow、CRM 阶段、外部项目状态直接改名为新系统事实。 |

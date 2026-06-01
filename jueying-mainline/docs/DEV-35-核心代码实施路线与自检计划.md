@@ -2,7 +2,7 @@
 
 > 状态：首批可执行资产规划与落地记录
 > 读者：负责人、产品、架构、研发、测试、后续 Agent
-> 日期：2026-05-26
+> 日期：2026-06-01
 > 依赖：DEV-23 至 DEV-34
 
 ## 1. 目标
@@ -50,13 +50,13 @@
 | `scripts/check-docs.mjs` | 文档、图谱、路由、Gate ID、Evidence 词表、场景 ID、主版本目录结构自检。 |
 | `scripts/check-contracts.mjs` | fixture 契约校验、销售 Gate 证据词表校验、跨对象引用校验。 |
 | `scripts/run-sales-gate-audit.mjs` | 基于 P1 fixture 运行 Discover 阶段 Gate 巡检并生成报告。 |
-| `scripts/build-view-models.mjs` | 从 P1 fixture 生成 Operating Console、TaskGraph、Information Gap、External Sync Console view model。 |
+| `scripts/build-view-models.mjs` | 从 P1 fixture 生成 Operating Console、Management Command Center、TaskGraph、Information Gap、External Sync Console view model。 |
 | `reports/sales-gate-audit.discover.acme.json` | Discover 阶段 Gate 巡检样例输出。 |
 | `reports/view-models.p1-demo.json` | P1 UI/API view model 样例输出。 |
-| `apps/ops-console/server.mjs` | 本地应用服务，提供静态前端、`/api/state` 和 `/health`。 |
-| `apps/ops-console/public/*` | P1 运营控制台前端，包含总览、销售 Gate、TaskGraph、信息缺口、外部同步、契约健康。 |
-| `scripts/smoke-app.mjs` | HTTP/API/静态页面冒烟测试。 |
-| `scripts/browser-smoke.mjs` | 真实浏览器视图切换、桌面/移动截图和控制台错误检查。 |
+| `apps/ops-console/server.mjs` | 本地应用服务，提供静态前端、`/api/state`、管理指挥 API、runtime health API 和 `/health`，并处理端口、请求体、timeout 与静态路径边界。 |
+| `apps/ops-console/public/*` | P1 运营控制台前端，包含总览、角色行动队列、管理指挥、销售 Gate、TaskGraph、信息缺口、外部同步、故事线验收、主版本能力和契约健康。 |
+| `scripts/smoke-app.mjs` | HTTP/API/静态页面冒烟测试，覆盖角色权限、错误 JSON、超大请求体、runtime timeout 兜底和静态路径逃逸。 |
+| `scripts/browser-smoke.mjs` | 真实浏览器视图切换、桌面/移动截图、进度条边界、截图新鲜度和控制台错误检查。 |
 | `output/playwright/*` | 浏览器自检截图。 |
 | `tests/contracts.test.mjs` | 关键业务红线测试。 |
 
@@ -74,9 +74,10 @@ npm run verify
 - Discover 阶段销售 Gate 巡检报告可生成。
 - P1 view model 样例可生成。
 - 本地应用可启动并通过 HTTP/API 冒烟。
-- 浏览器可打开应用、切换主要视图、生成桌面和移动截图且无控制台错误。
+- 浏览器可打开应用、切换主要视图、验证当前视图和登录身份会同步到地址栏、生成本轮桌面/移动截图、确认进度条在 0-100 之间且无控制台错误。
 - 32 个销售证据类型与 27 个销售 Gate 对齐。
-- 13 个业务红线测试通过。
+- 89 个业务红线、视图模型、整合、故事线、操作路径、主版本桥接和文档图谱测试通过。
+- Node 严格覆盖率当前达到 100% 行覆盖、100% 分支覆盖和 100% 函数覆盖；严格命令为 `node --experimental-test-coverage --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 --test tests/*.test.mjs`。
 
 ## 4A. 本地应用运行
 
@@ -92,7 +93,8 @@ http://localhost:4173
 
 当前应用不是营销页，而是第一屏可操作的运营工作台。它包含：
 
-- Operating Console：任务、Gate、外部镜像和反写队列摘要。
+- Operating Console：任务、Gate、外部镜像、反写队列摘要，以及按当前登录身份排序的角色行动队列。
+- Console Resilience：角色快速切换、URL 状态同步、runtime health 异步刷新、异常进度值、错误请求体、超大请求体、非法 timeout 和静态路径逃逸都要清晰降级，不能让用户看到旧状态、丢失上下文或越界 UI。
 - Sales Gate：Discover 阶段 D-G1 至 D-G7 巡检结果。
 - TaskGraph：任务、依赖、证据、缺口和验收标准。
 - Information Gap Inbox：Agent 要求人类补采的信息。
@@ -170,6 +172,7 @@ http://localhost:4173
 先不写页面，先定义 UI view model：
 
 - Operating Console summary。
+- Role Action Queue：从管理执行任务、信息缺口、销售 Gate 和外部同步事项推导当前角色的优先下一步。
 - TaskGraph View model。
 - Information Gap Inbox model。
 - External Sync Console model。
@@ -177,7 +180,50 @@ http://localhost:4173
 
 验收：每个 view model 从 P1 fixture 推导得到稳定 JSON。
 
-当前状态：已完成首版 Operating Console、TaskGraph View、Information Gap Inbox、External Sync Console view model 推导和报告输出。
+当前状态：已完成 Operating Console、Role Action Queue、Management Command Center、TaskGraph View、Information Gap Inbox、External Sync Console view model 推导和报告输出。
+
+### P1-F 控制台韧性和用户体验边界
+
+统一 Ops Console 的本地服务和前端必须对非理想输入保持可解释：
+
+- 前端 `loadState` 和 runtime health 刷新用请求序号防止旧响应覆盖新角色视角。
+- 未知视图目标回到总览，避免错误 action 让页面进入空状态。
+- 管理泳道和指挥预览里的 `progress_percent` 只用于 0-100 的进度条显示；异常值应夹取或隐藏。
+- `PORT` 非法时回到默认端口，runtime health `timeout_ms` 非法或越界时回到安全范围。
+- 空 POST body 可按默认指挥预览处理；错误 JSON 返回 400；超大请求体返回 413。
+- 静态资源只允许从 `apps/ops-console/public` 目录提供。
+
+验收：`app:smoke` 覆盖 API/静态路径边界，`browser:smoke` 覆盖真实浏览器视图、进度条范围和截图新鲜度。
+
+当前状态：已完成首版边界收紧，并进入 `npm run verify`。
+
+### P1-G 严格覆盖和稀疏输入韧性
+
+契约核心、视图模型和旧主版本适配层必须在严格覆盖阈值下保持可证明：
+
+- 管理视图在没有活动角色时不能泄露执行任务或 TaskGraph 泳道任务。
+- 指挥预览在有创建权限但缺少 `user_id` 时保留清晰 `unknown` 委派链兜底。
+- Operating Console 排序必须覆盖无效日期、未知优先级和所有已知状态桶。
+- JueYing v1 adapter 必须覆盖缺失 `taskGraph.tasks`、workspace 非目录、required path 文件/目录诊断和工作区外路径展示。
+- 稀疏 management、storyline matrix、operation path report 和 legacy runtime 数据不能让视图模型或验证器崩溃。
+
+验收：普通 `npm test` 通过，严格覆盖命令必须同时达到 100% lines / branches / functions。
+
+当前状态：已完成严格覆盖闭环，`npm test` 覆盖 89 个用例。
+
+### P1-H 故事线 UI/API 可操作性补强
+
+故事线声明的阶段、Gate 和写类动作必须能被真实 UI/API 验证：
+
+- 管理指挥从预览升级为提交接口，提交后刷新 `management_command_center` 仍能看到新 command 和泳道任务。
+- Sales Gate 视图暴露六阶段完整 gate index；P1 样例证据状态与 index-only 状态明确区分。
+- Evidence 提交、Information Gap 回复/反驳、Writeback 审批/拒绝、外部连接草案有代表性 POST 路径。
+- Operation Path 断言展开 `gate_refs` 范围，并对写类步骤检查 action surface/API。
+- Context graph/routing 增加故事线 UI 可操作性召回入口。
+
+验收：`npm test`、`npm run check:docs`、`npm run operation-paths:check`、`npm run app:smoke`、`npm run browser:smoke` 通过。
+
+当前状态：已完成首版可操作性补强，操作路径报告覆盖 46/46 paths、671/671 assertions。
 
 ## 7. 不建议立刻做的事
 

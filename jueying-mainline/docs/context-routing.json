@@ -1,6 +1,6 @@
 {
   "version": "v0.1",
-  "updated_at": "2026-05-31",
+  "updated_at": "2026-06-01",
   "description": "Task routing for JueYing mainline design and implementation work under jueying-mainline/. The AI-native operating console is a built-in JueYing mainline module, not a separate application.",
   "default_bootstrap_docs": [
     "README.md",
@@ -15,11 +15,11 @@
     "docs/DEV-34-文档图谱一致性审计与修复记录.md",
     "docs/DEV-35-核心代码实施路线与自检计划.md",
     "docs/DEV-36-JueYing主版本能力整合实施记录.md",
-        "docs/DEV-37-角色故事线逐步验收回归记录.md",
-        "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
-        "docs/role-storyline-acceptance.json",
-        "fixtures/p1-demo/management-command-center.json",
-        "docs/DEV-26-对象依赖与系统图谱.md",
+    "docs/DEV-37-角色故事线逐步验收回归记录.md",
+    "docs/DEV-38-JueYing在线联调与模拟数据打通记录.md",
+    "docs/role-storyline-acceptance.json",
+    "fixtures/p1-demo/management-command-center.json",
+    "docs/DEV-26-对象依赖与系统图谱.md",
     "docs/DEV-27-研发前决策清单与风险边界.md"
   ],
   "path_policy": {
@@ -182,6 +182,96 @@
         "legacy/jueying-v1/agent-harness/apps/web-portal/static/app.js"
       ]
     },
+    "role_action_queue": {
+      "must_read": [
+        "docs/DEV-25-用户故事线与验收旅程.md",
+        "docs/DEV-31-TaskGraph与信息缺口最小契约.md",
+        "docs/DEV-34-文档图谱一致性审计与修复记录.md",
+        "docs/DEV-35-核心代码实施路线与自检计划.md",
+        "docs/role-storyline-acceptance.json",
+        "fixtures/p1-demo/management-command-center.json",
+        "src/contracts/view-models.mjs",
+        "apps/ops-console/public/app.js",
+        "apps/ops-console/public/index.html",
+        "tests/contracts.test.mjs"
+      ],
+      "optional": [
+        "scripts/smoke-app.mjs",
+        "scripts/browser-smoke.mjs"
+      ],
+      "keywords": [
+        "角色行动队列",
+        "下一步",
+        "总览",
+        "role_action_queue",
+        "Role Actions",
+        "当前角色",
+        "待办",
+        "行动队列",
+        "易用性"
+      ]
+    },
+    "ops_console_resilience": {
+      "must_read": [
+        "docs/DEV-34-文档图谱一致性审计与修复记录.md",
+        "docs/DEV-35-核心代码实施路线与自检计划.md",
+        "apps/ops-console/server.mjs",
+        "apps/ops-console/public/app.js",
+        "apps/ops-console/public/index.html",
+        "scripts/smoke-app.mjs",
+        "scripts/browser-smoke.mjs"
+      ],
+      "optional": [
+        "apps/ops-console/public/styles.css",
+        "tests/contracts.test.mjs",
+        "docs/role-storyline-acceptance.json"
+      ],
+      "keywords": [
+        "控制台韧性",
+        "异步刷新",
+        "角色切换",
+        "进度条",
+        "progress_percent",
+        "静态路径",
+        "请求体",
+        "timeout_ms",
+        "PORT",
+        "browser smoke",
+        "app smoke",
+        "screenshot",
+        "UI 边界"
+      ]
+    },
+    "strict_coverage_boundary": {
+      "must_read": [
+        "docs/DEV-34-文档图谱一致性审计与修复记录.md",
+        "docs/DEV-35-核心代码实施路线与自检计划.md",
+        "tests/contracts.test.mjs",
+        "src/contracts/view-models.mjs",
+        "src/integrations/jueying-v1/adapter.mjs"
+      ],
+      "optional": [
+        "src/contracts/validator.mjs",
+        "src/contracts/storyline-acceptance.mjs",
+        "src/contracts/operation-path-tests.mjs",
+        "src/integrations/jueying-v1/runtime-client.mjs",
+        "fixtures/p1-demo/management-command-center.json"
+      ],
+      "keywords": [
+        "严格覆盖",
+        "branch coverage",
+        "test coverage",
+        "100%",
+        "稀疏输入",
+        "缺省数据",
+        "缺失角色",
+        "missing role",
+        "taskGraph.tasks",
+        "workspace package",
+        "legacy adapter",
+        "toDisplayPath"
+      ]
+    },
     "implementation_planning": {
       "must_read": [
         "docs/DEV-23-AI原生运营系统总纲.md",
@@ -246,6 +336,8 @@
         "docs/DEV-35-核心代码实施路线与自检计划.md",
         "src/contracts/index.mjs",
         "src/integrations/jueying-v1/index.mjs",
+        "src/contracts/view-models.mjs",
+        "src/integrations/jueying-v1/adapter.mjs",
         "scripts/check-contracts.mjs",
         "tests/contracts.test.mjs",
         "fixtures/p1-demo/management-command-center.json"
@@ -269,7 +361,9 @@
         "Evidence",
         "SalesGateCheck",
         "Writeback Intent",
-        "Management Command Center"
+        "Management Command Center",
+        "strict coverage",
+        "稀疏输入"
       ]
     },
     "management_command_center": {
@@ -356,6 +450,65 @@
         "SS-",
         "PD-",
         "XS-"
+      ]
+    },
+    "storyline_ui_actionability_audit": {
+      "must_read": [
+        "docs/DEV-35-核心代码实施路线与自检计划.md",
+        "docs/role-storyline-acceptance.json",
+        "docs/sales-six-step-gates.json",
+        "apps/ops-console/server.mjs",
+        "apps/ops-console/public/app.js",
+        "apps/ops-console/public/index.html",
+        "src/contracts/operation-path-tests.mjs",
+        "scripts/smoke-app.mjs",
+        "scripts/browser-smoke.mjs",
+        "tests/contracts.test.mjs"
+      ],
+      "optional": [
+        "apps/ops-console/public/styles.css",
+        "reports/role-operation-path-tests.json",
+        "reports/view-models.p1-demo.json",
+        "fixtures/p1-demo/management-command-center.json"
+      ],
+      "keywords": [
+        "可操作",
+        "真实交互",
+        "action surface",
+        "gate_refs",
+        "提交 Evidence",
+        "Information Gap 回复",
+        "反写审批",
+        "连接草案",
+        "下发指令",
+        "/api/management/commands",
+        "/api/evidence",
+        "/api/information-gaps",
+        "/api/writebacks",
+        "/api/external-connections",
+        "浏览器冒烟"
+      ]
+    },
+    "historical_backup_boundary": {
+      "must_read": [
+        "README.md",
+        "docs/README.md",
+        "docs/DEV-34-文档图谱一致性审计与修复记录.md",
+        "docs/context-routing.json"
+      ],
+      "optional": [
+        "legacy/jueying-v1/archive/**",
+        "legacy/jueying-v1/development/context-graph.json",
+        "legacy/jueying-v1/development/context-routing.json"
+      ],
+      "keywords": [
+        "备份区",
+        "archive",
+        "过期内容",
+        "历史参考",
+        "避免混淆",
+        "不要默认召回",
+        "legacy archive"
       ]
     },
     "live_runtime_bridge_validation": {

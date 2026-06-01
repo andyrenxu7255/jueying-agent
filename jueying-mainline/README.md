@@ -10,7 +10,7 @@ The historical v1 codebase remains inside this mainline directory under:
 legacy/jueying-v1/
 ```
 
-It is the historical substrate and runtime compatibility layer for the current mainline. New work should treat `jueying-mainline/` as the working root and use the archived tree only when a runtime service, schema, or implementation reference is needed.
+It is the historical substrate and runtime compatibility layer for the current mainline. New work should treat `jueying-mainline/` as the working root and use the legacy tree only when a runtime service, schema, or implementation reference is needed. Content under `legacy/jueying-v1/archive/` is backup material and should not be used as a default planning source.
 
 ## Product Direction
 
@@ -52,7 +52,7 @@ Its core premise:
 
 Future development should start from the scenario library: cite at least one `SS-*`, `PD-*`, or `XS-*` story ID, then verify the corresponding capability domain before implementation. Sales work must also cite the six-step stage or Gate ID from DEV-30. Any work reading or writing CRM data must follow DEV-32; any work reading or writing external project management systems must follow DEV-33.
 
-The role operation path test report is generated at `reports/role-operation-path-tests.json` by `npm run operation-paths:check`. It materializes every role/storyline step from `docs/role-storyline-acceptance.json` into executable UI/API/contract/fixture/external-sync/legacy-bridge assertions, including the executive management loop where a boss command is decomposed into executable tasks and worker progress/results are projected back into swimlanes.
+The role operation path test report is generated at `reports/role-operation-path-tests.json` by `npm run operation-paths:check`. It currently covers 46/46 operation paths and 671/671 assertions, materializing every role/storyline step from `docs/role-storyline-acceptance.json` into executable UI/API/contract/fixture/external-sync/legacy-bridge assertions. It also includes the executive management loop where a boss command is decomposed into executable tasks and worker progress/results are projected back into swimlanes.
 
 ## Executable Checks
 
@@ -85,14 +85,23 @@ The app serves Operating Console, Management Command Center, Sales Gate, TaskGra
 Primary JueYing mainline APIs:
 
 ```text
+/api/state
 /api/management/command-center
 /api/management/dispatch-preview
+/api/management/commands
+/api/evidence
+/api/information-gaps/:id/reply
+/api/writebacks/:id/:action
+/api/external-connections/drafts
+/api/sales/gates
+/api/storylines
+/api/operation-paths
 /api/jueying/mainline/capabilities
 /api/jueying/mainline/bridge-preview
 /api/jueying/mainline/runtime-health
 ```
 
-The older `/api/legacy/*` paths remain as compatibility aliases during migration.
+The older `/api/legacy/*` paths remain as compatibility aliases during migration; new documentation and UI work should prefer `/api/jueying/mainline/*`.
 
 ## Directory Layout
 
@@ -115,4 +124,4 @@ If the v1 runtime needs to run directly, enter:
 legacy/jueying-v1/agent-harness/
 ```
 
-The historical root documents may contain old relative links. They are preserved for reference; this restructure does not attempt to repair every archived cross-link.
+The historical root documents may contain old relative links. They are preserved for reference; this restructure does not attempt to repair every archived cross-link. Backup and archive material should stay outside the active docs index unless a task explicitly needs historical comparison.

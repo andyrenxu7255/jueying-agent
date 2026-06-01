@@ -1,6 +1,6 @@
 # DEV-37 角色故事线逐步验收回归记录
 
-日期：2026-05-26
+日期：2026-06-01
 
 ## 目标
 
@@ -43,7 +43,7 @@
 | 场景故事 | 101 / 101 |
 | 销售 Gate | 27 / 27 |
 | 操作路径测试用例 | 46 / 46 |
-| 操作路径断言 | 478 / 478 |
+| 操作路径断言 | 671 / 671 |
 | UI 视角 | 8 个 |
 | API 视角 | 6 个 |
 | 契约引用 | 9 个 |
@@ -106,6 +106,8 @@
 6. 原验收只证明“步骤可覆盖”，未把每个步骤物化成独立操作路径测试用例。
 7. Ops Console 原来没有展示逐角色操作路径断言通过情况。
 8. 原控制台缺少老板登录视角、任务下发、定时任务、条件触发和项目泳道图的统一管理工作台。
+9. 2026-06-01 继续补齐故事线 UI/API 可操作性：管理指挥提交、Evidence 提交、Information Gap 回复/反驳、Writeback 审批/拒绝、外部连接草案和六阶段 Gate index 都进入 API、页面和操作路径断言。
+10. 2026-06-01 修正旧验收数字：操作路径断言已增至 671，本文和 DEV-34 均以 `reports/role-operation-path-tests.json` 为准。
 
 ## 当前边界
 
@@ -144,8 +146,8 @@ npm run verify
 预期结果：
 
 - `storylines:check` 输出 10 个角色、12 条故事线、46/46 步骤、101/101 故事、27/27 Gate。
-- `operation-paths:check` 输出 10 个角色、46/46 操作路径、478/478 断言，并生成 `reports/role-operation-path-tests.json`。
+- `operation-paths:check` 输出 10 个角色、46/46 操作路径、671/671 断言，并生成 `reports/role-operation-path-tests.json`。
 - `app:smoke` 验证 `/api/storylines`、`/api/management/command-center`、`/api/management/dispatch-preview` 和页面入口存在。
 - `app:smoke` 验证 `/api/operation-paths` 和 `/api/state` 中的操作路径视图存在且全通过。
-- `browser:smoke` 点击“管理指挥”并验证登录视角、下发任务、自动拆解、执行进展/结果、定时任务、条件触发、项目泳道和指挥预览可见；点击“故事线验收”并验证销售负责人、项目经理、`46/46`、`Operation Paths`、`Assertions` 和 `478/478` 可见。
+- `browser:smoke` 点击“管理指挥”并验证登录视角、下发任务、自动拆解、执行进展/结果、定时任务、条件触发、项目泳道、URL 状态同步和指挥预览可见；点击“故事线验收”并验证销售负责人、项目经理、`46/46`、`Operation Paths`、`Assertions` 和 `671/671` 可见。
 - `verify` 串联全部文档、契约、Gate、故事线、操作路径、主版本整合、应用和浏览器验收。

@@ -647,6 +647,7 @@ Agent 对外部系统的写入先生成意图，再由策略判断自动执行�
 
 - `/api/management/command-center` 展示登录角色、权限、指令、项目组合、自动拆解任务、执行进展/结果和泳道。
 - `/api/management/dispatch-preview` 将老板输入的经营意图预览成指令、委派链、TaskGraph 任务和 legacy 桥接路由。
+- `/api/state` 的 `views.operating_console.role_action_queue` 按当前登录角色聚合 Management Execution Task、Information Gap、SalesGateCheck、External Fact Mirror 和 External Writeback Intent，给出下一步、目标视图和优先级，避免用户只看到指标后自行猜测操作路径。
 
 ### 10.3 适用范围
 

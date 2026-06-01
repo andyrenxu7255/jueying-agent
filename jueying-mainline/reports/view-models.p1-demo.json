@@ -3,6 +3,22 @@
     "run_id": "run_sales_acme_001",
     "task_graph_id": "tg_sales_acme_001",
     "task_graph_status": "active",
+    "active_role": {
+      "id": "role_exec_lina",
+      "name": "林总 / 经营负责人",
+      "user_id": "user_exec_lina",
+      "role_type": "executive",
+      "permissions": [
+        "view_management_dashboard",
+        "create_command",
+        "schedule_command",
+        "configure_trigger",
+        "delegate_to_agent",
+        "approve_high_risk",
+        "view_all_projects"
+      ],
+      "default_view": "management_command_center"
+    },
     "task_counts": {
       "needs_info": 1,
       "accepted": 1
@@ -13,9 +29,847 @@
     },
     "stale_mirror_count": 0,
     "pending_writeback_count": 0,
+    "role_action_count": 6,
+    "role_action_queue": [
+      {
+        "rank": 1,
+        "id": "gap:gap_discover_champion",
+        "source_type": "information_gap",
+        "source_id": "gap_discover_champion",
+        "title": "Who interacted most, asked questions, commented, or listened carefully during the meeting?",
+        "reason": "D-G1 cannot be confirmed without a champion or target champion signal.",
+        "next_step": "打开信息缺口，按要求补齐字段、证据类型和截止时间。",
+        "target_view": "gaps",
+        "target_view_label": "信息缺口",
+        "priority": "high",
+        "status": "collecting",
+        "due_at": "2026-05-27T18:00:00+08:00",
+        "owner": {
+          "type": "collector",
+          "id": "twin_sales_andy"
+        },
+        "related": {
+          "task_id": "task_discover_champion",
+          "task_title": "Confirm champion or target champion",
+          "expected_evidence_types": [
+            "sales_note",
+            "meeting_summary",
+            "customer_quote"
+          ]
+        }
+      },
+      {
+        "rank": 2,
+        "id": "management:mtask_competitor_evidence",
+        "source_type": "management_execution_task",
+        "source_id": "mtask_competitor_evidence",
+        "title": "销售补齐竞品与客户事实",
+        "reason": "缺客户原话和竞品具体功能点。",
+        "next_step": "打开管理指挥，查看缺口和阻塞原因，补齐进展或证据。",
+        "target_view": "management",
+        "target_view_label": "管理指挥",
+        "priority": "high",
+        "status": "needs_info",
+        "due_at": "2026-06-01T12:00:00+08:00",
+        "owner": {
+          "type": "sales_agent",
+          "id": "sales_agent_001"
+        },
+        "related": {
+          "command_id": "cmd_manual_competitor_response",
+          "command_title": "临时下发竞品应对材料任务",
+          "project_id": "proj_revenue_delivery_ops",
+          "project_name": "收入与交付经营节奏"
+        }
+      },
+      {
+        "rank": 3,
+        "id": "management:mtask_weekly_sales_gate_check",
+        "source_type": "management_execution_task",
+        "source_id": "mtask_weekly_sales_gate_check",
+        "title": "销售 Agent 巡检 ACME Gate 缺口",
+        "reason": "D-G1 Champion 证据仍需销售同事确认。",
+        "next_step": "打开管理指挥，查看缺口和阻塞原因，补齐进展或证据。",
+        "target_view": "management",
+        "target_view_label": "管理指挥",
+        "priority": "high",
+        "status": "needs_info",
+        "due_at": "2026-06-01T18:00:00+08:00",
+        "owner": {
+          "type": "sales_agent",
+          "id": "sales_agent_001"
+        },
+        "related": {
+          "command_id": "cmd_weekly_pipeline_review",
+          "command_title": "每周一自动巡检销售与交付风险",
+          "project_id": "proj_revenue_delivery_ops",
+          "project_name": "收入与交付经营节奏"
+        }
+      },
+      {
+        "rank": 4,
+        "id": "management:mtask_delivery_delay_recovery",
+        "source_type": "management_execution_task",
+        "source_id": "mtask_delivery_delay_recovery",
+        "title": "交付延期补救计划与客户确认",
+        "reason": "等待客户确认新的验收附件提交时间。",
+        "next_step": "打开管理指挥，核对最新进展、下一步和是否需要升级。",
+        "target_view": "management",
+        "target_view_label": "管理指挥",
+        "priority": "high",
+        "status": "in_progress",
+        "due_at": "2026-06-02T18:00:00+08:00",
+        "owner": {
+          "type": "human",
+          "id": "user_pm_chen"
+        },
+        "related": {
+          "command_id": "cmd_trigger_delivery_delay",
+          "command_title": "外部项目延期超过 48 小时则触发升级",
+          "project_id": "proj_delivery_acceptance",
+          "project_name": "交付验收与延期治理"
+        }
+      },
+      {
+        "rank": 5,
+        "id": "gate:sgc_acme_d_g1",
+        "source_type": "sales_gate_check",
+        "source_id": "sgc_acme_d_g1",
+        "title": "D-G1 仍需补齐",
+        "reason": "discover 阶段 Gate 状态为 missing",
+        "next_step": "打开销售 Gate，查看缺口、推荐 Activity 和需要补充的证据。",
+        "target_view": "gates",
+        "target_view_label": "销售 Gate",
+        "priority": "high",
+        "status": "missing",
+        "due_at": null,
+        "owner": {
+          "type": "gate_owner",
+          "id": "user_sales_andy"
+        },
+        "related": {
+          "opportunity_id": "opp_acme_001",
+          "information_gap_ids": [
+            "gap_discover_champion"
+          ],
+          "recommended_activity_ids": [
+            "act_collect_champion_signal"
+          ]
+        }
+      },
+      {
+        "rank": 6,
+        "id": "management:mtask_weekly_delivery_risk_scan",
+        "source_type": "management_execution_task",
+        "source_id": "mtask_weekly_delivery_risk_scan",
+        "title": "交付 Agent 汇总延期与验收风险",
+        "reason": "交付风险摘要已生成：ACME-12 状态 Done 但缺验收附件，建议要求 PM 陈补确认。",
+        "next_step": "打开管理指挥，检查结果摘要和证据，决定通过、补充或升级。",
+        "target_view": "management",
+        "target_view_label": "管理指挥",
+        "priority": "medium",
+        "status": "review",
+        "due_at": "2026-06-01T18:00:00+08:00",
+        "owner": {
+          "type": "delivery_agent",
+          "id": "delivery_agent_001"
+        },
+        "related": {
+          "command_id": "cmd_weekly_pipeline_review",
+          "command_title": "每周一自动巡检销售与交付风险",
+          "project_id": "proj_revenue_delivery_ops",
+          "project_name": "收入与交付经营节奏"
+        }
+      }
+    ],
     "primary_alerts": [
       "1 task(s) need information",
       "1 sales gate(s) missing evidence"
+    ]
+  },
+  "management_command_center": {
+    "ok": true,
+    "active_role": {
+      "id": "role_exec_lina",
+      "name": "林总 / 经营负责人",
+      "user_id": "user_exec_lina",
+      "role_type": "executive",
+      "permissions": [
+        "view_management_dashboard",
+        "create_command",
+        "schedule_command",
+        "configure_trigger",
+        "delegate_to_agent",
+        "approve_high_risk",
+        "view_all_projects"
+      ],
+      "default_view": "management_command_center"
+    },
+    "summary": {
+      "command_count": 3,
+      "scheduled_command_count": 1,
+      "condition_command_count": 1,
+      "manual_command_count": 1,
+      "project_count": 2,
+      "red_project_count": 1,
+      "decomposed_task_count": 6,
+      "delegated_task_count": 4,
+      "in_progress_task_count": 1,
+      "result_task_count": 1,
+      "bridge_org_task_count": 1
+    },
+    "permissions": {
+      "can_create_command": true,
+      "can_schedule_command": true,
+      "can_configure_trigger": true,
+      "can_delegate_to_agent": true,
+      "can_view_all_projects": true,
+      "can_view_management_dashboard": true,
+      "can_view_assigned_work": false,
+      "can_configure_governance": false
+    },
+    "roles": [
+      {
+        "id": "role_exec_lina",
+        "name": "林总 / 经营负责人",
+        "user_id": "user_exec_lina",
+        "role_type": "executive",
+        "permissions": [
+          "view_management_dashboard",
+          "create_command",
+          "schedule_command",
+          "configure_trigger",
+          "delegate_to_agent",
+          "approve_high_risk",
+          "view_all_projects"
+        ],
+        "default_view": "management_command_center"
+      },
+      {
+        "id": "role_ops_agent",
+        "name": "运营 PM Agent",
+        "user_id": "pm_agent_ops_001",
+        "role_type": "agent_operator",
+        "permissions": [
+          "view_management_dashboard",
+          "delegate_to_agent",
+          "view_all_projects"
+        ],
+        "default_view": "management_command_center"
+      },
+      {
+        "id": "role_sales_agent",
+        "name": "销售 Agent",
+        "user_id": "sales_agent_001",
+        "role_type": "specialized_agent",
+        "permissions": [
+          "view_assigned_work"
+        ],
+        "default_view": "assigned_work"
+      },
+      {
+        "id": "role_delivery_agent",
+        "name": "交付 Agent",
+        "user_id": "delivery_agent_001",
+        "role_type": "specialized_agent",
+        "permissions": [
+          "view_assigned_work"
+        ],
+        "default_view": "assigned_work"
+      },
+      {
+        "id": "role_admin_it",
+        "name": "Admin / IT",
+        "user_id": "user_admin_it",
+        "role_type": "admin",
+        "permissions": [
+          "view_management_dashboard",
+          "view_all_projects",
+          "configure_governance"
+        ],
+        "default_view": "admin_governance"
+      }
+    ],
+    "command_templates": [
+      {
+        "id": "manual_agent_dispatch",
+        "label": "即时下发",
+        "trigger_type": "manual",
+        "description": "老板输入经营意图，运营 PM Agent 拆成 TaskGraph 并委派给专门 Agent。"
+      },
+      {
+        "id": "scheduled_routine",
+        "label": "定时任务",
+        "trigger_type": "scheduled",
+        "description": "按固定节奏自动巡检项目、销售、交付或任意组织管理事项。"
+      },
+      {
+        "id": "condition_escalation",
+        "label": "条件触发",
+        "trigger_type": "condition",
+        "description": "当外部系统或 TaskGraph 信号越过阈值时自动升级并派发任务。"
+      }
+    ],
+    "commands": [
+      {
+        "id": "cmd_weekly_pipeline_review",
+        "title": "每周一自动巡检销售与交付风险",
+        "status": "scheduled",
+        "trigger_type": "scheduled",
+        "objective": "让运营 PM Agent 每周汇总销售 Gate 缺口、交付阻塞、外部系统反写和需要升级的事项，并派给对应 Agent 跟进。",
+        "target_agent_id": "pm_agent_ops_001",
+        "generated_task_count": 3,
+        "schedule": {
+          "kind": "weekly",
+          "timezone": "Asia/Shanghai",
+          "next_run_at": "2026-06-01T09:00:00+08:00",
+          "cadence_label": "每周一 09:00"
+        },
+        "condition": null,
+        "project": {
+          "id": "proj_revenue_delivery_ops",
+          "name": "收入与交付经营节奏",
+          "domain": "operations",
+          "owner_role_id": "role_exec_lina",
+          "task_graph_id": "tg_sales_acme_001",
+          "status": "in_progress",
+          "health": "yellow",
+          "command_ids": [
+            "cmd_weekly_pipeline_review",
+            "cmd_manual_competitor_response"
+          ]
+        },
+        "delegation_chain": [
+          {
+            "order": 1,
+            "actor_type": "executive",
+            "actor_id": "user_exec_lina",
+            "responsibility": "定义经营目标、节奏和升级阈值。"
+          },
+          {
+            "order": 2,
+            "actor_type": "pm_agent",
+            "actor_id": "pm_agent_ops_001",
+            "responsibility": "拆解成销售、交付、信息补采和外部同步任务。"
+          },
+          {
+            "order": 3,
+            "actor_type": "sales_agent",
+            "actor_id": "sales_agent_001",
+            "responsibility": "检查商机 Gate、CRM 事实和下一步销售动作。"
+          },
+          {
+            "order": 4,
+            "actor_type": "human_twin_agent",
+            "actor_id": "twin_sales_andy",
+            "responsibility": "向销售同事追问缺失证据并收集反馈。"
+          }
+        ],
+        "created_at": "2026-05-31T18:20:00+08:00",
+        "last_triggered_at": null
+      },
+      {
+        "id": "cmd_trigger_delivery_delay",
+        "title": "外部项目延期超过 48 小时则触发升级",
+        "status": "active",
+        "trigger_type": "condition",
+        "objective": "当项目管理系统出现延期、验收证据缺失或关键任务长时间未更新时，自动让交付 Agent 生成补救计划并派发信息采集。",
+        "target_agent_id": "pm_agent_ops_001",
+        "generated_task_count": 1,
+        "schedule": null,
+        "condition": {
+          "signal": "project_management.task_overdue_hours",
+          "operator": "greater_than",
+          "threshold": "48",
+          "evaluation_window": "rolling_24h"
+        },
+        "project": {
+          "id": "proj_delivery_acceptance",
+          "name": "交付验收与延期治理",
+          "domain": "delivery",
+          "owner_role_id": "role_exec_lina",
+          "task_graph_id": "tg_sales_acme_001",
+          "status": "needs_info",
+          "health": "red",
+          "command_ids": [
+            "cmd_trigger_delivery_delay"
+          ]
+        },
+        "delegation_chain": [
+          {
+            "order": 1,
+            "actor_type": "executive",
+            "actor_id": "user_exec_lina",
+            "responsibility": "设置延期升级标准和验收目标。"
+          },
+          {
+            "order": 2,
+            "actor_type": "pm_agent",
+            "actor_id": "pm_agent_ops_001",
+            "responsibility": "识别延期影响并重排 TaskGraph。"
+          },
+          {
+            "order": 3,
+            "actor_type": "delivery_agent",
+            "actor_id": "delivery_agent_001",
+            "responsibility": "生成客户责任、内部补救和验收证据任务。"
+          },
+          {
+            "order": 4,
+            "actor_type": "human",
+            "actor_id": "user_pm_chen",
+            "responsibility": "补充现场状态、客户确认和交付风险说明。"
+          }
+        ],
+        "created_at": "2026-05-31T18:22:00+08:00",
+        "last_triggered_at": "2026-05-31T18:25:00+08:00"
+      },
+      {
+        "id": "cmd_manual_competitor_response",
+        "title": "临时下发竞品应对材料任务",
+        "status": "delegated",
+        "trigger_type": "manual",
+        "objective": "老板在网页端下发临时经营任务，由运营 PM Agent 分派给销售 Agent 和 Worker Agent 完成材料草稿与证据补齐。",
+        "target_agent_id": "pm_agent_ops_001",
+        "generated_task_count": 2,
+        "schedule": null,
+        "condition": null,
+        "project": {
+          "id": "proj_revenue_delivery_ops",
+          "name": "收入与交付经营节奏",
+          "domain": "operations",
+          "owner_role_id": "role_exec_lina",
+          "task_graph_id": "tg_sales_acme_001",
+          "status": "in_progress",
+          "health": "yellow",
+          "command_ids": [
+            "cmd_weekly_pipeline_review",
+            "cmd_manual_competitor_response"
+          ]
+        },
+        "delegation_chain": [
+          {
+            "order": 1,
+            "actor_type": "executive",
+            "actor_id": "user_exec_lina",
+            "responsibility": "提出经营意图和交付时间。"
+          },
+          {
+            "order": 2,
+            "actor_type": "pm_agent",
+            "actor_id": "pm_agent_ops_001",
+            "responsibility": "转换为 TaskGraph 和验收标准。"
+          },
+          {
+            "order": 3,
+            "actor_type": "sales_agent",
+            "actor_id": "sales_agent_001",
+            "responsibility": "补齐客户、竞品和业务价值证据。"
+          },
+          {
+            "order": 4,
+            "actor_type": "worker_agent",
+            "actor_id": "worker_agent_docs_001",
+            "responsibility": "生成材料草稿并交给人审核。"
+          },
+          {
+            "order": 5,
+            "actor_type": "human",
+            "actor_id": "user_sales_andy",
+            "responsibility": "确认客户事实、风险和最终口径。"
+          }
+        ],
+        "created_at": "2026-05-31T18:24:00+08:00",
+        "last_triggered_at": null
+      }
+    ],
+    "projects": [
+      {
+        "id": "proj_revenue_delivery_ops",
+        "name": "收入与交付经营节奏",
+        "domain": "operations",
+        "owner_role_id": "role_exec_lina",
+        "task_graph_id": "tg_sales_acme_001",
+        "status": "in_progress",
+        "health": "yellow",
+        "command_ids": [
+          "cmd_weekly_pipeline_review",
+          "cmd_manual_competitor_response"
+        ],
+        "owner": {
+          "id": "role_exec_lina",
+          "name": "林总 / 经营负责人",
+          "user_id": "user_exec_lina",
+          "role_type": "executive",
+          "permissions": [
+            "view_management_dashboard",
+            "create_command",
+            "schedule_command",
+            "configure_trigger",
+            "delegate_to_agent",
+            "approve_high_risk",
+            "view_all_projects"
+          ],
+          "default_view": "management_command_center"
+        },
+        "commands": [
+          {
+            "id": "cmd_weekly_pipeline_review",
+            "title": "每周一自动巡检销售与交付风险",
+            "trigger_type": "scheduled",
+            "status": "scheduled"
+          },
+          {
+            "id": "cmd_manual_competitor_response",
+            "title": "临时下发竞品应对材料任务",
+            "trigger_type": "manual",
+            "status": "delegated"
+          }
+        ]
+      },
+      {
+        "id": "proj_delivery_acceptance",
+        "name": "交付验收与延期治理",
+        "domain": "delivery",
+        "owner_role_id": "role_exec_lina",
+        "task_graph_id": "tg_sales_acme_001",
+        "status": "needs_info",
+        "health": "red",
+        "command_ids": [
+          "cmd_trigger_delivery_delay"
+        ],
+        "owner": {
+          "id": "role_exec_lina",
+          "name": "林总 / 经营负责人",
+          "user_id": "user_exec_lina",
+          "role_type": "executive",
+          "permissions": [
+            "view_management_dashboard",
+            "create_command",
+            "schedule_command",
+            "configure_trigger",
+            "delegate_to_agent",
+            "approve_high_risk",
+            "view_all_projects"
+          ],
+          "default_view": "management_command_center"
+        },
+        "commands": [
+          {
+            "id": "cmd_trigger_delivery_delay",
+            "title": "外部项目延期超过 48 小时则触发升级",
+            "trigger_type": "condition",
+            "status": "active"
+          }
+        ]
+      }
+    ],
+    "swimlanes": [
+      {
+        "id": "lane_planning",
+        "title": "计划中",
+        "status": "planning",
+        "tasks": []
+      },
+      {
+        "id": "lane_delegated",
+        "title": "已委派",
+        "status": "delegated",
+        "tasks": [
+          {
+            "id": "mtask_weekly_pm_decomposition",
+            "title": "运营 PM Agent 拆解每周巡检任务",
+            "status": "delegated",
+            "source": "management_execution_task",
+            "command": {
+              "id": "cmd_weekly_pipeline_review",
+              "title": "每周一自动巡检销售与交付风险",
+              "trigger_type": "scheduled",
+              "status": "scheduled"
+            },
+            "owner": {
+              "type": "pm_agent",
+              "id": "pm_agent_ops_001"
+            },
+            "source_agent_id": "pm_agent_ops_001",
+            "due_at": "2026-06-01T09:10:00+08:00",
+            "progress_percent": 10,
+            "latest_update": {
+              "id": "mupd_weekly_decomposition",
+              "type": "decomposition",
+              "actor_type": "pm_agent",
+              "actor_id": "pm_agent_ops_001",
+              "message": "已把每周巡检拆为销售 Gate 检查和交付风险检查两条执行任务。",
+              "progress_percent": 10,
+              "created_at": "2026-05-31T18:25:05+08:00"
+            },
+            "result_summary": "已生成销售 Gate 检查和交付风险检查两个执行任务。",
+            "blocker": null,
+            "evidence_count": 0,
+            "acceptance_criteria": "把老板的经营巡检意图拆成销售 Gate、交付风险和需要人工补采的执行任务。"
+          }
+        ]
+      },
+      {
+        "id": "lane_in_progress",
+        "title": "执行中",
+        "status": "in_progress",
+        "tasks": [
+          {
+            "id": "mtask_delivery_delay_recovery",
+            "title": "交付延期补救计划与客户确认",
+            "status": "in_progress",
+            "source": "management_execution_task",
+            "command": {
+              "id": "cmd_trigger_delivery_delay",
+              "title": "外部项目延期超过 48 小时则触发升级",
+              "trigger_type": "condition",
+              "status": "active"
+            },
+            "owner": {
+              "type": "human",
+              "id": "user_pm_chen"
+            },
+            "source_agent_id": "delivery_agent_001",
+            "due_at": "2026-06-02T18:00:00+08:00",
+            "progress_percent": 40,
+            "latest_update": {
+              "id": "mupd_pm_delay_progress",
+              "type": "progress",
+              "actor_type": "human",
+              "actor_id": "user_pm_chen",
+              "message": "已联系客户确认验收附件补交流程，等待客户给出新时间。",
+              "progress_percent": 40,
+              "created_at": "2026-05-31T18:58:00+08:00"
+            },
+            "result_summary": null,
+            "blocker": "等待客户确认新的验收附件提交时间。",
+            "evidence_count": 0,
+            "acceptance_criteria": "PM 陈提交客户确认、延期原因、补救计划和新验收时间。"
+          }
+        ]
+      },
+      {
+        "id": "lane_needs_info",
+        "title": "缺信息",
+        "status": "needs_info",
+        "tasks": [
+          {
+            "id": "mtask_weekly_sales_gate_check",
+            "title": "销售 Agent 巡检 ACME Gate 缺口",
+            "status": "needs_info",
+            "source": "management_execution_task",
+            "command": {
+              "id": "cmd_weekly_pipeline_review",
+              "title": "每周一自动巡检销售与交付风险",
+              "trigger_type": "scheduled",
+              "status": "scheduled"
+            },
+            "owner": {
+              "type": "sales_agent",
+              "id": "sales_agent_001"
+            },
+            "source_agent_id": "pm_agent_ops_001",
+            "due_at": "2026-06-01T18:00:00+08:00",
+            "progress_percent": 55,
+            "latest_update": {
+              "id": "mupd_sales_gate_progress",
+              "type": "progress",
+              "actor_type": "sales_agent",
+              "actor_id": "sales_agent_001",
+              "message": "已完成 D-G7 下一步动作核验，D-G1 Champion 证据需要 Human Twin 追问。",
+              "progress_percent": 55,
+              "created_at": "2026-05-31T18:43:00+08:00"
+            },
+            "result_summary": null,
+            "blocker": "D-G1 Champion 证据仍需销售同事确认。",
+            "evidence_count": 0,
+            "acceptance_criteria": "输出缺口、负责人、下一步动作和需要人工补采的问题。"
+          },
+          {
+            "id": "mtask_competitor_evidence",
+            "title": "销售补齐竞品与客户事实",
+            "status": "needs_info",
+            "source": "management_execution_task",
+            "command": {
+              "id": "cmd_manual_competitor_response",
+              "title": "临时下发竞品应对材料任务",
+              "trigger_type": "manual",
+              "status": "delegated"
+            },
+            "owner": {
+              "type": "sales_agent",
+              "id": "sales_agent_001"
+            },
+            "source_agent_id": "pm_agent_ops_001",
+            "due_at": "2026-06-01T12:00:00+08:00",
+            "progress_percent": 35,
+            "latest_update": {
+              "id": "mupd_competitor_evidence_progress",
+              "type": "blocker",
+              "actor_type": "sales_agent",
+              "actor_id": "sales_agent_001",
+              "message": "已定位需要补充的客户原话和竞品功能点，正在让 Human Twin 追问销售同事。",
+              "progress_percent": 35,
+              "created_at": "2026-05-31T18:47:00+08:00"
+            },
+            "result_summary": null,
+            "blocker": "缺客户原话和竞品具体功能点。",
+            "evidence_count": 0,
+            "acceptance_criteria": "补齐客户原话、竞品名称、影响环节、价值回应和风险等级。"
+          }
+        ]
+      },
+      {
+        "id": "lane_review",
+        "title": "待验收",
+        "status": "review",
+        "tasks": [
+          {
+            "id": "mtask_weekly_delivery_risk_scan",
+            "title": "交付 Agent 汇总延期与验收风险",
+            "status": "review",
+            "source": "management_execution_task",
+            "command": {
+              "id": "cmd_weekly_pipeline_review",
+              "title": "每周一自动巡检销售与交付风险",
+              "trigger_type": "scheduled",
+              "status": "scheduled"
+            },
+            "owner": {
+              "type": "delivery_agent",
+              "id": "delivery_agent_001"
+            },
+            "source_agent_id": "pm_agent_ops_001",
+            "due_at": "2026-06-01T18:00:00+08:00",
+            "progress_percent": 90,
+            "latest_update": {
+              "id": "mupd_delivery_review",
+              "type": "result",
+              "actor_type": "delivery_agent",
+              "actor_id": "delivery_agent_001",
+              "message": "交付风险摘要已生成：ACME-12 状态 Done 但缺验收附件，建议要求 PM 陈补确认。",
+              "progress_percent": 90,
+              "created_at": "2026-05-31T18:52:00+08:00"
+            },
+            "result_summary": "已识别 ACME-12 无验收附件，需要 PM 陈补现场确认。",
+            "blocker": null,
+            "evidence_count": 1,
+            "acceptance_criteria": "输出交付风险、影响范围、补救建议和需要老板关注的升级项。"
+          }
+        ]
+      },
+      {
+        "id": "lane_done",
+        "title": "已完成",
+        "status": "done",
+        "tasks": [
+          {
+            "id": "mtask_competitor_brief_draft",
+            "title": "Worker Agent 生成竞品应对材料草稿",
+            "status": "done",
+            "source": "management_execution_task",
+            "command": {
+              "id": "cmd_manual_competitor_response",
+              "title": "临时下发竞品应对材料任务",
+              "trigger_type": "manual",
+              "status": "delegated"
+            },
+            "owner": {
+              "type": "worker_agent",
+              "id": "worker_agent_docs_001"
+            },
+            "source_agent_id": "pm_agent_ops_001",
+            "due_at": "2026-06-01T12:00:00+08:00",
+            "progress_percent": 100,
+            "latest_update": {
+              "id": "mupd_competitor_brief_result",
+              "type": "result",
+              "actor_type": "worker_agent",
+              "actor_id": "worker_agent_docs_001",
+              "message": "竞品应对草稿已生成，含待销售确认的事实占位。",
+              "progress_percent": 100,
+              "created_at": "2026-05-31T18:50:00+08:00"
+            },
+            "result_summary": "草稿已生成，等待销售确认客户事实和最终口径。",
+            "blocker": null,
+            "evidence_count": 0,
+            "acceptance_criteria": "形成可由销售复核的材料草稿，标记事实待确认项。"
+          }
+        ]
+      }
+    ],
+    "execution_updates": [
+      {
+        "id": "mupd_weekly_decomposition",
+        "task_id": "mtask_weekly_sales_gate_check",
+        "actor_type": "pm_agent",
+        "actor_id": "pm_agent_ops_001",
+        "update_type": "decomposition",
+        "status": "delegated",
+        "message": "已把每周巡检拆为销售 Gate 检查和交付风险检查两条执行任务。",
+        "progress_percent": 10,
+        "created_at": "2026-05-31T18:25:05+08:00"
+      },
+      {
+        "id": "mupd_sales_gate_progress",
+        "task_id": "mtask_weekly_sales_gate_check",
+        "actor_type": "sales_agent",
+        "actor_id": "sales_agent_001",
+        "update_type": "progress",
+        "status": "needs_info",
+        "message": "已完成 D-G7 下一步动作核验，D-G1 Champion 证据需要 Human Twin 追问。",
+        "progress_percent": 55,
+        "created_at": "2026-05-31T18:43:00+08:00"
+      },
+      {
+        "id": "mupd_delivery_review",
+        "task_id": "mtask_weekly_delivery_risk_scan",
+        "actor_type": "delivery_agent",
+        "actor_id": "delivery_agent_001",
+        "update_type": "result",
+        "status": "review",
+        "message": "交付风险摘要已生成：ACME-12 状态 Done 但缺验收附件，建议要求 PM 陈补确认。",
+        "progress_percent": 90,
+        "evidence_ids": [
+          "ev_pm_snapshot_kickoff"
+        ],
+        "created_at": "2026-05-31T18:52:00+08:00"
+      },
+      {
+        "id": "mupd_pm_delay_progress",
+        "task_id": "mtask_delivery_delay_recovery",
+        "actor_type": "human",
+        "actor_id": "user_pm_chen",
+        "update_type": "progress",
+        "status": "in_progress",
+        "message": "已联系客户确认验收附件补交流程，等待客户给出新时间。",
+        "progress_percent": 40,
+        "created_at": "2026-05-31T18:58:00+08:00"
+      },
+      {
+        "id": "mupd_competitor_evidence_progress",
+        "task_id": "mtask_competitor_evidence",
+        "actor_type": "sales_agent",
+        "actor_id": "sales_agent_001",
+        "update_type": "blocker",
+        "status": "needs_info",
+        "message": "已定位需要补充的客户原话和竞品功能点，正在让 Human Twin 追问销售同事。",
+        "progress_percent": 35,
+        "created_at": "2026-05-31T18:47:00+08:00"
+      },
+      {
+        "id": "mupd_competitor_brief_result",
+        "task_id": "mtask_competitor_brief_draft",
+        "actor_type": "worker_agent",
+        "actor_id": "worker_agent_docs_001",
+        "update_type": "result",
+        "status": "done",
+        "message": "竞品应对草稿已生成，含待销售确认的事实占位。",
+        "progress_percent": 100,
+        "evidence_ids": [],
+        "created_at": "2026-05-31T18:50:00+08:00"
+      }
     ]
   },
   "task_graph": {
@@ -123,7 +977,9 @@
           "meeting_summary",
           "customer_quote"
         ],
-        "due_at": "2026-05-27T18:00:00+08:00"
+        "due_at": "2026-05-27T18:00:00+08:00",
+        "last_reply": null,
+        "replies": []
       }
     ]
   },

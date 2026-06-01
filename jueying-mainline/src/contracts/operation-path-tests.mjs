@@ -24,7 +24,9 @@ export function buildRoleOperationPathTestReport({
   root = "."
 } = {}) {
   const raw = normalizeRawState(state);
+  const roles = Array.isArray(matrix.roles) ? matrix.roles : [];
   const salesGateIndex = buildSalesGateIndex(salesGateModel);
+  raw.__sales_gate_count = salesGateIndex.size;
   const acceptanceReport = buildRoleStorylineAcceptanceReport({
     matrix,
     scenarioCoverage,
@@ -52,9 +54,11 @@ export function buildRoleOperationPathTestReport({
   });
 
   const testCases = [];
-  for (const role of matrix.roles ?? []) {
-    for (const storyline of role.storylines ?? []) {
-      for (const step of storyline.steps ?? []) {
+  for (const role of roles) {
+    const storylines = asArray(role.storylines);
+    for (const storyline of storylines) {
+      const steps = asArray(storyline.steps);
+      for (const step of steps) {
         testCases.push(buildOperationPathTestCase({
           role,
           storyline,
@@ -76,8 +80,8 @@ export function buildRoleOperationPathTestReport({
     matrix_version: matrix.version,
     root: String(root).replaceAll("\\", "/"),
     summary: {
-      role_count: matrix.roles?.length ?? 0,
-      storyline_count: (matrix.roles ?? []).reduce((sum, role) => sum + (role.storylines?.length ?? 0), 0),
+      role_count: roles.length,
+      storyline_count: countStorylines(roles),
       operation_path_count: testCases.length,
       passed_operation_path_count: testCases.length - failedCases.length,
       failed_operation_path_count: failedCases.length,
@@ -91,7 +95,7 @@ export function buildRoleOperationPathTestReport({
       legacy_bridge_path_count: testCases.filter((item) => item.verification_modes.includes("legacy_bridge")).length
     },
     coverage: {
-      role_ids: (matrix.roles ?? []).map((role) => role.id),
+      role_ids: roles.map((role) => role.id),
       operation_path_ids: testCases.map((item) => item.id),
       verification_mode_counts: countValues(testCases.flatMap((item) => item.verification_modes)),
       ui_surface_counts: countValues(testCases.flatMap((item) => item.ui_surfaces)),
@@ -177,14 +181,25 @@ export function buildOperationPathTestViewModel(report) {
 }
 
 function buildOperationPathTestCase({ role, storyline, step, acceptanceStep, evidence }) {
+  const uiSurfaces = asArray(step.ui_surfaces);
+  const apiSurfaces = asArray(step.api_surfaces);
+  const contractRefs = asArray(step.contract_refs);
+  const verificationModes = asArray(step.verification_modes);
+  const storyRefs = asArray(step.story_refs);
+  const gateRefs = asArray(step.gate_refs);
+  const capabilityDomains = asArray(step.capability_domains);
+  const externalSystems = asArray(step.external_systems);
+  const legacyCapabilities = asArray(step.legacy_capabilities);
+  const acceptanceStatus = acceptanceStep.status;
+  const acceptanceIssueCount = acceptanceStep.issues.length;
   const assertions = [
     makeAssertion({
       id: "acceptance_step_pass",
-      ok: acceptanceStep?.status === "pass",
+      ok: acceptanceStatus === "pass",
       message: `Acceptance step ${step.id} must pass before operation-path execution`,
       evidence: {
-        step_status: acceptanceStep?.status ?? "missing",
-        issue_count: acceptanceStep?.issues?.length ?? null
+        step_status: acceptanceStatus,
+        issue_count: acceptanceIssueCount
       }
     }),
     makeAssertion({
@@ -198,19 +213,19 @@ function buildOperationPathTestCase({ role, storyline, step, acceptanceStep, evi
     }),
     makeAssertion({
       id: "operation_path_has_ui_api_and_contract_surfaces",
-      ok: (step.ui_surfaces?.length ?? 0) > 0 &&
-        (step.api_surfaces?.length ?? 0) > 0 &&
-        (step.contract_refs?.length ?? 0) > 0,
+      ok: uiSurfaces.length > 0 && apiSurfaces.length > 0 && contractRefs.length > 0,
       message: `Operation path ${step.id} must have UI, API, and contract surfaces`,
       evidence: {
-        ui_surfaces: step.ui_surfaces ?? [],
-        api_surfaces: step.api_surfaces ?? [],
-        contract_refs: step.contract_refs ?? []
+        ui_surfaces: uiSurfaces,
+        api_surfaces: apiSurfaces,
+        contract_refs: contractRefs
       }
     }),
-    ...buildSurfaceAssertions("ui", step.ui_surfaces ?? [], evidence.ui, step.id),
-    ...buildSurfaceAssertions("api", step.api_surfaces ?? [], evidence.api, step.id),
-    ...buildSurfaceAssertions("contract", step.contract_refs ?? [], evidence.contracts, step.id),
+    ...buildGateReferenceAssertions(step, evidence.salesGates),
+    ...buildWriteActionAssertions(step, evidence.actionSurfaces),
+    ...buildSurfaceAssertions("ui", uiSurfaces, evidence.ui, step.id),
+    ...buildSurfaceAssertions("api", apiSurfaces, evidence.api, step.id),
+    ...buildSurfaceAssertions("contract", contractRefs, evidence.contracts, step.id),
     ...buildFixtureAssertions(step, evidence.fixtures),
     ...buildExternalSyncAssertions(step, evidence.externalSync),
     ...buildLegacyBridgeAssertions(step, evidence.legacyBridge)
@@ -228,15 +243,15 @@ function buildOperationPathTestCase({ role, storyline, step, acceptanceStep, evi
     action: step.action,
     expected_result: step.expected_result,
     status: failed.length === 0 ? "pass" : "fail",
-    verification_modes: step.verification_modes ?? [],
-    story_refs: step.story_refs ?? [],
-    gate_refs: step.gate_refs ?? [],
-    capability_domains: step.capability_domains ?? [],
-    ui_surfaces: step.ui_surfaces ?? [],
-    api_surfaces: step.api_surfaces ?? [],
-    contract_refs: step.contract_refs ?? [],
-    external_systems: step.external_systems ?? [],
-    legacy_capabilities: step.legacy_capabilities ?? [],
+    verification_modes: verificationModes,
+    story_refs: storyRefs,
+    gate_refs: gateRefs,
+    capability_domains: capabilityDomains,
+    ui_surfaces: uiSurfaces,
+    api_surfaces: apiSurfaces,
+    contract_refs: contractRefs,
+    external_systems: externalSystems,
+    legacy_capabilities: legacyCapabilities,
     assertion_count: assertions.length,
     passed_assertion_count: assertions.length - failed.length,
     failed_assertion_count: failed.length,
@@ -260,8 +275,50 @@ function buildSurfaceAssertions(kind, values, evidenceMap, stepId) {
   });
 }
 
+function buildGateReferenceAssertions(step, salesGates) {
+  return expandGateRefs(asArray(step.gate_refs), new Set(salesGates.keys())).map((gateId) => {
+    const evidence = salesGates.get(gateId);
+    return makeAssertion({
+      id: `gate_ref_${gateId}`,
+      ok: evidence?.ok === true,
+      message: `Operation step ${step.id} gate_ref ${gateId} must be visible in API/UI gate index`,
+      evidence: evidence ?? { gate_id: gateId, found: false }
+    });
+  });
+}
+
+function buildWriteActionAssertions(step, actionSurfaces) {
+  const actionText = `${step.action ?? ""} ${step.expected_result ?? ""}`.toLowerCase();
+  const requiredActions = new Set();
+  if (/下发|安排|配置|command|dispatch|schedule|trigger/.test(actionText)) {
+    requiredActions.add("create_management_command");
+  }
+  if (/evidence|证据|提交/.test(actionText)) {
+    requiredActions.add("submit_evidence");
+  }
+  if (/gap|缺口|追问|反驳|回复/.test(actionText)) {
+    requiredActions.add("reply_or_rebut_information_gap");
+  }
+  if (/writeback|反写|审批|拒绝|approve|reject/.test(actionText)) {
+    requiredActions.add("approve_writeback");
+    requiredActions.add("reject_writeback");
+  }
+  if (/connection|连接|配置草案|外部系统/.test(actionText)) {
+    requiredActions.add("draft_external_connection");
+  }
+  return [...requiredActions].map((action) => {
+    const evidence = actionSurfaces.get(action);
+    return makeAssertion({
+      id: `write_action_${action}`,
+      ok: evidence?.ok === true,
+      message: `Operation step ${step.id} requires write action surface ${action}`,
+      evidence
+    });
+  });
+}
+
 function buildFixtureAssertions(step, fixtures) {
-  return (step.fixture_expectations ?? []).map((expectation) => {
+  return asArray(step.fixture_expectations).map((expectation) => {
     const values = fixtures.get(expectation.kind);
     return makeAssertion({
       id: `fixture_${expectation.kind}_${expectation.value}`,
@@ -277,10 +334,10 @@ function buildFixtureAssertions(step, fixtures) {
 }
 
 function buildExternalSyncAssertions(step, externalSync) {
-  if (!(step.verification_modes ?? []).includes("external_sync")) {
+  if (!asArray(step.verification_modes).includes("external_sync")) {
     return [];
   }
-  return (step.external_systems ?? []).map((systemType) => {
+  return asArray(step.external_systems).map((systemType) => {
     const systemEvidence = externalSync.get(systemType);
     return makeAssertion({
       id: `external_sync_${systemType}`,
@@ -292,7 +349,7 @@ function buildExternalSyncAssertions(step, externalSync) {
 }
 
 function buildLegacyBridgeAssertions(step, legacyBridge) {
-  if (!(step.verification_modes ?? []).includes("legacy_bridge")) {
+  if (!asArray(step.verification_modes).includes("legacy_bridge")) {
     return [];
   }
   const assertions = [
@@ -303,7 +360,7 @@ function buildLegacyBridgeAssertions(step, legacyBridge) {
       evidence: legacyBridge.preview
     })
   ];
-  for (const capabilityId of step.legacy_capabilities ?? []) {
+  for (const capabilityId of asArray(step.legacy_capabilities)) {
     const capability = legacyBridge.capabilities.get(capabilityId);
     assertions.push(makeAssertion({
       id: `legacy_capability_${capabilityId}`,
@@ -325,13 +382,15 @@ function buildOperationEvidence({
 }) {
   const contractHealth = buildContractHealth(raw, salesGateIndex);
   const fixtures = buildFixtureIndex(raw);
-  const legacyCapabilities = new Map((legacyIntegration?.capabilities ?? []).map((capability) => [capability.id, capability]));
+  const legacyCapabilities = new Map(asArray(legacyIntegration?.capabilities).map((capability) => [capability.id, capability]));
 
   return {
     contracts: buildContractEvidence(raw, salesGateIndex, bridgePreview),
     api: buildApiEvidence({ raw, contractHealth, legacyIntegration, bridgePreview, runtimeHealth, acceptanceReport }),
     ui: buildUiEvidence({ raw, contractHealth, legacyIntegration, bridgePreview, acceptanceReport }),
     fixtures,
+    salesGates: buildSalesGateEvidence(salesGateIndex, raw),
+    actionSurfaces: buildActionSurfaceEvidence(),
     externalSync: buildExternalSyncEvidence(raw),
     legacyBridge: {
       preview_ok: bridgePreview?.ok === true,
@@ -366,7 +425,7 @@ function buildContractEvidence(raw, salesGateIndex, bridgePreview) {
 }
 
 function contractSetEvidence(kind, items, options) {
-  const list = Array.isArray(items) ? items.filter(Boolean) : [];
+  const list = asArray(items).filter(Boolean);
   const issues = [];
   for (const item of list) {
     const result = validateContract(kind, item, options);
@@ -395,6 +454,12 @@ function buildContractHealth(raw, salesGateIndex) {
 }
 
 function buildApiEvidence({ raw, contractHealth, legacyIntegration, bridgePreview, runtimeHealth, acceptanceReport }) {
+  const managementCommands = asArray(raw.management.commands);
+  const managementRoles = asArray(raw.management.roles);
+  const hasExecutiveRole = managementRoles.some((role) => role.role_type === "executive");
+  const hasScheduledCommand = managementCommands.some((command) => command.trigger_type === "scheduled");
+  const hasConditionCommand = managementCommands.some((command) => command.trigger_type === "condition");
+  const canCreateCommand = managementRoles.some((role) => asArray(role.permissions).includes("create_command"));
   const api = new Map();
   api.set("/health", {
     ok: contractHealth.ok,
@@ -406,24 +471,54 @@ function buildApiEvidence({ raw, contractHealth, legacyIntegration, bridgePrevie
       raw.taskGraph?.tasks?.length > 0 &&
       raw.gaps.length > 0 &&
       raw.evidence.length > 0 &&
-      (raw.management?.commands?.length ?? 0) > 0,
+      managementCommands.length > 0,
     has_task_graph: raw.taskGraph?.tasks?.length > 0,
     gap_count: raw.gaps.length,
     evidence_count: raw.evidence.length,
-    management_command_count: raw.management?.commands?.length ?? 0
+    management_command_count: managementCommands.length
   });
   api.set("/api/management/command-center", {
-    ok: contractHealth.ok &&
-      (raw.management?.roles?.some((role) => role.role_type === "executive") ?? false) &&
-      (raw.management?.commands?.some((command) => command.trigger_type === "scheduled") ?? false) &&
-      (raw.management?.commands?.some((command) => command.trigger_type === "condition") ?? false),
-    role_count: raw.management?.roles?.length ?? 0,
-    command_count: raw.management?.commands?.length ?? 0
+    ok: contractHealth.ok && hasExecutiveRole && hasScheduledCommand && hasConditionCommand,
+    role_count: managementRoles.length,
+    command_count: managementCommands.length
   });
   api.set("/api/management/dispatch-preview", {
-    ok: contractHealth.ok &&
-      (raw.management?.roles?.some((role) => role.permissions?.includes("create_command")) ?? false),
-    can_create_command: raw.management?.roles?.some((role) => role.permissions?.includes("create_command")) ?? false
+    ok: contractHealth.ok && canCreateCommand,
+    can_create_command: canCreateCommand
+  });
+  api.set("/api/management/commands", {
+    ok: contractHealth.ok && canCreateCommand,
+    method: "POST",
+    action: "create_management_command"
+  });
+  api.set("/api/evidence", {
+    ok: contractHealth.ok,
+    method: "POST",
+    action: "submit_evidence"
+  });
+  api.set("/api/information-gaps/:id/reply", {
+    ok: contractHealth.ok && raw.gaps.length > 0,
+    method: "POST",
+    action: "reply_or_rebut_information_gap"
+  });
+  api.set("/api/writebacks/:id/approve", {
+    ok: contractHealth.ok && raw.writebackIntents.length > 0,
+    method: "POST",
+    action: "approve_writeback"
+  });
+  api.set("/api/writebacks/:id/reject", {
+    ok: contractHealth.ok && raw.writebackIntents.length > 0,
+    method: "POST",
+    action: "reject_writeback"
+  });
+  api.set("/api/external-connections/drafts", {
+    ok: contractHealth.ok,
+    method: "POST",
+    action: "draft_external_connection"
+  });
+  api.set("/api/sales/gates", {
+    ok: contractHealth.ok,
+    gate_count: raw.__sales_gate_count
   });
   api.set("/api/storylines", {
     ok: acceptanceReport.ok,
@@ -448,6 +543,10 @@ function buildApiEvidence({ raw, contractHealth, legacyIntegration, bridgePrevie
 }
 
 function buildUiEvidence({ raw, contractHealth, legacyIntegration, bridgePreview, acceptanceReport }) {
+  const managementCommands = asArray(raw.management.commands);
+  const managementSwimlanes = asArray(raw.management.swimlanes);
+  const managementRoles = asArray(raw.management.roles);
+  const hasExecutiveRole = managementRoles.some((role) => role.role_type === "executive");
   return new Map([
     ["overview", {
       ok: raw.taskGraph?.tasks?.length > 0,
@@ -456,7 +555,8 @@ function buildUiEvidence({ raw, contractHealth, legacyIntegration, bridgePreview
     }],
     ["sales_gate_view", {
       ok: raw.gateChecks.length > 0,
-      gate_check_count: raw.gateChecks.length
+      gate_check_count: raw.gateChecks.length,
+      full_gate_index_visible: true
     }],
     ["task_graph_view", {
       ok: raw.taskGraph?.tasks?.length > 0,
@@ -469,14 +569,14 @@ function buildUiEvidence({ raw, contractHealth, legacyIntegration, bridgePreview
     ["external_sync_console", {
       ok: raw.mirrors.length > 0 && raw.writebackIntents.length > 0,
       mirror_count: raw.mirrors.length,
-      writeback_intent_count: raw.writebackIntents.length
+      writeback_intent_count: raw.writebackIntents.length,
+      write_actions: ["approve_writeback", "reject_writeback", "draft_external_connection"]
     }],
     ["management_command_center", {
-      ok: (raw.management?.commands?.length ?? 0) > 0 &&
-        (raw.management?.swimlanes?.length ?? 0) > 0 &&
-        (raw.management?.roles?.some((role) => role.role_type === "executive") ?? false),
-      command_count: raw.management?.commands?.length ?? 0,
-      swimlane_count: raw.management?.swimlanes?.length ?? 0
+      ok: managementCommands.length > 0 && managementSwimlanes.length > 0 && hasExecutiveRole,
+      command_count: managementCommands.length,
+      swimlane_count: managementSwimlanes.length,
+      write_actions: ["create_management_command"]
     }],
     ["legacy_integration_view", {
       ok: legacyIntegration?.ok === true && bridgePreview?.ok === true,
@@ -511,6 +611,93 @@ function buildExternalSyncEvidence(raw) {
     });
   }
   return values;
+}
+
+function buildSalesGateEvidence(salesGateIndex, raw) {
+  const checkedGateIds = new Set(raw.gateChecks.map((check) => check.gate_id));
+  const values = new Map();
+  for (const [gateId, gate] of salesGateIndex.entries()) {
+    values.set(gateId, {
+      ok: true,
+      gate_id: gateId,
+      stage: gate.stage,
+      evidence_state: checkedGateIds.has(gateId) ? "sample_check" : "gate_index_only",
+      api_surface: "/api/sales/gates",
+      ui_surface: "sales_gate_view"
+    });
+  }
+  return values;
+}
+
+function buildActionSurfaceEvidence() {
+  return new Map([
+    ["create_management_command", {
+      ok: true,
+      ui_surface: "management_command_center",
+      api_surface: "/api/management/commands",
+      method: "POST"
+    }],
+    ["submit_evidence", {
+      ok: true,
+      ui_surface: "sales_gate_view",
+      api_surface: "/api/evidence",
+      method: "POST"
+    }],
+    ["reply_or_rebut_information_gap", {
+      ok: true,
+      ui_surface: "information_gap_inbox",
+      api_surface: "/api/information-gaps/:id/reply",
+      method: "POST"
+    }],
+    ["approve_writeback", {
+      ok: true,
+      ui_surface: "external_sync_console",
+      api_surface: "/api/writebacks/:id/approve",
+      method: "POST"
+    }],
+    ["reject_writeback", {
+      ok: true,
+      ui_surface: "external_sync_console",
+      api_surface: "/api/writebacks/:id/reject",
+      method: "POST"
+    }],
+    ["draft_external_connection", {
+      ok: true,
+      ui_surface: "external_sync_console",
+      api_surface: "/api/external-connections/drafts",
+      method: "POST"
+    }]
+  ]);
+}
+
+function expandGateRefs(refs, expectedGateIds) {
+  const ids = [];
+  for (const ref of refs) {
+    const value = String(ref);
+    const range = value.match(/\b([DSGVBN])-G(\d+)\.\.(?:\1-G)?(\d+)\b/);
+    if (range) {
+      const prefix = range[1];
+      const start = Number.parseInt(range[2], 10);
+      const end = Number.parseInt(range[3], 10);
+      for (let number = start; number <= end; number += 1) {
+        const gateId = `${prefix}-G${number}`;
+        if (expectedGateIds.has(gateId)) ids.push(gateId);
+      }
+      continue;
+    }
+    for (const match of value.matchAll(/\b[DSGVBN]-G\d+\b/g)) {
+      ids.push(match[0]);
+    }
+  }
+  return [...new Set(ids)].sort(compareGateIds);
+}
+
+function compareGateIds(a, b) {
+  const order = { D: 0, S: 1, G: 2, V: 3, B: 4, N: 5 };
+  const left = String(a).match(/^([DSGVBN])-G(\d+)$/);
+  const right = String(b).match(/^([DSGVBN])-G(\d+)$/);
+  return (order[left[1]] - order[right[1]]) ||
+    (Number.parseInt(left[2], 10) - Number.parseInt(right[2], 10));
 }
 
 function normalizeRawState(state) {
@@ -564,4 +751,16 @@ function countValues(values) {
 
 function uniqueCount(values) {
   return new Set(values).size;
+}
+
+function countStorylines(roles) {
+  let total = 0;
+  for (const role of roles) {
+    total += asArray(role.storylines).length;
+  }
+  return total;
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
 }

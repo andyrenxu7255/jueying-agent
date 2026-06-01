@@ -33,7 +33,7 @@ export function decideWritebackPolicy(intent) {
     };
   }
 
-  const payloadFields = flattenPayloadKeys(intent.payload ?? {});
+  const payloadFields = flattenPayloadKeys(intent.payload);
   const riskyFields = payloadFields.filter((field) => HIGH_RISK_FIELDS.has(field));
   if (riskyFields.length > 0) {
     reasons.push(`payload touches high-risk field(s): ${riskyFields.join(", ")}`);
@@ -75,7 +75,7 @@ function flattenPayloadKeys(value, prefix = "") {
   for (const [key, child] of Object.entries(value)) {
     keys.push(key);
     if (child && typeof child === "object" && !Array.isArray(child)) {
-      keys.push(...flattenPayloadKeys(child, prefix ? `${prefix}.${key}` : key));
+      keys.push(...flattenPayloadKeys(child, key));
     }
   }
   return keys;

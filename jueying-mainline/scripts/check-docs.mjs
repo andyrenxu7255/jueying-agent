@@ -299,7 +299,7 @@ function checkScenarioCoverage() {
 }
 
 function checkRootShape() {
-  const allowed = new Set(["apps", "docs", "fixtures", "legacy", "ops", "output", "package.json", "README.md", "reports", "schemas", "scripts", "src", "tests"]);
+  const allowed = new Set([".learnings", "apps", "docs", "fixtures", "legacy", "ops", "output", "package.json", "README.md", "reports", "schemas", "scripts", "src", "tests"]);
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     if (!allowed.has(entry.name)) {
       addError(`Unexpected root item: ${entry.name}`);

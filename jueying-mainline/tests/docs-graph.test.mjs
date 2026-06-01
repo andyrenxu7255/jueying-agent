@@ -116,3 +116,59 @@ test("context graph authorities and concept dependencies resolve to workspace pa
     assert.equal(existsSync(resolve(root, path)), true, `graph path should resolve: ${path}`);
   }
 });
+
+test("context routing recalls storyline UI actionability audit assets", () => {
+  const graph = readJson("docs/context-graph.json");
+  const routing = readJson("docs/context-routing.json");
+  const graphPaths = collectWorkspacePaths(graph.concepts?.["Storyline UI Actionability Audit"] ?? {});
+  const route = routing.task_routes?.storyline_ui_actionability_audit ?? {};
+  const routePaths = collectWorkspacePaths(route);
+  const requiredAssets = [
+    "apps/ops-console/server.mjs",
+    "apps/ops-console/public/app.js",
+    "apps/ops-console/public/index.html",
+    "src/contracts/operation-path-tests.mjs",
+    "scripts/smoke-app.mjs",
+    "scripts/browser-smoke.mjs",
+    "docs/sales-six-step-gates.json"
+  ];
+
+  for (const asset of requiredAssets) {
+    assert.equal(graphPaths.has(asset), true, `actionability graph should reference ${asset}`);
+    assert.equal(routePaths.has(asset), true, `actionability route should reference ${asset}`);
+  }
+
+  for (const keyword of ["gate_refs", "action surface", "提交 Evidence", "下发指令"]) {
+    assert.equal((route.keywords ?? []).includes(keyword), true, `actionability route should recall ${keyword}`);
+  }
+});
+
+test("active docs use the generated operation path assertion count", () => {
+  const report = readJson("reports/role-operation-path-tests.json");
+  const assertionCount = report.summary?.assertion_count;
+  assert.equal(assertionCount, 671);
+
+  for (const path of [
+    "README.md",
+    "docs/README.md",
+    "docs/DEV-34-文档图谱一致性审计与修复记录.md",
+    "docs/DEV-37-角色故事线逐步验收回归记录.md"
+  ]) {
+    const text = readText(path);
+    assert.equal(text.includes(`${assertionCount}/${assertionCount}`) || text.includes(`${assertionCount} 条断言`), true, `${path} should expose latest assertion count`);
+    assert.equal(text.includes("478/478") || text.includes("478 条断言"), false, `${path} should not keep stale 478 assertion count`);
+  }
+});
+
+test("historical backup boundary is explicit and not part of active defaults", () => {
+  const rootReadme = readText("README.md");
+  const docsReadme = readText("docs/README.md");
+  const routing = readJson("docs/context-routing.json");
+  const graph = readJson("docs/context-graph.json");
+
+  assert.match(rootReadme, /legacy\/jueying-v1\/archive\/.*backup material/);
+  assert.match(docsReadme, /legacy\/jueying-v1\/archive\/.*backup material/);
+  assert.deepEqual(routing.path_policy?.avoid_by_default?.includes("legacy/jueying-v1/archive/**"), true);
+  assert.ok(graph.concepts?.["Historical Backup Boundary"]);
+  assert.ok(routing.task_routes?.historical_backup_boundary);
+});

@@ -107,7 +107,7 @@ npm test
 - live bridge smoke：创建 `workflow=wf_1779781088469_dc195ff5`。
 - org task：`1` 条补采任务创建成功。
 - fact write：`3` 条 Evidence 写入旧 fact-retrieval 成功。
-- 单元测试：`25/25` 通过。
+- 当时联调单元测试：`25/25` 通过。当前主线完整测试规模以 DEV-35、`npm test` 和 `npm run verify` 输出为准。
 
 ## 当前边界
 

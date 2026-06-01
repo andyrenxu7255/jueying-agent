@@ -55,6 +55,13 @@
             </div>
             <div id="alerts-list" class="alert-list"></div>
           </section>
+          <section class="workspace-band">
+            <div class="section-heading">
+              <h3>角色行动队列</h3>
+              <p>按当前登录身份聚合最该处理的任务、缺口、Gate 和同步事项</p>
+            </div>
+            <div id="role-action-list" class="action-list"></div>
+          </section>
         </section>
 
         <section id="view-management" class="view" aria-labelledby="view-title">
@@ -113,7 +120,10 @@
                     <input name="condition_signal" value="task_graph.needs_info_count">
                   </label>
                 </div>
-                <button type="submit" class="primary-button">生成指挥预览</button>
+                <div class="button-row">
+                  <button type="button" id="preview-command-button" class="secondary-button">生成指挥预览</button>
+                  <button type="submit" class="primary-button">提交指令</button>
+                </div>
               </form>
               <div id="dispatch-preview" class="dispatch-preview"></div>
             </section>
@@ -143,10 +153,27 @@
 
         <section id="view-gates" class="view" aria-labelledby="view-title">
           <div class="section-heading">
-            <h3>Discover Gate 巡检</h3>
-            <p>基于 P1 样例证据自动生成 SalesGateCheck 和 Information Gap</p>
+            <h3>销售六阶段 Gate</h3>
+            <p>六步法完整 Gate 索引可见；P1 样例证据当前只覆盖 Discover，其他阶段标记为索引待证据</p>
           </div>
+          <div id="sales-stage-list" class="stage-grid"></div>
           <div id="gate-table" class="table-wrap"></div>
+          <section class="workspace-band">
+            <div class="section-heading">
+              <h3>提交 Evidence</h3>
+              <p>补充证据后会进入 TaskGraph、Information Gap 和 Gate 状态模型</p>
+            </div>
+            <form id="evidence-form" class="inline-form">
+              <input name="task_id" value="task_discover_champion" aria-label="Task ID">
+              <select name="evidence_type" aria-label="Evidence Type">
+                <option value="customer_quote">customer_quote</option>
+                <option value="meeting_summary">meeting_summary</option>
+                <option value="sales_note">sales_note</option>
+              </select>
+              <input name="summary" value="客户原话确认 IT 负责人愿意推动下一步" aria-label="Evidence Summary">
+              <button type="submit" class="primary-button">提交 Evidence</button>
+            </form>
+          </section>
         </section>
 
         <section id="view-taskgraph" class="view" aria-labelledby="view-title">
@@ -163,6 +190,21 @@
             <p>Agent 传感器不足时，要求人补充的信息</p>
           </div>
           <div id="gap-list" class="task-list"></div>
+          <section class="workspace-band">
+            <div class="section-heading">
+              <h3>回复或反驳缺口</h3>
+              <p>回复会生成 Evidence；反驳会把缺口标记为 waived</p>
+            </div>
+            <form id="gap-reply-form" class="inline-form">
+              <input name="gap_id" value="gap_discover_champion" aria-label="Gap ID">
+              <select name="decision" aria-label="Gap Decision">
+                <option value="reply">回复</option>
+                <option value="rebut">反驳</option>
+              </select>
+              <input name="reply" value="销售确认王敏是目标 champion，已主动要求方案材料" aria-label="Gap Reply">
+              <button type="submit" class="primary-button">提交回复</button>
+            </form>
+          </section>
         </section>
 
         <section id="view-sync" class="view" aria-labelledby="view-title">
@@ -180,6 +222,22 @@
               <div id="writeback-list" class="compact-list"></div>
             </div>
           </div>
+          <section class="workspace-band">
+            <div class="section-heading">
+              <h3>外部连接草案</h3>
+              <p>配置草案会保存到运行态，可由 API 读取和审计</p>
+            </div>
+            <form id="connection-draft-form" class="inline-form">
+              <select name="system_type" aria-label="System Type">
+                <option value="crm">crm</option>
+                <option value="project_management">project_management</option>
+              </select>
+              <input name="provider" value="hubspot" aria-label="Provider">
+              <input name="notes" value="字段映射草案：商机、联系人、下一步动作" aria-label="Connection Notes">
+              <button type="submit" class="primary-button">保存草案</button>
+            </form>
+            <div id="connection-draft-list" class="compact-list"></div>
+          </section>
         </section>
 
         <section id="view-legacy" class="view" aria-labelledby="view-title">
