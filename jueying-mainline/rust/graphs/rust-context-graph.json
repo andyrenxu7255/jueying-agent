@@ -1,0 +1,66 @@
+{
+  "version": "v0.1",
+  "updated_at": "2026-06-01",
+  "description": "Rust mainline context graph for the executable JueYing contract core.",
+  "authority": [
+    "docs/DEV-39-Rust主线重构规划与实施记录.md",
+    "rust/README.md",
+    "rust/docs/architecture.md"
+  ],
+  "crates": {
+    "jueying-core": {
+      "path": "rust/crates/jueying-core",
+      "modules": [
+        "rust/crates/jueying-core/src/contract.rs",
+        "rust/crates/jueying-core/src/validation.rs",
+        "rust/crates/jueying-core/src/graph.rs",
+        "rust/crates/jueying-core/src/sales.rs",
+        "rust/crates/jueying-core/src/writeback.rs",
+        "rust/crates/jueying-core/src/management.rs",
+        "rust/crates/jueying-core/src/view_models.rs",
+        "rust/crates/jueying-core/src/adapter.rs",
+        "rust/crates/jueying-core/src/fixtures.rs"
+      ]
+    },
+    "jueying-cli": {
+      "path": "rust/crates/jueying-cli",
+      "modules": [
+        "rust/crates/jueying-cli/src/main.rs"
+      ]
+    }
+  },
+  "source_equivalence": {
+    "contracts": [
+      "src/contracts/schema.mjs",
+      "src/contracts/validator.mjs",
+      "src/contracts/constants.mjs"
+    ],
+    "graph_semantics": [
+      "docs/DEV-26-对象依赖与系统图谱.md",
+      "fixtures/p1-demo/task-graph.sales-discover.json"
+    ],
+    "sales_gates": [
+      "docs/DEV-30-销售六步法Gate驱动运营设计.md",
+      "docs/sales-six-step-gates.json",
+      "src/contracts/sales-gate-engine.mjs"
+    ],
+    "writeback": [
+      "src/contracts/writeback-policy.mjs",
+      "fixtures/p1-demo/external-writeback-intents.json"
+    ],
+    "legacy_bridge": [
+      "docs/DEV-36-JueYing主版本能力整合实施记录.md",
+      "src/integrations/jueying-v1/adapter.mjs"
+    ],
+    "view_models": [
+      "src/contracts/view-models.mjs",
+      "fixtures/p1-demo/management-command-center.json"
+    ]
+  },
+  "verification": [
+    "rust/Cargo.toml",
+    "rust/crates/jueying-cli/src/main.rs",
+    "fixtures/p1-demo",
+    "docs/sales-six-step-gates.json"
+  ]
+}

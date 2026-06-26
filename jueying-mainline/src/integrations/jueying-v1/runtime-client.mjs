@@ -1,7 +1,7 @@
 import {
+  checkedTaskGraphToLegacyWorkflowPlan,
   evidenceToLegacyFactWrite,
-  informationGapToLegacyOrgTask,
-  taskGraphToLegacyWorkflowPlan
+  informationGapToLegacyOrgTask
 } from "./adapter.mjs";
 
 const DEFAULT_ENDPOINTS = {
@@ -32,7 +32,7 @@ export class JueyingV1RuntimeClient {
   }
 
   async createWorkflowFromTaskGraph(taskGraph, options = {}) {
-    const payload = taskGraphToLegacyWorkflowPlan(taskGraph, options);
+    const payload = checkedTaskGraphToLegacyWorkflowPlan(taskGraph, options);
     const response = await this.post("workflow", "/internal/workflows/plan", payload);
     return {
       operation: "createWorkflowFromTaskGraph",

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
+import { assertContract } from "../../contracts/validator.mjs";
 import {
   JUEYING_V1_BRIDGE_PHASES,
   JUEYING_V1_CAPABILITY_MAP,
@@ -115,7 +116,7 @@ export function buildLegacyIntegrationViewModel(report = inspectJueyingV1Integra
 
 export function buildLegacyBridgePreview({ taskGraph, gaps = [], evidence = [], writebackIntents = [], writebackDecisions = [] }) {
   const decisionByIntentId = new Map(writebackDecisions.map((decision) => [decision.intent_id, decision]));
-  const workflowPlanPayload = taskGraph ? taskGraphToLegacyWorkflowPlan(taskGraph) : null;
+  const workflowPlanPayload = taskGraph ? checkedTaskGraphToLegacyWorkflowPlan(taskGraph) : null;
   const orgTaskPayloads = gaps
     .filter((gap) => !["closed", "waived"].includes(gap.status))
     .map((gap) => ({
@@ -151,6 +152,14 @@ export function buildLegacyBridgePreview({ taskGraph, gaps = [], evidence = [], 
       audit_projection: "/api/admin/audit"
     }
   };
+}
+
+export function checkedTaskGraphToLegacyWorkflowPlan(taskGraph, options = {}) {
+  assertContract("taskGraph", taskGraph);
+  return taskGraphToLegacyWorkflowPlan({
+    ...taskGraph,
+    tasks: sortTasksTopologically(taskGraph.tasks)
+  }, options);
 }
 
 export function buildLegacyRuntimeHealthCatalog(report = inspectJueyingV1Integration()) {
@@ -297,6 +306,28 @@ export function taskGraphToLegacyWorkflowPlan(taskGraph, options = {}) {
       stage_chain: stageChain
     }
   };
+}
+
+function sortTasksTopologically(tasks) {
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const ordered = [];
+  const visited = new Set();
+
+  function visit(task) {
+    if (visited.has(task.id)) return;
+    visited.add(task.id);
+    for (const dependencyId of task.depends_on ?? []) {
+      const dependency = taskById.get(dependencyId);
+      if (dependency) visit(dependency);
+    }
+    ordered.push(task);
+  }
+
+  for (const task of tasks) {
+    visit(task);
+  }
+
+  return ordered;
 }
 
 export function informationGapToLegacyOrgTask(gap, options = {}) {

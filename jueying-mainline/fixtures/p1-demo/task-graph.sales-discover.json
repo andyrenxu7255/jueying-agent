@@ -27,7 +27,7 @@
     {
       "id": "task_discover_next_action",
       "title": "Confirm next customer action",
-      "status": "accepted",
+      "status": "blocked",
       "owner_actor_type": "human",
       "owner_actor_id": "user_sales_andy",
       "depends_on": ["task_discover_champion"],

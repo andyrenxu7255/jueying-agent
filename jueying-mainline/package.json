@@ -18,8 +18,9 @@
     "app:start": "node apps/ops-console/server.mjs",
     "app:smoke": "node scripts/smoke-app.mjs",
     "browser:smoke": "node scripts/browser-smoke.mjs",
+    "verify:rust": "cd rust && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace && cargo run -p jueying-cli -- verify --root ..",
     "test": "node --test tests/*.test.mjs",
-    "verify": "npm run schemas:export && npm run check:docs && npm run check:contracts && npm run audit:sales-gates && npm run view-models:build && npm run storylines:check && npm run operation-paths:check && npm run integration:check && npm run legacy:smoke && npm test && npm run app:smoke && npm run browser:smoke"
+    "verify": "npm run schemas:export && npm run check:docs && npm run check:contracts && npm run audit:sales-gates && npm run view-models:build && npm run storylines:check && npm run operation-paths:check && npm run integration:check && npm run legacy:smoke && npm run verify:rust && npm test && npm run app:smoke && npm run browser:smoke"
   },
   "engines": {
     "node": ">=22.0.0"

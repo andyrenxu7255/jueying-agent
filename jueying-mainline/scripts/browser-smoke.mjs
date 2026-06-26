@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 const root = resolve(".");
 const outputDir = join(root, "output", "playwright");
@@ -58,10 +58,10 @@ async function waitForServer() {
 }
 
 function runCli(args) {
-  const npxCli = join(dirname(process.execPath), "node_modules", "npm", "bin", "npx-cli.js");
+  const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
   const result = spawnSync(
-    process.execPath,
-    [npxCli, "--yes", "--package", "@playwright/cli", "playwright-cli", ...args],
+    npxCommand,
+    ["--yes", "--package", "@playwright/cli", "playwright-cli", ...args],
     {
       cwd: root,
       encoding: "utf8",

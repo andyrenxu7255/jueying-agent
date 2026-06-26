@@ -1,4 +1,5 @@
 import { agentOutputPayloadRules, contractSchemas } from "./schema.mjs";
+import { decideWritebackPolicy } from "./writeback-policy.mjs";
 
 export class ValidationError extends Error {
   constructor(message, issues) {
@@ -175,14 +176,17 @@ function validateTaskGraphSemantics(graph) {
   }
 
   const taskIds = new Set();
+  const taskById = new Map();
   for (const task of graph.tasks) {
     if (taskIds.has(task.id)) {
       issues.push(issue("$.tasks", `duplicate task id: ${task.id}`));
     }
     taskIds.add(task.id);
+    taskById.set(task.id, task);
   }
 
   for (const task of graph.tasks) {
+    const dependencyIds = new Set();
     for (const dependencyId of task.depends_on ?? []) {
       if (!taskIds.has(dependencyId)) {
         issues.push(issue(`$.tasks.${task.id}.depends_on`, `unknown dependency: ${dependencyId}`));
@@ -190,6 +194,10 @@ function validateTaskGraphSemantics(graph) {
       if (dependencyId === task.id) {
         issues.push(issue(`$.tasks.${task.id}.depends_on`, "task cannot depend on itself"));
       }
+      if (dependencyIds.has(dependencyId)) {
+        issues.push(issue(`$.tasks.${task.id}.depends_on`, `duplicate dependency: ${dependencyId}`));
+      }
+      dependencyIds.add(dependencyId);
     }
 
     const needsEvidence = ["accepted"].includes(task.status);
@@ -197,6 +205,25 @@ function validateTaskGraphSemantics(graph) {
     const waived = task.status === "waived";
     if (needsEvidence && !hasEvidence && !waived) {
       issues.push(issue(`$.tasks.${task.id}.evidence_ids`, "accepted task must reference evidence"));
+    }
+
+    const activeOrAccepted = [
+      "ready",
+      "assigned",
+      "in_progress",
+      "needs_info",
+      "needs_supplement",
+      "accepted"
+    ].includes(task.status);
+    const unresolvedDependencies = [...dependencyIds]
+      .map((dependencyId) => taskById.get(dependencyId))
+      .filter((dependency) => dependency && !["accepted", "waived"].includes(dependency.status))
+      .map((dependency) => `${dependency.id}(${dependency.status})`);
+    if (activeOrAccepted && unresolvedDependencies.length > 0) {
+      issues.push(issue(
+        `$.tasks.${task.id}.depends_on`,
+        `active or accepted task has unresolved dependencies: ${unresolvedDependencies.join(", ")}`
+      ));
     }
   }
 
@@ -284,7 +311,28 @@ function validateWritebackIntentSemantics(intent) {
     issues.push(issue("$.policy_decision", "status updates require confirmation"));
   }
 
+  const computedPolicy = decideWritebackPolicy(intent);
+  if (!policyDecisionAllows(intent.policy_decision, computedPolicy.decision)) {
+    issues.push(issue(
+      "$.policy_decision",
+      `stored policy_decision is more permissive than computed policy ${computedPolicy.decision}: ${computedPolicy.reasons.join("; ")}`
+    ));
+  }
+
   return issues;
+}
+
+function policyDecisionAllows(stored, required) {
+  return policyDecisionRank(stored) >= policyDecisionRank(required);
+}
+
+function policyDecisionRank(decision) {
+  return {
+    auto_execute: 0,
+    needs_confirmation: 1,
+    manual_only: 2,
+    reject: 3
+  }[decision] ?? -1;
 }
 
 function validateAgentOutputSemantics(output) {
@@ -352,6 +400,10 @@ function validateManagementCommandCenterSemantics(center) {
     issues.push(issue("$.roles", "management command center requires an executive role with create_command permission"));
   }
 
+  if (!roles.some((role) => role.user_id === center.active_user_id)) {
+    issues.push(issue("$.active_user_id", "active_user_id must match a management role user_id"));
+  }
+
   for (const command of commands) {
     if (!roleIds.has(command.created_by_role_id)) {
       issues.push(issue(`$.commands.${command.id}.created_by_role_id`, `unknown role: ${command.created_by_role_id}`));
@@ -395,6 +447,13 @@ function validateManagementCommandCenterSemantics(center) {
     }
     if (!projectIds.has(task.project_id)) {
       issues.push(issue(`$.execution_tasks.${task.id}.project_id`, `unknown project: ${task.project_id}`));
+    }
+    const command = commands.find((item) => item.id === task.command_id);
+    if (command && !(command.generated_task_ids ?? []).includes(task.id)) {
+      issues.push(issue(
+        `$.execution_tasks.${task.id}.command_id`,
+        "execution task command_id must be reciprocal with command.generated_task_ids"
+      ));
     }
     if (task.latest_update_id && !executionUpdateIds.has(task.latest_update_id)) {
       issues.push(issue(`$.execution_tasks.${task.id}.latest_update_id`, `unknown execution update: ${task.latest_update_id}`));

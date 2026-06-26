@@ -420,7 +420,7 @@
               "api_surfaces": ["/api/state"],
               "contract_refs": ["taskGraph", "evidence", "agentOutput"],
               "verification_modes": ["contract", "api", "ui", "fixture"],
-              "fixture_expectations": [{ "kind": "task_status", "value": "accepted" }]
+              "fixture_expectations": [{ "kind": "task_status", "value": "blocked" }]
             },
             {
               "id": "delivery-lead-01-step-03",

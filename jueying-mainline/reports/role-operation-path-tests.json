@@ -1,8 +1,8 @@
 {
   "ok": true,
-  "generated_at": "2026-06-01T04:41:19.622Z",
+  "generated_at": "2026-06-26T04:49:47.834Z",
   "matrix_version": "v0.1",
-  "root": "D:/teamclaw/jueying-mainline",
+  "root": "/Users/liuruiqi/jueying/jueying-mainline",
   "summary": {
     "role_count": 10,
     "storyline_count": 12,
@@ -294,7 +294,7 @@
             "kind": "task_status",
             "expected": "needs_info",
             "available": [
-              "accepted",
+              "blocked",
               "needs_info"
             ]
           },
@@ -1278,49 +1278,49 @@
             "required_paths": [
               {
                 "path": "services/workflow/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 45388
+                "size": 44181
               },
               {
                 "path": "services/workflow/src/engine/workflow-machine.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\engine\\workflow-machine.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/engine/workflow-machine.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3513
               },
               {
                 "path": "services/workflow/src/planner/planner.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\planner.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/planner.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 54535
               },
               {
                 "path": "services/workflow/src/planner/plan-validator.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\plan-validator.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/plan-validator.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 2962
               },
               {
                 "path": "services/workflow/src/checkpoint/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\checkpoint\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/checkpoint/manager.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 16200
+                "size": 15736
               },
               {
                 "path": "services/workflow/src/supervisor/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\supervisor\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/supervisor/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 22517
               },
               {
                 "path": "libs/contracts/src/workflow-types.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\src\\workflow-types.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/src/workflow-types.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1669
@@ -1329,21 +1329,21 @@
             "optional_paths": [
               {
                 "path": "services/workflow/src/persistence/db.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\persistence\\db.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/persistence/db.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23786
+                "size": 23164
               },
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
               },
               {
                 "path": "db/migrations/027_workflow_definition_review.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/027_workflow_definition_review.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2141
@@ -1470,58 +1470,58 @@
             "required_paths": [
               {
                 "path": "services/executor-gateway/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 19536
+                "size": 19050
               },
               {
                 "path": "services/executor-gateway/src/executor/generic-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\generic-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/generic-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 27878
+                "size": 27173
               },
               {
                 "path": "services/executor-gateway/src/executor/retrieval-aware-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\retrieval-aware-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/retrieval-aware-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 5303
+                "size": 5164
               },
               {
                 "path": "services/executor-gateway/src/executor/approval-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\approval-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/approval-executor.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 5828
               },
               {
                 "path": "services/executor-gateway/src/executor/code-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\code-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/code-executor.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3264
               },
               {
                 "path": "services/executor-gateway/src/executor/verification-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\verification-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/verification-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 5480
+                "size": 5328
               },
               {
                 "path": "services/executor-gateway/src/executor/repair-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\repair-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/repair-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 3303
+                "size": 3203
               }
             ],
             "optional_paths": [
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
@@ -1617,35 +1617,35 @@
             "required_paths": [
               {
                 "path": "services/fact-retrieval/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23733
+                "size": 23210
               },
               {
                 "path": "services/fact-retrieval/src/service.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\service.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/service.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 87868
+                "size": 85712
               },
               {
                 "path": "services/fact-retrieval/src/support.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\support.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/support.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3252
               },
               {
                 "path": "services/fact-retrieval/src/artifact-storage.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\artifact-storage.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/artifact-storage.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 11540
+                "size": 11240
               },
               {
                 "path": "libs/contracts/schemas/evidence.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\evidence.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/schemas/evidence.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1226
@@ -1654,28 +1654,28 @@
             "optional_paths": [
               {
                 "path": "db/migrations/004_document_evidence.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\004_document_evidence.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/004_document_evidence.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2571
               },
               {
                 "path": "db/migrations/005_entity_fact.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\005_entity_fact.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/005_entity_fact.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 3772
               },
               {
                 "path": "db/migrations/007_retrieval_audit.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\007_retrieval_audit.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/007_retrieval_audit.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1398
               },
               {
                 "path": "db/migrations/022_align_fact_retrieval_trace_schema.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\022_align_fact_retrieval_trace_schema.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/022_align_fact_retrieval_trace_schema.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 754
@@ -1821,28 +1821,28 @@
             "required_paths": [
               {
                 "path": "apps/gateway-adapter/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 112311
+                "size": 109739
               },
               {
                 "path": "tests/integration/task-dispatch-lui-test.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\task-dispatch-lui-test.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/tests/integration/task-dispatch-lui-test.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 21426
               },
               {
                 "path": "db/migrations/017_org_task.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\017_org_task.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/017_org_task.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2189
               },
               {
                 "path": "db/migrations/020_org_task_nullable_created_by.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\020_org_task_nullable_created_by.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/020_org_task_nullable_created_by.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 362
@@ -1851,10 +1851,10 @@
             "optional_paths": [
               {
                 "path": "apps/mobile-app/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/mobile-app/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 22004
+                "size": 21405
               }
             ],
             "required_scripts": [
@@ -1966,35 +1966,35 @@
             "required_paths": [
               {
                 "path": "services/skill-library/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\skill-library\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/skill-library/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 77243
+                "size": 75328
               },
               {
                 "path": "services/skill-library/README.md",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\skill-library\\README.md",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/skill-library/README.md",
                 "exists": true,
                 "kind": "file",
                 "size": 340
               },
               {
                 "path": "db/migrations/008_memory_skill.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\008_memory_skill.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/008_memory_skill.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 4767
               },
               {
                 "path": "db/migrations/013_seed_skills.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\013_seed_skills.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/013_seed_skills.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 10819
               },
               {
                 "path": "db/migrations/019_skill_constraint_expand.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\019_skill_constraint_expand.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/019_skill_constraint_expand.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1158
@@ -2003,14 +2003,14 @@
             "optional_paths": [
               {
                 "path": "db/migrations/024_align_seed_skill_retrieval_intents.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\024_align_seed_skill_retrieval_intents.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/024_align_seed_skill_retrieval_intents.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 604
               },
               {
                 "path": "db/migrations/027_workflow_definition_review.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/027_workflow_definition_review.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2141
@@ -2138,47 +2138,47 @@
             "required_paths": [
               {
                 "path": "services/proactive-orchestrator/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\proactive-orchestrator\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/proactive-orchestrator/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 12147
+                "size": 11847
               },
               {
                 "path": "services/proactive-orchestrator/src/domain.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\proactive-orchestrator\\src\\domain.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/proactive-orchestrator/src/domain.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 12831
+                "size": 12516
               },
               {
                 "path": "services/proactive-orchestrator/src/service.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\proactive-orchestrator\\src\\service.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/proactive-orchestrator/src/service.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 46395
+                "size": 45357
               },
               {
                 "path": "tests/integration/proactive-orchestration-test.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\proactive-orchestration-test.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/tests/integration/proactive-orchestration-test.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 14877
+                "size": 14566
               },
               {
                 "path": "db/migrations/029_proactive_orchestration.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\029_proactive_orchestration.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/029_proactive_orchestration.sql",
                 "exists": true,
                 "kind": "file",
-                "size": 8836
+                "size": 8656
               }
             ],
             "optional_paths": [
               {
                 "path": "db/migrations/026_recall_outcome_attribution.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\026_recall_outcome_attribution.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/026_recall_outcome_attribution.sql",
                 "exists": true,
                 "kind": "file",
-                "size": 6237
+                "size": 6105
               }
             ],
             "required_scripts": [
@@ -2306,42 +2306,42 @@
             "required_paths": [
               {
                 "path": "libs/audit/src/writer.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\audit\\src\\writer.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/audit/src/writer.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 7878
               },
               {
                 "path": "libs/policy/src/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\policy\\src\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/policy/src/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 15665
               },
               {
                 "path": "libs/contracts/schemas/envelope.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\envelope.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/schemas/envelope.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1896
               },
               {
                 "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 9480
               },
               {
                 "path": "db/migrations/002_identity_policy.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/002_identity_policy.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1968
               },
               {
                 "path": "db/migrations/010_audit_and_day3.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\010_audit_and_day3.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/010_audit_and_day3.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 880
@@ -2350,7 +2350,7 @@
             "optional_paths": [
               {
                 "path": "db/migrations/014_org_id_isolation.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\014_org_id_isolation.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/014_org_id_isolation.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 5651
@@ -2917,49 +2917,49 @@
             "required_paths": [
               {
                 "path": "services/workflow/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 45388
+                "size": 44181
               },
               {
                 "path": "services/workflow/src/engine/workflow-machine.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\engine\\workflow-machine.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/engine/workflow-machine.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3513
               },
               {
                 "path": "services/workflow/src/planner/planner.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\planner.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/planner.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 54535
               },
               {
                 "path": "services/workflow/src/planner/plan-validator.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\plan-validator.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/plan-validator.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 2962
               },
               {
                 "path": "services/workflow/src/checkpoint/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\checkpoint\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/checkpoint/manager.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 16200
+                "size": 15736
               },
               {
                 "path": "services/workflow/src/supervisor/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\supervisor\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/supervisor/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 22517
               },
               {
                 "path": "libs/contracts/src/workflow-types.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\src\\workflow-types.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/src/workflow-types.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1669
@@ -2968,21 +2968,21 @@
             "optional_paths": [
               {
                 "path": "services/workflow/src/persistence/db.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\persistence\\db.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/persistence/db.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23786
+                "size": 23164
               },
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
               },
               {
                 "path": "db/migrations/027_workflow_definition_review.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/027_workflow_definition_review.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2141
@@ -3109,28 +3109,28 @@
             "required_paths": [
               {
                 "path": "apps/gateway-adapter/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 112311
+                "size": 109739
               },
               {
                 "path": "tests/integration/task-dispatch-lui-test.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\task-dispatch-lui-test.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/tests/integration/task-dispatch-lui-test.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 21426
               },
               {
                 "path": "db/migrations/017_org_task.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\017_org_task.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/017_org_task.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2189
               },
               {
                 "path": "db/migrations/020_org_task_nullable_created_by.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\020_org_task_nullable_created_by.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/020_org_task_nullable_created_by.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 362
@@ -3139,10 +3139,10 @@
             "optional_paths": [
               {
                 "path": "apps/mobile-app/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/mobile-app/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 22004
+                "size": 21405
               }
             ],
             "required_scripts": [
@@ -3254,42 +3254,42 @@
             "required_paths": [
               {
                 "path": "libs/audit/src/writer.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\audit\\src\\writer.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/audit/src/writer.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 7878
               },
               {
                 "path": "libs/policy/src/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\policy\\src\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/policy/src/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 15665
               },
               {
                 "path": "libs/contracts/schemas/envelope.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\envelope.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/schemas/envelope.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1896
               },
               {
                 "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 9480
               },
               {
                 "path": "db/migrations/002_identity_policy.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/002_identity_policy.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1968
               },
               {
                 "path": "db/migrations/010_audit_and_day3.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\010_audit_and_day3.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/010_audit_and_day3.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 880
@@ -3298,7 +3298,7 @@
             "optional_paths": [
               {
                 "path": "db/migrations/014_org_id_isolation.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\014_org_id_isolation.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/014_org_id_isolation.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 5651
@@ -7028,49 +7028,49 @@
             "required_paths": [
               {
                 "path": "services/workflow/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 45388
+                "size": 44181
               },
               {
                 "path": "services/workflow/src/engine/workflow-machine.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\engine\\workflow-machine.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/engine/workflow-machine.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3513
               },
               {
                 "path": "services/workflow/src/planner/planner.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\planner.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/planner.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 54535
               },
               {
                 "path": "services/workflow/src/planner/plan-validator.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\plan-validator.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/plan-validator.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 2962
               },
               {
                 "path": "services/workflow/src/checkpoint/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\checkpoint\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/checkpoint/manager.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 16200
+                "size": 15736
               },
               {
                 "path": "services/workflow/src/supervisor/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\supervisor\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/supervisor/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 22517
               },
               {
                 "path": "libs/contracts/src/workflow-types.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\src\\workflow-types.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/src/workflow-types.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1669
@@ -7079,21 +7079,21 @@
             "optional_paths": [
               {
                 "path": "services/workflow/src/persistence/db.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\persistence\\db.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/persistence/db.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23786
+                "size": 23164
               },
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
               },
               {
                 "path": "db/migrations/027_workflow_definition_review.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/027_workflow_definition_review.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2141
@@ -7220,58 +7220,58 @@
             "required_paths": [
               {
                 "path": "services/executor-gateway/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 19536
+                "size": 19050
               },
               {
                 "path": "services/executor-gateway/src/executor/generic-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\generic-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/generic-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 27878
+                "size": 27173
               },
               {
                 "path": "services/executor-gateway/src/executor/retrieval-aware-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\retrieval-aware-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/retrieval-aware-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 5303
+                "size": 5164
               },
               {
                 "path": "services/executor-gateway/src/executor/approval-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\approval-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/approval-executor.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 5828
               },
               {
                 "path": "services/executor-gateway/src/executor/code-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\code-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/code-executor.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3264
               },
               {
                 "path": "services/executor-gateway/src/executor/verification-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\verification-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/verification-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 5480
+                "size": 5328
               },
               {
                 "path": "services/executor-gateway/src/executor/repair-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\repair-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/repair-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 3303
+                "size": 3203
               }
             ],
             "optional_paths": [
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
@@ -7367,35 +7367,35 @@
             "required_paths": [
               {
                 "path": "services/fact-retrieval/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23733
+                "size": 23210
               },
               {
                 "path": "services/fact-retrieval/src/service.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\service.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/service.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 87868
+                "size": 85712
               },
               {
                 "path": "services/fact-retrieval/src/support.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\support.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/support.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3252
               },
               {
                 "path": "services/fact-retrieval/src/artifact-storage.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\artifact-storage.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/artifact-storage.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 11540
+                "size": 11240
               },
               {
                 "path": "libs/contracts/schemas/evidence.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\evidence.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/schemas/evidence.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1226
@@ -7404,28 +7404,28 @@
             "optional_paths": [
               {
                 "path": "db/migrations/004_document_evidence.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\004_document_evidence.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/004_document_evidence.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2571
               },
               {
                 "path": "db/migrations/005_entity_fact.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\005_entity_fact.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/005_entity_fact.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 3772
               },
               {
                 "path": "db/migrations/007_retrieval_audit.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\007_retrieval_audit.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/007_retrieval_audit.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1398
               },
               {
                 "path": "db/migrations/022_align_fact_retrieval_trace_schema.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\022_align_fact_retrieval_trace_schema.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/022_align_fact_retrieval_trace_schema.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 754
@@ -8153,14 +8153,14 @@
           "test_case_id": "op_delivery_lead_delivery-lead-01-handoff-control_delivery-lead-01-step-02"
         },
         {
-          "id": "fixture_task_status_accepted",
+          "id": "fixture_task_status_blocked",
           "status": "pass",
-          "message": "Operation step delivery-lead-01-step-02 fixture expectation must pass: task_status=accepted",
+          "message": "Operation step delivery-lead-01-step-02 fixture expectation must pass: task_status=blocked",
           "evidence": {
             "kind": "task_status",
-            "expected": "accepted",
+            "expected": "blocked",
             "available": [
-              "accepted",
+              "blocked",
               "needs_info"
             ]
           },
@@ -10067,42 +10067,42 @@
             "required_paths": [
               {
                 "path": "apps/gateway-adapter/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 112311
+                "size": 109739
               },
               {
                 "path": "apps/gateway-adapter/src/services/session-mapper.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\session-mapper.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/session-mapper.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1441
               },
               {
                 "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 9480
               },
               {
                 "path": "apps/gateway-adapter/src/services/file-validator.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\file-validator.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/file-validator.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 6916
+                "size": 6696
               },
               {
                 "path": "apps/gateway-adapter/src/services/gateway-state.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\gateway-state.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/gateway-state.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1334
               },
               {
                 "path": "services/feishu-longconn/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\feishu-longconn\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/feishu-longconn/src/index.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 4766
@@ -10111,14 +10111,14 @@
             "optional_paths": [
               {
                 "path": "db/migrations/002_identity_policy.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/002_identity_policy.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1968
               },
               {
                 "path": "db/migrations/015_relation_org_id.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\015_relation_org_id.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/015_relation_org_id.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 418
@@ -10227,42 +10227,42 @@
             "required_paths": [
               {
                 "path": "libs/audit/src/writer.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\audit\\src\\writer.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/audit/src/writer.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 7878
               },
               {
                 "path": "libs/policy/src/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\policy\\src\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/policy/src/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 15665
               },
               {
                 "path": "libs/contracts/schemas/envelope.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\envelope.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/schemas/envelope.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1896
               },
               {
                 "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 9480
               },
               {
                 "path": "db/migrations/002_identity_policy.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/002_identity_policy.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1968
               },
               {
                 "path": "db/migrations/010_audit_and_day3.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\010_audit_and_day3.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/010_audit_and_day3.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 880
@@ -10271,7 +10271,7 @@
             "optional_paths": [
               {
                 "path": "db/migrations/014_org_id_isolation.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\014_org_id_isolation.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/014_org_id_isolation.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 5651
@@ -10973,49 +10973,49 @@
             "required_paths": [
               {
                 "path": "services/workflow/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 45388
+                "size": 44181
               },
               {
                 "path": "services/workflow/src/engine/workflow-machine.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\engine\\workflow-machine.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/engine/workflow-machine.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3513
               },
               {
                 "path": "services/workflow/src/planner/planner.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\planner.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/planner.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 54535
               },
               {
                 "path": "services/workflow/src/planner/plan-validator.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\plan-validator.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/plan-validator.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 2962
               },
               {
                 "path": "services/workflow/src/checkpoint/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\checkpoint\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/checkpoint/manager.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 16200
+                "size": 15736
               },
               {
                 "path": "services/workflow/src/supervisor/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\supervisor\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/supervisor/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 22517
               },
               {
                 "path": "libs/contracts/src/workflow-types.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\src\\workflow-types.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/src/workflow-types.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1669
@@ -11024,21 +11024,21 @@
             "optional_paths": [
               {
                 "path": "services/workflow/src/persistence/db.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\persistence\\db.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/persistence/db.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23786
+                "size": 23164
               },
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
               },
               {
                 "path": "db/migrations/027_workflow_definition_review.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/027_workflow_definition_review.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2141
@@ -11165,42 +11165,42 @@
             "required_paths": [
               {
                 "path": "apps/gateway-adapter/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 112311
+                "size": 109739
               },
               {
                 "path": "apps/gateway-adapter/src/services/session-mapper.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\session-mapper.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/session-mapper.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1441
               },
               {
                 "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 9480
               },
               {
                 "path": "apps/gateway-adapter/src/services/file-validator.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\file-validator.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/file-validator.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 6916
+                "size": 6696
               },
               {
                 "path": "apps/gateway-adapter/src/services/gateway-state.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\gateway-state.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/gateway-state.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1334
               },
               {
                 "path": "services/feishu-longconn/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\feishu-longconn\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/feishu-longconn/src/index.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 4766
@@ -11209,14 +11209,14 @@
             "optional_paths": [
               {
                 "path": "db/migrations/002_identity_policy.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/002_identity_policy.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1968
               },
               {
                 "path": "db/migrations/015_relation_org_id.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\015_relation_org_id.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/015_relation_org_id.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 418
@@ -11325,28 +11325,28 @@
             "required_paths": [
               {
                 "path": "apps/gateway-adapter/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 112311
+                "size": 109739
               },
               {
                 "path": "tests/integration/task-dispatch-lui-test.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\task-dispatch-lui-test.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/tests/integration/task-dispatch-lui-test.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 21426
               },
               {
                 "path": "db/migrations/017_org_task.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\017_org_task.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/017_org_task.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2189
               },
               {
                 "path": "db/migrations/020_org_task_nullable_created_by.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\020_org_task_nullable_created_by.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/020_org_task_nullable_created_by.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 362
@@ -11355,10 +11355,10 @@
             "optional_paths": [
               {
                 "path": "apps/mobile-app/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/mobile-app/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 22004
+                "size": 21405
               }
             ],
             "required_scripts": [
@@ -11470,42 +11470,42 @@
             "required_paths": [
               {
                 "path": "libs/audit/src/writer.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\audit\\src\\writer.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/audit/src/writer.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 7878
               },
               {
                 "path": "libs/policy/src/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\policy\\src\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/policy/src/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 15665
               },
               {
                 "path": "libs/contracts/schemas/envelope.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\envelope.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/schemas/envelope.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1896
               },
               {
                 "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 9480
               },
               {
                 "path": "db/migrations/002_identity_policy.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/002_identity_policy.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1968
               },
               {
                 "path": "db/migrations/010_audit_and_day3.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\010_audit_and_day3.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/010_audit_and_day3.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 880
@@ -11514,7 +11514,7 @@
             "optional_paths": [
               {
                 "path": "db/migrations/014_org_id_isolation.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\014_org_id_isolation.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/014_org_id_isolation.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 5651
@@ -11620,14 +11620,14 @@
             "required_paths": [
               {
                 "path": "apps/mobile-app/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/mobile-app/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 22004
+                "size": 21405
               },
               {
                 "path": "apps/mobile-app/package.json",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\package.json",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/mobile-app/package.json",
                 "exists": true,
                 "kind": "file",
                 "size": 353
@@ -12925,49 +12925,49 @@
             "required_paths": [
               {
                 "path": "services/workflow/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 45388
+                "size": 44181
               },
               {
                 "path": "services/workflow/src/engine/workflow-machine.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\engine\\workflow-machine.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/engine/workflow-machine.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3513
               },
               {
                 "path": "services/workflow/src/planner/planner.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\planner.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/planner.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 54535
               },
               {
                 "path": "services/workflow/src/planner/plan-validator.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\plan-validator.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/plan-validator.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 2962
               },
               {
                 "path": "services/workflow/src/checkpoint/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\checkpoint\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/checkpoint/manager.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 16200
+                "size": 15736
               },
               {
                 "path": "services/workflow/src/supervisor/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\supervisor\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/supervisor/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 22517
               },
               {
                 "path": "libs/contracts/src/workflow-types.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\src\\workflow-types.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/src/workflow-types.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1669
@@ -12976,21 +12976,21 @@
             "optional_paths": [
               {
                 "path": "services/workflow/src/persistence/db.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\persistence\\db.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/persistence/db.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23786
+                "size": 23164
               },
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
               },
               {
                 "path": "db/migrations/027_workflow_definition_review.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/027_workflow_definition_review.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2141
@@ -13117,58 +13117,58 @@
             "required_paths": [
               {
                 "path": "services/executor-gateway/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 19536
+                "size": 19050
               },
               {
                 "path": "services/executor-gateway/src/executor/generic-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\generic-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/generic-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 27878
+                "size": 27173
               },
               {
                 "path": "services/executor-gateway/src/executor/retrieval-aware-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\retrieval-aware-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/retrieval-aware-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 5303
+                "size": 5164
               },
               {
                 "path": "services/executor-gateway/src/executor/approval-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\approval-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/approval-executor.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 5828
               },
               {
                 "path": "services/executor-gateway/src/executor/code-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\code-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/code-executor.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3264
               },
               {
                 "path": "services/executor-gateway/src/executor/verification-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\verification-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/verification-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 5480
+                "size": 5328
               },
               {
                 "path": "services/executor-gateway/src/executor/repair-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\repair-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/repair-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 3303
+                "size": 3203
               }
             ],
             "optional_paths": [
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
@@ -13264,35 +13264,35 @@
             "required_paths": [
               {
                 "path": "services/fact-retrieval/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23733
+                "size": 23210
               },
               {
                 "path": "services/fact-retrieval/src/service.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\service.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/service.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 87868
+                "size": 85712
               },
               {
                 "path": "services/fact-retrieval/src/support.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\support.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/support.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3252
               },
               {
                 "path": "services/fact-retrieval/src/artifact-storage.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\artifact-storage.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/artifact-storage.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 11540
+                "size": 11240
               },
               {
                 "path": "libs/contracts/schemas/evidence.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\evidence.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/schemas/evidence.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1226
@@ -13301,28 +13301,28 @@
             "optional_paths": [
               {
                 "path": "db/migrations/004_document_evidence.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\004_document_evidence.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/004_document_evidence.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2571
               },
               {
                 "path": "db/migrations/005_entity_fact.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\005_entity_fact.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/005_entity_fact.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 3772
               },
               {
                 "path": "db/migrations/007_retrieval_audit.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\007_retrieval_audit.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/007_retrieval_audit.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1398
               },
               {
                 "path": "db/migrations/022_align_fact_retrieval_trace_schema.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\022_align_fact_retrieval_trace_schema.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/022_align_fact_retrieval_trace_schema.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 754
@@ -13468,28 +13468,28 @@
             "required_paths": [
               {
                 "path": "apps/gateway-adapter/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 112311
+                "size": 109739
               },
               {
                 "path": "tests/integration/task-dispatch-lui-test.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\tests\\integration\\task-dispatch-lui-test.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/tests/integration/task-dispatch-lui-test.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 21426
               },
               {
                 "path": "db/migrations/017_org_task.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\017_org_task.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/017_org_task.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2189
               },
               {
                 "path": "db/migrations/020_org_task_nullable_created_by.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\020_org_task_nullable_created_by.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/020_org_task_nullable_created_by.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 362
@@ -13498,10 +13498,10 @@
             "optional_paths": [
               {
                 "path": "apps/mobile-app/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\mobile-app\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/mobile-app/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 22004
+                "size": 21405
               }
             ],
             "required_scripts": [
@@ -13613,42 +13613,42 @@
             "required_paths": [
               {
                 "path": "libs/audit/src/writer.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\audit\\src\\writer.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/audit/src/writer.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 7878
               },
               {
                 "path": "libs/policy/src/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\policy\\src\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/policy/src/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 15665
               },
               {
                 "path": "libs/contracts/schemas/envelope.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\envelope.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/schemas/envelope.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1896
               },
               {
                 "path": "apps/gateway-adapter/src/services/identity-resolver.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\apps\\gateway-adapter\\src\\services\\identity-resolver.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/apps/gateway-adapter/src/services/identity-resolver.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 9480
               },
               {
                 "path": "db/migrations/002_identity_policy.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\002_identity_policy.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/002_identity_policy.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1968
               },
               {
                 "path": "db/migrations/010_audit_and_day3.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\010_audit_and_day3.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/010_audit_and_day3.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 880
@@ -13657,7 +13657,7 @@
             "optional_paths": [
               {
                 "path": "db/migrations/014_org_id_isolation.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\014_org_id_isolation.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/014_org_id_isolation.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 5651
@@ -14804,49 +14804,49 @@
             "required_paths": [
               {
                 "path": "services/workflow/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 45388
+                "size": 44181
               },
               {
                 "path": "services/workflow/src/engine/workflow-machine.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\engine\\workflow-machine.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/engine/workflow-machine.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3513
               },
               {
                 "path": "services/workflow/src/planner/planner.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\planner.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/planner.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 54535
               },
               {
                 "path": "services/workflow/src/planner/plan-validator.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\planner\\plan-validator.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/planner/plan-validator.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 2962
               },
               {
                 "path": "services/workflow/src/checkpoint/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\checkpoint\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/checkpoint/manager.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 16200
+                "size": 15736
               },
               {
                 "path": "services/workflow/src/supervisor/manager.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\supervisor\\manager.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/supervisor/manager.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 22517
               },
               {
                 "path": "libs/contracts/src/workflow-types.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\src\\workflow-types.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/src/workflow-types.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1669
@@ -14855,21 +14855,21 @@
             "optional_paths": [
               {
                 "path": "services/workflow/src/persistence/db.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\workflow\\src\\persistence\\db.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/workflow/src/persistence/db.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23786
+                "size": 23164
               },
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
               },
               {
                 "path": "db/migrations/027_workflow_definition_review.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\027_workflow_definition_review.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/027_workflow_definition_review.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2141
@@ -14996,58 +14996,58 @@
             "required_paths": [
               {
                 "path": "services/executor-gateway/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 19536
+                "size": 19050
               },
               {
                 "path": "services/executor-gateway/src/executor/generic-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\generic-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/generic-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 27878
+                "size": 27173
               },
               {
                 "path": "services/executor-gateway/src/executor/retrieval-aware-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\retrieval-aware-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/retrieval-aware-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 5303
+                "size": 5164
               },
               {
                 "path": "services/executor-gateway/src/executor/approval-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\approval-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/approval-executor.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 5828
               },
               {
                 "path": "services/executor-gateway/src/executor/code-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\code-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/code-executor.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3264
               },
               {
                 "path": "services/executor-gateway/src/executor/verification-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\verification-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/verification-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 5480
+                "size": 5328
               },
               {
                 "path": "services/executor-gateway/src/executor/repair-executor.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\executor-gateway\\src\\executor\\repair-executor.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/executor-gateway/src/executor/repair-executor.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 3303
+                "size": 3203
               }
             ],
             "optional_paths": [
               {
                 "path": "db/migrations/003_workflow_core.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\003_workflow_core.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/003_workflow_core.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 7120
@@ -15143,35 +15143,35 @@
             "required_paths": [
               {
                 "path": "services/fact-retrieval/src/index.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\index.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/index.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 23733
+                "size": 23210
               },
               {
                 "path": "services/fact-retrieval/src/service.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\service.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/service.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 87868
+                "size": 85712
               },
               {
                 "path": "services/fact-retrieval/src/support.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\support.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/support.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 3252
               },
               {
                 "path": "services/fact-retrieval/src/artifact-storage.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\services\\fact-retrieval\\src\\artifact-storage.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/services/fact-retrieval/src/artifact-storage.ts",
                 "exists": true,
                 "kind": "file",
-                "size": 11540
+                "size": 11240
               },
               {
                 "path": "libs/contracts/schemas/evidence.ts",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\libs\\contracts\\schemas\\evidence.ts",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/libs/contracts/schemas/evidence.ts",
                 "exists": true,
                 "kind": "file",
                 "size": 1226
@@ -15180,28 +15180,28 @@
             "optional_paths": [
               {
                 "path": "db/migrations/004_document_evidence.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\004_document_evidence.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/004_document_evidence.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 2571
               },
               {
                 "path": "db/migrations/005_entity_fact.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\005_entity_fact.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/005_entity_fact.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 3772
               },
               {
                 "path": "db/migrations/007_retrieval_audit.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\007_retrieval_audit.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/007_retrieval_audit.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 1398
               },
               {
                 "path": "db/migrations/022_align_fact_retrieval_trace_schema.sql",
-                "full_path": "D:\\teamclaw\\jueying-mainline\\legacy\\jueying-v1\\agent-harness\\db\\migrations\\022_align_fact_retrieval_trace_schema.sql",
+                "full_path": "/Users/liuruiqi/jueying/jueying-mainline/legacy/jueying-v1/agent-harness/db/migrations/022_align_fact_retrieval_trace_schema.sql",
                 "exists": true,
                 "kind": "file",
                 "size": 754

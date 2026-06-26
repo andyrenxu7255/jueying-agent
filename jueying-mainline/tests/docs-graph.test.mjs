@@ -47,6 +47,7 @@ function collectWorkspacePaths(value, paths = new Set()) {
 function looksLikeWorkspacePath(value) {
   return value === "README.md" ||
     value.startsWith("docs/") ||
+    value.startsWith("rust/") ||
     value.startsWith("src/") ||
     value.startsWith("scripts/") ||
     value.startsWith("apps/") ||

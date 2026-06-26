@@ -24,12 +24,16 @@ JueYing is an enterprise-grade Agent Harness for centralized management in small
 | [DEV-36-JueYing主版本能力整合实施记录.md](./DEV-36-JueYing主版本能力整合实施记录.md) | Implemented bridge between the JueYing mainline operating console and v1 runtime capabilities. |
 | [DEV-37-角色故事线逐步验收回归记录.md](./DEV-37-角色故事线逐步验收回归记录.md) | Role-by-role, storyline-by-storyline, step-by-step executable acceptance regression record. |
 | [DEV-38-JueYing在线联调与模拟数据打通记录.md](./DEV-38-JueYing在线联调与模拟数据打通记录.md) | Live Docker-based bridge smoke record proving JueYing mainline can create workflow, org task, and fact records with simulated data. |
+| [DEV-39-Rust主线重构规划与实施记录.md](./DEV-39-Rust主线重构规划与实施记录.md) | Rust mainline refactor plan, module split, executable core implementation, and verification boundary. |
 | [context-graph.json](./context-graph.json) | Machine-readable context graph for future agent recall. |
 | [context-routing.json](./context-routing.json) | Machine-readable routing rules for future planning and implementation tasks. |
 | [scenario-coverage.json](./scenario-coverage.json) | Machine-readable scenario and capability coverage index for sales and delivery implementation. |
 | [role-storyline-acceptance.json](./role-storyline-acceptance.json) | Machine-readable role storyline acceptance matrix consumed by tests, reports, APIs, and the JueYing console. |
 | [sales-six-step-gates.json](./sales-six-step-gates.json) | Machine-readable sales six-step gates, recommended activities, evidence types, and P1 exit gates. |
 | [../fixtures/p1-demo/management-command-center.json](../fixtures/p1-demo/management-command-center.json) | P1 management command center fixture for executive command, automatic task decomposition, execution updates/results, scheduled tasks, condition triggers, Agent delegation, and project swimlanes. |
+| [../rust/README.md](../rust/README.md) | Independent Rust workspace entry point for the typed mainline core. |
+| [../rust/docs/architecture.md](../rust/docs/architecture.md) | Rust module architecture and migration graph. |
+| [../rust/graphs/rust-context-graph.json](../rust/graphs/rust-context-graph.json) | Machine-readable Rust refactor graph. |
 
 Generated operation-path evidence lives in `reports/role-operation-path-tests.json`. It is built by `npm run operation-paths:check` from `role-storyline-acceptance.json`; the latest report covers 46/46 operation paths and 671/671 assertions, so every role/storyline step becomes an executable UI/API/contract/fixture/external-sync/legacy-bridge test case. The management command center fixture lives at `fixtures/p1-demo/management-command-center.json` and proves the boss-to-Agent-to-agent-to-subordinate command chain, scheduled commands, condition triggers, automatic task decomposition, execution progress/results, and swimlane projection.
 
@@ -48,9 +52,10 @@ Generated operation-path evidence lives in `reports/role-operation-path-tests.js
 11. DEV-36 for the current JueYing mainline integration implementation.
 12. DEV-37 for role storyline acceptance regression.
 13. DEV-38 for live Docker-based JueYing runtime integration validation.
-14. DEV-26 for object graph and system dependencies.
-15. DEV-27 for decision gates and risk boundaries.
-16. DEV-24 for how the historical JueYing v1 substrate maps into the mainline.
+14. DEV-39 for the Rust typed-core refactor and migration boundary.
+15. DEV-26 for object graph and system dependencies.
+16. DEV-27 for decision gates and risk boundaries.
+17. DEV-24 for how the historical JueYing v1 substrate maps into the mainline.
 
 ## Executable Checks
 

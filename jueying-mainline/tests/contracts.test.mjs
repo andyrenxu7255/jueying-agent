@@ -32,6 +32,7 @@ import {
   buildLegacyRuntimeHealthCatalog,
   checkLegacyRuntimeHealth,
   createJueyingV1RuntimeClient,
+  checkedTaskGraphToLegacyWorkflowPlan,
   evidenceToLegacyFactWrite,
   informationGapToLegacyOrgTask,
   inspectJueyingV1Integration,
@@ -308,6 +309,17 @@ test("contract validation covers sparse management arrays and non-object payload
   assert.match(issueText(missingCollectionsResult), /required field missing/);
 });
 
+test("management validation rejects unknown active users and broken command-task ownership", () => {
+  const management = structuredClone(p1FixtureState.raw.management);
+  management.active_user_id = "unknown_user";
+  management.execution_tasks[0].command_id = management.commands[1].id;
+  const result = validateContract("managementCommandCenter", management);
+
+  assert.equal(result.ok, false);
+  assert.match(issueText(result), /active_user_id must match/);
+  assert.match(issueText(result), /reciprocal with command.generated_task_ids/);
+});
+
 test("contract validation covers defensive semantic branches and boundary messages", () => {
   const lowVersion = structuredClone(baseTaskGraph);
   lowVersion.version = 0;
@@ -438,6 +450,30 @@ test("task graph duplicate, unknown, and self dependencies are rejected", () => 
   assert.match(result.issues.map((issue) => issue.message).join("\n"), /task cannot depend on itself/);
 });
 
+test("task graph rejects duplicate dependencies and active tasks with unresolved prerequisites", () => {
+  const graph = structuredClone(baseTaskGraph);
+  graph.tasks[0].status = "needs_info";
+  graph.tasks[0].evidence_ids = [];
+  graph.tasks.push({
+    id: "task_b",
+    title: "Review evidence",
+    status: "in_progress",
+    owner_actor_type: "pm_agent",
+    owner_actor_id: "pm_agent_001",
+    depends_on: ["task_a", "task_a"],
+    required_evidence: [],
+    information_gap_ids: [],
+    evidence_ids: [],
+    acceptance_criteria: "Review is done."
+  });
+
+  const result = validateContract("taskGraph", graph);
+
+  assert.equal(result.ok, false);
+  assert.match(issueText(result), /duplicate dependency: task_a/);
+  assert.match(issueText(result), /active or accepted task has unresolved dependencies/);
+});
+
 test("sales gate stage mismatch is rejected", () => {
   const salesGateIndex = buildSalesGateIndex(loadSalesGateModel());
   const result = validateContract(
@@ -552,6 +588,36 @@ test("high-risk writeback cannot auto execute", () => {
 
   assert.equal(result.ok, false);
   assert.match(result.issues.map((issue) => issue.message).join("\n"), /high-risk writeback cannot/);
+});
+
+test("writeback intent policy cannot be more permissive than computed policy", () => {
+  const result = validateContract("externalWritebackIntent", {
+    id: "wbi_computed_policy",
+    connection_id: "conn_crm",
+    system_type: "crm",
+    provider: "hubspot",
+    target: {
+      object_type: "opportunity",
+      external_id: "deal_1"
+    },
+    operation: "create_note",
+    payload: {
+      crm_update: {
+        expected_close_date: "2026-06-30"
+      }
+    },
+    source: {
+      agent_id: "pm_agent_sales",
+      reason: "Update close date"
+    },
+    risk_level: "low",
+    idempotency_key: "computed-policy-test",
+    policy_decision: "auto_execute",
+    created_at: "2026-05-26T10:00:00+08:00"
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(issueText(result), /more permissive than computed policy needs_confirmation/);
 });
 
 test("writeback intent must carry idempotency key and source reason", () => {
@@ -2251,7 +2317,8 @@ test("management dispatch preview falls back when roles, project, and boss role 
     },
     taskGraph: { id: "tg_creator_without_user" }
   });
-  assert.equal(creatorWithoutUserId.ok, true);
+  assert.equal(creatorWithoutUserId.ok, false);
+  assert.equal(creatorWithoutUserId.command.created_by_role_id, null);
   assert.equal(creatorWithoutUserId.command.delegation_chain[0].actor_id, "unknown");
 
   const preview = buildManagementCommandDispatchPreview({
@@ -2784,6 +2851,60 @@ test("TaskGraph legacy projection handles retrieval, generic executors, defaults
   assert.equal(payload.context.stage_chain[1].on_success, "complete");
 });
 
+test("checked TaskGraph legacy projection validates and uses dependency order", () => {
+  const graph = {
+    id: "tg_checked_projection",
+    run_id: "run_checked_projection",
+    version: 1,
+    status: "active",
+    autonomy_level: "L2",
+    tasks: [
+      {
+        id: "task_second",
+        title: "Second step",
+        status: "pending",
+        owner_actor_type: "pm_agent",
+        owner_actor_id: "pm_agent_ops",
+        depends_on: ["task_first"],
+        required_evidence: [],
+        information_gap_ids: [],
+        evidence_ids: [],
+        acceptance_criteria: "Second step is ready."
+      },
+      {
+        id: "task_first",
+        title: "First step",
+        status: "accepted",
+        owner_actor_type: "pm_agent",
+        owner_actor_id: "pm_agent_ops",
+        depends_on: [],
+        required_evidence: [],
+        information_gap_ids: [],
+        evidence_ids: ["ev_first"],
+        acceptance_criteria: "First step is ready."
+      }
+    ]
+  };
+
+  const unchecked = taskGraphToLegacyWorkflowPlan(graph);
+  assert.deepEqual(unchecked.context.stage_chain.map((stage) => stage.stage_id), ["task_second", "task_first"]);
+
+  const checked = checkedTaskGraphToLegacyWorkflowPlan(graph);
+  assert.deepEqual(checked.context.stage_chain.map((stage) => stage.stage_id), ["task_first", "task_second"]);
+  assert.equal(checked.context.stage_chain[0].on_success, "task_second");
+
+  assert.throws(() => checkedTaskGraphToLegacyWorkflowPlan({
+    ...graph,
+    tasks: [
+      {
+        ...graph.tasks[0],
+        depends_on: ["missing_task"]
+      },
+      graph.tasks[1]
+    ]
+  }), /Invalid taskGraph contract/);
+});
+
 test("TaskGraph legacy projection tolerates sparse task fields and worker repair policy", () => {
   const payload = taskGraphToLegacyWorkflowPlan({
     id: "tg_sparse",
@@ -3008,6 +3129,8 @@ test("runtime client posts bridge payloads to legacy service endpoints", async (
   assert.equal(fact.ok, true);
   assert.equal(calls.length, 3);
   assert.match(calls[0].url, /workflow\.test\/internal\/workflows\/plan/);
+  const workflowPayload = JSON.parse(calls[0].options.body);
+  assert.equal(workflowPayload.workflow_plan_preview.stage_chain[0].stage_id, "task_a");
   assert.match(calls[1].url, /gateway\.test\/admin\/tasks/);
   assert.equal(calls[1].options.headers["x-internal-token"], "test-token");
   assert.match(calls[2].url, /fact\.test\/internal\/facts\/write/);

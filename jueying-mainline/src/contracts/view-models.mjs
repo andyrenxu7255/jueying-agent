@@ -291,7 +291,7 @@ export function buildManagementCommandCenterViewModel({ management, taskGraph, g
 export function buildManagementCommandDispatchPreview({ management, commandInput, taskGraph }) {
   const center = normalizeManagement(management);
   const graph = asObject(taskGraph);
-  const activeRole = center.roles.find((role) => role.user_id === center.active_user_id) ?? center.roles[0];
+  const activeRole = center.roles.find((role) => role.user_id === center.active_user_id) ?? null;
   const canCreate = activeRole?.permissions?.includes("create_command") === true;
   const executiveRole = center.roles.find((role) =>
     role.role_type === "executive" && role.permissions?.includes("create_command")
@@ -682,7 +682,7 @@ function buildRoleActionQueue({
 
 function buildManagementRoleContext(management) {
   const center = normalizeManagement(management);
-  const activeRole = center.roles.find((role) => role.user_id === center.active_user_id) ?? center.roles[0] ?? null;
+  const activeRole = center.roles.find((role) => role.user_id === center.active_user_id) ?? null;
   const permissions = summarizeManagementPermissions(activeRole);
   const visibleCommands = filterVisibleCommands(center.commands, activeRole, permissions);
   const visibleCommandIds = new Set(visibleCommands.map((command) => command.id));

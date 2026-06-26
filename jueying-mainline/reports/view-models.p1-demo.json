@@ -21,7 +21,7 @@
     },
     "task_counts": {
       "needs_info": 1,
-      "accepted": 1
+      "blocked": 1
     },
     "gate_counts": {
       "missing": 1,
@@ -922,7 +922,7 @@
       {
         "id": "task_discover_next_action",
         "title": "Confirm next customer action",
-        "status": "accepted",
+        "status": "blocked",
         "owner": {
           "type": "human",
           "id": "user_sales_andy"

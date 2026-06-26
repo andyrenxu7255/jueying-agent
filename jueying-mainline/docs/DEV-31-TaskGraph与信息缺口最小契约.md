@@ -107,7 +107,8 @@ P1 不应先追求完整替代 CRM、完整替代项目管理系统或复杂图�
 ### 3.3 TaskGraph 语义红线
 
 - Task ID 不能重复。
-- `depends_on` 必须引用同一 TaskGraph 内存在的 Task，且不能形成依赖环。
+- `depends_on` 必须引用同一 TaskGraph 内存在的 Task，不能重复，且不能形成依赖环。
+- `ready` / `assigned` / `in_progress` / `needs_info` / `needs_supplement` / `accepted` Task 不能越过未 `accepted` 或 `waived` 的依赖；否则必须保持 `pending`、`blocked`、`rejected`、`waived` 或 `cancelled` 等不可执行状态。
 - `accepted` Task 必须引用至少一个 Evidence；否则只能保持未验收状态或显式 `waived`。
 - 外部项目系统的 Done 状态不能直接等同 Agent Task 的 `accepted`。
 
