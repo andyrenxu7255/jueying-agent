@@ -1,7 +1,7 @@
 {
   "version": "v0.1",
-  "updated_at": "2026-06-01",
-  "description": "Rust mainline context graph for the executable JueYing contract core.",
+  "updated_at": "2026-10-02",
+  "description": "Rust typed-core dependency graph; implemented offline verification is distinct from planned online runtime.",
   "authority": [
     "docs/DEV-39-Rust主线重构规划与实施记录.md",
     "rust/README.md",
@@ -46,6 +46,7 @@
     ],
     "writeback": [
       "src/contracts/writeback-policy.mjs",
+      "src/integrations/jueying-v1/adapter.mjs",
       "fixtures/p1-demo/external-writeback-intents.json"
     ],
     "legacy_bridge": [
@@ -60,7 +61,53 @@
   "verification": [
     "rust/Cargo.toml",
     "rust/crates/jueying-cli/src/main.rs",
+    "rust/crates/jueying-cli/tests/verify_json.rs",
+    "tests/docs-graph.test.mjs",
+    "scripts/check-contracts.mjs",
+    "scripts/smoke-app.mjs",
     "fixtures/p1-demo",
     "docs/sales-six-step-gates.json"
-  ]
+  ],
+  "risk_controls": {
+    "cross_opportunity_gate_evidence": ["rust/crates/jueying-core/src/sales.rs", "rust/crates/jueying-core/src/fixtures.rs", "src/contracts/sales-gate-engine.mjs", "apps/ops-console/server.mjs"],
+    "writeback_array_and_decision_integrity": ["rust/crates/jueying-core/src/writeback.rs", "rust/crates/jueying-core/src/adapter.rs", "src/contracts/writeback-policy.mjs", "src/integrations/jueying-v1/adapter.mjs"],
+    "fail_closed_bridge": ["rust/crates/jueying-core/src/adapter.rs", "src/integrations/jueying-v1/adapter.mjs"],
+    "management_update_ownership": ["rust/crates/jueying-core/src/management.rs", "src/contracts/validator.mjs", "fixtures/p1-demo/management-command-center.json"],
+    "online_dispatch_preflight": ["scripts/live-legacy-bridge-smoke.mjs", "src/integrations/jueying-v1/adapter.mjs", "src/integrations/jueying-v1/runtime-client.mjs"],
+    "cross_task_evidence_integrity": ["rust/crates/jueying-core/src/adapter.rs", "rust/crates/jueying-core/src/fixtures.rs", "src/integrations/jueying-v1/adapter.mjs"],
+    "management_update_temporal_integrity": ["rust/crates/jueying-core/src/management.rs", "src/contracts/validator.mjs", "fixtures/p1-demo/management-command-center.json"]
+  },
+  "runtime_graph": {
+    "edge_semantics": "logical data flow from source to consumer, not Rust function call direction; planned nodes are not executable",
+    "nodes": [
+      { "id": "fixtures", "status": "implemented", "path": "rust/crates/jueying-core/src/fixtures.rs" },
+      { "id": "contract", "status": "implemented", "path": "rust/crates/jueying-core/src/contract.rs" },
+      { "id": "validation", "status": "implemented", "path": "rust/crates/jueying-core/src/validation.rs" },
+      { "id": "graph", "status": "implemented", "path": "rust/crates/jueying-core/src/graph.rs" },
+      { "id": "sales", "status": "implemented", "path": "rust/crates/jueying-core/src/sales.rs" },
+      { "id": "writeback", "status": "implemented", "path": "rust/crates/jueying-core/src/writeback.rs" },
+      { "id": "management", "status": "implemented", "path": "rust/crates/jueying-core/src/management.rs" },
+      { "id": "views", "status": "implemented", "path": "rust/crates/jueying-core/src/view_models.rs" },
+      { "id": "adapter", "status": "implemented", "path": "rust/crates/jueying-core/src/adapter.rs" },
+      { "id": "cli", "status": "implemented", "path": "rust/crates/jueying-cli/src/main.rs" },
+      { "id": "online_api", "status": "planned", "authority": "docs/DEV-39-Rust主线重构规划与实施记录.md" },
+      { "id": "connectors", "status": "planned", "authority": "docs/DEV-39-Rust主线重构规划与实施记录.md" }
+    ],
+    "edges": [
+      { "from": "fixtures", "to": "contract", "kind": "deserialize_and_validate" },
+      { "from": "fixtures", "to": "sales", "kind": "gate_authority_check" },
+      { "from": "contract", "to": "validation", "kind": "local_invariants" },
+      { "from": "validation", "to": "graph", "kind": "checked_dag" },
+      { "from": "validation", "to": "writeback", "kind": "recompute_policy" },
+      { "from": "validation", "to": "management", "kind": "identity_and_ownership" },
+      { "from": "graph", "to": "adapter", "kind": "lossy_topological_projection" },
+      { "from": "writeback", "to": "adapter", "kind": "policy_decisions" },
+      { "from": "contract", "to": "views", "kind": "read_only_projection" },
+      { "from": "fixtures", "to": "cli", "kind": "cross_object_validation" },
+      { "from": "graph", "to": "cli", "kind": "planning_report" },
+      { "from": "adapter", "to": "cli", "kind": "legacy_preview" },
+      { "from": "views", "to": "cli", "kind": "view_report" },
+      { "from": "online_api", "to": "connectors", "kind": "future_transactional_dispatch" }
+    ]
+  }
 }

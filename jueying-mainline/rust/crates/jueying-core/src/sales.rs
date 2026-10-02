@@ -115,6 +115,13 @@ pub fn evaluate_sales_stage(
             .evidence_types
             .iter()
             .flat_map(|kind| evidence_by_type.get(kind).into_iter().flatten().copied())
+            .filter(|item| {
+                item.business_refs
+                    .as_ref()
+                    .and_then(|refs| refs.get("opportunity_id"))
+                    .and_then(serde_json::Value::as_str)
+                    == Some(opportunity_id)
+            })
             .collect();
         let gate_id_for_object = gate.id.to_lowercase().replace('-', "_");
         let gap_id = format!("gap_{opportunity_id}_{gate_id_for_object}");
@@ -232,5 +239,50 @@ mod tests {
         assert_eq!(audit.checks.len(), 7);
         assert!(audit.checks.iter().all(|check| check.validate().is_empty()));
         assert_eq!(build_sales_gate_index(&model).len(), 27);
+    }
+
+    #[test]
+    fn evidence_from_another_opportunity_does_not_satisfy_a_gate() {
+        let root = crate::fixtures::workspace_root();
+        let model: SalesGateModel =
+            load_json(&root.join("docs/sales-six-step-gates.json")).unwrap();
+        let mut evidence: Vec<Evidence> =
+            load_json(&root.join("fixtures/p1-demo/evidence.json")).unwrap();
+        let matching_opportunity = evidence.remove(0);
+        let mut other_opportunity = matching_opportunity.clone();
+        other_opportunity.id = "ev_other_opportunity".to_string();
+        other_opportunity.business_refs = Some(serde_json::json!({"opportunity_id": "opp_other"}));
+        let audit = evaluate_sales_stage(
+            SalesStage::Discover,
+            "opp_acme_001",
+            "user_sales_andy",
+            &[other_opportunity.clone()],
+            &[],
+            &model,
+        )
+        .unwrap();
+        let next_action = audit
+            .checks
+            .iter()
+            .find(|check| check.gate_id == "D-G7")
+            .unwrap();
+        assert!(next_action.evidence_ids.is_empty());
+        assert_eq!(next_action.status, crate::SalesGateStatus::Missing);
+
+        let audit = evaluate_sales_stage(
+            SalesStage::Discover,
+            "opp_acme_001",
+            "user_sales_andy",
+            &[matching_opportunity, other_opportunity],
+            &[],
+            &model,
+        )
+        .unwrap();
+        let next_action = audit
+            .checks
+            .iter()
+            .find(|check| check.gate_id == "D-G7")
+            .unwrap();
+        assert_eq!(next_action.evidence_ids, ["ev_next_meeting_calendar"]);
     }
 }

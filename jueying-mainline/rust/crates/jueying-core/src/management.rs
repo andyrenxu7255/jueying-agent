@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use chrono::{DateTime, FixedOffset};
+
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::validation::{
@@ -365,6 +367,7 @@ impl Validate for ManagementCommandCenter {
             .iter()
             .map(|update| update.id.as_str())
             .collect();
+        let mut seen_update_ids = HashSet::new();
         let project_ids: HashSet<&str> = self
             .projects
             .iter()
@@ -634,6 +637,51 @@ impl Validate for ManagementCommandCenter {
                         format!("$.execution_tasks.{}.latest_update_id", task.id),
                         format!("unknown execution update: {update_id}"),
                     ));
+                } else if self
+                    .execution_updates
+                    .iter()
+                    .any(|update| update.id == *update_id && update.task_id != task.id)
+                {
+                    issues.push(issue(
+                        format!("$.execution_tasks.{}.latest_update_id", task.id),
+                        format!(
+                            "execution update {update_id} must belong to the same execution task"
+                        ),
+                    ));
+                } else {
+                    let task_updates = self
+                        .execution_updates
+                        .iter()
+                        .filter(|update| update.task_id == task.id)
+                        .collect::<Vec<_>>();
+                    let parsed_updates = task_updates
+                        .iter()
+                        .map(|update| {
+                            parse_strict_rfc3339(&update.created_at)
+                                .map(|created_at| (*update, created_at))
+                        })
+                        .collect::<Result<Vec<_>, _>>();
+                    match parsed_updates {
+                        Err(_) => issues.push(issue(
+                            format!("$.execution_tasks.{}.latest_update_id", task.id),
+                            "cannot determine latest execution update because a task update has an invalid created_at",
+                        )),
+                        Ok(updates) => {
+                            // Equal instants are ordered by update ID; the lexicographically greatest ID wins.
+                            let latest_id = updates
+                                .into_iter()
+                                .max_by(|(left, left_at), (right, right_at)| {
+                                    left_at.cmp(right_at).then_with(|| left.id.cmp(&right.id))
+                                })
+                                .map(|(update, _)| update.id.as_str());
+                            if latest_id != Some(update_id.as_str()) {
+                                issues.push(issue(
+                                    format!("$.execution_tasks.{}.latest_update_id", task.id),
+                                    format!("latest_update_id must reference the latest update ({})", latest_id.unwrap_or("none")),
+                                ));
+                            }
+                        }
+                    }
                 }
             }
             if task.status == ManagementProjectStatus::Done
@@ -668,6 +716,12 @@ impl Validate for ManagementCommandCenter {
         }
 
         for update in &self.execution_updates {
+            if !seen_update_ids.insert(update.id.as_str()) {
+                issues.push(issue(
+                    "$.execution_updates",
+                    format!("duplicate execution update id: {}", update.id),
+                ));
+            }
             validate_id(&mut issues, "$.execution_updates.id", &update.id);
             require_non_empty(
                 &mut issues,
@@ -700,11 +754,12 @@ impl Validate for ManagementCommandCenter {
             for evidence_id in &update.evidence_ids {
                 validate_id(&mut issues, "$.execution_updates.evidence_ids", evidence_id);
             }
-            validate_iso_datetime(
-                &mut issues,
-                "$.execution_updates.created_at",
-                &update.created_at,
-            );
+            if parse_strict_rfc3339(&update.created_at).is_err() {
+                issues.push(issue(
+                    "$.execution_updates.created_at",
+                    "does not match strict RFC3339 datetime pattern",
+                ));
+            }
         }
 
         for project in &self.projects {
@@ -766,6 +821,16 @@ impl ManagementRole {
     pub fn has(&self, permission: ManagementPermission) -> bool {
         self.permissions.contains(&permission)
     }
+}
+
+fn parse_strict_rfc3339(value: &str) -> Result<DateTime<FixedOffset>, ()> {
+    let shape =
+        regex::Regex::new(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
+            .map_err(|_| ())?;
+    if !shape.is_match(value) {
+        return Err(());
+    }
+    DateTime::<FixedOffset>::parse_from_rfc3339(value).map_err(|_| ())
 }
 
 #[cfg(test)]
@@ -921,6 +986,25 @@ mod tests {
     }
 
     #[test]
+    fn execution_update_ids_must_be_unique() {
+        let root = crate::fixtures::workspace_root();
+        let mut center: ManagementCommandCenter =
+            load_json(&root.join("fixtures/p1-demo/management-command-center.json")).unwrap();
+        let duplicate_id = center.execution_updates[0].id.clone();
+        let mut duplicate = center.execution_updates[1].clone();
+        duplicate.id = duplicate_id.clone();
+        center.execution_updates.push(duplicate);
+
+        let messages = center
+            .validate()
+            .into_iter()
+            .map(|issue| issue.message)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(messages.contains(&format!("duplicate execution update id: {duplicate_id}")));
+    }
+
+    #[test]
     fn active_user_must_match_a_role_user_id() {
         let root = crate::fixtures::workspace_root();
         let mut center: ManagementCommandCenter =
@@ -935,6 +1019,80 @@ mod tests {
             .join("\n");
 
         assert!(messages.contains("active_user_id must match a management role user_id"));
+    }
+
+    #[test]
+    fn latest_update_must_belong_to_its_execution_task() {
+        let root = crate::fixtures::workspace_root();
+        let mut center: ManagementCommandCenter =
+            load_json(&root.join("fixtures/p1-demo/management-command-center.json")).unwrap();
+        let task_id = center.execution_tasks[0].id.clone();
+        let other_task_id = center
+            .execution_tasks
+            .iter()
+            .find(|task| task.id != task_id)
+            .unwrap()
+            .id
+            .clone();
+        let update_id = center.execution_updates[0].id.clone();
+        center.execution_updates[0].task_id = task_id.clone();
+        center.execution_tasks[0].latest_update_id = Some(update_id.clone());
+        assert!(!center.validate().iter().any(|issue| {
+            issue.path == format!("$.execution_tasks.{task_id}.latest_update_id")
+        }));
+
+        center.execution_updates[0].task_id = other_task_id;
+        let issues = center.validate();
+        assert!(issues.iter().any(|issue| {
+            issue.path == format!("$.execution_tasks.{task_id}.latest_update_id")
+                && issue.message.contains("same execution task")
+        }));
+    }
+
+    #[test]
+    fn latest_update_is_chronological_with_deterministic_ties_and_invalid_time_fails_closed() {
+        let root = crate::fixtures::workspace_root();
+        let mut center: ManagementCommandCenter =
+            load_json(&root.join("fixtures/p1-demo/management-command-center.json")).unwrap();
+        let task_id = center.execution_tasks[0].id.clone();
+        let first_id = center.execution_updates[0].id.clone();
+        let second_id = center.execution_updates[1].id.clone();
+        center.execution_updates[0].task_id = task_id.clone();
+        center.execution_updates[1].task_id = task_id.clone();
+        center.execution_updates[0].created_at = "2026-06-01T10:00:00+08:00".to_string();
+        center.execution_updates[1].created_at = "2026-06-01T02:00:00Z".to_string();
+
+        let (tie_winner, tie_loser) = if first_id > second_id {
+            (first_id.clone(), second_id.clone())
+        } else {
+            (second_id.clone(), first_id.clone())
+        };
+        center.execution_tasks[0].latest_update_id = Some(tie_winner);
+        assert!(!center.validate().iter().any(|issue| {
+            issue.path == format!("$.execution_tasks.{task_id}.latest_update_id")
+        }));
+        center.execution_tasks[0].latest_update_id = Some(tie_loser);
+        assert!(center.validate().iter().any(|issue| {
+            issue.path == format!("$.execution_tasks.{task_id}.latest_update_id")
+                && issue.message.contains("latest update")
+        }));
+
+        center.execution_updates[1].created_at = "2026-06-02T10:00:00+08:00".to_string();
+        center.execution_tasks[0].latest_update_id = Some(second_id);
+        assert!(!center.validate().iter().any(|issue| {
+            issue.path == format!("$.execution_tasks.{task_id}.latest_update_id")
+        }));
+
+        center.execution_updates[1].created_at = "2026-06-02 10:00:00+08:00".to_string();
+        center.execution_tasks[0].latest_update_id = Some(first_id);
+        assert!(center.validate().iter().any(|issue| {
+            issue.path == format!("$.execution_tasks.{task_id}.latest_update_id")
+                && issue.message.contains("invalid created_at")
+        }));
+        assert!(center
+            .validate()
+            .iter()
+            .any(|issue| issue.message.contains("strict RFC3339")));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 {
   "report": {
     "ok": true,
-    "generated_at": "2026-06-26T04:49:47.962Z",
+    "generated_at": "2026-10-02T06:22:39.036Z",
     "integration_id": "jueying-v1-mainline",
     "integration_name": "JueYing 主版本能力归并",
     "root": "/Users/liuruiqi/jueying/jueying-mainline",
@@ -4099,7 +4099,8 @@
   },
   "bridge_preview": {
     "ok": true,
-    "generated_at": "2026-06-26T04:49:47.964Z",
+    "issues": [],
+    "generated_at": "2026-10-02T06:22:39.039Z",
     "workflow_plan_payload": {
       "user_id": "u_ai_native_ops",
       "user_role": "admin",
@@ -4520,14 +4521,15 @@
             "operation": "create_note",
             "risk_level": "low",
             "policy_decision": "auto_execute",
-            "reasons": [],
+            "reasons": [
+              "create_note is low-risk and auditable"
+            ],
             "payload": {
               "title": "AI Gate Check Summary",
               "body": "D-G1 is missing champion evidence. D-G7 has a confirmed next meeting."
             },
             "source": {
               "agent_id": "pm_agent_sales_001",
-              "task_id": "task_discover_champion",
               "evidence_ids": [
                 "ev_next_meeting_calendar"
               ],
@@ -4551,7 +4553,9 @@
             "operation": "create_comment",
             "risk_level": "low",
             "policy_decision": "auto_execute",
-            "reasons": [],
+            "reasons": [
+              "create_comment is low-risk and auditable"
+            ],
             "payload": {
               "body": "Agent sees external status Done, but acceptance evidence is missing. Please attach customer confirmation or kickoff agenda link."
             },

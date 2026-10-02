@@ -320,6 +320,44 @@ test("management validation rejects unknown active users and broken command-task
   assert.match(issueText(result), /reciprocal with command.generated_task_ids/);
 });
 
+test("management latest update must belong to its execution task", () => {
+  const management = structuredClone(p1FixtureState.raw.management);
+  management.execution_tasks[0].latest_update_id = management.execution_tasks[1].latest_update_id;
+  const result = validateContract("managementCommandCenter", management);
+  assert.equal(result.ok, false);
+  assert.match(issueText(result), /latest update must belong to execution task/);
+});
+
+test("management latest update must be chronological and fail closed on invalid timestamps", () => {
+  const management = structuredClone(p1FixtureState.raw.management);
+  const task = management.execution_tasks[0];
+  const first = management.execution_updates.find((update) => update.task_id === task.id);
+  const newer = { ...first, id: "mupd_latest_newer", created_at: "2026-06-02T10:00:00+08:00" };
+  management.execution_updates.push(newer);
+  let result = validateContract("managementCommandCenter", management);
+  assert.equal(result.ok, false);
+  assert.match(issueText(result), /latest_update_id must reference the latest update/);
+
+  task.latest_update_id = newer.id;
+  result = validateContract("managementCommandCenter", management);
+  assert.equal(result.ok, true);
+
+  newer.created_at = "not-a-timestamp";
+  result = validateContract("managementCommandCenter", management);
+  assert.equal(result.ok, false);
+  assert.match(issueText(result), /cannot determine latest execution update/);
+
+  const duplicate = structuredClone(p1FixtureState.raw.management);
+  duplicate.execution_updates.push({
+    ...duplicate.execution_updates[0],
+    created_at: "2026-06-03T10:00:00+08:00",
+    message: "conflicting duplicate update"
+  });
+  const duplicateResult = validateContract("managementCommandCenter", duplicate);
+  assert.equal(duplicateResult.ok, false);
+  assert.match(issueText(duplicateResult), /duplicate execution update id/);
+});
+
 test("contract validation covers defensive semantic branches and boundary messages", () => {
   const lowVersion = structuredClone(baseTaskGraph);
   lowVersion.version = 0;
@@ -747,6 +785,16 @@ test("writeback policy requires confirmation for nested high-risk fields", () =>
   assert.match(decision.reasons.join("\n"), /expected_close_date/);
 });
 
+test("writeback policy inspects high-risk fields inside arrays", () => {
+  const decision = decideWritebackPolicy({
+    operation: "create_note",
+    risk_level: "low",
+    payload: { changes: [{ field: { amount: 1000000 } }] }
+  });
+  assert.equal(decision.decision, "needs_confirmation");
+  assert.match(decision.reasons.join("\n"), /amount/);
+});
+
 test("writeback policy requires confirmation for PM status update", () => {
   const decision = decideWritebackPolicy({
     operation: "update_status",
@@ -802,7 +850,8 @@ test("sales gate engine creates missing gaps and submitted checks", () => {
       evidence: [
         {
           id: "ev_next_action",
-          evidence_type: "calendar_event"
+          evidence_type: "calendar_event",
+          business_refs: { opportunity_id: "opp_test" }
         }
       ]
     },
@@ -817,6 +866,18 @@ test("sales gate engine creates missing gaps and submitted checks", () => {
   assert.deepEqual(dG7.evidence_ids, ["ev_next_action"]);
   assert.equal(dG1.status, "missing");
   assert.ok(result.information_gaps.some((gap) => gap.id.includes("d_g1")));
+});
+
+test("sales gate ignores evidence belonging to another opportunity", () => {
+  const result = evaluateSalesStage({
+    stage: "discover",
+    opportunityId: "opp_other",
+    ownerId: "user_sales",
+    evidence: [{ id: "ev_acme", evidence_type: "calendar_event", business_refs: { opportunity_id: "opp_acme" } }]
+  }, loadSalesGateModel());
+  const check = result.checks.find((item) => item.gate_id === "D-G7");
+  assert.equal(check.status, "missing");
+  assert.deepEqual(check.evidence_ids, []);
 });
 
 test("sales gate model helpers expose gate and evidence vocabularies", () => {
@@ -2736,10 +2797,142 @@ test("legacy bridge preview handles absent TaskGraph and writeback decision outc
   assert.equal(preview.ok, false);
   assert.equal(preview.workflow_plan_payload, null);
   assert.equal(preview.summary.workflow_stage_count, 0);
-  assert.equal(preview.summary.org_task_payload_count, 1);
-  assert.equal(preview.summary.fact_write_payload_count, 1);
-  assert.equal(preview.fact_write_payloads[0].payload.confidence, 0.72);
+  assert.equal(preview.summary.org_task_payload_count, 0);
+  assert.equal(preview.summary.fact_write_payload_count, 0);
+  assert.deepEqual(preview.audit_event_payloads, []);
+  assert.ok(preview.issues.some((issue) => issue.path === "taskGraph"));
+});
+
+test("legacy bridge rejects invalid evidence without projecting any payload", () => {
+  const preview = buildLegacyBridgePreview({
+    taskGraph: p1FixtureState.raw.taskGraph,
+    gaps: p1FixtureState.raw.gaps,
+    evidence: [{ ...p1FixtureState.raw.evidence[0], quality_score: 42 }, ...p1FixtureState.raw.evidence.slice(1)],
+    writebackIntents: p1FixtureState.raw.writebackIntents
+  });
+  assert.equal(preview.ok, false);
+  assert.ok(preview.issues.some((issue) => issue.path.includes("quality_score")));
+  assert.deepEqual(preview.fact_write_payloads, []);
+  assert.deepEqual(preview.workflow_plan_payload, null);
+  assert.deepEqual(preview.audit_event_payloads, []);
+});
+
+test("legacy bridge fails closed on duplicate evidence IDs and cross-task evidence", () => {
+  const state = p1FixtureState.raw;
+  const graph = structuredClone(state.taskGraph);
+  const evidence = structuredClone(state.evidence);
+  const otherTask = graph.tasks.find((task) => task.id !== evidence[0].task_id);
+  otherTask.evidence_ids.push(evidence[0].id);
+  let preview = buildLegacyBridgePreview({
+    taskGraph: graph, gaps: state.gaps, evidence, writebackIntents: state.writebackIntents
+  });
+  assert.equal(preview.ok, false);
+  assert.ok(preview.issues.some((issue) => issue.message.includes("another task") || issue.message.includes("does not belong to source task")));
+  assert.deepEqual(preview.fact_write_payloads, []);
+
+  preview = buildLegacyBridgePreview({
+    taskGraph: state.taskGraph,
+    gaps: state.gaps,
+    evidence: [state.evidence[0], { ...state.evidence[0], content_ref: { kind: "text", value: "conflicting duplicate" } }, ...state.evidence.slice(1)],
+    writebackIntents: state.writebackIntents
+  });
+  assert.equal(preview.ok, false);
+  assert.ok(preview.issues.some((issue) => issue.message === "duplicate evidence ID"));
+  assert.deepEqual(preview.fact_write_payloads, []);
+
+  const crossTaskIntent = structuredClone(state.writebackIntents[0]);
+  crossTaskIntent.source.task_id = "task_discover_champion";
+  preview = buildLegacyBridgePreview({
+    taskGraph: state.taskGraph,
+    gaps: state.gaps,
+    evidence: state.evidence,
+    writebackIntents: [crossTaskIntent, state.writebackIntents[1]],
+    writebackDecisions: state.writebackIntents.map((intent) => ({ intent_id: intent.id, ...decideWritebackPolicy(intent) }))
+  });
+  assert.equal(preview.ok, false);
+  assert.ok(preview.issues.some((issue) => issue.message.includes("belongs to another task") || issue.message.includes("does not belong to source task")));
+
+  const unownedEvidence = structuredClone(state.evidence);
+  delete unownedEvidence[0].task_id;
+  const unownedIntent = structuredClone(state.writebackIntents[0]);
+  unownedIntent.source.task_id = "task_discover_next_action";
+  preview = buildLegacyBridgePreview({
+    taskGraph: state.taskGraph,
+    gaps: state.gaps,
+    evidence: unownedEvidence,
+    writebackIntents: [unownedIntent, state.writebackIntents[1]],
+    writebackDecisions: state.writebackIntents.map((intent) => ({ intent_id: intent.id, ...decideWritebackPolicy(intent) }))
+  });
+  assert.equal(preview.ok, false);
+  assert.ok(preview.issues.some((issue) => issue.message.includes("does not belong to source task")));
+
+  const mismatchedGap = structuredClone(state.gaps[0]);
+  mismatchedGap.closed_by_evidence_ids = ["ev_next_meeting_calendar"];
+  preview = buildLegacyBridgePreview({
+    taskGraph: state.taskGraph,
+    gaps: [mismatchedGap, ...state.gaps.slice(1)],
+    evidence: state.evidence,
+    writebackIntents: state.writebackIntents,
+    writebackDecisions: state.writebackIntents.map((intent) => ({ intent_id: intent.id, ...decideWritebackPolicy(intent) }))
+  });
+  assert.equal(preview.ok, false);
+  assert.ok(preview.issues.some((issue) => issue.path.includes("closed_by_evidence_ids")));
+});
+
+test("legacy bridge rejects duplicate, unknown, missing, and permissive writeback decisions", () => {
+  const state = p1FixtureState.raw;
+  const intents = state.writebackIntents;
+  const decisions = intents.map((intent) => ({ intent_id: intent.id, ...decideWritebackPolicy(intent) }));
+  const build = (writebackDecisions) => buildLegacyBridgePreview({
+    taskGraph: state.taskGraph, gaps: state.gaps, evidence: state.evidence, writebackIntents: intents, writebackDecisions
+  });
+
+  for (const entries of [
+    [decisions[0], decisions[0], ...decisions.slice(1)],
+    [...decisions.slice(1), { ...decisions[0], intent_id: "unknown" }],
+    decisions.slice(0, -1)
+  ]) {
+    const preview = build(entries);
+    assert.equal(preview.ok, false);
+    assert.deepEqual(preview.audit_event_payloads, []);
+  }
+
+  const rejected = decisions.map((decision, index) => index === 0 ? { ...decision, decision: "reject" } : decision);
+  const preview = build(rejected);
+  assert.equal(preview.ok, true);
+  assert.equal(preview.audit_event_payloads[0].payload.detail_json.policy_decision, "reject");
   assert.equal(preview.audit_event_payloads[0].payload.result, "failure");
+
+  const riskyIntents = structuredClone(intents);
+  riskyIntents[0].risk_level = "high";
+  riskyIntents[0].policy_decision = "needs_confirmation";
+  const permissive = riskyIntents.map((intent) => ({ intent_id: intent.id, ...decideWritebackPolicy(intent) }));
+  permissive[0].decision = "auto_execute";
+  const rejectedPreview = buildLegacyBridgePreview({
+    taskGraph: state.taskGraph, gaps: state.gaps, evidence: state.evidence,
+    writebackIntents: riskyIntents, writebackDecisions: permissive
+  });
+  assert.equal(rejectedPreview.ok, false);
+  assert.deepEqual(rejectedPreview.audit_event_payloads, []);
+
+  const storedReject = structuredClone(intents);
+  storedReject[0].policy_decision = "reject";
+  const overruled = storedReject.map((intent) => ({ intent_id: intent.id, ...decideWritebackPolicy(intent) }));
+  const overruledPreview = buildLegacyBridgePreview({
+    taskGraph: state.taskGraph, gaps: state.gaps, evidence: state.evidence,
+    writebackIntents: storedReject, writebackDecisions: overruled
+  });
+  assert.equal(overruledPreview.ok, false);
+  assert.deepEqual(overruledPreview.audit_event_payloads, []);
+
+  const missingPreview = buildLegacyBridgePreview({
+    taskGraph: state.taskGraph,
+    gaps: state.gaps,
+    evidence: state.evidence,
+    writebackIntents: intents
+  });
+  assert.equal(missingPreview.ok, false);
+  assert.ok(missingPreview.issues.some((issue) => issue.message.includes("missing decisions")));
 });
 
 test("legacy runtime health returns bounded service checks", async () => {
@@ -3012,6 +3205,28 @@ test("Evidence and writeback intent can be projected to legacy fact and audit pa
   assert.match(auditPayload.resource_ref, /salesforce:opportunity/);
 });
 
+test("legacy audit preserves an explicitly rejected writeback decision", () => {
+  const audit = writebackIntentToLegacyAuditEvent({
+    id: "wbi_rejected", connection_id: "conn_crm", system_type: "crm", provider: "hubspot",
+    target: { object_type: "opportunity", external_id: "deal_1" }, operation: "create_note",
+    payload: { body: "No write" }, source: { agent_id: "agent_1" }, risk_level: "low",
+    policy_decision: "reject"
+  }, { decision: "auto_execute", reasons: [] });
+  assert.equal(audit.result, "failure");
+  assert.equal(audit.detail_json.policy_decision, "reject");
+});
+
+test("legacy audit does not downgrade a supplied rejection", () => {
+  const audit = writebackIntentToLegacyAuditEvent({
+    id: "wbi_rejected", connection_id: "conn_crm", system_type: "crm", provider: "hubspot",
+    target: { object_type: "opportunity", external_id: "deal_1" }, operation: "create_note",
+    payload: { body: "No write" }, source: { agent_id: "agent_1" }, risk_level: "low",
+    policy_decision: "needs_confirmation"
+  }, { decision: "reject", reasons: ["operator rejected"] });
+  assert.equal(audit.result, "failure");
+  assert.equal(audit.detail_json.policy_decision, "reject");
+});
+
 test("legacy fact and audit projections keep safe fallbacks for sparse payloads", () => {
   const valueFact = evidenceToLegacyFactWrite({
     id: "ev_value_only",
@@ -3134,6 +3349,22 @@ test("runtime client posts bridge payloads to legacy service endpoints", async (
   assert.match(calls[1].url, /gateway\.test\/admin\/tasks/);
   assert.equal(calls[1].options.headers["x-internal-token"], "test-token");
   assert.match(calls[2].url, /fact\.test\/internal\/facts\/write/);
+});
+
+test("runtime client can dispatch the already-validated bridge payload", async () => {
+  let requestBody;
+  const client = createJueyingV1RuntimeClient({
+    fetchImpl: async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+    workflowUrl: "http://workflow.test"
+  });
+  const payload = { workflow_plan_preview: { stage_chain: [{ stage_id: "validated_stage" }] } };
+  const result = await client.createWorkflowFromTaskGraph(baseTaskGraph, { payload });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.payload, payload);
+  assert.deepEqual(requestBody, payload);
 });
 
 test("runtime client degrades cleanly when legacy service is offline", async () => {
@@ -3640,11 +3871,13 @@ test("storyline acceptance covers sparse role and reference edge cases", () => {
 
 test("role operation path tests materialize every role step as executable assertions", () => {
   const legacyIntegration = inspectJueyingV1Integration();
+  const writebackDecisions = p1FixtureState.raw.writebackIntents.map((intent) => ({ intent_id: intent.id, ...decideWritebackPolicy(intent) }));
   const bridgePreview = buildLegacyBridgePreview({
     taskGraph: p1FixtureState.raw.taskGraph,
     gaps: p1FixtureState.raw.gaps,
     evidence: p1FixtureState.raw.evidence,
-    writebackIntents: p1FixtureState.raw.writebackIntents
+    writebackIntents: p1FixtureState.raw.writebackIntents,
+    writebackDecisions
   });
   const report = buildRoleOperationPathTestReport({
     matrix: loadRoleStorylineAcceptanceMatrix(),
@@ -3744,11 +3977,13 @@ test("operation path assertions cover gate refs, write actions, and read-only st
 
 test("operation path test view model exposes role path pass state", () => {
   const legacyIntegration = inspectJueyingV1Integration();
+  const writebackDecisions = p1FixtureState.raw.writebackIntents.map((intent) => ({ intent_id: intent.id, ...decideWritebackPolicy(intent) }));
   const bridgePreview = buildLegacyBridgePreview({
     taskGraph: p1FixtureState.raw.taskGraph,
     gaps: p1FixtureState.raw.gaps,
     evidence: p1FixtureState.raw.evidence,
-    writebackIntents: p1FixtureState.raw.writebackIntents
+    writebackIntents: p1FixtureState.raw.writebackIntents,
+    writebackDecisions
   });
   const report = buildRoleOperationPathTestReport({
     matrix: loadRoleStorylineAcceptanceMatrix(),

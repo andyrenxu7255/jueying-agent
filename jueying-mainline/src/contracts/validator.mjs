@@ -393,8 +393,17 @@ function validateManagementCommandCenterSemantics(center) {
   const commandIds = new Set(commands.map((command) => command.id));
   const executionTaskIds = new Set(executionTasks.map((task) => task.id));
   const executionUpdateIds = new Set(executionUpdates.map((update) => update.id));
+  const executionUpdateById = new Map(executionUpdates.map((update) => [update.id, update]));
   const projectIds = new Set(projects.map((project) => project.id));
   const taskIds = new Set();
+
+  const seenExecutionUpdateIds = new Set();
+  for (const update of executionUpdates) {
+    if (seenExecutionUpdateIds.has(update.id)) {
+      issues.push(issue("$.execution_updates", `duplicate execution update id: ${update.id}`));
+    }
+    seenExecutionUpdateIds.add(update.id);
+  }
 
   if (!roles.some((role) => role.role_type === "executive" && role.permissions?.includes("create_command"))) {
     issues.push(issue("$.roles", "management command center requires an executive role with create_command permission"));
@@ -457,6 +466,31 @@ function validateManagementCommandCenterSemantics(center) {
     }
     if (task.latest_update_id && !executionUpdateIds.has(task.latest_update_id)) {
       issues.push(issue(`$.execution_tasks.${task.id}.latest_update_id`, `unknown execution update: ${task.latest_update_id}`));
+    } else if (task.latest_update_id && executionUpdateById.get(task.latest_update_id)?.task_id !== task.id) {
+      issues.push(issue(`$.execution_tasks.${task.id}.latest_update_id`, "latest update must belong to execution task"));
+    } else if (task.latest_update_id) {
+      const taskUpdates = executionUpdates.filter((update) => update.task_id === task.id);
+      const parsedUpdates = taskUpdates.map((update) => ({ update, timestamp: parseStrictRfc3339(update.created_at) }));
+      if (parsedUpdates.some(({ timestamp }) => Number.isNaN(timestamp))) {
+        issues.push(issue(
+          `$.execution_tasks.${task.id}.latest_update_id`,
+          "cannot determine latest execution update because a task update has an invalid created_at"
+        ));
+      } else {
+        const latest = parsedUpdates.reduce((current, candidate) => {
+          if (!current) return candidate;
+          if (candidate.timestamp !== current.timestamp) {
+            return candidate.timestamp > current.timestamp ? candidate : current;
+          }
+          return candidate.update.id > current.update.id ? candidate : current;
+        }, null);
+        if (latest?.update.id !== task.latest_update_id) {
+          issues.push(issue(
+            `$.execution_tasks.${task.id}.latest_update_id`,
+            `latest_update_id must reference the latest update (${latest?.update.id ?? "none"})`
+          ));
+        }
+      }
     }
     if (task.status === "done" && (!task.result_summary || task.progress_percent !== 100)) {
       issues.push(issue(`$.execution_tasks.${task.id}`, "done execution task must include result_summary and 100 progress"));
@@ -505,6 +539,29 @@ function validateManagementCommandCenterSemantics(center) {
   }
 
   return issues;
+}
+
+function parseStrictRfc3339(value) {
+  if (typeof value !== "string") return Number.NaN;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!match) return Number.NaN;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, timezone] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const timezoneMatch = timezone === "Z" ? null : /^(\+|-)(\d{2}):(\d{2})$/.exec(timezone);
+  const timezoneHour = timezoneMatch ? Number(timezoneMatch[2]) : 0;
+  const timezoneMinute = timezoneMatch ? Number(timezoneMatch[3]) : 0;
+  const monthLengths = [31, (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const daysInMonth = monthLengths[month - 1] ?? 0;
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth || hour > 23 || minute > 59 || second > 59 || timezoneHour > 23 || timezoneMinute > 59) {
+    return Number.NaN;
+  }
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? Number.NaN : timestamp;
 }
 
 function issue(path, message) {

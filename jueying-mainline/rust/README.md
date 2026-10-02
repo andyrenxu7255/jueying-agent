@@ -2,6 +2,8 @@
 
 This directory is an independent Rust implementation of the executable JueYing mainline core. It does not replace the current JS/MJS app yet; it provides a typed, testable migration path for the contract engine, TaskGraph semantics, sales Gate checks, writeback policy, view-model projections, and legacy v1 bridge payloads.
 
+See [architecture and failure boundaries](docs/architecture.md) and the [machine-readable dependency graph](graphs/rust-context-graph.json). These describe the implemented offline core separately from planned runtime services.
+
 ## Scope
 
 - Preserve the active mainline boundary from `jueying-mainline/`.
@@ -23,5 +25,8 @@ cargo run -p jueying-cli -- verify --root ..
 ```
 
 The CLI reads the existing mainline fixtures and documentation assets from the JS workspace root.
+
+`cargo run -p jueying-cli -- verify --root .. --json` emits the detailed report. A successful fixture verification is not proof of live connector or legacy runtime behavior.
+Invalid fixture roots also return a JSON error with a nonzero exit status in `--json` mode. The bridge preview fails closed on invalid contract inputs, broken or cross-task references, duplicate IDs, or ambiguous/permissive writeback decisions; low-level projection helpers are not dispatch authorization APIs. The online legacy smoke checks this preview before making any request.
 
 From the repository mainline root, `npm run verify` also invokes these Rust checks through `npm run verify:rust`, so Rust is part of the default release gate rather than a sidecar-only validation path.

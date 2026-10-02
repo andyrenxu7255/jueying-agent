@@ -4,7 +4,7 @@ export function evaluateSalesStage({ stage, opportunityId, ownerId, evidence = [
     throw new Error(`Unknown sales stage: ${stage}`);
   }
 
-  const evidenceByType = groupEvidenceByType(evidence);
+  const evidenceByType = groupEvidenceByType(evidence.filter((item) => item.business_refs?.opportunity_id === opportunityId));
   const checks = [];
   const informationGaps = [];
 

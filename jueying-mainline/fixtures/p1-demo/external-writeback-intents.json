@@ -15,7 +15,6 @@
     },
     "source": {
       "agent_id": "pm_agent_sales_001",
-      "task_id": "task_discover_champion",
       "evidence_ids": ["ev_next_meeting_calendar"],
       "reason": "Keep CRM activity notes aligned with Agent gate check."
     },

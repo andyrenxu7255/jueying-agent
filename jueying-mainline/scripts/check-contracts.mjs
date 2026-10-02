@@ -110,10 +110,12 @@ function checkCrossReferences() {
   const gateChecks = collectArrayFixture("sales-gate-checks.json");
   const mirrors = collectArrayFixture("external-fact-mirrors.json");
   const management = readJson("fixtures/p1-demo/management-command-center.json");
+  const gateIndex = buildSalesGateIndex(loadSalesGateModel());
 
   const taskIds = new Set(taskGraph.tasks.map((task) => task.id));
   const gapIds = new Set(gaps.map((gap) => gap.id));
   const evidenceIds = new Set(evidence.map((item) => item.id));
+  const evidenceById = new Map(evidence.map((item) => [item.id, item]));
   const mirrorIds = new Set(mirrors.map((mirror) => mirror.id));
   const managementCommandIds = new Set((management.commands ?? []).map((command) => command.id));
   const managementProjectIds = new Set((management.projects ?? []).map((project) => project.id));
@@ -150,6 +152,7 @@ function checkCrossReferences() {
   }
 
   for (const check of gateChecks) {
+    const gate = gateIndex.get(check.gate_id);
     for (const gapId of check.information_gap_ids ?? []) {
       if (!gapIds.has(gapId)) {
         addError(`gate check ${check.id} references unknown gap ${gapId}`);
@@ -158,6 +161,10 @@ function checkCrossReferences() {
     for (const evidenceId of check.evidence_ids ?? []) {
       if (!evidenceIds.has(evidenceId)) {
         addError(`gate check ${check.id} references unknown evidence ${evidenceId}`);
+      } else if (evidenceById.get(evidenceId)?.business_refs?.opportunity_id !== check.opportunity_id) {
+        addError(`gate check ${check.id} references evidence ${evidenceId} from another opportunity`);
+      } else if (gate && !gate.evidence_types?.includes(evidenceById.get(evidenceId).evidence_type)) {
+        addError(`gate check ${check.id} references evidence ${evidenceId} with incompatible type`);
       }
     }
   }

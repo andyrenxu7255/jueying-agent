@@ -530,6 +530,19 @@ function createManagementCommand(preview) {
 
 function createEvidence(input) {
   ensureRuntimeState();
+  const task = input.task_id && runtimeState.taskGraph.tasks?.find((item) => item.id === input.task_id);
+  if (input.task_id && !task) {
+    const error = new Error(`unknown task: ${input.task_id}`);
+    error.statusCode = 400;
+    throw error;
+  }
+  const taskOpportunityId = task && runtimeState.taskGraph.business_refs?.opportunity_id;
+  if (taskOpportunityId && input.opportunity_id && taskOpportunityId !== input.opportunity_id) {
+    const error = new Error("evidence opportunity does not match task graph");
+    error.statusCode = 400;
+    throw error;
+  }
+  const opportunityId = taskOpportunityId ?? input.opportunity_id;
   const now = nowIso();
   const evidence = {
     id: `ev_user_${slugify(input.title ?? input.evidence_type ?? "evidence")}_${Date.now().toString(36)}`,
@@ -538,7 +551,7 @@ function createEvidence(input) {
     source_actor_id: input.source_actor_id ?? input.user_id ?? "user_exec_lina",
     capture_channel: input.capture_channel ?? "web",
     task_id: input.task_id || undefined,
-    business_refs: input.opportunity_id ? { opportunity_id: input.opportunity_id } : undefined,
+    business_refs: opportunityId ? { opportunity_id: opportunityId } : undefined,
     content_ref: {
       kind: input.content_kind ?? "text",
       value: input.value ?? input.summary ?? "Submitted from Ops Console",
@@ -553,7 +566,6 @@ function createEvidence(input) {
   assertValid("evidence", evidence);
   runtimeState.evidence.push(evidence);
   if (evidence.task_id) {
-    const task = runtimeState.taskGraph.tasks?.find((item) => item.id === evidence.task_id);
     if (task) {
       task.evidence_ids = [...new Set([...(task.evidence_ids ?? []), evidence.id])];
     }
@@ -565,7 +577,7 @@ function createEvidence(input) {
   }
   for (const check of runtimeState.gateChecks) {
     const stageGate = findSalesGate(check.gate_id);
-    if (stageGate?.evidence_types?.includes(evidence.evidence_type)) {
+    if (check.opportunity_id === opportunityId && stageGate?.evidence_types?.includes(evidence.evidence_type)) {
       check.evidence_ids = [...new Set([...(check.evidence_ids ?? []), evidence.id])];
       check.updated_at = now;
     }

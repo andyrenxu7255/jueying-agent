@@ -7,7 +7,8 @@ use jueying_core::{
     build_management_command_center_view_model_with_context, build_operating_console_view_model,
     build_task_graph_view_model, decide_writeback_policy, evaluate_sales_stage,
     expected_evidence_types, gate_ids, load_json, load_p1_fixture_state, plan_task_graph,
-    validate_fixture_state_with_sales_model, SalesGateModel, SalesStage,
+    validate_fixture_state_with_sales_model, IdentifiedWritebackDecision, SalesGateModel,
+    SalesStage,
 };
 use serde_json::json;
 
@@ -38,7 +39,47 @@ fn main() -> anyhow::Result<()> {
 
 fn verify(root: PathBuf, emit_json: bool) -> anyhow::Result<()> {
     let root = root.canonicalize().unwrap_or(root);
-    let state = load_p1_fixture_state(&root)
+    let report = match build_report(&root) {
+        Ok(report) => report,
+        Err(error) => {
+            if emit_json {
+                println!(
+                    "{}",
+                    serde_json::to_string(&json!({
+                        "ok": false,
+                        "error": error.to_string(),
+                        "root": root
+                    }))?
+                );
+            }
+            return Err(error);
+        }
+    };
+    let report_ok = report["ok"] == true;
+
+    if emit_json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        if !report_ok {
+            anyhow::bail!("Rust verify failed");
+        }
+    } else if report_ok {
+        println!(
+            "Rust verify OK: {} tasks, {} sales gates, {} evidence types, {} role actions, {} legacy stages",
+            report["task_graph"]["task_count"],
+            report["sales"]["gate_count"],
+            report["sales"]["evidence_type_count"],
+            report["view_models"]["operating_console"]["role_action_count"],
+            report["legacy_bridge"]["summary"]["workflow_stage_count"]
+        );
+    } else {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        anyhow::bail!("Rust verify failed");
+    }
+    Ok(())
+}
+
+fn build_report(root: &std::path::Path) -> anyhow::Result<serde_json::Value> {
+    let state = load_p1_fixture_state(root)
         .with_context(|| format!("loading P1 fixtures from {}", root.display()))?;
     let sales_model: SalesGateModel = load_json(&root.join("docs/sales-six-step-gates.json"))
         .context("loading sales gate model")?;
@@ -63,12 +104,22 @@ fn verify(root: PathBuf, emit_json: bool) -> anyhow::Result<()> {
         .iter()
         .map(decide_writeback_policy)
         .collect::<Vec<_>>();
+    let bridge_decisions = state
+        .writeback_intents
+        .iter()
+        .zip(&writeback_decisions)
+        .map(|(intent, recommendation)| IdentifiedWritebackDecision {
+            intent_id: intent.id.clone(),
+            recommendation: recommendation.clone(),
+            final_decision: None,
+        })
+        .collect::<Vec<_>>();
     let bridge = build_legacy_bridge_preview(
         Some(&state.task_graph),
         &state.gaps,
         &state.evidence,
         &state.writeback_intents,
-        &writeback_decisions,
+        &bridge_decisions,
     );
     let operating_console = build_operating_console_view_model(&state);
     let task_graph = build_task_graph_view_model(&state.task_graph, &state.evidence, &state.gaps);
@@ -83,7 +134,7 @@ fn verify(root: PathBuf, emit_json: bool) -> anyhow::Result<()> {
     );
     let report_ok = contract_issues.is_empty() && bridge.ok && management.ok;
 
-    let report = json!({
+    Ok(json!({
         "ok": report_ok,
         "root": root,
         "contract_issue_count": contract_issues.len(),
@@ -112,25 +163,5 @@ fn verify(root: PathBuf, emit_json: bool) -> anyhow::Result<()> {
             "management_command_center": management
         },
         "legacy_bridge": bridge,
-    });
-
-    if emit_json {
-        println!("{}", serde_json::to_string_pretty(&report)?);
-        if !report_ok {
-            anyhow::bail!("Rust verify failed");
-        }
-    } else if report_ok {
-        println!(
-            "Rust verify OK: {} tasks, {} sales gates, {} evidence types, {} role actions, {} legacy stages",
-            report["task_graph"]["task_count"],
-            report["sales"]["gate_count"],
-            report["sales"]["evidence_type_count"],
-            report["view_models"]["operating_console"]["role_action_count"],
-            report["legacy_bridge"]["summary"]["workflow_stage_count"]
-        );
-    } else {
-        println!("{}", serde_json::to_string_pretty(&report)?);
-        anyhow::bail!("Rust verify failed");
-    }
-    Ok(())
+    }))
 }

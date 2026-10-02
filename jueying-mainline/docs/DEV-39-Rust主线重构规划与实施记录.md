@@ -1,7 +1,7 @@
 # DEV-39 Rust 主线重构规划与实施记录
 
-> 状态：Rust 首版重构落地记录
-> 日期：2026-06-01
+> 状态：Rust 独立业务内核已落地；在线运行时仍由 JS/MJS 承担
+> 首版日期：2026-06-01；架构核对：2026-10-02
 > 依赖：DEV-23 至 DEV-38、`src/contracts/*`、`src/integrations/jueying-v1/*`
 
 ## 1. 结论
@@ -40,7 +40,7 @@ Rust 首版覆盖这些内核职责，不接手浏览器 UI。
 
 ### 3.1 TaskGraph 不能被 workflow 线性化
 
-JS adapter 当前为了调用 legacy workflow，会把 `TaskGraph.tasks` 按数组顺序转成 `stage_chain`。这是必要的兼容投影，但不是主域模型。Rust 新增 `plan_task_graph`，保留拓扑顺序、并行层和 `blocked_by` 关系，明确区分：
+JS adapter 的旧版调用路径如今使用 checked projection，先检查 TaskGraph 再按拓扑顺序转成 `stage_chain`。这是必要但有损的兼容投影，不是主域模型。Rust 的 `plan_task_graph` 保留拓扑顺序、并行层和 `blocked_by` 关系，明确区分：
 
 - Domain TaskGraph：DAG、依赖、并行、验收和缺口事实中心。
 - Legacy workflow plan：为了旧服务调用产生的线性 projection。
@@ -159,8 +159,34 @@ Rust 首版仍不做：
 
 ## 7. 后续优先级
 
+以下属于**未落地的迁移目标**，不是当前 Rust 服务能力。特别是离线 P1 fixture 验证不证明真实连接器、鉴权、持久化或在线回流可用；发布前仍需运行完整 `npm run verify`，并在实际启动旧版服务时单独做在线联调。
+
 1. 增加更完整的 JS/Rust golden parity tests，继续锁定 P1 fixture、view model 和 bridge payload 字段级差异。
 2. 引入 `schemars` 或等价 schema export，生成 Rust JSON Schema 并与 `schemas/*.json` 做自动对比。
 3. 将 `AgentOutput.payload` 从开放 `serde_json::Value` 演进为 tagged payload enum，同时保留 unknown extension。
 4. 为 TaskGraph 加 property tests：随机 DAG、并行层、replan version 和依赖状态迁移。
 5. 在 `jueying-ops-api` crate 中落 Axum API，但继续复用 `jueying-core`，不把业务规则写进 handler。
+6. 在引入在线写接口前，明确事务边界、幂等键、版本冲突处理、权限快照与审计事件的原子性；失败和重试必须避免重复派单或反写。
+
+架构数据流、当前与规划边界见 [`rust/docs/architecture.md`](../rust/docs/architecture.md)；机器可读的依赖和风险关系见 [`rust-context-graph.json`](../rust/graphs/rust-context-graph.json)。
+
+## 8. 2026-10-02 审计与修复记录
+
+本轮先核对离线 Rust 边界，再以独立审计 A / 修复 B 的循环复核 JS 与 Rust。首轮完整门禁在浏览器脚本失败，定位后修复并再次通过 `npm run verify`；第三轮差异审计又发现 5 项问题，修复后继续复核。针对失败输入补回归，而不是仅以 P1 正常数据通过作为结论。
+
+| 风险 | 触发输入 | 收口位置 |
+|---|---|---|
+| Gate 证据串商机或类型不符 | 另一商机的 `calendar_event`，或同商机错误证据类型 | JS/Rust 巡检按 `opportunity_id` 过滤；fixture 与 Gate 权威表核对证据类型及归属；控制台冲突提交先拒绝，再写入 |
+| 角色行动队列越权 | 非负责人查看销售 Gate 待办 | Rust 只向负责人或看板权限角色提供待办，保留 JS 可见性规则 |
+| 高风险字段藏于数组 | 低风险 `create_note` 内含 `changes: [{amount: ...}]` | JS/Rust 策略递归遍历数组与对象，重新计算需人工确认 |
+| 桥接决策串位或拒绝被覆盖 | 乱序决策、缺失/重复 ID、最终 `reject` 与建议不一致 | Rust 决策按 `intent_id` 关联并失败关闭；两侧保留更保守的有效决定，拒绝审计为 failure |
+| 无效事实仍输出可派发 payload | 证据质量分数为 42、断裂引用或无 TaskGraph | 桥接 `ok:false`，返回可定位 issues，禁止四类 payload 输出 |
+| 管理执行更新错归属 | `latest_update_id` 指向另一任务 | 修复 P1 fixture，JS/Rust 合同校验更新与任务双向对应；Rust 还校验执行证据 ID 存在 |
+| 最新更新指向较旧记录或时间非法 | 同一任务追加更晚更新但不更新 `latest_update_id`，或使用非法时间 | JS/Rust 按 RFC3339 时间和确定性 ID tie-break 校验最新性；无法排序则失败关闭 |
+| 在线桥接绕过预检 | bridge preview `ok:false` 仍进入旧服务 POST | live smoke 在健康检查和任何请求前强制检查 preview；失败报告零 operations |
+| JS 桥接决策/证据歧义 | 重复决策 ID、未知 ID、重复证据 ID、跨任务证据 | JS 与 Rust 对 ID 唯一性、意图覆盖和任务证据归属统一失败关闭 |
+| 桥接调用缺少决策或来源归属 | 省略 `writebackDecisions`；`source.task_id` 与证据任务不一致；Gap 关闭证据串任务 | 有待处理 Intent 时决策数组必须显式提供；声明来源任务时统一校验证据与 Gap 归属；无来源任务才允许跨任务汇总 |
+| 日期和更新标识不确定 | `2026-02-31T10:00:00+08:00`、重复 `execution_update.id` | JS/Rust 使用严格 RFC3339 日历校验并拒绝重复更新 ID |
+| CLI 异常不结构化 | `verify --root /nonexistent --json` | Rust CLI stdout 返回 `ok:false` JSON，退出码非零 |
+
+最终审计门禁覆盖 Rust 49 个核心测试和 1 个 CLI 集成测试、Node 104 个测试、应用与浏览器冒烟；在线 v1 runtime/真实连接器仍不在该离线门禁内。这里的测试计数是 2026-10-02 本轮执行记录，不替代下一次发布时重新运行。

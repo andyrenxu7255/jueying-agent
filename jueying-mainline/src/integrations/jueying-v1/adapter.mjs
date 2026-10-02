@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { assertContract } from "../../contracts/validator.mjs";
+import { assertContract, validateContract } from "../../contracts/validator.mjs";
+import { decideWritebackPolicy } from "../../contracts/writeback-policy.mjs";
 import {
   JUEYING_V1_BRIDGE_PHASES,
   JUEYING_V1_CAPABILITY_MAP,
@@ -114,9 +115,113 @@ export function buildLegacyIntegrationViewModel(report = inspectJueyingV1Integra
   };
 }
 
-export function buildLegacyBridgePreview({ taskGraph, gaps = [], evidence = [], writebackIntents = [], writebackDecisions = [] }) {
-  const decisionByIntentId = new Map(writebackDecisions.map((decision) => [decision.intent_id, decision]));
-  const workflowPlanPayload = taskGraph ? checkedTaskGraphToLegacyWorkflowPlan(taskGraph) : null;
+export function buildLegacyBridgePreview({ taskGraph, gaps = [], evidence = [], writebackIntents = [], writebackDecisions }) {
+  const issues = [];
+  const taskIds = new Set(taskGraph?.tasks?.map((task) => task.id) ?? []);
+  const gapIds = new Set(gaps.map((gap) => gap.id));
+  const evidenceIds = new Set(evidence.map((item) => item.id));
+  const evidenceById = new Map(evidence.map((item) => [item.id, item]));
+  const gapById = new Map(gaps.map((gap) => [gap.id, gap]));
+  const checkUnique = (items, label) => {
+    const seen = new Set();
+    for (const item of items) {
+      if (seen.has(item.id)) issues.push({ path: `${label}.${item.id}`, message: `duplicate ${label} ID` });
+      seen.add(item.id);
+    }
+  };
+  checkUnique(gaps, "informationGap");
+  checkUnique(evidence, "evidence");
+  checkUnique(writebackIntents, "writeback");
+  const report = (kind, value) => {
+    for (const issue of validateContract(kind, value).issues) {
+      issues.push({ path: `${kind}.${value?.id ?? "<unknown>"} ${issue.path}`, message: issue.message });
+    }
+  };
+  if (taskGraph) report("taskGraph", taskGraph);
+  else issues.push({ path: "taskGraph", message: "missing task graph" });
+  for (const gap of gaps) {
+    report("informationGap", gap);
+    if (!taskIds.has(gap.task_id)) issues.push({ path: `informationGap.${gap.id}.task_id`, message: "unknown task" });
+    for (const id of gap.closed_by_evidence_ids ?? []) {
+      if (!evidenceIds.has(id)) issues.push({ path: `informationGap.${gap.id}.closed_by_evidence_ids`, message: `unknown evidence: ${id}` });
+      else {
+        const item = evidenceById.get(id);
+        if (item.task_id && item.task_id !== gap.task_id) issues.push({ path: `informationGap.${gap.id}.closed_by_evidence_ids`, message: `evidence ${id} belongs to another task` });
+        if (item.gap_id && item.gap_id !== gap.id) issues.push({ path: `informationGap.${gap.id}.closed_by_evidence_ids`, message: `evidence ${id} belongs to another gap` });
+      }
+    }
+  }
+  for (const item of evidence) {
+    report("evidence", item);
+    if (item.task_id && !taskIds.has(item.task_id)) issues.push({ path: `evidence.${item.id}.task_id`, message: "unknown task" });
+    if (item.gap_id && !gapIds.has(item.gap_id)) issues.push({ path: `evidence.${item.id}.gap_id`, message: "unknown gap" });
+    if (item.task_id && item.gap_id && gapById.get(item.gap_id)?.task_id !== item.task_id) issues.push({ path: `evidence.${item.id}.gap_id`, message: "evidence task and gap task do not match" });
+  }
+  for (const intent of writebackIntents) {
+    report("externalWritebackIntent", intent);
+    if (intent.source?.task_id && !taskIds.has(intent.source.task_id)) issues.push({ path: `writeback.${intent.id}.source.task_id`, message: "unknown task" });
+    for (const id of intent.source?.evidence_ids ?? []) {
+      if (!evidenceIds.has(id)) issues.push({ path: `writeback.${intent.id}.source.evidence_ids`, message: `unknown evidence: ${id}` });
+      else if (intent.source?.task_id) {
+        const item = evidenceById.get(id);
+        if (item.task_id !== intent.source.task_id) issues.push({ path: `writeback.${intent.id}.source.evidence_ids`, message: `evidence ${id} does not belong to source task` });
+        if (item.gap_id && gapById.get(item.gap_id)?.task_id !== intent.source.task_id) issues.push({ path: `writeback.${intent.id}.source.evidence_ids`, message: `evidence ${id} gap belongs to another task` });
+      }
+    }
+  }
+  for (const task of taskGraph?.tasks ?? []) {
+    for (const id of task.evidence_ids ?? []) {
+      if (!evidenceIds.has(id)) issues.push({ path: `taskGraph.tasks.${task.id}.evidence_ids`, message: `unknown evidence: ${id}` });
+      else if (evidenceById.get(id).task_id && evidenceById.get(id).task_id !== task.id) {
+        issues.push({ path: `taskGraph.tasks.${task.id}.evidence_ids`, message: `evidence ${id} belongs to another task` });
+      }
+    }
+    for (const id of task.information_gap_ids ?? []) {
+      if (!gapIds.has(id)) issues.push({ path: `taskGraph.tasks.${task.id}.information_gap_ids`, message: `unknown gap: ${id}` });
+    }
+  }
+  const decisions = writebackDecisions ?? [];
+  if (writebackIntents.length > 0 && writebackDecisions === undefined) {
+    issues.push({ path: "writebackDecisions", message: "missing decisions for writeback intents" });
+  }
+  const decisionIds = new Set();
+  const intentIds = new Set(writebackIntents.map((intent) => intent.id));
+  const rank = { auto_execute: 0, needs_confirmation: 1, manual_only: 2, reject: 3 };
+  for (const decision of decisions) {
+    if (decisionIds.has(decision.intent_id)) issues.push({ path: `writebackDecisions.${decision.intent_id}`, message: "duplicate decision for intent" });
+    if (!intentIds.has(decision.intent_id)) issues.push({ path: `writebackDecisions.${decision.intent_id}`, message: "unknown intent" });
+    decisionIds.add(decision.intent_id);
+  }
+  for (const intent of writebackIntents) {
+    const decision = decisions.find((item) => item.intent_id === intent.id);
+    if (!decision) {
+      issues.push({ path: `writebackDecisions.${intent.id}`, message: "missing decision for intent" });
+      continue;
+    }
+    const required = decideWritebackPolicy(intent).decision;
+    if (!(decision.decision in rank) || rank[decision.decision] < rank[required] || rank[decision.decision] < rank[intent.policy_decision]) {
+      issues.push({ path: `writebackDecisions.${intent.id}`, message: "decision is more permissive than policy" });
+    }
+    if (!(intent.policy_decision in rank) || rank[intent.policy_decision] < rank[required]) {
+      issues.push({ path: `writeback.${intent.id}.policy_decision`, message: "stored decision is more permissive than policy" });
+    }
+  }
+  const targetRoutes = {
+    workflow_plan: "/internal/workflows/plan",
+    org_task_create: "/admin/tasks",
+    fact_write: "/internal/facts/write",
+    audit_projection: "/api/admin/audit"
+  };
+  if (issues.length) {
+    return {
+      ok: false, issues, generated_at: new Date().toISOString(), workflow_plan_payload: null,
+      org_task_payloads: [], fact_write_payloads: [], audit_event_payloads: [],
+      summary: { workflow_stage_count: 0, org_task_payload_count: 0, fact_write_payload_count: 0, audit_event_payload_count: 0 },
+      target_routes: targetRoutes
+    };
+  }
+  const decisionByIntentId = new Map(decisions.map((decision) => [decision.intent_id, decision]));
+  const workflowPlanPayload = checkedTaskGraphToLegacyWorkflowPlan(taskGraph);
   const orgTaskPayloads = gaps
     .filter((gap) => !["closed", "waived"].includes(gap.status))
     .map((gap) => ({
@@ -133,7 +238,8 @@ export function buildLegacyBridgePreview({ taskGraph, gaps = [], evidence = [], 
   }));
 
   return {
-    ok: Boolean(workflowPlanPayload),
+    ok: true,
+    issues: [],
     generated_at: new Date().toISOString(),
     workflow_plan_payload: workflowPlanPayload,
     org_task_payloads: orgTaskPayloads,
@@ -145,12 +251,7 @@ export function buildLegacyBridgePreview({ taskGraph, gaps = [], evidence = [], 
       fact_write_payload_count: factWritePayloads.length,
       audit_event_payload_count: auditEventPayloads.length
     },
-    target_routes: {
-      workflow_plan: "/internal/workflows/plan",
-      org_task_create: "/admin/tasks",
-      fact_write: "/internal/facts/write",
-      audit_projection: "/api/admin/audit"
-    }
+    target_routes: targetRoutes
   };
 }
 
@@ -386,19 +487,25 @@ export function evidenceToLegacyFactWrite(evidence, options = {}) {
 }
 
 export function writebackIntentToLegacyAuditEvent(intent, decision) {
+  const decisionRank = { auto_execute: 0, needs_confirmation: 1, manual_only: 2, reject: 3 };
+  const storedDecision = intent.policy_decision;
+  const suppliedDecision = decision?.decision;
+  const effectiveDecision = suppliedDecision && (decisionRank[suppliedDecision] ?? -1) > (decisionRank[storedDecision] ?? -1)
+    ? suppliedDecision
+    : storedDecision ?? suppliedDecision;
   return {
     user_id: intent.confirmed_by ?? intent.source?.agent_id ?? "system",
     action: "external.writeback.intent",
     resource_type: intent.system_type,
     resource_ref: `${intent.provider}:${intent.target?.object_type}:${intent.target?.external_id}`,
     resource_scope: intent.connection_id,
-    result: decision?.decision === "reject" ? "failure" : "success",
+    result: effectiveDecision === "reject" ? "failure" : "success",
     detail_json: {
       intent_id: intent.id,
       provider: intent.provider,
       operation: intent.operation,
       risk_level: intent.risk_level,
-      policy_decision: decision?.decision ?? intent.policy_decision,
+      policy_decision: effectiveDecision,
       reasons: decision?.reasons ?? [],
       payload: intent.payload,
       source: intent.source

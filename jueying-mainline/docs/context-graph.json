@@ -1,6 +1,6 @@
 {
   "version": "v0.1",
-  "updated_at": "2026-06-01",
+  "updated_at": "2026-10-02",
   "description": "Context graph for the JueYing mainline workspace under jueying-mainline/. JueYing is an enterprise Agent Harness for centralized management in small and mid-sized teams. The AI-native operating console is a built-in mainline module; historical v1 code under legacy/jueying-v1 is runtime compatibility and implementation reference.",
   "layers": {
     "L0_north_star": [
@@ -54,7 +54,8 @@
       "rust/crates/jueying-core/src/view_models.rs",
       "rust/crates/jueying-core/src/adapter.rs",
       "rust/crates/jueying-core/src/fixtures.rs",
-      "rust/crates/jueying-cli/src/main.rs"
+      "rust/crates/jueying-cli/src/main.rs",
+      "rust/crates/jueying-cli/tests/verify_json.rs"
     ]
   },
   "authority_map": {
@@ -81,7 +82,8 @@
     "pre_rnd_gate": "docs/DEV-27-研发前决策清单与风险边界.md",
     "historical_v1_runtime": "legacy/jueying-v1/agent-harness/README.md",
     "rust_mainline_refactor": "docs/DEV-39-Rust主线重构规划与实施记录.md",
-    "rust_context_graph": "rust/graphs/rust-context-graph.json"
+    "rust_context_graph": "rust/graphs/rust-context-graph.json",
+    "rust_architecture_boundary": "rust/docs/architecture.md"
   },
   "concepts": {
     "TaskGraph": {

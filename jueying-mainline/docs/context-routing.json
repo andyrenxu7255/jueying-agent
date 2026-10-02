@@ -1,6 +1,6 @@
 {
   "version": "v0.1",
-  "updated_at": "2026-06-01",
+  "updated_at": "2026-10-02",
   "description": "Task routing for JueYing mainline design and implementation work under jueying-mainline/. The AI-native operating console is a built-in JueYing mainline module, not a separate application.",
   "default_bootstrap_docs": [
     "README.md",
@@ -552,6 +552,8 @@
         "rust/docs/architecture.md",
         "rust/graphs/rust-context-graph.json",
         "rust/crates/jueying-core/src/contract.rs",
+        "rust/crates/jueying-core/src/validation.rs",
+        "rust/crates/jueying-core/src/fixtures.rs",
         "rust/crates/jueying-core/src/graph.rs",
         "rust/crates/jueying-core/src/sales.rs",
         "rust/crates/jueying-core/src/writeback.rs",
@@ -559,6 +561,7 @@
         "rust/crates/jueying-core/src/view_models.rs",
         "rust/crates/jueying-core/src/adapter.rs",
         "rust/crates/jueying-cli/src/main.rs",
+        "rust/crates/jueying-cli/tests/verify_json.rs",
         "src/contracts/schema.mjs",
         "src/contracts/validator.mjs",
         "src/contracts/view-models.mjs",
@@ -576,6 +579,9 @@
         "legacy projection",
         "schema parity",
         "golden tests",
+        "离线验证",
+        "有损投影",
+        "幂等",
         "jueying-core",
         "jueying-cli"
       ]

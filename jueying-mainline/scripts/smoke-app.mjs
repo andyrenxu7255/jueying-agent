@@ -140,6 +140,7 @@ try {
   }, "management command remains after refresh");
   await checkJson("/api/evidence", (json) => {
     return json.evidence?.evidence_type === "customer_quote" &&
+      json.evidence?.business_refs?.opportunity_id === "opp_acme_001" &&
       json.raw?.some((item) => item.id === json.evidence.id);
   }, "evidence submit payload", {
     method: "POST",
@@ -151,6 +152,20 @@ try {
       summary: "Smoke evidence confirms a champion signal."
     })
   });
+  await checkStatus("/api/evidence", 400, "cross-opportunity evidence rejected", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      task_id: "task_discover_champion",
+      opportunity_id: "opp_other",
+      evidence_type: "customer_quote",
+      value: "unrelated deal"
+    })
+  });
+  await checkJson("/api/state", (json) =>
+    json.health?.ok === true &&
+    json.raw?.gateChecks?.every((check) => check.opportunity_id === "opp_acme_001"),
+  "cross-opportunity rejection keeps state healthy");
   await checkJson("/api/external-connections/drafts", (json) => {
     return json.draft?.status === "draft" &&
       json.drafts?.some((draft) => draft.id === json.draft.id);

@@ -5,16 +5,19 @@ import {
   buildLegacyBridgePreview,
   buildLegacyIntegrationViewModel
 } from "../src/integrations/jueying-v1/index.mjs";
+import { decideWritebackPolicy } from "../src/contracts/writeback-policy.mjs";
 
 const root = resolve(".");
 const report = assertJueyingV1Integration();
 const viewModel = buildLegacyIntegrationViewModel(report);
 const fixtureDir = join(root, "fixtures", "p1-demo");
+const writebackIntents = readJson(join(fixtureDir, "external-writeback-intents.json"));
 const bridgePreview = buildLegacyBridgePreview({
   taskGraph: readJson(join(fixtureDir, "task-graph.sales-discover.json")),
   gaps: readJson(join(fixtureDir, "information-gaps.json")),
   evidence: readJson(join(fixtureDir, "evidence.json")),
-  writebackIntents: readJson(join(fixtureDir, "external-writeback-intents.json"))
+  writebackIntents,
+  writebackDecisions: writebackIntents.map((intent) => ({ intent_id: intent.id, ...decideWritebackPolicy(intent) }))
 });
 
 if (!bridgePreview.ok || bridgePreview.summary.workflow_stage_count < 1) {

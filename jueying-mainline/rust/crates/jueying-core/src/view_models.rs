@@ -747,6 +747,12 @@ fn build_role_action_queue(state: &FixtureState, role_context: &RoleContext) -> 
         ) {
             continue;
         }
+        if !can_see_dashboard
+            && role_context.active_role.map(|role| role.user_id.as_str())
+                != Some(check.owner_id.as_str())
+        {
+            continue;
+        }
         actions.push(RoleAction {
             rank: 0,
             id: format!("gate:{}", check.id),
@@ -1075,6 +1081,7 @@ mod tests {
         });
         let bridge = crate::LegacyBridgePreview {
             ok: true,
+            issues: vec![],
             generated_at: "2026-06-01T00:00:00+08:00".to_string(),
             workflow_plan_payload: None,
             org_task_payloads: vec![serde_json::json!({ "payload": {} })],
@@ -1157,5 +1164,34 @@ mod tests {
         let command_ids = project["command_ids"].as_array().unwrap();
 
         assert_eq!(command_ids, &vec![serde_json::json!(visible_command_id)]);
+    }
+
+    #[test]
+    fn sales_gate_actions_are_visible_only_to_owner_or_dashboard_roles() {
+        let root = crate::fixtures::workspace_root();
+        let mut state = load_p1_fixture_state(&root).unwrap();
+        state.management.active_user_id = "sales_agent_001".to_string();
+        let view = build_operating_console_view_model(&state);
+        assert!(view
+            .role_action_queue
+            .iter()
+            .all(|action| action.source_type != "sales_gate_check"));
+
+        let mut owner = state
+            .management
+            .roles
+            .iter()
+            .find(|role| role.user_id == "sales_agent_001")
+            .unwrap()
+            .clone();
+        owner.id = "role_sales_andy".to_string();
+        owner.user_id = "user_sales_andy".to_string();
+        state.management.roles.push(owner);
+        state.management.active_user_id = "user_sales_andy".to_string();
+        let owner_view = build_operating_console_view_model(&state);
+        assert!(owner_view
+            .role_action_queue
+            .iter()
+            .any(|action| action.source_type == "sales_gate_check"));
     }
 }

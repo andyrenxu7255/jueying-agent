@@ -118,6 +118,35 @@ test("context graph authorities and concept dependencies resolve to workspace pa
   }
 });
 
+test("Rust graph separates implemented modules from planned services and resolves edges", () => {
+  const graph = readJson("rust/graphs/rust-context-graph.json");
+  const nodes = graph.runtime_graph?.nodes ?? [];
+  assert.match(graph.runtime_graph?.edge_semantics ?? "", /data flow/);
+  const ids = new Set(nodes.map((node) => node.id));
+  assert.equal(ids.size, nodes.length, "Rust graph node IDs must be unique");
+  assert.ok(nodes.length > 0 && graph.runtime_graph.edges.length > 0);
+
+  for (const node of nodes) {
+    assert.ok(["implemented", "planned"].includes(node.status), `${node.id} needs a status`);
+    if (node.status === "implemented") {
+      assert.equal(existsSync(resolve(root, node.path)), true, `${node.id} should resolve to code`);
+    } else {
+      assert.equal(existsSync(resolve(root, node.authority)), true, `${node.id} needs a planning authority`);
+      assert.equal(node.path, undefined, `${node.id} must not claim an implementation path`);
+    }
+  }
+  for (const edge of graph.runtime_graph.edges) {
+    assert.equal(ids.has(edge.from) && ids.has(edge.to), true, `dangling Rust graph edge: ${edge.from} -> ${edge.to}`);
+    assert.ok(edge.kind, `Rust graph edge needs a semantic kind: ${edge.from} -> ${edge.to}`);
+  }
+  for (const [risk, paths] of Object.entries(graph.risk_controls ?? {})) {
+    assert.ok(paths.length >= 2, `${risk} should cover both implementation and verification boundaries`);
+    for (const path of paths) {
+      assert.equal(existsSync(resolve(root, path)), true, `${risk} path should resolve: ${path}`);
+    }
+  }
+});
+
 test("context routing recalls storyline UI actionability audit assets", () => {
   const graph = readJson("docs/context-graph.json");
   const routing = readJson("docs/context-routing.json");

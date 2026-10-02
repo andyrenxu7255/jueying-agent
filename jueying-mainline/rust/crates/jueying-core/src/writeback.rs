@@ -95,13 +95,16 @@ fn result(decision: WritebackPolicyDecision, reasons: Vec<String>) -> WritebackP
 }
 
 pub fn flatten_payload_keys(value: &Value) -> Vec<String> {
+    if let Some(array) = value.as_array() {
+        return array.iter().flat_map(flatten_payload_keys).collect();
+    }
     let Some(object) = value.as_object() else {
         return vec![];
     };
     let mut keys = vec![];
     for (key, child) in object {
         keys.push(key.clone());
-        if child.as_object().is_some() {
+        if child.is_object() || child.is_array() {
             keys.extend(flatten_payload_keys(child));
         }
     }
@@ -137,5 +140,18 @@ mod tests {
             &WritebackPolicyDecision::AutoExecute,
             &WritebackPolicyDecision::NeedsConfirmation
         ));
+    }
+
+    #[test]
+    fn high_risk_fields_inside_array_elements_require_confirmation() {
+        let root = crate::fixtures::workspace_root();
+        let mut intents: Vec<ExternalWritebackIntent> =
+            load_json(&root.join("fixtures/p1-demo/external-writeback-intents.json")).unwrap();
+        let mut intent = intents.remove(0);
+        intent.payload = serde_json::json!({ "changes": [{ "field": { "amount": 1000000 } }] });
+        assert_eq!(
+            decide_writeback_policy(&intent).decision,
+            WritebackPolicyDecision::NeedsConfirmation
+        );
     }
 }

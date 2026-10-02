@@ -802,7 +802,7 @@
     "execution_updates": [
       {
         "id": "mupd_weekly_decomposition",
-        "task_id": "mtask_weekly_sales_gate_check",
+        "task_id": "mtask_weekly_pm_decomposition",
         "actor_type": "pm_agent",
         "actor_id": "pm_agent_ops_001",
         "update_type": "decomposition",

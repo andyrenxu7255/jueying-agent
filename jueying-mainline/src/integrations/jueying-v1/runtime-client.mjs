@@ -32,7 +32,7 @@ export class JueyingV1RuntimeClient {
   }
 
   async createWorkflowFromTaskGraph(taskGraph, options = {}) {
-    const payload = checkedTaskGraphToLegacyWorkflowPlan(taskGraph, options);
+    const payload = options.payload ?? checkedTaskGraphToLegacyWorkflowPlan(taskGraph, options);
     const response = await this.post("workflow", "/internal/workflows/plan", payload);
     return {
       operation: "createWorkflowFromTaskGraph",
@@ -44,7 +44,7 @@ export class JueyingV1RuntimeClient {
   }
 
   async createOrgTaskFromInformationGap(gap, options = {}) {
-    const payload = informationGapToLegacyOrgTask(gap, options);
+    const payload = options.payload ?? informationGapToLegacyOrgTask(gap, options);
     const response = await this.post("gateway", "/admin/tasks", payload, {
       internal: true,
       successStatus: 201
@@ -59,7 +59,7 @@ export class JueyingV1RuntimeClient {
   }
 
   async writeFactFromEvidence(evidence, options = {}) {
-    const payload = evidenceToLegacyFactWrite(evidence, options);
+    const payload = options.payload ?? evidenceToLegacyFactWrite(evidence, options);
     const response = await this.post("factRetrieval", "/internal/facts/write", payload);
     return {
       operation: "writeFactFromEvidence",

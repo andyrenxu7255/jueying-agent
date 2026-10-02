@@ -1,14 +1,41 @@
+use std::collections::{HashMap, HashSet};
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    graph::plan_task_graph, ActorType, Evidence, ExternalWritebackIntent, InformationGap, Task,
-    TaskGraph, Validate, WritebackPolicyDecision, WritebackPolicyResult,
+    decide_writeback_policy, graph::plan_task_graph, policy_decision_allows, ActorType, Evidence,
+    ExternalWritebackIntent, InformationGap, Task, TaskGraph, Validate, ValidationIssue,
+    WritebackPolicyDecision, WritebackPolicyResult,
 };
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IdentifiedWritebackDecision {
+    pub intent_id: String,
+    pub recommendation: WritebackPolicyResult,
+    pub final_decision: Option<WritebackPolicyResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegacyBridgeIssue {
+    pub path: String,
+    pub message: String,
+}
+
+impl From<ValidationIssue> for LegacyBridgeIssue {
+    fn from(issue: ValidationIssue) -> Self {
+        Self {
+            path: issue.path,
+            message: issue.message,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LegacyBridgePreview {
     pub ok: bool,
+    #[serde(default)]
+    pub issues: Vec<LegacyBridgeIssue>,
     pub generated_at: String,
     pub workflow_plan_payload: Option<Value>,
     pub org_task_payloads: Vec<Value>,
@@ -23,10 +50,286 @@ pub fn build_legacy_bridge_preview(
     gaps: &[InformationGap],
     evidence: &[Evidence],
     writeback_intents: &[ExternalWritebackIntent],
-    writeback_decisions: &[WritebackPolicyResult],
+    writeback_decisions: &[IdentifiedWritebackDecision],
 ) -> LegacyBridgePreview {
-    let workflow_plan_payload =
-        task_graph.and_then(|graph| checked_task_graph_to_legacy_workflow_plan(graph).ok());
+    let mut issues = vec![];
+    let workflow_plan_payload = match task_graph {
+        Some(graph) => match checked_task_graph_to_legacy_workflow_plan(graph) {
+            Ok(payload) => Some(payload),
+            Err(error) => {
+                issues.push(ValidationIssue::new(
+                    "task_graph",
+                    format!("invalid task graph: {error}"),
+                ));
+                None
+            }
+        },
+        None => {
+            issues.push(ValidationIssue::new("task_graph", "missing task graph"));
+            None
+        }
+    };
+    let task_ids: HashSet<&str> = task_graph
+        .into_iter()
+        .flat_map(|graph| graph.tasks.iter().map(|task| task.id.as_str()))
+        .collect();
+    let gap_ids: HashSet<&str> = gaps.iter().map(|gap| gap.id.as_str()).collect();
+    let evidence_ids: HashSet<&str> = evidence.iter().map(|item| item.id.as_str()).collect();
+    let gaps_by_id = gaps
+        .iter()
+        .map(|gap| (gap.id.as_str(), gap))
+        .collect::<HashMap<_, _>>();
+    let evidence_by_id = evidence
+        .iter()
+        .map(|item| (item.id.as_str(), item))
+        .collect::<HashMap<_, _>>();
+    let opportunity_id = task_graph
+        .and_then(|graph| graph.business_refs.as_ref())
+        .and_then(|refs| refs.get("opportunity_id"))
+        .and_then(Value::as_str);
+    let mut seen = HashSet::new();
+    for gap in gaps {
+        collect_issues(&mut issues, &format!("gaps.{}", gap.id), gap.validate());
+        if !seen.insert(gap.id.as_str()) {
+            issues.push(ValidationIssue::new(
+                format!("gaps.{}", gap.id),
+                "duplicate gap ID",
+            ));
+        }
+        if !task_ids.contains(gap.task_id.as_str()) {
+            issues.push(ValidationIssue::new(
+                format!("gaps.{}.task_id", gap.id),
+                "unknown task",
+            ));
+        }
+        for id in &gap.closed_by_evidence_ids {
+            if !evidence_ids.contains(id.as_str()) {
+                issues.push(ValidationIssue::new(
+                    format!("gaps.{}.closed_by_evidence_ids", gap.id),
+                    format!("unknown evidence: {id}"),
+                ));
+            } else if let Some(item) = evidence_by_id.get(id.as_str()) {
+                validate_evidence_gap_association(&mut issues, gap, item, "closed_by_evidence_ids");
+            }
+        }
+    }
+    seen.clear();
+    for item in evidence {
+        collect_issues(
+            &mut issues,
+            &format!("evidence.{}", item.id),
+            item.validate(),
+        );
+        if !seen.insert(item.id.as_str()) {
+            issues.push(ValidationIssue::new(
+                format!("evidence.{}", item.id),
+                "duplicate evidence ID",
+            ));
+        }
+        if item
+            .task_id
+            .as_deref()
+            .is_some_and(|id| !task_ids.contains(id))
+        {
+            issues.push(ValidationIssue::new(
+                format!("evidence.{}.task_id", item.id),
+                "unknown task",
+            ));
+        }
+        if item
+            .gap_id
+            .as_deref()
+            .is_some_and(|id| !gap_ids.contains(id))
+        {
+            issues.push(ValidationIssue::new(
+                format!("evidence.{}.gap_id", item.id),
+                "unknown gap",
+            ));
+        } else if let (Some(task_id), Some(gap_id)) =
+            (item.task_id.as_deref(), item.gap_id.as_deref())
+        {
+            if let Some(gap) = gaps_by_id.get(gap_id) {
+                if gap.task_id != task_id {
+                    issues.push(ValidationIssue::new(
+                        format!("evidence.{}.gap_id", item.id),
+                        format!(
+                            "gap belongs to task {} but evidence belongs to task {task_id}",
+                            gap.task_id
+                        ),
+                    ));
+                }
+            }
+        }
+    }
+    seen.clear();
+    for intent in writeback_intents {
+        collect_issues(
+            &mut issues,
+            &format!("writeback_intents.{}", intent.id),
+            intent.validate(),
+        );
+        if !seen.insert(intent.id.as_str()) {
+            issues.push(ValidationIssue::new(
+                format!("writeback_intents.{}", intent.id),
+                "duplicate intent ID",
+            ));
+        }
+        if intent
+            .source
+            .task_id
+            .as_deref()
+            .is_some_and(|id| !task_ids.contains(id))
+        {
+            issues.push(ValidationIssue::new(
+                format!("writeback_intents.{}.source.task_id", intent.id),
+                "unknown task",
+            ));
+        }
+        for id in &intent.source.evidence_ids {
+            if !evidence_ids.contains(id.as_str()) {
+                issues.push(ValidationIssue::new(
+                    format!("writeback_intents.{}.source.evidence_ids", intent.id),
+                    format!("unknown evidence: {id}"),
+                ));
+            } else if let Some(item) = evidence_by_id.get(id.as_str()) {
+                if let Some(source_task_id) = intent.source.task_id.as_deref() {
+                    if item.task_id.as_deref() != Some(source_task_id) {
+                        issues.push(ValidationIssue::new(
+                            format!("writeback_intents.{}.source.evidence_ids", intent.id),
+                            format!(
+                                "evidence {id} belongs to task {:?} and cannot support source task {source_task_id}",
+                                item.task_id
+                            ),
+                        ));
+                    }
+                    if let Some(gap_id) = item.gap_id.as_deref() {
+                        if let Some(gap) = gaps_by_id.get(gap_id) {
+                            if gap.task_id != source_task_id {
+                                issues.push(ValidationIssue::new(
+                                    format!("writeback_intents.{}.source.evidence_ids", intent.id),
+                                    format!(
+                                        "evidence {id} gap belongs to task {} and cannot support source task {source_task_id}",
+                                        gap.task_id
+                                    ),
+                                ));
+                            }
+                        }
+                    }
+                }
+                validate_evidence_opportunity(
+                    &mut issues,
+                    opportunity_id,
+                    item,
+                    &format!("writeback_intents.{}.source.evidence_ids", intent.id),
+                );
+            }
+        }
+    }
+    if let Some(graph) = task_graph {
+        for task in &graph.tasks {
+            for id in &task.evidence_ids {
+                if !evidence_ids.contains(id.as_str()) {
+                    issues.push(ValidationIssue::new(
+                        format!("task_graph.tasks.{}.evidence_ids", task.id),
+                        format!("unknown evidence: {id}"),
+                    ));
+                } else if let Some(item) = evidence_by_id.get(id.as_str()) {
+                    if let Some(owner_task_id) = item.task_id.as_deref() {
+                        if owner_task_id != task.id {
+                            issues.push(ValidationIssue::new(
+                                format!("task_graph.tasks.{}.evidence_ids", task.id),
+                                format!(
+                                    "evidence {id} belongs to task {owner_task_id} and cannot be used by task {} acceptance",
+                                    task.id
+                                ),
+                            ));
+                        }
+                    }
+                    if let Some(gap_id) = item.gap_id.as_deref() {
+                        if let Some(gap) = gaps_by_id.get(gap_id) {
+                            if gap.task_id != task.id {
+                                issues.push(ValidationIssue::new(
+                                    format!("task_graph.tasks.{}.evidence_ids", task.id),
+                                    format!(
+                                        "evidence {id} gap belongs to task {} and cannot be used by task {} acceptance",
+                                        gap.task_id, task.id
+                                    ),
+                                ));
+                            }
+                        }
+                    }
+                    validate_evidence_opportunity(
+                        &mut issues,
+                        opportunity_id,
+                        item,
+                        &format!("task_graph.tasks.{}.evidence_ids", task.id),
+                    );
+                }
+            }
+            for id in &task.information_gap_ids {
+                if !gap_ids.contains(id.as_str()) {
+                    issues.push(ValidationIssue::new(
+                        format!("task_graph.tasks.{}.information_gap_ids", task.id),
+                        format!("unknown gap: {id}"),
+                    ));
+                }
+            }
+        }
+    }
+    let mut decisions = HashMap::new();
+    for entry in writeback_decisions {
+        if decisions.insert(entry.intent_id.as_str(), entry).is_some() {
+            issues.push(ValidationIssue::new(
+                format!("writeback_decisions.{}", entry.intent_id),
+                "duplicate decision for intent",
+            ));
+        }
+        if !seen.contains(entry.intent_id.as_str()) {
+            issues.push(ValidationIssue::new(
+                format!("writeback_decisions.{}", entry.intent_id),
+                "unknown intent",
+            ));
+        }
+    }
+    for intent in writeback_intents {
+        let Some(entry) = decisions.get(intent.id.as_str()) else {
+            issues.push(ValidationIssue::new(
+                format!("writeback_decisions.{}", intent.id),
+                "missing decision for intent",
+            ));
+            continue;
+        };
+        let computed = decide_writeback_policy(intent);
+        if entry.recommendation.decision != computed.decision {
+            issues.push(ValidationIssue::new(
+                format!("writeback_decisions.{}.recommendation", intent.id),
+                "recommendation differs from computed policy",
+            ));
+        }
+        if let Some(final_decision) = &entry.final_decision {
+            if !policy_decision_allows(&final_decision.decision, &computed.decision)
+                || !policy_decision_allows(&final_decision.decision, &intent.policy_decision)
+            {
+                issues.push(ValidationIssue::new(
+                    format!("writeback_decisions.{}.final_decision", intent.id),
+                    "final decision is more permissive than policy",
+                ));
+            }
+        }
+    }
+    if !issues.is_empty() {
+        return LegacyBridgePreview {
+            ok: false,
+            issues: issues.into_iter().map(Into::into).collect(),
+            generated_at: "2026-06-01T00:00:00+08:00".to_string(),
+            workflow_plan_payload: None,
+            org_task_payloads: vec![],
+            fact_write_payloads: vec![],
+            audit_event_payloads: vec![],
+            summary: serde_json::json!({"workflow_stage_count": 0, "org_task_payload_count": 0, "fact_write_payload_count": 0, "audit_event_payload_count": 0}),
+            target_routes: legacy_target_routes(),
+        };
+    }
     let org_task_payloads: Vec<Value> = gaps
         .iter()
         .filter(|gap| !matches!(format!("{:?}", gap.status).as_str(), "Closed" | "Waived"))
@@ -48,11 +351,15 @@ pub fn build_legacy_bridge_preview(
         .collect();
     let audit_event_payloads: Vec<Value> = writeback_intents
         .iter()
-        .enumerate()
-        .map(|(index, intent)| {
+        .map(|intent| {
+            let entry = decisions[intent.id.as_str()];
+            let decision = entry
+                .final_decision
+                .as_ref()
+                .unwrap_or(&entry.recommendation);
             serde_json::json!({
                 "intent_id": intent.id,
-                "payload": writeback_intent_to_legacy_audit_event(intent, writeback_decisions.get(index))
+                "payload": writeback_intent_to_legacy_audit_event(intent, Some(decision))
             })
         })
         .collect();
@@ -63,7 +370,8 @@ pub fn build_legacy_bridge_preview(
         .map(Vec::len)
         .unwrap_or(0);
     LegacyBridgePreview {
-        ok: workflow_plan_payload.is_some(),
+        ok: true,
+        issues: vec![],
         generated_at: "2026-06-01T00:00:00+08:00".to_string(),
         workflow_plan_payload,
         summary: serde_json::json!({
@@ -75,13 +383,83 @@ pub fn build_legacy_bridge_preview(
         org_task_payloads,
         fact_write_payloads,
         audit_event_payloads,
-        target_routes: serde_json::json!({
-            "workflow_plan": "/internal/workflows/plan",
-            "org_task_create": "/admin/tasks",
-            "fact_write": "/internal/facts/write",
-            "audit_projection": "/api/admin/audit"
-        }),
+        target_routes: legacy_target_routes(),
     }
+}
+
+fn collect_issues(target: &mut Vec<ValidationIssue>, prefix: &str, issues: Vec<ValidationIssue>) {
+    target.extend(
+        issues
+            .into_iter()
+            .map(|issue| ValidationIssue::new(format!("{prefix} {}", issue.path), issue.message)),
+    );
+}
+
+fn validate_evidence_gap_association(
+    issues: &mut Vec<ValidationIssue>,
+    gap: &InformationGap,
+    evidence: &Evidence,
+    field: &str,
+) {
+    if let Some(task_id) = evidence.task_id.as_deref() {
+        if task_id != gap.task_id {
+            issues.push(ValidationIssue::new(
+                format!("gaps.{}.{}", gap.id, field),
+                format!(
+                    "evidence {} belongs to task {task_id}, but gap belongs to task {}",
+                    evidence.id, gap.task_id
+                ),
+            ));
+        }
+    }
+    if let Some(evidence_gap_id) = evidence.gap_id.as_deref() {
+        if evidence_gap_id != gap.id {
+            issues.push(ValidationIssue::new(
+                format!("gaps.{}.{}", gap.id, field),
+                format!(
+                    "evidence {} belongs to gap {evidence_gap_id}, not gap {}",
+                    evidence.id, gap.id
+                ),
+            ));
+        }
+    }
+}
+
+fn validate_evidence_opportunity(
+    issues: &mut Vec<ValidationIssue>,
+    expected_opportunity_id: Option<&str>,
+    evidence: &Evidence,
+    path: &str,
+) {
+    let Some(expected_opportunity_id) = expected_opportunity_id else {
+        return;
+    };
+    let Some(actual_opportunity_id) = evidence
+        .business_refs
+        .as_ref()
+        .and_then(|refs| refs.get("opportunity_id"))
+        .and_then(Value::as_str)
+    else {
+        return;
+    };
+    if actual_opportunity_id != expected_opportunity_id {
+        issues.push(ValidationIssue::new(
+            path,
+            format!(
+                "evidence {} opportunity belongs to {actual_opportunity_id}, expected {expected_opportunity_id}",
+                evidence.id
+            ),
+        ));
+    }
+}
+
+fn legacy_target_routes() -> Value {
+    serde_json::json!({
+        "workflow_plan": "/internal/workflows/plan",
+        "org_task_create": "/admin/tasks",
+        "fact_write": "/internal/facts/write",
+        "audit_projection": "/api/admin/audit"
+    })
 }
 
 pub fn checked_task_graph_to_legacy_workflow_plan(task_graph: &TaskGraph) -> Result<Value, Value> {
@@ -293,9 +671,12 @@ pub fn writeback_intent_to_legacy_audit_event(
     intent: &ExternalWritebackIntent,
     decision: Option<&WritebackPolicyResult>,
 ) -> Value {
-    let policy_decision = decision
-        .map(|decision| writeback_policy_decision_str(&decision.decision))
-        .unwrap_or_else(|| writeback_policy_decision_str(&intent.policy_decision));
+    let required = decision.map(|result| &result.decision);
+    let selected = match required {
+        Some(required) if !policy_decision_allows(&intent.policy_decision, required) => required,
+        _ => &intent.policy_decision,
+    };
+    let policy_decision = writeback_policy_decision_str(selected);
     serde_json::json!({
         "user_id": intent.confirmed_by.clone().unwrap_or_else(|| intent.source.agent_id.clone()),
         "action": "external.writeback.intent",
@@ -353,6 +734,19 @@ fn infer_legacy_executor(task: &Task) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    fn recommendations(
+        intents: &[crate::ExternalWritebackIntent],
+    ) -> Vec<super::IdentifiedWritebackDecision> {
+        intents
+            .iter()
+            .map(|intent| super::IdentifiedWritebackDecision {
+                intent_id: intent.id.clone(),
+                recommendation: crate::decide_writeback_policy(intent),
+                final_decision: None,
+            })
+            .collect()
+    }
+
     use crate::{
         adapter::{
             checked_task_graph_to_legacy_workflow_plan, evidence_to_legacy_fact_write,
@@ -486,6 +880,341 @@ mod tests {
         let preview = build_legacy_bridge_preview(None, &[gap], &[], &[], &[]);
         assert!(!preview.ok);
         assert!(!preview.generated_at.is_empty());
+    }
+
+    #[test]
+    fn bridge_preserves_stored_reject_and_manual_only_decisions() {
+        use crate::{adapter::build_legacy_bridge_preview, fixtures::load_p1_fixture_state};
+        let root = crate::fixtures::workspace_root();
+        let mut state = load_p1_fixture_state(&root).unwrap();
+        state.writeback_intents[0].policy_decision = WritebackPolicyDecision::Reject;
+        state.writeback_intents[1].policy_decision = WritebackPolicyDecision::ManualOnly;
+        let decisions = recommendations(&state.writeback_intents);
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &state.gaps,
+            &state.evidence,
+            &state.writeback_intents,
+            &decisions,
+        );
+        assert_eq!(
+            preview.audit_event_payloads[0]["payload"]["detail_json"]["policy_decision"],
+            "reject"
+        );
+        assert_eq!(
+            preview.audit_event_payloads[0]["payload"]["result"],
+            "failure"
+        );
+        assert_eq!(
+            preview.audit_event_payloads[1]["payload"]["detail_json"]["policy_decision"],
+            "manual_only"
+        );
+    }
+
+    #[test]
+    fn bridge_decisions_follow_intents_not_decision_array_positions() {
+        use crate::{adapter::build_legacy_bridge_preview, fixtures::load_p1_fixture_state};
+        let root = crate::fixtures::workspace_root();
+        let mut state = load_p1_fixture_state(&root).unwrap();
+        state.writeback_intents[1].risk_level = WritebackRiskLevel::High;
+        state.writeback_intents[1].policy_decision = WritebackPolicyDecision::NeedsConfirmation;
+        let mut decisions = recommendations(&state.writeback_intents);
+        decisions.reverse();
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &state.gaps,
+            &state.evidence,
+            &state.writeback_intents,
+            &decisions,
+        );
+        assert_eq!(
+            preview.audit_event_payloads[0]["payload"]["detail_json"]["policy_decision"],
+            "auto_execute"
+        );
+        assert_eq!(
+            preview.audit_event_payloads[1]["payload"]["detail_json"]["policy_decision"],
+            "needs_confirmation"
+        );
+    }
+
+    #[test]
+    fn bridge_honors_explicit_reject_over_stored_confirmation() {
+        use crate::{adapter::build_legacy_bridge_preview, fixtures::load_p1_fixture_state};
+        let state = load_p1_fixture_state(&crate::fixtures::workspace_root()).unwrap();
+        let mut intent = state.writeback_intents[0].clone();
+        intent.policy_decision = WritebackPolicyDecision::NeedsConfirmation;
+        let final_decision = WritebackPolicyResult {
+            decision: WritebackPolicyDecision::Reject,
+            reasons: vec!["human rejected".to_string()],
+        };
+        let decisions = [super::IdentifiedWritebackDecision {
+            intent_id: intent.id.clone(),
+            recommendation: crate::decide_writeback_policy(&intent),
+            final_decision: Some(final_decision),
+        }];
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &state.gaps,
+            &state.evidence,
+            &[intent],
+            &decisions,
+        );
+        assert_eq!(
+            preview.audit_event_payloads[0]["payload"]["result"],
+            "failure"
+        );
+        assert_eq!(
+            preview.audit_event_payloads[0]["payload"]["detail_json"]["policy_decision"],
+            "reject"
+        );
+    }
+
+    #[test]
+    fn bridge_rejects_invalid_inputs_without_emitting_payloads() {
+        use crate::{adapter::build_legacy_bridge_preview, fixtures::load_p1_fixture_state};
+        let state = load_p1_fixture_state(&crate::fixtures::workspace_root()).unwrap();
+        let decisions = recommendations(&state.writeback_intents);
+        let assert_invalid = |preview: super::LegacyBridgePreview, source: &str| {
+            assert!(!preview.ok);
+            assert!(preview
+                .issues
+                .iter()
+                .any(|issue| issue.path.contains(source)));
+            assert!(preview.workflow_plan_payload.is_none());
+            assert!(preview.org_task_payloads.is_empty());
+            assert!(preview.fact_write_payloads.is_empty());
+            assert!(preview.audit_event_payloads.is_empty());
+        };
+        let mut bad_evidence = state.evidence.clone();
+        bad_evidence[0].content_ref.value.clear();
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &state.gaps,
+            &bad_evidence,
+            &state.writeback_intents,
+            &decisions,
+        );
+        assert_invalid(preview, "evidence.");
+
+        let mut bad_gaps = state.gaps.clone();
+        bad_gaps[0].question.clear();
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &bad_gaps,
+            &state.evidence,
+            &state.writeback_intents,
+            &decisions,
+        );
+        assert_invalid(preview, "gaps.");
+
+        let mut bad_intents = state.writeback_intents.clone();
+        bad_intents[0].provider.clear();
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &state.gaps,
+            &state.evidence,
+            &bad_intents,
+            &decisions,
+        );
+        assert_invalid(preview, "writeback_intents.");
+
+        let mut bad_graph = state.task_graph.clone();
+        bad_graph.tasks[0]
+            .depends_on
+            .push("task_unknown".to_string());
+        let preview = build_legacy_bridge_preview(
+            Some(&bad_graph),
+            &state.gaps,
+            &state.evidence,
+            &state.writeback_intents,
+            &decisions,
+        );
+        assert_invalid(preview, "task_graph");
+    }
+
+    #[test]
+    fn bridge_rejects_evidence_reused_across_tasks_or_unrelated_gaps() {
+        use crate::{adapter::build_legacy_bridge_preview, fixtures::load_p1_fixture_state};
+        let state = load_p1_fixture_state(&crate::fixtures::workspace_root()).unwrap();
+        let decisions = recommendations(&state.writeback_intents);
+        let mut cross_task = state.task_graph.clone();
+        cross_task.tasks[0]
+            .evidence_ids
+            .push("ev_next_meeting_calendar".to_string());
+        let preview = build_legacy_bridge_preview(
+            Some(&cross_task),
+            &state.gaps,
+            &state.evidence,
+            &state.writeback_intents,
+            &decisions,
+        );
+        assert!(!preview.ok);
+        assert!(preview
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("belongs to task")));
+        assert!(preview.fact_write_payloads.is_empty());
+
+        let mut wrong_gap = state.clone();
+        wrong_gap.evidence[0].gap_id = Some(wrong_gap.gaps[0].id.clone());
+        let preview = build_legacy_bridge_preview(
+            Some(&wrong_gap.task_graph),
+            &wrong_gap.gaps,
+            &wrong_gap.evidence,
+            &wrong_gap.writeback_intents,
+            &decisions,
+        );
+        assert!(!preview.ok);
+        assert!(preview
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("gap belongs to task")));
+        assert!(preview.fact_write_payloads.is_empty());
+    }
+
+    #[test]
+    fn bridge_rejects_writeback_evidence_outside_source_task_or_opportunity() {
+        use crate::{adapter::build_legacy_bridge_preview, fixtures::load_p1_fixture_state};
+        let mut state = load_p1_fixture_state(&crate::fixtures::workspace_root()).unwrap();
+        state.writeback_intents[0].source.task_id = Some("task_discover_champion".to_string());
+        let decisions = recommendations(&state.writeback_intents);
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &state.gaps,
+            &state.evidence,
+            &state.writeback_intents,
+            &decisions,
+        );
+        assert!(!preview.ok);
+        assert!(preview.issues.iter().any(|issue| {
+            issue.path.contains("source.evidence_ids")
+                && issue.message.contains("cannot support source task")
+        }));
+
+        state.writeback_intents[0].source.task_id = Some("task_discover_next_action".to_string());
+        state.evidence[0].business_refs = Some(serde_json::json!({
+            "opportunity_id": "opp_other"
+        }));
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &state.gaps,
+            &state.evidence,
+            &state.writeback_intents,
+            &recommendations(&state.writeback_intents),
+        );
+        assert!(!preview.ok);
+        assert!(preview
+            .issues
+            .iter()
+            .any(|issue| issue.message.contains("opportunity belongs to")));
+    }
+
+    #[test]
+    fn bridge_decision_ids_fail_closed_on_missing_duplicate_unknown_or_stale_policy() {
+        use crate::{adapter::build_legacy_bridge_preview, fixtures::load_p1_fixture_state};
+        let state = load_p1_fixture_state(&crate::fixtures::workspace_root()).unwrap();
+        let decisions = recommendations(&state.writeback_intents);
+        let check = |entries: &[super::IdentifiedWritebackDecision]| {
+            build_legacy_bridge_preview(
+                Some(&state.task_graph),
+                &state.gaps,
+                &state.evidence,
+                &state.writeback_intents,
+                entries,
+            )
+        };
+        let missing = check(&decisions[..1]);
+        assert!(!missing.ok);
+        assert!(missing.audit_event_payloads.is_empty());
+        assert!(missing
+            .issues
+            .iter()
+            .any(|issue| issue.message == "missing decision for intent"));
+
+        let mut duplicate = decisions.clone();
+        duplicate.push(decisions[0].clone());
+        let preview = check(&duplicate);
+        assert!(!preview.ok);
+        assert!(preview
+            .issues
+            .iter()
+            .any(|issue| issue.message == "duplicate decision for intent"));
+
+        let mut unknown = decisions.clone();
+        unknown[0].intent_id = "wbi_unknown".to_string();
+        let preview = check(&unknown);
+        assert!(!preview.ok);
+        assert!(preview
+            .issues
+            .iter()
+            .any(|issue| issue.message == "unknown intent"));
+
+        let mut stale = decisions;
+        stale[0].recommendation.decision = WritebackPolicyDecision::NeedsConfirmation;
+        let preview = check(&stale);
+        assert!(!preview.ok);
+        assert!(preview
+            .issues
+            .iter()
+            .any(|issue| issue.message == "recommendation differs from computed policy"));
+    }
+
+    #[test]
+    fn bridge_applies_reordered_final_decisions_without_permissive_override() {
+        use crate::{adapter::build_legacy_bridge_preview, fixtures::load_p1_fixture_state};
+        let state = load_p1_fixture_state(&crate::fixtures::workspace_root()).unwrap();
+        let mut decisions = recommendations(&state.writeback_intents);
+        decisions[0].final_decision = Some(WritebackPolicyResult {
+            decision: WritebackPolicyDecision::Reject,
+            reasons: vec!["human rejected".to_string()],
+        });
+        decisions.reverse();
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &state.gaps,
+            &state.evidence,
+            &state.writeback_intents,
+            &decisions,
+        );
+        assert!(
+            preview.ok,
+            "{:?}",
+            preview
+                .issues
+                .iter()
+                .map(|issue| &issue.message)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            preview.audit_event_payloads[0]["payload"]["result"],
+            "failure"
+        );
+        assert_eq!(
+            preview.audit_event_payloads[1]["payload"]["detail_json"]["policy_decision"],
+            "auto_execute"
+        );
+
+        let mut high_risk = state.writeback_intents.clone();
+        high_risk[0].risk_level = WritebackRiskLevel::High;
+        high_risk[0].policy_decision = WritebackPolicyDecision::NeedsConfirmation;
+        let mut decisions = recommendations(&high_risk);
+        decisions[0].final_decision = Some(WritebackPolicyResult {
+            decision: WritebackPolicyDecision::AutoExecute,
+            reasons: vec!["unsafe approval".to_string()],
+        });
+        let preview = build_legacy_bridge_preview(
+            Some(&state.task_graph),
+            &state.gaps,
+            &state.evidence,
+            &high_risk,
+            &decisions,
+        );
+        assert!(!preview.ok);
+        assert!(preview.audit_event_payloads.is_empty());
+        assert!(preview
+            .issues
+            .iter()
+            .any(|issue| issue.message == "final decision is more permissive than policy"));
     }
 
     #[test]

@@ -24,6 +24,25 @@ const writebackDecisions = writebackIntents.map((intent) => ({
   ...decideWritebackPolicy(intent)
 }));
 
+const bridgePreview = buildLegacyBridgePreview({
+  taskGraph,
+  gaps,
+  evidence,
+  writebackIntents,
+  writebackDecisions
+});
+if (!bridgePreview.ok) {
+  writeReport({
+    ok: false,
+    phase: "bridge_preview",
+    generated_at: new Date().toISOString(),
+    bridge_summary: bridgePreview.summary,
+    issues: bridgePreview.issues,
+    operations: []
+  });
+  throw new Error("Live legacy bridge smoke blocked by invalid bridge preview");
+}
+
 const integration = inspectJueyingV1Integration({ root });
 const health = await checkLegacyRuntimeHealth(integration, { timeoutMs: 1500 });
 const requiredServices = ["workflow-service", "gateway-adapter", "fact-retrieval"];
@@ -41,33 +60,28 @@ if (offlineRequired.length > 0) {
   });
   throw new Error(`Required legacy services are offline: ${offlineRequired.map((service) => service.service_name).join(", ")}`);
 }
-
-const bridgePreview = buildLegacyBridgePreview({
-  taskGraph,
-  gaps,
-  evidence,
-  writebackIntents,
-  writebackDecisions
-});
 const client = createJueyingV1RuntimeClient({ timeoutMs: 8000 });
 const operations = [];
 
 operations.push(await client.createWorkflowFromTaskGraph(taskGraph, {
   owner_user_id: "u_ai_native_ops",
-  user_role: "admin"
+  user_role: "admin",
+  payload: bridgePreview.workflow_plan_payload
 }));
 
-for (const gap of gaps.filter((item) => !["closed", "waived"].includes(item.status))) {
+for (const [index, gap] of gaps.filter((item) => !["closed", "waived"].includes(item.status)).entries()) {
   operations.push(await client.createOrgTaskFromInformationGap(gap, {
     created_by: null,
     org_id: null,
-    target_channels: ["wecom", "feishu"]
+    target_channels: ["wecom", "feishu"],
+    payload: bridgePreview.org_task_payloads[index]?.payload
   }));
 }
 
-for (const item of evidence) {
+for (const [index, item] of evidence.entries()) {
   operations.push(await client.writeFactFromEvidence(item, {
-    owner_user_id: "u_ai_native_ops"
+    owner_user_id: "u_ai_native_ops",
+    payload: bridgePreview.fact_write_payloads[index]?.payload
   }));
 }
 

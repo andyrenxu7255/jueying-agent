@@ -67,14 +67,17 @@ export function decideWritebackPolicy(intent) {
 }
 
 function flattenPayloadKeys(value, prefix = "") {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (Array.isArray(value)) {
+    return value.flatMap((child) => flattenPayloadKeys(child));
+  }
+  if (!value || typeof value !== "object") {
     return [];
   }
 
   const keys = [];
   for (const [key, child] of Object.entries(value)) {
     keys.push(key);
-    if (child && typeof child === "object" && !Array.isArray(child)) {
+    if (child && typeof child === "object") {
       keys.push(...flattenPayloadKeys(child, key));
     }
   }
